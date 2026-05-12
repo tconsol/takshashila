@@ -1,0 +1,53 @@
+version: '3.9'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: takshashila-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+      MONGO_INITDB_DATABASE: takshashila
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - takshashila-net
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: takshashila-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass redispassword --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - takshashila-net
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: takshashila-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: rootpassword
+      ME_CONFIG_MONGODB_URL: mongodb://root:rootpassword@mongodb:27017/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      - mongodb
+    networks:
+      - takshashila-net
+
+volumes:
+  mongo_data:
+  redis_data:
+
+networks:
+  takshashila-net:
+    driver: bridge
