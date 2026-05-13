@@ -1,0 +1,16 @@
+{
+  "name": "takshashila",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix server && npm run build --prefix frontend",
+    "lint": "npm run lint --prefix server && npm run lint --prefix frontend",
+    "test": "npm run test --prefix server",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.1.0"
+  }
+}
