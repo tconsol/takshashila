@@ -110,6 +110,13 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.ESCALATE_TICKETS,
     Permission.VIEW_AUDIT_LOGS,
   ],
+
+  PARENT: [
+    Permission.VIEW_OWN_WALLET,
+    Permission.VIEW_OWN_PROGRESS,
+    Permission.BOOK_CLASS,
+    Permission.VIEW_RECORDINGS,
+  ],
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {

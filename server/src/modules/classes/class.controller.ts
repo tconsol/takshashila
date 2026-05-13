@@ -76,7 +76,7 @@ export class ClassController {
         studentProfile = await studentService.getByUserPublicId(req.user!.publicId);
       } catch (err) {
         if (err instanceof NotFoundError) {
-          sendPaginated(res, { items: [], total: 0, page: 1, limit: 20, totalPages: 0 }, 'Classes fetched');
+          sendPaginated(res, { items: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }, 'Classes fetched');
           return;
         }
         throw err;
