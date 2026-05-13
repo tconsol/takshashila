@@ -33,7 +33,7 @@ export function RateClassModal({ classPublicId, tutorName, onClose, onDone }: Pr
 
   return (
     <Modal
-      isOpen
+      open
       onClose={onClose}
       title={`Rate ${tutorName ? `${tutorName}'s` : 'your'} class`}
       size="sm"

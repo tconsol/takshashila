@@ -15,9 +15,11 @@ export interface AuthSocket extends Socket {
 let io: IOServer;
 
 export function initSocketServer(httpServer: HttpServer): IOServer {
+  const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
+
   io = new IOServer(httpServer, {
     cors: {
-      origin: env.FRONTEND_URL,
+      origin: allowedOrigins,
       credentials: true,
     },
     transports: ['websocket', 'polling'],
