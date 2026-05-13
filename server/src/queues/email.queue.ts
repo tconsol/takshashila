@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import nodemailer from 'nodemailer';
 import { redisConnection, defaultJobOptions } from './queue.config';
 import { logger } from '../lib/logger';
+import { env } from '../config/env';
 
 export interface EmailJobData {
   to: string;
@@ -16,12 +17,12 @@ export const emailQueue = new Queue<EmailJobData>('email', {
 });
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST ?? 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT ?? 587),
-  secure: false,
+  host: env.SMTP_HOST,
+  port: env.SMTP_PORT,
+  secure: env.SMTP_SECURE,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: env.SMTP_USER,
+    pass: env.SMTP_PASS,
   },
 });
 
@@ -30,7 +31,7 @@ export const emailWorker = new Worker<EmailJobData>(
   async (job) => {
     const { to, subject, html, text } = job.data;
     await transporter.sendMail({
-      from: `"Takshashila LMS" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
+      from: env.EMAIL_FROM,
       to,
       subject,
       html,
