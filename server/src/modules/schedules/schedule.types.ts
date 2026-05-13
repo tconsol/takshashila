@@ -56,8 +56,10 @@ export interface IScheduledClass {
   title: string;
   description?: string;
   meetingUrl?: string;
-  meetingProvider?: 'zoom' | 'google_meet';
+  meetingProvider?: 'zoom' | 'google_meet' | 'native';
   meetingId?: string;
+  recordingUrl?: string;
+  recordingGcsKey?: string;
   costCents: number;
   idempotencyKey: string;
   cancellationReason?: string;

@@ -15,6 +15,22 @@ export const SocketEvent = {
   NOTIFICATION_NEW: 'notification:new',
   NOTIFICATION_MARK_READ: 'notification:mark-read',
   NOTIFICATION_READ_ACK: 'notification:read-ack',
+
+  // WebRTC signaling
+  RTC_READY: 'rtc:ready',
+  RTC_OFFER: 'rtc:offer',
+  RTC_ANSWER: 'rtc:answer',
+  RTC_ICE_CANDIDATE: 'rtc:ice-candidate',
+  RTC_LEAVE: 'rtc:leave',
+  RTC_PEER_JOINED: 'rtc:peer-joined',
+  RTC_PEER_LEFT: 'rtc:peer-left',
+
+  // Whiteboard
+  WB_UPDATE: 'wb:update',
+
+  // Recording
+  RECORDING_STARTED: 'recording:started',
+  RECORDING_STOPPED: 'recording:stopped',
 } as const;
 
 export type SocketEvent = (typeof SocketEvent)[keyof typeof SocketEvent];
@@ -35,4 +51,31 @@ export interface ClassStatusChangedPayload {
 export interface NotificationNewPayload {
   notificationPublicId: string;
   type: string;
+}
+
+export interface RtcPeerInfo {
+  socketId: string;
+  userPublicId: string;
+  role: string;
+}
+
+export interface RtcOfferPayload {
+  from: string;
+  fromUserPublicId: string;
+  offer: RTCSessionDescriptionInit;
+}
+
+export interface RtcAnswerPayload {
+  from: string;
+  answer: RTCSessionDescriptionInit;
+}
+
+export interface RtcIceCandidatePayload {
+  from: string;
+  candidate: RTCIceCandidateInit;
+}
+
+export interface WbUpdatePayload {
+  elements: unknown[];
+  appState: unknown;
 }

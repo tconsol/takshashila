@@ -34,7 +34,13 @@ export const classQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
+export const saveRecordingSchema = z.object({
+  gcsObjectKey: z.string().min(1),
+  recordingUrl: z.string().url(),
+});
+
 export type BookClassDto = z.infer<typeof bookClassSchema>;
 export type CancelClassDto = z.infer<typeof cancelClassSchema>;
 export type RescheduleClassDto = z.infer<typeof rescheduleClassSchema>;
 export type SetMeetingUrlDto = z.infer<typeof setMeetingUrlSchema>;
+export type SaveRecordingDto = z.infer<typeof saveRecordingSchema>;

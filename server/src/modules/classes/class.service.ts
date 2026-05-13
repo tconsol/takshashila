@@ -7,13 +7,15 @@ import { walletService } from '../wallets/wallet.service';
 import { CreditType } from '../wallets/wallet.types';
 import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
+import { tutorRepository } from '../tutors/tutor.repository';
+import { principalService } from '../principals/principal.service';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { calculateCommission } from '../../utils/currency';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
-import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto } from './class.validators';
+import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto, SaveRecordingDto } from './class.validators';
 
 export class ClassService {
   async bookClass(
@@ -278,6 +280,51 @@ export class ClassService {
     const c = await ScheduledClassModel.findOne({ publicId, isDeleted: false }).lean();
     if (!c) throw new NotFoundError('Class');
     return c;
+  }
+
+  async getLiveClassesForPrincipal(
+    principalUserPublicId: string,
+    query: PaginationQuery,
+  ): Promise<PaginatedResult<IScheduledClass>> {
+    const principalProfile = await principalService.getByUserPublicId(principalUserPublicId);
+    // Find all tutors under this principal
+    const tutorResult = await tutorRepository.findByPrincipal(principalProfile.publicId, { limit: '500' } as PaginationQuery);
+    const tutorPublicIds = tutorResult.items.map((t) => t.publicId);
+    if (tutorPublicIds.length === 0) {
+      return buildPaginatedResult([], 0, 1, 20);
+    }
+    const { page, limit, skip } = parsePaginationQuery(query);
+    const filter: Record<string, unknown> = {
+      tutorPublicId: { $in: tutorPublicIds },
+      status: ClassStatus.LIVE,
+      isDeleted: false,
+    };
+    const [items, total] = await Promise.all([
+      ScheduledClassModel.find(filter).sort({ startUTC: -1 }).skip(skip).limit(limit).lean(),
+      ScheduledClassModel.countDocuments(filter),
+    ]);
+    return buildPaginatedResult(items, total, page, limit);
+  }
+
+  async saveRecording(
+    classPublicId: string,
+    actorPublicId: string,
+    dto: SaveRecordingDto,
+  ): Promise<IScheduledClass> {
+    const cls = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (!cls) throw new NotFoundError('Class');
+    if (cls.tutorPublicId !== actorPublicId) {
+      const tutorProfile = await tutorService.getByPublicId(cls.tutorPublicId);
+      if (tutorProfile.userPublicId !== actorPublicId) {
+        throw new AppError('Only the class tutor can save a recording', 403);
+      }
+    }
+    const updated = await ScheduledClassModel.findOneAndUpdate(
+      { publicId: classPublicId },
+      { $set: { recordingUrl: dto.recordingUrl, recordingGcsKey: dto.gcsObjectKey } },
+      { new: true },
+    ).lean();
+    return updated!;
   }
 }
 
