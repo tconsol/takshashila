@@ -17,11 +17,13 @@ export function LiveClassBanner() {
 
   useEffect(() => {
     if (!user) return;
+    // Only TUTOR and STUDENT have role-specific class endpoints
+    if (user.role !== 'TUTOR' && user.role !== 'STUDENT') return;
     const endpoint = user.role === 'TUTOR' ? '/classes/my/tutor' : '/classes/my/student';
     api.get(endpoint, { params: { status: 'IN_PROGRESS', limit: 1 } })
       .then(({ data }) => {
         const first = data?.data?.items?.[0] ?? null;
-        setLiveClass(first ? { publicId: first.publicId, title: first.subject ?? 'Class', startedAt: first.scheduledStartUTC } : null);
+        setLiveClass(first ? { publicId: first.publicId, title: first.title ?? first.subject ?? 'Class', startedAt: first.startUTC ?? first.scheduledStartUTC } : null);
       })
       .catch(() => {});
   }, [user]);

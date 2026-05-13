@@ -23,7 +23,7 @@ export const schedulesService = {
     api.post<{ data: AvailabilitySlot }>('/schedules/slots', dto).then((r) => r.data.data),
 
   getMySlots: (params?: { from?: string; to?: string }) =>
-    api.get<{ data: AvailabilitySlot[] }>('/schedules/slots/me', { params }).then((r) => r.data.data),
+    api.get('/schedules/slots/me', { params }).then((r) => (r.data.data?.items ?? r.data.data ?? []) as AvailabilitySlot[]),
 
   getTutorSlots: (tutorPublicId: string, params?: { from?: string; to?: string }) =>
     api.get<{ data: { items: AvailabilitySlot[]; total: number } }>(`/schedules/availability/${tutorPublicId}`, { params }).then((r) => r.data.data.items),

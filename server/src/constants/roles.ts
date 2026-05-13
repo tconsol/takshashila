@@ -5,6 +5,7 @@ export const Role = {
   TUTOR: 'TUTOR',
   STUDENT: 'STUDENT',
   SUPPORT: 'SUPPORT',
+  PARENT: 'PARENT',
 } as const;
 
 export type Role = (typeof Role)[keyof typeof Role];
@@ -18,6 +19,7 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
   TUTOR: 40,
   STUDENT: 20,
   SUPPORT: 30,
+  PARENT: 15,
 };
 
 export function isHigherRole(a: Role, b: Role): boolean {

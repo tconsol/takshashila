@@ -12,6 +12,7 @@ import { RegisterPage } from '../pages/auth/Register';
 import { RegisterStudentPage } from '../pages/auth/RegisterStudent';
 import { RegisterTutorPage } from '../pages/auth/RegisterTutor';
 import { RegisterPrincipalPage } from '../pages/auth/RegisterPrincipal';
+import { RegisterParentPage } from '../pages/auth/RegisterParent';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPassword';
 
 // Dashboards
@@ -21,6 +22,7 @@ import { PrincipalDashboard } from '../pages/dashboards/PrincipalDashboard';
 import { TutorDashboard } from '../pages/dashboards/TutorDashboard';
 import { StudentDashboard } from '../pages/dashboards/StudentDashboard';
 import { SupportDashboard } from '../pages/dashboards/SupportDashboard';
+import { ParentDashboard } from '../pages/dashboards/ParentDashboard';
 
 // SuperAdmin pages
 import { SuperAdminAdminsPage } from '../pages/superadmin/SuperAdminAdminsPage';
@@ -43,13 +45,27 @@ import { TutorClassesPage } from '../pages/tutor/TutorClassesPage';
 import { TutorSchedulePage } from '../pages/tutor/TutorSchedulePage';
 import { TutorStudentsPage } from '../pages/tutor/TutorStudentsPage';
 import { TutorAssignmentsPage } from '../pages/tutor/TutorAssignmentsPage';
+import { TutorWorksheetsPage } from '../pages/tutor/TutorWorksheetsPage';
+import { TutorAttendancePage } from '../pages/tutor/TutorAttendancePage';
+import { TutorProgressPage } from '../pages/tutor/TutorProgressPage';
 import { TutorWalletPage } from '../pages/tutor/TutorWalletPage';
 
 // Student pages
 import { StudentClassesPage } from '../pages/student/StudentClassesPage';
 import { StudentAssignmentsPage } from '../pages/student/StudentAssignmentsPage';
+import { StudentAttendancePage } from '../pages/student/StudentAttendancePage';
 import { StudentProgressPage } from '../pages/student/StudentProgressPage';
 import { StudentWalletPage } from '../pages/student/StudentWalletPage';
+import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
+
+// Parent pages
+import { ParentChildrenPage } from '../pages/parent/ParentChildrenPage';
+import { ParentChildDetailPage } from '../pages/parent/ParentChildDetailPage';
+import { ParentClassesPage } from '../pages/parent/ParentClassesPage';
+import { ParentAttendancePage } from '../pages/parent/ParentAttendancePage';
+import { ParentAssignmentsPage } from '../pages/parent/ParentAssignmentsPage';
+import { ParentWorksheetsPage } from '../pages/parent/ParentWorksheetsPage';
+import { ParentProgressPage } from '../pages/parent/ParentProgressPage';
 
 // Support pages
 import { SupportTicketsPage } from '../pages/support/SupportTicketsPage';
@@ -61,9 +77,13 @@ import { ClassRoomPage } from '../features/live-class/ClassRoomPage';
 // Chat
 import { ChatPage } from '../pages/shared/ChatPage';
 
-// Shared (public-friendly)
+// Shared
 import { TutorsBrowsePage } from '../pages/shared/TutorsBrowsePage';
 import { ProfilePage } from '../pages/shared/ProfilePage';
+
+// ─── Lazy parent aggregate views ─────────────────────────────────────────────
+// These show data across all children combined (picked from the first child or
+// aggregated). We reuse ParentChildDetailPage with a special "all" param.
 
 export const router = createBrowserRouter([
   { path: '/', element: <LandingPage /> },
@@ -77,6 +97,7 @@ export const router = createBrowserRouter([
       { path: '/register/student', element: <RegisterStudentPage /> },
       { path: '/register/tutor', element: <RegisterTutorPage /> },
       { path: '/register/principal', element: <RegisterPrincipalPage /> },
+      { path: '/register/parent', element: <RegisterParentPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
     ],
   },
@@ -137,6 +158,9 @@ export const router = createBrowserRouter([
         { path: '/dashboard/tutor/schedule', element: <TutorSchedulePage /> },
         { path: '/dashboard/tutor/students', element: <TutorStudentsPage /> },
         { path: '/dashboard/tutor/assignments', element: <TutorAssignmentsPage /> },
+        { path: '/dashboard/tutor/worksheets', element: <TutorWorksheetsPage /> },
+        { path: '/dashboard/tutor/attendance', element: <TutorAttendancePage /> },
+        { path: '/dashboard/tutor/progress', element: <TutorProgressPage /> },
         { path: '/dashboard/tutor/wallet', element: <TutorWalletPage /> },
       ],
     }],
@@ -152,8 +176,28 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/tutors', element: <TutorsBrowsePage variant="student" /> },
         { path: '/dashboard/student/classes', element: <StudentClassesPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
+        { path: '/dashboard/student/worksheets', element: <StudentWorksheetsPage /> },
+        { path: '/dashboard/student/attendance', element: <StudentAttendancePage /> },
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },
         { path: '/dashboard/student/wallet', element: <StudentWalletPage /> },
+      ],
+    }],
+  },
+
+  // ─── Parent ───────────────────────────────────────────────────────────────
+  {
+    element: <ProtectedRoute allowedRoles={['PARENT']} />,
+    children: [{
+      element: <DashboardLayout />,
+      children: [
+        { path: '/dashboard/parent', element: <ParentDashboard /> },
+        { path: '/dashboard/parent/children', element: <ParentChildrenPage /> },
+        { path: '/dashboard/parent/children/:studentPublicId', element: <ParentChildDetailPage /> },
+        { path: '/dashboard/parent/classes', element: <ParentClassesPage /> },
+        { path: '/dashboard/parent/attendance', element: <ParentAttendancePage /> },
+        { path: '/dashboard/parent/assignments', element: <ParentAssignmentsPage /> },
+        { path: '/dashboard/parent/worksheets', element: <ParentWorksheetsPage /> },
+        { path: '/dashboard/parent/progress', element: <ParentProgressPage /> },
       ],
     }],
   },
@@ -171,9 +215,9 @@ export const router = createBrowserRouter([
     }],
   },
 
-  // ─── Chat + Profile (shared across all authenticated roles) ─────────────────
+  // ─── Chat + Profile (shared across all authenticated roles) ──────────────
   {
-    element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'PRINCIPAL', 'TUTOR', 'STUDENT', 'SUPPORT']} />,
+    element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'PRINCIPAL', 'TUTOR', 'STUDENT', 'SUPPORT', 'PARENT']} />,
     children: [{
       element: <DashboardLayout />,
       children: [

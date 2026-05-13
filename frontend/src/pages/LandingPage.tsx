@@ -732,10 +732,10 @@ export function LandingPage() {
                 </div>
                 <h3 className="text-base font-bold text-white">Role-based Access</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-gray-400">
-                  6 secure tiers: Admin, Principal, Tutor, Student & Support.
+                  7 secure tiers: Admin, Principal, Tutor, Student, Parent & Support.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {['Super Admin', 'Admin', 'Principal', 'Tutor', 'Student', 'Support'].map((r) => (
+                  {['Super Admin', 'Admin', 'Principal', 'Tutor', 'Student', 'Parent', 'Support'].map((r) => (
                     <span key={r} className="rounded-full border border-white/10 bg-white/8 px-2 py-0.5 text-[10px] font-semibold text-gray-300">
                       {r}
                     </span>
@@ -1019,14 +1019,23 @@ export function LandingPage() {
                     </div>
                   ))}
                 </div>
-                <Link
-                  to="/tutors"
-                  className="group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-brand-500 via-violet-500 to-pink-500 px-7 py-3.5 text-base font-semibold text-white shadow-xl shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-violet-500/40"
-                >
-                  <Heart className="h-5 w-5 fill-white/80" />
-                  Browse tutors
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Link>
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    to="/tutors"
+                    className="group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-brand-500 via-violet-500 to-pink-500 px-7 py-3.5 text-base font-semibold text-white shadow-xl shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-violet-500/40"
+                  >
+                    <Heart className="h-5 w-5 fill-white/80" />
+                    Browse tutors
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                  <Link
+                    to="/register/parent"
+                    className="group inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-7 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white/15"
+                  >
+                    Join as Parent
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

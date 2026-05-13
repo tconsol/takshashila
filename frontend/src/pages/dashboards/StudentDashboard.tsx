@@ -42,7 +42,12 @@ function useStudentClasses() {
     queryKey: ['classes', 'student', 'upcoming'],
     queryFn: async () => {
       const { data } = await api.get('/classes/my/student', { params: { status: 'SCHEDULED', limit: 3 } });
-      return data?.data?.items ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data?.data?.items ?? []).map((c: any) => ({
+        ...c,
+        subject: c.subject ?? c.title ?? '',
+        scheduledStartUTC: c.scheduledStartUTC ?? c.startUTC ?? '',
+      }));
     },
   });
 }

@@ -26,10 +26,10 @@ interface ClassCardProps {
 }
 
 export function ClassCard({ cls, perspective, onAction, ratedClassIds }: ClassCardProps) {
-  const start = new Date(cls.scheduledStartUTC);
-  const end = new Date(cls.scheduledEndUTC);
+  const start = cls.scheduledStartUTC ? new Date(cls.scheduledStartUTC) : null;
+  const end = cls.scheduledEndUTC ? new Date(cls.scheduledEndUTC) : null;
   const now = new Date();
-  const isUpcoming = start > now;
+  const isUpcoming = start ? start > now : false;
   const isInProgress = cls.status === 'IN_PROGRESS';
 
   return (
@@ -38,7 +38,7 @@ export function ClassCard({ cls, perspective, onAction, ratedClassIds }: ClassCa
         <div>
           <p className="font-semibold text-gray-900 dark:text-white">{cls.subject}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {format(start, 'EEE, MMM d yyyy')} · {format(start, 'h:mm a')} – {format(end, 'h:mm a')}
+            {start ? `${format(start, 'EEE, MMM d yyyy')} · ${format(start, 'h:mm a')}${end ? ` – ${format(end, 'h:mm a')}` : ''}` : 'Time TBD'}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5">

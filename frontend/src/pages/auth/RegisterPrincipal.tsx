@@ -8,6 +8,7 @@ import { useMutation } from '@tanstack/react-query';
 import { authService } from '../../services/auth.service';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 
 const schema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50),
@@ -88,16 +89,12 @@ export function RegisterPrincipalPage() {
           {...register('institutionName')}
         />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Designation</label>
-          <select
-            {...register('designation')}
-            className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          >
-            <option value="">Select designation</option>
-            {DESIGNATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
+        <Select
+          label="Designation"
+          options={DESIGNATIONS.map((d) => ({ value: d, label: d }))}
+          placeholder="Select designation"
+          {...register('designation')}
+        />
 
         <Input
           label="Password"

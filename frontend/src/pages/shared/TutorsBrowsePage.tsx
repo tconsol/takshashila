@@ -12,6 +12,7 @@ import { EmptyState } from '../../components/shared/EmptyState';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Loading';
 import { BookClassModal } from '../../components/shared/BookClassModal';
 import type { TutorProfile } from '../../services/tutors.service';
@@ -98,7 +99,8 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
     return tutors.filter((t) =>
       t.subjects.some((s) => s.toLowerCase().includes(q)) ||
       t.bio?.toLowerCase().includes(q) ||
-      t.qualifications.some((qq) => qq.toLowerCase().includes(q)),
+      t.qualifications.some((qq) => qq.toLowerCase().includes(q)) ||
+      (t.displayName ?? '').toLowerCase().includes(q),
     );
   }, [tutors, search]);
 
@@ -146,40 +148,39 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
             </div>
 
             <div className="lg:col-span-3">
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Subject</label>
-              <select
+              <Select
+                label="Subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                <option value="">All subjects</option>
-                {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+                options={[
+                  { value: '', label: 'All subjects' },
+                  ...SUBJECTS.map((s) => ({ value: s, label: s })),
+                ]}
+                placeholder="All subjects"
+              />
             </div>
 
             <div className="lg:col-span-2">
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Price</label>
-              <select
-                value={priceIdx}
+              <Select
+                label="Price"
+                value={String(priceIdx)}
                 onChange={(e) => setPriceIdx(Number(e.target.value))}
-                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                {PRICE_BUCKETS.map((b, i) => <option key={b.label} value={i}>{b.label}</option>)}
-              </select>
+                options={PRICE_BUCKETS.map((b, i) => ({ value: String(i), label: b.label }))}
+              />
             </div>
 
             <div className="lg:col-span-2">
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Min rating</label>
-              <select
-                value={minRating}
+              <Select
+                label="Min rating"
+                value={String(minRating)}
                 onChange={(e) => setMinRating(Number(e.target.value))}
-                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              >
-                <option value={0}>Any</option>
-                <option value={3}>★ 3+</option>
-                <option value={4}>★ 4+</option>
-                <option value={4.5}>★ 4.5+</option>
-              </select>
+                options={[
+                  { value: '0', label: 'Any' },
+                  { value: '3', label: '★ 3+' },
+                  { value: '4', label: '★ 4+' },
+                  { value: '4.5', label: '★ 4.5+' },
+                ]}
+              />
             </div>
           </div>
 
@@ -285,7 +286,8 @@ function Chip({ children, onClear }: { children: React.ReactNode; onClear: () =>
 }
 
 function TutorCard({ tutor, onBook }: { tutor: TutorListing; onBook: () => void }) {
-  const initials = tutor.publicId.slice(0, 2).toUpperCase();
+  const name = tutor.displayName ?? `Tutor ${tutor.publicId.slice(0, 6)}`;
+  const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm shadow-gray-200/40 transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-brand-200/30 dark:border-gray-800 dark:bg-gray-900">
@@ -298,7 +300,7 @@ function TutorCard({ tutor, onBook }: { tutor: TutorListing; onBook: () => void 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-base font-semibold text-gray-900 dark:text-white">
-              Tutor {tutor.publicId.slice(0, 6)}
+              {name}
             </h3>
             {tutor.isVerified && (
               <Badge variant="success" tone="soft" size="sm">

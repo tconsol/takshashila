@@ -74,6 +74,11 @@ export class UserRepository {
     return buildPaginatedResult(items, total, page, limit);
   }
 
+  async findManyByPublicIds(publicIds: string[]): Promise<IUser[]> {
+    if (publicIds.length === 0) return [];
+    return UserModel.find({ publicId: { $in: publicIds }, isDeleted: false }).lean();
+  }
+
   async existsByEmail(email: string): Promise<boolean> {
     const count = await UserModel.countDocuments({ email: email.toLowerCase() });
     return count > 0;

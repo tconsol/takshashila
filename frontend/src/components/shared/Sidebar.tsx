@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, BookOpen, Calendar, Wallet, Settings,
   BarChart3, Shield, Headphones, GraduationCap, LogOut, ChevronRight,
-  UserCheck, Video, MessageSquare, Search, UserCircle,
+  UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth.store';
@@ -46,6 +46,9 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Classes', href: '/dashboard/tutor/classes', icon: Video },
     { label: 'Schedule', href: '/dashboard/tutor/schedule', icon: Calendar },
     { label: 'Assignments', href: '/dashboard/tutor/assignments', icon: BookOpen },
+    { label: 'Worksheets', href: '/dashboard/tutor/worksheets', icon: FileText },
+    { label: 'Attendance', href: '/dashboard/tutor/attendance', icon: UserCheck },
+    { label: 'Progress', href: '/dashboard/tutor/progress', icon: BarChart3 },
     { label: 'Messages', href: '/chat', icon: MessageSquare },
     { label: 'Wallet', href: '/dashboard/tutor/wallet', icon: Wallet },
     { label: 'Profile', href: '/profile', icon: UserCircle },
@@ -55,9 +58,21 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Find Tutors', href: '/dashboard/student/tutors', icon: Search },
     { label: 'Classes', href: '/dashboard/student/classes', icon: Video },
     { label: 'Assignments', href: '/dashboard/student/assignments', icon: BookOpen },
+    { label: 'Worksheets', href: '/dashboard/student/worksheets', icon: FileText },
+    { label: 'Attendance', href: '/dashboard/student/attendance', icon: UserCheck },
     { label: 'Progress', href: '/dashboard/student/progress', icon: BarChart3 },
     { label: 'Messages', href: '/chat', icon: MessageSquare },
     { label: 'Wallet', href: '/dashboard/student/wallet', icon: Wallet },
+    { label: 'Profile', href: '/profile', icon: UserCircle },
+  ],
+  PARENT: [
+    { label: 'Overview', href: '/dashboard/parent', icon: LayoutDashboard },
+    { label: 'My Children', href: '/dashboard/parent/children', icon: Heart },
+    { label: 'Classes', href: '/dashboard/parent/classes', icon: Video },
+    { label: 'Attendance', href: '/dashboard/parent/attendance', icon: UserCheck },
+    { label: 'Assignments', href: '/dashboard/parent/assignments', icon: BookOpen },
+    { label: 'Worksheets', href: '/dashboard/parent/worksheets', icon: FileText },
+    { label: 'Progress', href: '/dashboard/parent/progress', icon: BarChart3 },
     { label: 'Profile', href: '/profile', icon: UserCircle },
   ],
   SUPPORT: [

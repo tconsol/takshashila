@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Mail, Lock, CheckCircle2, GraduationCap, BookOpen, Building2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, CheckCircle2, GraduationCap, BookOpen, Building2, Heart } from 'lucide-react';
 import { loginSchema, type LoginFormData } from '../../validators/auth.validators';
 import { useLogin } from '../../hooks/use-auth';
 import { Button } from '../../components/ui/Button';
@@ -94,11 +94,12 @@ export function LoginPage() {
       </div>
 
       {/* Role links */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           { label: 'Student', path: '/register/student', Icon: GraduationCap },
           { label: 'Tutor', path: '/register/tutor', Icon: BookOpen },
           { label: 'Principal', path: '/register/principal', Icon: Building2 },
+          { label: 'Parent', path: '/register/parent', Icon: Heart },
         ].map(({ label, path, Icon }) => (
           <Link
             key={label}

@@ -7,6 +7,7 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Table } from '../../components/ui/Table';
 import { Tabs } from '../../components/ui/Tabs';
@@ -170,21 +171,16 @@ export function TutorAssignmentsPage() {
         }
       >
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Class</label>
-            <select
-              {...register('classPublicId')}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">Select class…</option>
-              {classes.map((c) => (
-                <option key={c.publicId} value={c.publicId}>
-                  {c.subject} {format(new Date(c.scheduledStartUTC), 'MMM d, yyyy')}
-                </option>
-              ))}
-            </select>
-            {errors.classPublicId && <p className="text-xs text-red-500 mt-1">{errors.classPublicId.message}</p>}
-          </div>
+          <Select
+            label="Class"
+            options={classes.map((c) => ({
+              value: c.publicId,
+              label: `${c.subject}${c.scheduledStartUTC ? ' ' + format(new Date(c.scheduledStartUTC), 'MMM d, yyyy') : ''}`,
+            }))}
+            placeholder="Select class…"
+            error={errors.classPublicId?.message}
+            {...register('classPublicId')}
+          />
           <Input label="Title" error={errors.title?.message} {...register('title')} />
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Description</label>

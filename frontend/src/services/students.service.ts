@@ -3,6 +3,8 @@
 export interface StudentProfile {
   publicId: string;
   userPublicId: string;
+  firstName: string;
+  lastName: string;
   displayName: string;
   status: string;
   grade?: string;
@@ -28,11 +30,21 @@ export const studentsService = {
     api.post<{ data: StudentProfile }>(`/students/${publicId}/suspend`, { reason }).then((r) => r.data.data),
 
   listPending: () =>
-    api.get<{ data: StudentProfile[] }>('/students/pending').then((r) => r.data.data),
+    api.get<{ data: { items: StudentProfile[] } | StudentProfile[] }>('/students/pending')
+      .then((r) => {
+        const d = r.data.data;
+        return Array.isArray(d) ? d : (d as { items: StudentProfile[] }).items ?? [];
+      }),
 
   listAll: (params?: Record<string, string>) =>
     api.get<{ data: { items: StudentProfile[]; total: number; page: number; limit: number; totalPages: number } }>(
       '/students',
+      { params },
+    ).then((r) => r.data.data),
+
+  getMyStudentsAsTutor: (params?: Record<string, string>) =>
+    api.get<{ data: { items: StudentProfile[]; total: number; page: number; limit: number; totalPages: number } }>(
+      '/students/my-students',
       { params },
     ).then((r) => r.data.data),
 };

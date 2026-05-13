@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,6 +10,8 @@ import {
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../stores/auth.store';
 import { PageHeader } from '../../components/shared/PageHeader';
+import { Select } from '../../components/ui/Select';
+import { TIMEZONE_OPTIONS } from '../../constants/timezones';
 
 // ─── Role display helpers ─────────────────────────────────────────────────────
 const ROLE_LABELS: Record<string, string> = {
@@ -39,11 +41,6 @@ const AVATAR_GRADIENTS: Record<string, string> = {
   SUPPORT: 'from-sky-500 to-cyan-500',
 };
 
-const TIMEZONES = [
-  'Asia/Kolkata', 'Asia/Colombo', 'Asia/Dhaka', 'Asia/Karachi',
-  'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo', 'Europe/London',
-  'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'UTC',
-];
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 const profileSchema = z.object({
@@ -95,16 +92,17 @@ function SectionCard({ title, icon: Icon, children }: { title: string; icon: Rea
 }
 
 // ─── Password visibility toggle field ────────────────────────────────────────
-function PasswordField({
-  label, error, showPwd, onToggle, ...rest
-}: { label: string; error?: string; showPwd: boolean; onToggle: () => void } & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
+const PasswordField = forwardRef<HTMLInputElement, {
+  label: string; error?: string; showPwd: boolean; onToggle: () => void
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>>(
+  ({ label, error, showPwd, onToggle, ...rest }, ref) => (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       <div className="relative">
         <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           {...rest}
+          ref={ref}
           type={showPwd ? 'text' : 'password'}
           className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-10 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800"
         />
@@ -118,8 +116,9 @@ function PasswordField({
       </div>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
-  );
-}
+  ),
+);
+PasswordField.displayName = 'PasswordField';
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function ProfilePage() {
@@ -307,16 +306,13 @@ export function ProfilePage() {
 
           {/* Timezone */}
           <div className="sm:col-span-2">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Timezone</label>
-            <div className="relative">
-              <Globe className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <select
-                {...profileForm.register('timezone')}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-3 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800"
-              >
-                {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
-              </select>
-            </div>
+            <Select
+              label="Timezone"
+              options={TIMEZONE_OPTIONS}
+              placeholder="Select timezone"
+              leftIcon={<Globe className="h-4 w-4" />}
+              {...profileForm.register('timezone')}
+            />
           </div>
 
           <div className="flex justify-end sm:col-span-2">

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '../../lib/axios';
+import { useAuthStore } from '../../stores/auth.store';
 import type { IConversation, IMessage } from './chat.types';
 import type { PaginatedResult } from '../../shared/types';
 
@@ -11,6 +12,7 @@ const chatKeys = {
 };
 
 export function useConversations() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return useQuery<IConversation[]>({
     queryKey: chatKeys.conversations(),
     queryFn: async () => {
@@ -18,10 +20,12 @@ export function useConversations() {
       return data;
     },
     refetchInterval: 30_000,
+    enabled: isAuthenticated,
   });
 }
 
 export function useChatUnreadCount() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return useQuery<number>({
     queryKey: chatKeys.unread(),
     queryFn: async () => {
@@ -29,6 +33,7 @@ export function useChatUnreadCount() {
       return data.count;
     },
     refetchInterval: 30_000,
+    enabled: isAuthenticated,
   });
 }
 

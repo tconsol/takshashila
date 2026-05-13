@@ -8,11 +8,13 @@
  *  - 2 Principals (Greenfield Academy, Sunrise Institute)
  *  - 4 Tutors (Mathematics, Physics, Chemistry, English)
  *  - 8 Students (2 per tutor)
+ *  - 3 Parents linked to students
  *  - Scheduled / completed / live classes
  *  - Wallets with balances and transactions
  *  - Attendance records
  *  - Ratings
  *  - 2 Support tickets
+ *  - Sample worksheets (published + draft)
  *
  * All passwords: Seed@1234!
  */
@@ -32,6 +34,8 @@ import { ScheduledClassModel } from '../modules/schedules/schedule.model';
 import { AttendanceModel } from '../modules/attendance/attendance.model';
 import { RatingModel } from '../modules/ratings/rating.model';
 import { TicketModel, TicketMessageModel } from '../modules/support/support.model';
+import { ParentProfileModel } from '../modules/parents/parent.model';
+import { WorksheetModel } from '../modules/worksheets/worksheet.model';
 
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/takshashila';
 const PASSWORD = 'Seed@1234!';
@@ -68,6 +72,10 @@ const USERS = [
   { publicId: uid(), email: 'student6@takshashila.com', firstName: 'Aryan', lastName: 'Khanna', role: 'STUDENT', status: 'ACTIVE', emailVerified: true, phone: '+91 98300 00006', timezone: 'Asia/Kolkata' },
   { publicId: uid(), email: 'student7@takshashila.com', firstName: 'Nisha', lastName: 'Reddy', role: 'STUDENT', status: 'ACTIVE', emailVerified: true, phone: '+91 98300 00007', timezone: 'Asia/Kolkata' },
   { publicId: uid(), email: 'student8@takshashila.com', firstName: 'Dev', lastName: 'Kapoor', role: 'STUDENT', status: 'ACTIVE', emailVerified: true, phone: '+91 98300 00008', timezone: 'Asia/Kolkata' },
+  // Parents
+  { publicId: uid(), email: 'parent1@takshashila.com', firstName: 'Suresh', lastName: 'Gupta', role: 'PARENT', status: 'ACTIVE', emailVerified: true, phone: '+91 98400 00001', timezone: 'Asia/Kolkata' },
+  { publicId: uid(), email: 'parent2@takshashila.com', firstName: 'Lakshmi', lastName: 'Sharma', role: 'PARENT', status: 'ACTIVE', emailVerified: true, phone: '+91 98400 00002', timezone: 'Asia/Kolkata' },
+  { publicId: uid(), email: 'parent3@takshashila.com', firstName: 'Vijay', lastName: 'Reddy', role: 'PARENT', status: 'ACTIVE', emailVerified: true, phone: '+91 98400 00003', timezone: 'Asia/Kolkata' },
 ];
 
 async function main() {
@@ -88,6 +96,8 @@ async function main() {
     RatingModel.deleteMany({}),
     TicketModel.deleteMany({}),
     TicketMessageModel.deleteMany({}),
+    ParentProfileModel.deleteMany({}),
+    WorksheetModel.deleteMany({}),
   ]);
   ok('Cleared previous data');
 
@@ -95,13 +105,13 @@ async function main() {
   const passwordHash = await hashPw(PASSWORD);
   ok('Password hashed');
 
-  step('Creating users (18)');
+  step('Creating users (21)');
   const createdUsers = await UserModel.insertMany(
     USERS.map((u) => ({ ...u, passwordHash, loginCount: 0, twoFAEnabled: false, isDeleted: false }))
   );
   ok(`Created ${createdUsers.length} users`);
 
-  const byEmail = (email: string) => createdUsers.find((u) => u.email === email)!;
+  const byEmail = (email: string) => createdUsers.find((u: any) => u.email === email)!;
 
   const superAdmin   = byEmail('superadmin@takshashila.com');
   const principal1   = byEmail('principal1@takshashila.com');
@@ -119,6 +129,9 @@ async function main() {
   const student7     = byEmail('student7@takshashila.com');
   const student8     = byEmail('student8@takshashila.com');
   const supportAgent = byEmail('support@takshashila.com');
+  const parent1      = byEmail('parent1@takshashila.com');
+  const parent2      = byEmail('parent2@takshashila.com');
+  const parent3      = byEmail('parent3@takshashila.com');
 
   step('Creating wallets');
   await WalletModel.insertMany(
@@ -224,6 +237,36 @@ async function main() {
     { publicId: uid(), userPublicId: student8.publicId, tutorPublicId: tpEnglish.publicId, status: 'ACTIVE', grade: 'Grade 12', demoClassesUsed: 1, totalClassesAttended: 5, totalClassesMissed: 1, totalClassesBooked: 6, attendanceRate: 83, invitedBy: tpEnglish.publicId, approvedBy: tpEnglish.publicId, approvedAt: daysAgo(28), isDeleted: false },
   ]);
   ok('Created 8 student profiles');
+
+  // Fetch student profiles to get their publicIds for parent linking
+  const studentProfiles = await StudentProfileModel.find({}).lean() as any[];
+  const spByUser = (userPid: string) => studentProfiles.find((sp: any) => sp.userPublicId === userPid)!;
+
+  step('Creating parent profiles');
+  await ParentProfileModel.insertMany([
+    {
+      publicId: uid(),
+      userPublicId: parent1.publicId,
+      // parent1 is Suresh Gupta parent of Aanya (student1) and Rohan (student2)
+      childStudentPublicIds: [spByUser(student1.publicId).publicId, spByUser(student2.publicId).publicId],
+      isDeleted: false,
+    },
+    {
+      publicId: uid(),
+      userPublicId: parent2.publicId,
+      // parent2 is Lakshmi Sharma parent of Priya (student3) and Kabir (student4)
+      childStudentPublicIds: [spByUser(student3.publicId).publicId, spByUser(student4.publicId).publicId],
+      isDeleted: false,
+    },
+    {
+      publicId: uid(),
+      userPublicId: parent3.publicId,
+      // parent3 is Vijay Reddy parent of Meera (student5), Aryan (student6), and Nisha (student7)
+      childStudentPublicIds: [spByUser(student5.publicId).publicId, spByUser(student6.publicId).publicId, spByUser(student7.publicId).publicId],
+      isDeleted: false,
+    },
+  ]);
+  ok('Created 3 parent profiles (linked to 7 students)');
 
   step('Creating scheduled classes');
   const classBase = (tutorPid: string, studentPid: string, title: string, cost: number) => ({
@@ -349,21 +392,89 @@ async function main() {
   ]);
   ok('Created 2 tickets with messages');
 
+  step('Creating worksheets');
+  await WorksheetModel.insertMany([
+    // Math tutor worksheets
+    {
+      publicId: uid(), tutorPublicId: tpMath.publicId,
+      title: 'Derivatives & Integration Practice Set 1',
+      description: 'Foundational exercises covering differentiation rules, chain rule, and basic integrals.',
+      content: `# Derivatives & Integration Practice Set 1\n\n## Differentiation\n\n1. Find dy/dx for y = 3x⁴ − 5x² + 7x − 2\n2. Differentiate f(x) = (2x + 1)⁵ using the chain rule\n3. Find the derivative of g(x) = sin(3x)·cos(x)\n\n## Integration\n\n4. Evaluate ∫(4x³ − 6x + 5) dx\n5. Compute ∫sin(2x) dx\n6. Find ∫(x² + 1)/(x) dx\n\n**Bonus:** Prove that d/dx[ln(x)] = 1/x from first principles.`,
+      subject: 'Mathematics', sharedWithStudentPublicIds: [], status: 'PUBLISHED', isDeleted: false,
+    },
+    {
+      publicId: uid(), tutorPublicId: tpMath.publicId,
+      title: 'JEE Algebra Quadratics & Sequences',
+      description: 'High-yield JEE problems on quadratic equations, AP/GP series, and binomial theorem.',
+      content: `# JEE Algebra Practice\n\n## Quadratic Equations\n\n1. If α and β are roots of 2x² − 5x + 3 = 0, find α² + β² and αβ.\n2. For what values of k does x² − kx + (k+3) = 0 have equal roots?\n\n## Arithmetic & Geometric Progressions\n\n3. The 5th term of an AP is 17 and the 9th term is 33. Find the 20th term.\n4. Sum of an infinite GP is 12 and the first term is 4. Find the common ratio.\n\n## Binomial Theorem\n\n5. Find the middle term in (2x − 1/x)⁸`,
+      subject: 'Mathematics', sharedWithStudentPublicIds: [spByUser(student1.publicId).publicId], status: 'PUBLISHED', isDeleted: false,
+    },
+    {
+      publicId: uid(), tutorPublicId: tpMath.publicId,
+      title: 'Trigonometry Identities DRAFT',
+      description: 'Work in progress identities worksheet for Grade 11.',
+      content: `# Trigonometry Identities\n\n(Coming soon Pythagorean, compound angle, and double angle identities)`,
+      subject: 'Mathematics', sharedWithStudentPublicIds: [], status: 'DRAFT', isDeleted: false,
+    },
+    // Physics tutor worksheets
+    {
+      publicId: uid(), tutorPublicId: tpPhysics.publicId,
+      title: "Newton's Laws Conceptual Problems",
+      description: 'Free-body diagrams, friction, and system-of-particles problems.',
+      content: `# Newton's Laws of Motion\n\n## Free Body Diagrams\n\n1. Draw FBDs for a 5 kg block on a 30° frictionless incline.\n2. A 10 kg box is pushed with 80 N on a surface with μ = 0.3. Find acceleration.\n\n## System Problems\n\n3. Two blocks (3 kg and 7 kg) connected by a string over a pulley. Find acceleration and tension.\n4. A lift accelerates upward at 2 m/s². What does a 60 kg person weigh on the scale inside?\n\n**Challenge:** Explain why a horse cannot pull a cart using Newton's 3rd Law.`,
+      subject: 'Physics', sharedWithStudentPublicIds: [], status: 'PUBLISHED', isDeleted: false,
+    },
+    {
+      publicId: uid(), tutorPublicId: tpPhysics.publicId,
+      title: 'Electrostatics Coulomb & Gauss',
+      description: "Coulomb's law calculations, electric field lines, Gauss's law applications.",
+      content: `# Electrostatics Practice\n\n## Coulomb's Law\n\n1. Two charges +4μC and −6μC are 0.3 m apart. Find the force between them.\n2. At what point on the line joining them is the net field zero?\n\n## Electric Field & Potential\n\n3. Find E at a point 0.2 m from a +5μC charge in vacuum.\n4. Calculate the work done moving a +2μC charge from A (V=100V) to B (V=40V).\n\n## Gauss's Law\n\n5. State Gauss's Law and use it to find E inside and outside a uniformly charged sphere.`,
+      subject: 'Physics', sharedWithStudentPublicIds: [spByUser(student3.publicId).publicId, spByUser(student4.publicId).publicId], status: 'PUBLISHED', isDeleted: false,
+    },
+    // Chemistry tutor worksheets
+    {
+      publicId: uid(), tutorPublicId: tpChem.publicId,
+      title: 'Organic Chemistry Functional Groups & Reactions',
+      description: 'Identification of functional groups, IUPAC naming, and key reaction mechanisms.',
+      content: `# Organic Chemistry Worksheet\n\n## Functional Group Identification\n\n1. Identify all functional groups in Adrenaline (epinephrine).\n2. Draw structural formulas for: (a) ethanol (b) ethanal (c) ethanoic acid\n\n## IUPAC Naming\n\n3. Name: CH₃−CH(OH)−CH₂−CHO\n4. Name: CH₂=CH−C≡CH\n\n## Reactions\n\n5. Write the mechanism for the SN2 reaction of CH₃Br with OH⁻.\n6. What product forms when ethanol is oxidised with acidified K₂Cr₂O₇?`,
+      subject: 'Chemistry', sharedWithStudentPublicIds: [], status: 'PUBLISHED', isDeleted: false,
+    },
+    // English tutor worksheets
+    {
+      publicId: uid(), tutorPublicId: tpEnglish.publicId,
+      title: 'IELTS Writing Task 2 Opinion & Discussion Essays',
+      description: 'Model essays, structural templates, and vocabulary for Band 7+ academic writing.',
+      content: `# IELTS Writing Task 2 Guide\n\n## Essay Structure\n\n**Introduction:** Paraphrase the question + state your thesis (2-3 sentences)\n**Body 1:** Main argument with example\n**Body 2:** Counter-argument or second point with example\n**Conclusion:** Restate thesis + final thought\n\n## Practice Questions\n\n1. *"Technology is making people more isolated. Do you agree or disagree?"* (40 min)\n2. *"Some believe university education should be free for all. Discuss both views."* (40 min)\n\n## Useful Linking Phrases\n- Firstly / Furthermore / In addition / However / On the contrary\n- It is widely acknowledged that… / There is no denying that…\n- In conclusion / To sum up / All things considered…`,
+      subject: 'English', sharedWithStudentPublicIds: [], status: 'PUBLISHED', isDeleted: false,
+    },
+    {
+      publicId: uid(), tutorPublicId: tpEnglish.publicId,
+      title: 'Grammar Mastery Tenses & Passive Voice',
+      description: 'Tense revision, passive voice transformation, and common grammar mistakes to avoid.',
+      content: `# Grammar Mastery Worksheet\n\n## Tenses\n\nFill in the correct tense:\n1. She ___ (study) for three hours by the time her friends arrived.\n2. By next month, I ___ (complete) this course.\n3. He ___ (work) here since 2019.\n\n## Passive Voice\n\nTransform to passive:\n4. The chef prepared the meal.\n5. Scientists are conducting new experiments.\n6. They had finished the project before the deadline.\n\n## Error Correction\n\nCorrect the errors:\n7. "Neither of the students have submitted their assignment."\n8. "He is more taller than his brother."`,
+      subject: 'English', sharedWithStudentPublicIds: [spByUser(student7.publicId).publicId, spByUser(student8.publicId).publicId], status: 'PUBLISHED', isDeleted: false,
+    },
+  ]);
+  ok('Created 8 worksheets (7 published, 1 draft)');
+
   process.stdout.write('\n');
-  process.stdout.write('='.repeat(57) + '\n');
+  process.stdout.write('='.repeat(60) + '\n');
   process.stdout.write('  SEED COMPLETE - password for all: Seed@1234!\n');
-  process.stdout.write('='.repeat(57) + '\n');
-  process.stdout.write('  superadmin@takshashila.com   (Super Admin)\n');
-  process.stdout.write('  admin@takshashila.com        (Admin)\n');
-  process.stdout.write('  support@takshashila.com      (Support)\n');
-  process.stdout.write('  principal1@takshashila.com   (Greenfield Academy)\n');
-  process.stdout.write('  principal2@takshashila.com   (Sunrise Institute)\n');
-  process.stdout.write('  tutor.math@takshashila.com\n');
-  process.stdout.write('  tutor.physics@takshashila.com\n');
-  process.stdout.write('  tutor.chemistry@takshashila.com\n');
-  process.stdout.write('  tutor.english@takshashila.com\n');
+  process.stdout.write('='.repeat(60) + '\n');
+  process.stdout.write('  superadmin@takshashila.com     (Super Admin)\n');
+  process.stdout.write('  admin@takshashila.com          (Admin)\n');
+  process.stdout.write('  support@takshashila.com        (Support)\n');
+  process.stdout.write('  principal1@takshashila.com     (Greenfield Academy)\n');
+  process.stdout.write('  principal2@takshashila.com     (Sunrise Institute)\n');
+  process.stdout.write('  tutor.math@takshashila.com     (Maths - 2 students)\n');
+  process.stdout.write('  tutor.physics@takshashila.com  (Physics - 2 students)\n');
+  process.stdout.write('  tutor.chemistry@takshashila.com (Chemistry - 2 students)\n');
+  process.stdout.write('  tutor.english@takshashila.com  (English - 2 students)\n');
   process.stdout.write('  student1@takshashila.com .. student8@takshashila.com\n');
-  process.stdout.write('='.repeat(57) + '\n\n');
+  process.stdout.write('  parent1@takshashila.com        (Suresh Gupta → student1, student2)\n');
+  process.stdout.write('  parent2@takshashila.com        (Lakshmi Sharma → student3, student4)\n');
+  process.stdout.write('  parent3@takshashila.com        (Vijay Reddy → student5, student6, student7)\n');
+  process.stdout.write('='.repeat(60) + '\n\n');
 
   await mongoose.disconnect();
 }

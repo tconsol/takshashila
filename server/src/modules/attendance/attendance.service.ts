@@ -101,6 +101,20 @@ export class AttendanceService {
     return buildPaginatedResult(items, total, page, limit);
   }
 
+  async getByTutor(
+    tutorPublicId: string,
+    query: PaginationQuery,
+  ): Promise<PaginatedResult<IAttendance>> {
+    const { page, limit, skip } = parsePaginationQuery(query);
+    const filter = { tutorPublicId, isDeleted: false };
+
+    const [items, total] = await Promise.all([
+      AttendanceModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      AttendanceModel.countDocuments(filter),
+    ]);
+    return buildPaginatedResult(items, total, page, limit);
+  }
+
   private async updateStudentStats(
     studentPublicId: string,
     newStatus: AttendanceStatus,

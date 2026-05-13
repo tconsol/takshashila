@@ -7,6 +7,7 @@ export const ROLES: Record<Role, Role> = {
   TUTOR: 'TUTOR',
   STUDENT: 'STUDENT',
   SUPPORT: 'SUPPORT',
+  PARENT: 'PARENT',
 };
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -16,6 +17,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   TUTOR: 'Tutor',
   STUDENT: 'Student',
   SUPPORT: 'Support',
+  PARENT: 'Parent',
 };
 
 export const ROLE_COLORS: Record<Role, string> = {
@@ -25,6 +27,7 @@ export const ROLE_COLORS: Record<Role, string> = {
   TUTOR: 'bg-blue-100 text-blue-800',
   STUDENT: 'bg-green-100 text-green-800',
   SUPPORT: 'bg-gray-100 text-gray-800',
+  PARENT: 'bg-rose-100 text-rose-800',
 };
 
 export const ROLE_DASHBOARD_PATHS: Record<Role, string> = {
@@ -34,4 +37,5 @@ export const ROLE_DASHBOARD_PATHS: Record<Role, string> = {
   TUTOR: '/dashboard/tutor',
   STUDENT: '/dashboard/student',
   SUPPORT: '/dashboard/support',
+  PARENT: '/dashboard/parent',
 };

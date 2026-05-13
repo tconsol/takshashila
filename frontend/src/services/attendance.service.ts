@@ -35,8 +35,14 @@ export const attendanceService = {
     api.get<{ data: AttendanceRecord[] }>(`/attendance/class/${classId}`).then((r) => r.data.data),
 
   getMyHistory: (params?: { page?: number; limit?: number }) =>
-    api.get<{ data: { items: AttendanceRecord[]; total: number; page: number; limit: number; totalPages: number } }>(
+    api.get<{ data: { items: AttendanceRecord[]; pagination: { page: number; limit: number; total: number; totalPages: number } } }>(
       '/attendance/my',
+      { params },
+    ).then((r) => r.data.data),
+
+  getMyHistoryAsTutor: (params?: { page?: number; limit?: number }) =>
+    api.get<{ data: { items: AttendanceRecord[]; pagination: { page: number; limit: number; total: number; totalPages: number } } }>(
+      '/attendance/tutor/my',
       { params },
     ).then((r) => r.data.data),
 };

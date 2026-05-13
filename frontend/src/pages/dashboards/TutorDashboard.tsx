@@ -42,7 +42,12 @@ function useTutorClasses() {
     queryKey: ['classes', 'tutor', 'upcoming'],
     queryFn: async () => {
       const { data } = await api.get('/classes/my/tutor', { params: { status: 'SCHEDULED', limit: 5 } });
-      return data?.data?.items ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data?.data?.items ?? []).map((c: any) => ({
+        ...c,
+        subject: c.subject ?? c.title ?? '',
+        scheduledStartUTC: c.scheduledStartUTC ?? c.startUTC ?? '',
+      }));
     },
   });
 }

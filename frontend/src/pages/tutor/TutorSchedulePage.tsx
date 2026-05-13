@@ -7,8 +7,10 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { useMySlots, useCreateSlot, useDeleteSlot } from '../../hooks/use-schedules';
+import { TIMEZONE_OPTIONS } from '../../constants/timezones';
 import type { AvailabilitySlot } from '../../services/schedules.service';
 
 const slotSchema = z.object({
@@ -133,7 +135,12 @@ export function TutorSchedulePage() {
             <Input label="Start Time" type="time" error={errors.startTime?.message} {...register('startTime')} />
             <Input label="End Time" type="time" error={errors.endTime?.message} {...register('endTime')} />
           </div>
-          <Input label="Timezone" {...register('timezone')} />
+          <Select
+            label="Timezone"
+            options={TIMEZONE_OPTIONS}
+            placeholder="Select timezone"
+            {...register('timezone')}
+          />
           {error && <p className="text-xs text-red-500">{error}</p>}
         </form>
       </Modal>

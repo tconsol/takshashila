@@ -36,6 +36,14 @@ router.get('/class/:classId', async (req: AuthRequest, res: Response, next: Next
   } catch (e) { next(e); }
 });
 
+router.get('/tutor/my', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const tutorProfile = await tutorService.getByUserPublicId(req.user!.publicId);
+    const result = await attendanceService.getByTutor(tutorProfile.publicId, req.query);
+    sendPaginated(res, result, 'Attendance fetched');
+  } catch (e) { next(e); }
+});
+
 router.get('/my', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     let studentProfile;

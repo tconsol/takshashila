@@ -41,23 +41,32 @@ interface AnalyticsPageProps {
 }
 
 export function AnalyticsPage({ role, title = 'Analytics' }: AnalyticsPageProps) {
+  const statsEndpoint = role === 'super_admin' || role === 'admin'
+    ? '/analytics/platform/overview'
+    : '/analytics/principal/me';
+
   const { data: stats, isLoading: statsLoading } = useQuery<PlatformStats>({
     queryKey: ['analytics', 'stats', role],
-    queryFn: () => api.get('/classes/my/tutor?limit=1').then(() => ({
-      totalUsers: 0, totalTutors: 0, totalStudents: 0, totalPrincipals: 0,
-      totalClasses: 0, completedClasses: 0, totalRevenueCents: 0, activeUsers: 0,
+    queryFn: () => api.get(statsEndpoint).then((r) => ({
+      totalUsers: r.data?.totalUsers ?? 0,
+      totalTutors: r.data?.totalTutors ?? 0,
+      totalStudents: r.data?.totalStudents ?? 0,
+      totalPrincipals: r.data?.totalPrincipals ?? 0,
+      totalClasses: r.data?.totalClasses ?? r.data?.classesTotal ?? 0,
+      completedClasses: r.data?.completedClasses ?? 0,
+      totalRevenueCents: r.data?.totalRevenueCents ?? 0,
+      activeUsers: r.data?.activeUsers ?? 0,
     })),
     retry: false,
   });
 
+  const classesEndpoint = role === 'super_admin' || role === 'admin'
+    ? '/analytics/platform/classes?days=30'
+    : '/analytics/principal/me';
+
   const { data: recentClasses = [], isLoading: classesLoading } = useQuery<RecentClass[]>({
     queryKey: ['analytics', 'recent-classes', role],
-    queryFn: () => {
-      const endpoint = role === 'super_admin' || role === 'admin'
-        ? '/classes/my/tutor?limit=10'
-        : '/classes/my/tutor?limit=10';
-      return api.get(endpoint).then((r) => r.data.data?.items ?? []);
-    },
+    queryFn: () => api.get(classesEndpoint).then((r) => r.data?.recentClasses ?? r.data?.items ?? []),
     retry: false,
   });
 

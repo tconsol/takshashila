@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/axios';
+import { useAuthStore } from '../../stores/auth.store';
 import type { INotification } from './notification.types';
 import type { PaginatedResult } from '../../shared/types';
 
@@ -11,6 +12,7 @@ const notifKeys = {
 };
 
 export function useNotifications(page = 1) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return useQuery<PaginatedResult<INotification>>({
     queryKey: notifKeys.list(page),
     queryFn: async () => {
@@ -18,10 +20,12 @@ export function useNotifications(page = 1) {
       return data;
     },
     staleTime: 30_000,
+    enabled: isAuthenticated,
   });
 }
 
 export function useUnreadCount() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return useQuery<number>({
     queryKey: notifKeys.unread(),
     queryFn: async () => {
@@ -29,6 +33,7 @@ export function useUnreadCount() {
       return data.count;
     },
     refetchInterval: 60_000,
+    enabled: isAuthenticated,
   });
 }
 

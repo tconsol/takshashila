@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: 'takshashila-auth',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated, accessToken: state.accessToken }),
     },
   ),
 );

@@ -1,4 +1,4 @@
-export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'PRINCIPAL' | 'TUTOR' | 'STUDENT' | 'SUPPORT';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'PRINCIPAL' | 'TUTOR' | 'STUDENT' | 'SUPPORT' | 'PARENT';
 
 export type UserStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 

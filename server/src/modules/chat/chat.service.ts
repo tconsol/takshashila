@@ -4,6 +4,7 @@ import type { IConversation, IMessage, SendMessageDto } from './chat.types';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
 import { PrincipalProfileModel } from '../principals/principal.model';
+import { ParentProfileModel } from '../parents/parent.model';
 import { Role } from '../../constants/roles';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
@@ -57,6 +58,23 @@ async function isConnected(
     if (!studentProfile) return false;
     const tutorProfile = await TutorProfileModel.findOne({ publicId: studentProfile.tutorPublicId }).lean();
     return !!(tutorProfile && tutorProfile.principalPublicId === principalProfile.publicId);
+  }
+
+  // PARENT ↔ TUTOR: parent must have at least one child assigned to this tutor
+  if (pair.has('PARENT:TUTOR')) {
+    const [parentId, tutorId] = roleA === Role.PARENT
+      ? [userAPublicId, userBPublicId]
+      : [userBPublicId, userAPublicId];
+
+    const tutorProfile = await TutorProfileModel.findOne({ userPublicId: tutorId }).lean();
+    if (!tutorProfile) return false;
+    const parentProfile = await ParentProfileModel.findOne({ userPublicId: parentId }).lean();
+    if (!parentProfile || parentProfile.childStudentPublicIds.length === 0) return false;
+    const linked = await StudentProfileModel.findOne({
+      publicId: { $in: parentProfile.childStudentPublicIds },
+      tutorPublicId: tutorProfile.publicId,
+    }).lean();
+    return !!linked;
   }
 
   return false;
@@ -155,8 +173,6 @@ export class ChatService {
     });
 
     const recipientPublicId = conversation.participantPublicIds.find((id) => id !== senderPublicId)!;
-    const unreadCounts = new Map(Object.entries(conversation.unreadCounts as Record<string, number>));
-    unreadCounts.set(recipientPublicId, (unreadCounts.get(recipientPublicId) ?? 0) + 1);
 
     await ConversationModel.updateOne(
       { publicId: conversationPublicId },
@@ -164,8 +180,8 @@ export class ChatService {
         $set: {
           lastMessageAt: new Date(),
           lastMessagePreview: dto.body.trim().slice(0, 80),
-          unreadCounts: Object.fromEntries(unreadCounts),
         },
+        $inc: { [`unreadCounts.${recipientPublicId}`]: 1 },
       },
     );
 
@@ -184,11 +200,9 @@ export class ChatService {
       { $set: { isRead: true, readAt: new Date() } },
     );
 
-    const unreadCounts = new Map(Object.entries(conversation.unreadCounts as Record<string, number>));
-    unreadCounts.set(userPublicId, 0);
     await ConversationModel.updateOne(
       { publicId: conversationPublicId },
-      { $set: { unreadCounts: Object.fromEntries(unreadCounts) } },
+      { $set: { [`unreadCounts.${userPublicId}`]: 0 } },
     );
   }
 
@@ -196,11 +210,11 @@ export class ChatService {
     const conversations = await ConversationModel.find({
       participantPublicIds: userPublicId,
       isDeleted: false,
-    }).lean();
+    });
 
     return conversations.reduce((sum, c) => {
-      const counts = c.unreadCounts as Record<string, number>;
-      return sum + (counts[userPublicId] ?? 0);
+      const val = (c.unreadCounts as Map<string, number>).get(userPublicId) ?? 0;
+      return sum + val;
     }, 0);
   }
 }

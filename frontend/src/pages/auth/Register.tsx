@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, GraduationCap, Award, ArrowRight } from 'lucide-react';
+import { BookOpen, GraduationCap, Award, Heart, ArrowRight } from 'lucide-react';
 
 const ROLES = [
   {
@@ -28,6 +28,15 @@ const ROLES = [
     bg: 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:border-emerald-300 dark:hover:border-emerald-700',
     path: '/register/principal',
     highlights: ['Tutor management', 'Analytics dashboard', 'Institutional overview'],
+  },
+  {
+    icon: Heart,
+    title: 'Parent',
+    description: "Monitor your child's learning journey classes, attendance, assignments, and worksheets in one place.",
+    color: 'from-rose-500 to-pink-500',
+    bg: 'hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:border-rose-300 dark:hover:border-rose-700',
+    path: '/register/parent',
+    highlights: ['Live progress tracking', 'Attendance reports', 'Worksheet access'],
   },
 ];
 

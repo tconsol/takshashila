@@ -8,6 +8,7 @@ import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { walletService } from '../wallets/wallet.service';
 import { CreditType } from '../wallets/wallet.types';
+import { userRepository } from '../users/user.repository';
 
 const MAX_DEMO_CLASSES = 3;
 const DEMO_CREDITS_PER_CLASS_CENTS = 100_00;
@@ -126,8 +127,21 @@ export class StudentService {
   async getByTutor(
     tutorPublicId: string,
     query: PaginationQuery,
-  ): Promise<PaginatedResult<IStudentProfile>> {
-    return studentRepository.findByTutor(tutorPublicId, query);
+  ): Promise<PaginatedResult<IStudentProfile & { firstName: string; lastName: string; displayName: string }>> {
+    const result = await studentRepository.findByTutor(tutorPublicId, query);
+
+    const userPublicIds = result.items.map((s) => s.userPublicId);
+    const users = await userRepository.findManyByPublicIds(userPublicIds);
+    const userMap = new Map(users.map((u) => [u.publicId, u]));
+
+    const hydrated = result.items.map((s) => {
+      const u = userMap.get(s.userPublicId);
+      const firstName = u?.firstName ?? '';
+      const lastName = u?.lastName ?? '';
+      return { ...s, firstName, lastName, displayName: `${firstName} ${lastName}`.trim() || 'Student' };
+    });
+
+    return { ...result, items: hydrated };
   }
 
   async listAll(query: PaginationQuery): Promise<PaginatedResult<IStudentProfile>> {

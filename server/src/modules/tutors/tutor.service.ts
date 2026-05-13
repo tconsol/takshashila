@@ -115,8 +115,20 @@ export class TutorService {
   async search(
     filters: TutorSearchFilters,
     query: PaginationQuery,
-  ): Promise<PaginatedResult<ITutorProfile>> {
-    return tutorRepository.search(filters, query);
+  ): Promise<PaginatedResult<ITutorProfile & { displayName: string }>> {
+    const result = await tutorRepository.search(filters, query);
+
+    // Hydrate each tutor profile with the user's full name
+    const userPublicIds = result.items.map((t) => t.userPublicId);
+    const users = await userRepository.findManyByPublicIds(userPublicIds);
+    const userMap = new Map(users.map((u) => [u.publicId, u]));
+
+    const hydrated = result.items.map((t) => {
+      const u = userMap.get(t.userPublicId);
+      return { ...t, displayName: u ? `${u.firstName} ${u.lastName}` : 'Unknown Tutor' };
+    });
+
+    return { ...result, items: hydrated };
   }
 
   async getByPrincipal(
