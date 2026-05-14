@@ -14,6 +14,7 @@ import { RegisterTutorPage } from '../pages/auth/RegisterTutor';
 import { RegisterPrincipalPage } from '../pages/auth/RegisterPrincipal';
 import { RegisterParentPage } from '../pages/auth/RegisterParent';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPassword';
+import { VerifyEmailPage } from '../pages/auth/VerifyEmail';
 
 // Dashboards
 import { SuperAdminDashboard } from '../pages/dashboards/SuperAdminDashboard';
@@ -99,6 +100,7 @@ export const router = createBrowserRouter([
       { path: '/register/principal', element: <RegisterPrincipalPage /> },
       { path: '/register/parent', element: <RegisterParentPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/verify-email', element: <VerifyEmailPage /> },
     ],
   },
 

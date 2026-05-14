@@ -7,6 +7,9 @@ import { parsePaginationQuery, buildPaginatedResult } from '../../utils/paginati
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { logger } from '../../lib/logger';
+import { enqueueEmail } from '../../queues/email.queue';
+import { env } from '../../config/env';
+import { UserModel } from '../users/user.model';
 
 export class NotificationService {
   async create(dto: CreateNotificationDto): Promise<INotification> {
@@ -87,6 +90,56 @@ export class NotificationService {
   }
 
   setupEventListeners(): void {
+    domainEvents.on(DomainEvent.USER_REGISTERED, async (payload: { userId: string; email: string; role: string; verificationToken: string }) => {
+      try {
+        const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${payload.verificationToken}`;
+        await enqueueEmail({
+          to: payload.email,
+          subject: 'Verify your Takshashila account',
+          html: `
+            <div style="font-family:sans-serif;max-width:520px;margin:auto">
+              <h2 style="color:#4f46e5">Welcome to Takshashila!</h2>
+              <p>Thanks for signing up. Please click the button below to verify your email address.</p>
+              <a href="${verifyUrl}"
+                 style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
+                Verify Email
+              </a>
+              <p style="color:#6b7280;font-size:13px">Or copy this link: <a href="${verifyUrl}">${verifyUrl}</a></p>
+              <p style="color:#6b7280;font-size:13px">This link expires in 24 hours. If you did not sign up, you can ignore this email.</p>
+            </div>
+          `,
+          text: `Verify your email: ${verifyUrl}`,
+        });
+      } catch (e) {
+        logger.error('Failed to send verification email', { error: e });
+      }
+    });
+
+    domainEvents.on(DomainEvent.USER_PASSWORD_RESET, async (payload: { userId: string; email: string; resetToken: string }) => {
+      try {
+        const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${payload.resetToken}`;
+        await enqueueEmail({
+          to: payload.email,
+          subject: 'Reset your Takshashila password',
+          html: `
+            <div style="font-family:sans-serif;max-width:520px;margin:auto">
+              <h2 style="color:#4f46e5">Password Reset Request</h2>
+              <p>We received a request to reset your password. Click the button below to proceed.</p>
+              <a href="${resetUrl}"
+                 style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
+                Reset Password
+              </a>
+              <p style="color:#6b7280;font-size:13px">Or copy this link: <a href="${resetUrl}">${resetUrl}</a></p>
+              <p style="color:#6b7280;font-size:13px">This link expires in 1 hour. If you did not request a reset, ignore this email.</p>
+            </div>
+          `,
+          text: `Reset your password: ${resetUrl}`,
+        });
+      } catch (e) {
+        logger.error('Failed to send password reset email', { error: e });
+      }
+    });
+
     // Auto-create notifications from domain events
     domainEvents.on(DomainEvent.CLASS_BOOKED, async (payload: { studentPublicId: string; tutorPublicId: string; classPublicId: string }) => {
       try {
@@ -158,6 +211,44 @@ export class NotificationService {
         });
       } catch (e) {
         logger.error('Failed to create ASSIGNMENT_SUBMITTED notification', { error: e });
+      }
+    });
+
+    domainEvents.on(DomainEvent.PRINCIPAL_APPROVED, async (payload: { principalPublicId: string; userPublicId: string; approvedBy: string }) => {
+      try {
+        const user = await UserModel.findOne({ publicId: payload.userPublicId }, { email: 1, firstName: 1 }).lean();
+        if (!user) return;
+
+        const loginUrl = `${env.FRONTEND_URL}/login`;
+
+        await enqueueEmail({
+          to: user.email,
+          subject: 'Your Takshashila account has been approved!',
+          html: `
+            <div style="font-family:sans-serif;max-width:520px;margin:auto">
+              <h2 style="color:#4f46e5">Account Approved!</h2>
+              <p>Hi ${user.firstName},</p>
+              <p>Great news! Your principal account on Takshashila has been reviewed and <strong>approved</strong> by our team.</p>
+              <p>You can now log in and start managing your institution.</p>
+              <a href="${loginUrl}"
+                 style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
+                Log In Now
+              </a>
+              <p style="color:#6b7280;font-size:13px">Or copy this link: <a href="${loginUrl}">${loginUrl}</a></p>
+              <p style="color:#6b7280;font-size:13px">If you have any questions, please contact our support team.</p>
+            </div>
+          `,
+          text: `Hi ${user.firstName}, your Takshashila principal account has been approved. Log in at: ${loginUrl}`,
+        });
+
+        await this.create({
+          recipientPublicId: payload.userPublicId,
+          type: 'STUDENT_APPROVED' as const,
+          title: 'Account Approved',
+          body: 'Your principal account has been approved by our team. You can now log in.',
+        });
+      } catch (e) {
+        logger.error('Failed to send PRINCIPAL_APPROVED notification', { error: e });
       }
     });
   }

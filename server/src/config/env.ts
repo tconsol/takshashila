@@ -28,7 +28,7 @@ const envSchema = z.object({
   SMTP_SECURE: z.coerce.boolean().default(false),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  EMAIL_FROM: z.string().email().default('noreply@takshashila.com'),
+  EMAIL_FROM: z.string().default('noreply@takshashila.com'),
 
   GCP_PROJECT_ID: z.string().optional(),
   GCP_BUCKET_NAME: z.string().optional(),

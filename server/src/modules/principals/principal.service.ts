@@ -4,9 +4,16 @@ import { PrincipalStatus } from './principal.types';
 import type { IPrincipalProfile } from './principal.types';
 import { NotFoundError, ConflictError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
+import { DomainEvent } from '../../constants/events';
 import { walletService } from '../wallets/wallet.service';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
+
+export interface PrincipalWithUser extends IPrincipalProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
 
 export class PrincipalService {
   async createProfile(userPublicId: string, data: Partial<IPrincipalProfile>): Promise<IPrincipalProfile> {
@@ -51,7 +58,11 @@ export class PrincipalService {
       { new: true },
     ).lean();
     if (!profile) throw new NotFoundError('Principal profile');
-    domainEvents.emit('PRINCIPAL_APPROVED', { principalPublicId: publicId, approvedBy });
+    domainEvents.emit(DomainEvent.PRINCIPAL_APPROVED, {
+      principalPublicId: publicId,
+      userPublicId: profile.userPublicId,
+      approvedBy,
+    });
     return profile;
   }
 
@@ -65,23 +76,67 @@ export class PrincipalService {
     return profile;
   }
 
-  async listPending(query: PaginationQuery): Promise<PaginatedResult<IPrincipalProfile>> {
+  async listPending(query: PaginationQuery): Promise<PaginatedResult<PrincipalWithUser>> {
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter = { status: PrincipalStatus.PENDING_APPROVAL, isDeleted: false };
 
     const [items, total] = await Promise.all([
-      PrincipalProfileModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      PrincipalProfileModel.aggregate([
+        { $match: filter },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userPublicId',
+            foreignField: 'publicId',
+            as: 'user',
+          },
+        },
+        { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            firstName: { $ifNull: ['$user.firstName', ''] },
+            lastName: { $ifNull: ['$user.lastName', ''] },
+            email: { $ifNull: ['$user.email', ''] },
+          },
+        },
+        { $project: { user: 0 } },
+      ]),
       PrincipalProfileModel.countDocuments(filter),
     ]);
     return buildPaginatedResult(items, total, page, limit);
   }
 
-  async listAll(query: PaginationQuery): Promise<PaginatedResult<IPrincipalProfile>> {
+  async listAll(query: PaginationQuery): Promise<PaginatedResult<PrincipalWithUser>> {
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter = { isDeleted: false };
 
     const [items, total] = await Promise.all([
-      PrincipalProfileModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      PrincipalProfileModel.aggregate([
+        { $match: filter },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userPublicId',
+            foreignField: 'publicId',
+            as: 'user',
+          },
+        },
+        { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            firstName: { $ifNull: ['$user.firstName', ''] },
+            lastName: { $ifNull: ['$user.lastName', ''] },
+            email: { $ifNull: ['$user.email', ''] },
+          },
+        },
+        { $project: { user: 0 } },
+      ]),
       PrincipalProfileModel.countDocuments(filter),
     ]);
     return buildPaginatedResult(items, total, page, limit);

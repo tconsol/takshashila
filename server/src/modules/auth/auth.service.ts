@@ -29,6 +29,8 @@ import type {
   ChangePasswordDto,
 } from './auth.validators';
 import { walletService } from '../wallets/wallet.service';
+import { PrincipalProfileModel } from '../principals/principal.model';
+import { PrincipalStatus } from '../principals/principal.types';
 
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -79,6 +81,25 @@ export class AuthService {
       console.warn('[auth] Could not create wallet for user:', (err as Error).message);
     }
 
+    // Auto-create principal profile in PENDING_APPROVAL state
+    if (user.role === 'PRINCIPAL') {
+      try {
+        await PrincipalProfileModel.create({
+          publicId: uuidv4(),
+          userPublicId: user.publicId,
+          status: PrincipalStatus.PENDING_APPROVAL,
+          commissionRatePercent: 15,
+          totalTutors: 0,
+          totalStudents: 0,
+          totalRevenueCents: 0,
+          trustScore: 50,
+          isDeleted: false,
+        });
+      } catch (err) {
+        console.warn('[auth] Could not create principal profile:', (err as Error).message);
+      }
+    }
+
     return { publicId: user.publicId };
   }
 
@@ -94,12 +115,29 @@ export class AuthService {
     }
 
     if (user.status === UserStatus.SUSPENDED) {
-      throw new AuthenticationError('Your account has been suspended');
+      throw new AuthenticationError('Your account has been suspended. Please contact support.');
     }
 
     const isPasswordValid = await argon2.verify(user.passwordHash, dto.password);
     if (!isPasswordValid) {
       throw new AuthenticationError('Invalid email or password');
+    }
+
+    if (!user.emailVerified || user.status === UserStatus.PENDING_VERIFICATION) {
+      throw new AuthenticationError('Please verify your email address before logging in. Check your inbox for the verification link.');
+    }
+
+    if (user.role === 'PRINCIPAL') {
+      const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: user.publicId, isDeleted: false }).lean();
+      if (!principalProfile || principalProfile.status === PrincipalStatus.PENDING_APPROVAL) {
+        throw new AuthenticationError('Your account is pending approval. Our team will review and approve your account shortly.');
+      }
+      if (principalProfile.status === PrincipalStatus.SUSPENDED) {
+        throw new AuthenticationError('Your account has been suspended. Please contact support.');
+      }
+      if (principalProfile.status === PrincipalStatus.INACTIVE) {
+        throw new AuthenticationError('Your account is inactive. Please contact support.');
+      }
     }
 
     const sessionId = generateSessionId();

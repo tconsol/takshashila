@@ -82,17 +82,21 @@ function PrincipalRow({
   approving: boolean;
   suspending: boolean;
 }) {
+  const fullName = `${principal.firstName} ${principal.lastName}`.trim() || 'Unknown';
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex items-center gap-4">
-      <Avatar name={principal.displayName} size="md" />
+      <Avatar name={fullName} size="md" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-semibold text-gray-900 dark:text-white">{principal.displayName}</p>
+          <p className="font-semibold text-gray-900 dark:text-white">{fullName}</p>
           <Badge variant={statusVariant[principal.status] ?? 'default'}>
             {principal.status.replace('_', ' ')}
           </Badge>
         </div>
-        <div className="flex gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+          {principal.email && <span>{principal.email}</span>}
+          {principal.organizationName && <span>{principal.organizationName}</span>}
           <span>{principal.totalTutors} tutors</span>
           <span>{principal.totalStudents} students</span>
           <span>Joined {format(new Date(principal.createdAt), 'MMM d, yyyy')}</span>
