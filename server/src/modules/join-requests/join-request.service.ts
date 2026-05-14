@@ -41,6 +41,7 @@ export class JoinRequestService {
         rating: 0, ratingCount: 0, isVerified: false, isDeleted: false,
       }).then((doc) => doc.toObject());
     }
+    if (!tutorProfile) throw new AppError('Failed to initialise tutor profile', 500);
 
     const principalProfile = await PrincipalProfileModel.findOne({
       publicId: principalProfilePublicId,
@@ -116,6 +117,7 @@ export class JoinRequestService {
         rating: 0, ratingCount: 0, isVerified: false, isDeleted: false,
       }).then((doc) => doc.toObject());
     }
+    if (!tutorProfile) throw new AppError('Failed to initialise tutor profile', 500);
 
     const existing = await JoinRequestModel.findOne({
       tutorUserPublicId: targetUser.publicId,
@@ -333,6 +335,7 @@ export class JoinRequestService {
         isDeleted: false,
       }).then((doc) => doc.toObject());
     }
+    if (!profile) throw new AppError('Failed to initialise tutor profile', 500);
 
     return {
       userPublicId: user.publicId,
