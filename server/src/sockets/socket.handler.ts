@@ -2,6 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server as IOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { logger } from '../lib/logger';
+import { env } from '../config/env';
 import { registerClassSocket } from './class.socket';
 import { registerNotificationSocket } from './notification.socket';
 import { registerChatSocket } from './chat.socket';
@@ -14,9 +15,11 @@ export interface AuthSocket extends Socket {
 let io: IOServer;
 
 export function initSocketServer(httpServer: HttpServer): IOServer {
+  const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
+
   io = new IOServer(httpServer, {
     cors: {
-      origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+      origin: allowedOrigins,
       credentials: true,
     },
     transports: ['websocket', 'polling'],
@@ -27,7 +30,7 @@ export function initSocketServer(httpServer: HttpServer): IOServer {
     if (!token) return next(new Error('Authentication required'));
 
     try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET ?? '') as { publicId: string; role: string };
+      const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as { publicId: string; role: string };
       (socket as AuthSocket).userPublicId = payload.publicId;
       (socket as AuthSocket).userRole = payload.role;
       next();

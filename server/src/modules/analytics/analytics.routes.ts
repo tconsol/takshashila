@@ -44,6 +44,14 @@ router.get('/platform/attendance', requireRole(Role.SUPER_ADMIN, Role.ADMIN), as
   } catch (e) { next(e); }
 });
 
+router.get('/super-admin/overview', requireRole(Role.SUPER_ADMIN), async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try { res.json(await analyticsService.getSuperAdminDashboard()); } catch (e) { next(e); }
+});
+
+router.get('/admin/overview', requireRole(Role.SUPER_ADMIN, Role.ADMIN), async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try { res.json(await analyticsService.getAdminDashboard()); } catch (e) { next(e); }
+});
+
 router.get('/principal/me', requireRole(Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     res.json(await analyticsService.getPrincipalStats(req.user!.publicId));

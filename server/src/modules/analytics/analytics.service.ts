@@ -5,9 +5,14 @@ import { AssignmentModel, SubmissionModel } from '../assignments/assignment.mode
 import { AttendanceModel } from '../attendance/attendance.model';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
+import { PrincipalProfileModel } from '../principals/principal.model';
+import { TicketModel } from '../support/support.model';
+import { AuditLogModel } from '../audit/audit.model';
 import { Role } from '../../constants/roles';
 import { ClassStatus } from '../schedules/schedule.types';
-import { TransactionType } from '../wallets/wallet.types';
+import { TransactionType, CreditType, TransactionStatus } from '../wallets/wallet.types';
+import { PrincipalStatus } from '../principals/principal.types';
+import { TicketStatus, TicketPriority } from '../support/support.types';
 
 export class AnalyticsService {
   async getPlatformOverview() {
@@ -105,6 +110,112 @@ export class AnalyticsService {
       ScheduledClassModel.distinct('studentPublicId', { tutorPublicId, status: ClassStatus.COMPLETED }).then((r) => r.length),
     ]);
     return { upcoming, completed, totalStudents };
+  }
+
+  async getSuperAdminDashboard() {
+    const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const [totalUsers, totalClasses, roleDistributionRaw, revenueTotalResult, tutorEarningsResult, recentAuditEvents] =
+      await Promise.all([
+        UserModel.countDocuments({ isDeleted: false }),
+        ScheduledClassModel.countDocuments({ isDeleted: false }),
+        UserModel.aggregate([
+          { $match: { isDeleted: false } },
+          { $group: { _id: '$role', count: { $sum: 1 } } },
+        ]),
+        WalletTransactionModel.aggregate([
+          { $match: { type: TransactionType.DEBIT, status: TransactionStatus.COMPLETED, createdAt: { $gte: since30d } } },
+          { $group: { _id: null, totalCents: { $sum: '$amountCents' } } },
+        ]),
+        WalletTransactionModel.aggregate([
+          { $match: { type: TransactionType.CREDIT, creditType: CreditType.EARNED_CREDITS, status: TransactionStatus.COMPLETED, createdAt: { $gte: since30d } } },
+          { $group: { _id: null, totalCents: { $sum: '$amountCents' } } },
+        ]),
+        AuditLogModel.find({}).sort({ createdAt: -1 }).limit(5).lean(),
+      ]);
+
+    const totalRevenueCents = revenueTotalResult[0]?.totalCents ?? 0;
+    const tutorEarningsCents = tutorEarningsResult[0]?.totalCents ?? 0;
+    const platformCommissionCents = Math.max(0, totalRevenueCents - tutorEarningsCents);
+
+    const roleDistribution = roleDistributionRaw.map((r: { _id: string; count: number }) => ({
+      role: r._id as string,
+      count: r.count,
+    }));
+
+    return {
+      totalUsers,
+      totalClasses,
+      roleDistribution,
+      revenue30d: {
+        totalCents: totalRevenueCents,
+        tutorEarningsCents,
+        platformCommissionCents,
+      },
+      recentAuditEvents,
+    };
+  }
+
+  async getAdminDashboard() {
+    const highPriorityStatuses = [TicketStatus.OPEN, TicketStatus.IN_PROGRESS];
+    const urgentPriorities = [TicketPriority.HIGH, TicketPriority.URGENT];
+
+    const [
+      pendingApprovals,
+      activePrincipals,
+      openTickets,
+      highPriorityTickets,
+      payoutsPendingResult,
+      pendingPrincipalProfiles,
+      urgentTicketsList,
+    ] = await Promise.all([
+      PrincipalProfileModel.countDocuments({ status: PrincipalStatus.PENDING_APPROVAL, isDeleted: false }),
+      PrincipalProfileModel.countDocuments({ status: PrincipalStatus.ACTIVE, isDeleted: false }),
+      TicketModel.countDocuments({ status: { $in: highPriorityStatuses }, isDeleted: false }),
+      TicketModel.countDocuments({ priority: { $in: urgentPriorities }, status: { $in: highPriorityStatuses }, isDeleted: false }),
+      WalletTransactionModel.aggregate([
+        { $match: { type: TransactionType.PAYOUT, status: TransactionStatus.PENDING } },
+        { $group: { _id: null, totalCents: { $sum: '$amountCents' } } },
+      ]),
+      PrincipalProfileModel.find({ status: PrincipalStatus.PENDING_APPROVAL, isDeleted: false })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+      TicketModel.find({ priority: { $in: urgentPriorities }, status: { $in: highPriorityStatuses }, isDeleted: false })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
+    ]);
+
+    const userPublicIds = pendingPrincipalProfiles.map((p) => p.userPublicId);
+    const users = await UserModel.find(
+      { publicId: { $in: userPublicIds } },
+      { publicId: 1, firstName: 1, lastName: 1, email: 1 },
+    ).lean();
+    const userMap = new Map(users.map((u) => [u.publicId, u]));
+
+    const pendingPrincipalsList = pendingPrincipalProfiles.map((p) => {
+      const u = userMap.get(p.userPublicId);
+      return {
+        publicId: p.publicId,
+        organizationName: p.organizationName ?? '',
+        name: u ? `${u.firstName} ${u.lastName}` : 'Unknown',
+        email: u?.email ?? '',
+        appliedAt: p.createdAt,
+      };
+    });
+
+    return {
+      stats: {
+        pendingApprovals,
+        activePrincipals,
+        openTickets,
+        highPriorityTickets,
+        payoutsPendingCents: payoutsPendingResult[0]?.totalCents ?? 0,
+      },
+      pendingPrincipalsList,
+      urgentTicketsList,
+    };
   }
 
   async getStudentStats(studentPublicId: string) {

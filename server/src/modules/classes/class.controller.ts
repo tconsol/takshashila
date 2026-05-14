@@ -50,6 +50,13 @@ export class ClassController {
     } catch (error) { next(error); }
   }
 
+  async getLiveClassesAsPrincipal(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await classService.getLiveClassesForPrincipal(req.user!.publicId, req.query);
+      sendPaginated(res, result, 'Live classes fetched');
+    } catch (error) { next(error); }
+  }
+
   async getMyClassesAsTutor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const tutorProfile = await tutorService.getByUserPublicId(req.user!.publicId);
@@ -69,7 +76,7 @@ export class ClassController {
         studentProfile = await studentService.getByUserPublicId(req.user!.publicId);
       } catch (err) {
         if (err instanceof NotFoundError) {
-          sendPaginated(res, { items: [], total: 0, page: 1, limit: 20, totalPages: 0 }, 'Classes fetched');
+          sendPaginated(res, { items: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }, 'Classes fetched');
           return;
         }
         throw err;
@@ -87,6 +94,13 @@ export class ClassController {
     try {
       const cls = await classService.getByPublicId(req.params.classId);
       sendSuccess(res, cls, 'Class fetched');
+    } catch (error) { next(error); }
+  }
+
+  async saveRecording(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const cls = await classService.saveRecording(req.params.classId, req.user!.publicId, req.body);
+      sendSuccess(res, cls, 'Recording saved');
     } catch (error) { next(error); }
   }
 }

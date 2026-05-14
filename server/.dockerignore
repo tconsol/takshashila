@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+.env.*
+*.log
+coverage
+jest.config.ts
+gcp-service-account.json
+google-service-account.json

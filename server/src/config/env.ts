@@ -21,13 +21,14 @@ const envSchema = z.object({
 
   COOKIE_SECRET: z.string().min(32, 'COOKIE_SECRET must be at least 32 chars'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  FRONTEND_URL: z.string().default('http://localhost:5173'),
 
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().default(1025),
   SMTP_SECURE: z.coerce.boolean().default(false),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  EMAIL_FROM: z.string().email().default('noreply@takshashila.com'),
+  EMAIL_FROM: z.string().default('noreply@takshashila.com'),
 
   GCP_PROJECT_ID: z.string().optional(),
   GCP_BUCKET_NAME: z.string().optional(),

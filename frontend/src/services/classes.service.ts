@@ -86,5 +86,8 @@ export const classesService = {
 
   setMeetingUrl: (classId: string, meetingUrl: string) =>
     api.patch(`/classes/${classId}/meeting-url`, { meetingUrl }).then((r) => mapClass(r.data.data)),
+
+  saveRecording: (classId: string, dto: { gcsObjectKey: string; recordingUrl: string }) =>
+    api.post(`/classes/${classId}/recording`, dto).then((r) => mapClass(r.data.data)),
 };
 

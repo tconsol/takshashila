@@ -213,7 +213,7 @@ export class ChatService {
     });
 
     return conversations.reduce((sum, c) => {
-      const val = (c.unreadCounts as Map<string, number>).get(userPublicId) ?? 0;
+      const val = (c.unreadCounts as unknown as Map<string, number>).get(userPublicId) ?? 0;
       return sum + val;
     }, 0);
   }
