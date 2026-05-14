@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Users, CheckCircle2, DollarSign, Headphones, ArrowUpRight, ClipboardList, Loader2 } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
@@ -6,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { analyticsService } from '../../services/analytics.service';
+import { useApprovePrincipal } from '../../hooks/use-principals';
 
 function formatCurrency(cents: number) {
   const dollars = cents / 100;
@@ -30,10 +32,13 @@ const PRIORITY_VARIANT: Record<string, 'danger' | 'warning'> = {
 };
 
 export function AdminDashboard() {
+  const navigate = useNavigate();
+  const { mutateAsync: approve, isPending: approving } = useApprovePrincipal();
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin-overview'],
     queryFn: analyticsService.getAdminOverview,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
   if (isLoading) {
@@ -118,7 +123,7 @@ export function AdminDashboard() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-violet-100 text-xs font-semibold text-brand-700 dark:from-brand-900/40 dark:to-violet-900/40 dark:text-brand-300">
-                        {p.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                        {p.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{p.name}</p>
@@ -129,8 +134,21 @@ export function AdminDashboard() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="ghost">Review</Button>
-                      <Button size="sm" variant="success">Approve</Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => navigate('/dashboard/admin/principals')}
+                      >
+                        Review
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="success"
+                        loading={approving}
+                        onClick={() => approve(p.publicId)}
+                      >
+                        Approve
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -161,7 +179,11 @@ export function AdminDashboard() {
                       </div>
                       <p className="mt-0.5 text-xs text-gray-500">{t.category} · {timeAgo(t.createdAt)}</p>
                     </div>
-                    <Button size="sm" variant="outline">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => navigate('/dashboard/admin/support')}
+                    >
                       Handle <ArrowUpRight className="h-3 w-3" />
                     </Button>
                   </div>

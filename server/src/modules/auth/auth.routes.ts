@@ -11,6 +11,7 @@ import {
   verifyEmailSchema,
   changePasswordSchema,
   refreshTokenSchema,
+  acceptInviteSchema,
 } from './auth.validators';
 
 const router = Router();
@@ -19,6 +20,7 @@ router.post('/register', authRateLimiter, validate(registerSchema), authControll
 router.post('/login', authRateLimiter, validate(loginSchema), authController.login.bind(authController));
 router.post('/refresh', validate(refreshTokenSchema), authController.refreshTokens.bind(authController));
 router.post('/verify-email', validate(verifyEmailSchema), authController.verifyEmail.bind(authController));
+router.post('/accept-invite', validate(acceptInviteSchema), authController.acceptInvite.bind(authController));
 router.post('/forgot-password', passwordResetLimiter, validate(forgotPasswordSchema), authController.forgotPassword.bind(authController));
 router.post('/reset-password', passwordResetLimiter, validate(resetPasswordSchema), authController.resetPassword.bind(authController));
 

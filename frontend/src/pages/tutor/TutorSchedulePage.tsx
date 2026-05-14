@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState, useCallback } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { useAuthStore } from '../../stores/auth.store';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addDays, startOfWeek } from 'date-fns';
+import { zonedTimeToUtc } from 'date-fns-tz';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -17,7 +19,7 @@ const slotSchema = z.object({
   date: z.string().min(1, 'Date is required'),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
-  timezone: z.string().default('UTC'),
+  ianaTimezone: z.string().default('UTC'),
 }).refine((d) => d.startTime < d.endTime, { message: 'End time must be after start time', path: ['endTime'] });
 
 type SlotForm = z.infer<typeof slotSchema>;
@@ -29,6 +31,7 @@ const statusVariant: Record<string, 'success' | 'warning' | 'default'> = {
 };
 
 export function TutorSchedulePage() {
+  const userTimezone = useAuthStore((s) => s.user?.timezone);
   const [weekOffset, setWeekOffset] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,26 +44,31 @@ export function TutorSchedulePage() {
   const { mutateAsync: createSlot, isPending: creating } = useCreateSlot();
   const { mutateAsync: deleteSlot } = useDeleteSlot();
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<SlotForm>({
+  const { register, handleSubmit, control, setValue, formState: { errors }, reset } = useForm<SlotForm>({
     resolver: zodResolver(slotSchema),
     defaultValues: {
       date: format(new Date(), 'yyyy-MM-dd'),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      ianaTimezone: userTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     },
   });
 
   const onSubmit = async (data: SlotForm) => {
     setError(null);
     try {
-      const startUTC = new Date(`${data.date}T${data.startTime}`).toISOString();
-      const endUTC = new Date(`${data.date}T${data.endTime}`).toISOString();
-      await createSlot({ startUTC, endUTC, timezone: data.timezone });
+      const startUTC = zonedTimeToUtc(new Date(`${data.date}T${data.startTime}`), data.ianaTimezone).toISOString();
+      const endUTC = zonedTimeToUtc(new Date(`${data.date}T${data.endTime}`), data.ianaTimezone).toISOString();
+      await createSlot({ startUTC, endUTC, ianaTimezone: data.ianaTimezone });
       reset();
       setShowCreate(false);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to create slot');
     }
   };
+
+  const detectTimezone = useCallback(() => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    setValue('ianaTimezone', tz, { shouldValidate: true });
+  }, [setValue]);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -135,12 +143,30 @@ export function TutorSchedulePage() {
             <Input label="Start Time" type="time" error={errors.startTime?.message} {...register('startTime')} />
             <Input label="End Time" type="time" error={errors.endTime?.message} {...register('endTime')} />
           </div>
-          <Select
-            label="Timezone"
-            options={TIMEZONE_OPTIONS}
-            placeholder="Select timezone"
-            {...register('timezone')}
-          />
+          <div>
+            <Controller
+              control={control}
+              name="ianaTimezone"
+              render={({ field }) => (
+                <Select
+                  label="Timezone"
+                  options={TIMEZONE_OPTIONS}
+                  placeholder="Select timezone"
+                  name={field.name}
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  onBlur={field.onBlur}
+                />
+              )}
+            />
+            <button
+              type="button"
+              onClick={detectTimezone}
+              className="mt-1 text-xs text-indigo-500 hover:text-indigo-700 underline"
+            >
+              Use my device timezone
+            </button>
+          </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
         </form>
       </Modal>

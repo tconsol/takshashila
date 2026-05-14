@@ -79,6 +79,10 @@ export class UserRepository {
     return UserModel.find({ publicId: { $in: publicIds }, isDeleted: false }).lean();
   }
 
+  async findByPhone(phone: string): Promise<IUser | null> {
+    return UserModel.findOne({ phone, isDeleted: false }).lean();
+  }
+
   async existsByEmail(email: string): Promise<boolean> {
     const count = await UserModel.countDocuments({ email: email.toLowerCase() });
     return count > 0;

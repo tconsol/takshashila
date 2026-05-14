@@ -93,6 +93,13 @@ export class TutorController {
     } catch (error) { next(error); }
   }
 
+  async getMyPrincipal(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const principal = await tutorService.getMyPrincipal(req.user!.publicId);
+      sendSuccess(res, principal, 'Principal fetched');
+    } catch (error) { next(error); }
+  }
+
   async invite(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, firstName, lastName, subjects, hourlyRateCents } = req.body as {

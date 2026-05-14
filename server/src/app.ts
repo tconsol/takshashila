@@ -29,6 +29,8 @@ import { chatRouter } from './modules/chat/chat.routes';
 import { ratingRouter } from './modules/ratings/rating.routes';
 import parentRoutes from './modules/parents/parent.routes';
 import worksheetRoutes from './modules/worksheets/worksheet.routes';
+import joinRequestRoutes from './modules/join-requests/join-request.routes';
+import { badgesRouter } from './modules/badges/badges.routes';
 
 const app = express();
 
@@ -96,6 +98,8 @@ app.use(`${API_BASE}/ratings`, ratingRouter);
 app.use(`${API_BASE}/analytics`, analyticsRouter);
 app.use(`${API_BASE}/parents`, parentRoutes);
 app.use(`${API_BASE}/worksheets`, worksheetRoutes);
+app.use(`${API_BASE}/join-requests`, joinRequestRoutes);
+app.use(`${API_BASE}/badges`, badgesRouter);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

@@ -5,15 +5,25 @@ import type { TutorSearchFilters } from '../services/tutors.service';
 export const tutorKeys = {
   all: ['tutors'] as const,
   myProfile: () => [...tutorKeys.all, 'me'] as const,
+  myPrincipal: () => [...tutorKeys.all, 'my-principal'] as const,
   detail: (id: string) => [...tutorKeys.all, id] as const,
   search: (filters?: TutorSearchFilters) => [...tutorKeys.all, 'search', filters] as const,
   pending: () => [...tutorKeys.all, 'pending'] as const,
+  myTutors: (params?: Record<string, string>) => [...tutorKeys.all, 'my-tutors', params] as const,
 };
 
 export function useMyTutorProfile() {
   return useQuery({
     queryKey: tutorKeys.myProfile(),
     queryFn: tutorsService.getMyProfile,
+  });
+}
+
+export function useMyPrincipal() {
+  return useQuery({
+    queryKey: tutorKeys.myPrincipal(),
+    queryFn: tutorsService.getMyPrincipal,
+    staleTime: 30_000,
   });
 }
 
@@ -32,10 +42,27 @@ export function useTutorSearch(filters?: TutorSearchFilters) {
   });
 }
 
+export function useMyTutors(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: tutorKeys.myTutors(params),
+    queryFn: () => tutorsService.listMyTutors(params),
+  });
+}
+
 export function usePendingTutors() {
   return useQuery({
     queryKey: tutorKeys.pending(),
     queryFn: tutorsService.listPending,
+  });
+}
+
+export function useInviteTutor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: tutorsService.invite,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: tutorKeys.all });
+    },
   });
 }
 

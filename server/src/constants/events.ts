@@ -65,6 +65,11 @@ export const DomainEvent = {
   PRINCIPAL_APPROVED: 'PRINCIPAL_APPROVED',
   PRINCIPAL_SUSPENDED: 'PRINCIPAL_SUSPENDED',
 
+  // ─── Join Requests ─────────────────────────────────────
+  JOIN_REQUEST_SENT: 'JOIN_REQUEST_SENT',
+  JOIN_REQUEST_APPROVED: 'JOIN_REQUEST_APPROVED',
+  JOIN_REQUEST_REJECTED: 'JOIN_REQUEST_REJECTED',
+
   // ─── Support ──────────────────────────────────────────
   TICKET_CREATED: 'TICKET_CREATED',
   TICKET_ESCALATED: 'TICKET_ESCALATED',

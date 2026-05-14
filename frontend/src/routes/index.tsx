@@ -15,6 +15,7 @@ import { RegisterPrincipalPage } from '../pages/auth/RegisterPrincipal';
 import { RegisterParentPage } from '../pages/auth/RegisterParent';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPassword';
 import { VerifyEmailPage } from '../pages/auth/VerifyEmail';
+import { AcceptInvitePage } from '../pages/auth/AcceptInvite';
 
 // Dashboards
 import { SuperAdminDashboard } from '../pages/dashboards/SuperAdminDashboard';
@@ -42,6 +43,7 @@ import { PrincipalAnalyticsPage } from '../pages/principal/PrincipalAnalyticsPag
 import { PrincipalWalletPage } from '../pages/principal/PrincipalWalletPage';
 
 // Tutor pages
+import { TutorPrincipalsPage } from '../pages/tutor/TutorPrincipalsPage';
 import { TutorClassesPage } from '../pages/tutor/TutorClassesPage';
 import { TutorSchedulePage } from '../pages/tutor/TutorSchedulePage';
 import { TutorStudentsPage } from '../pages/tutor/TutorStudentsPage';
@@ -101,6 +103,7 @@ export const router = createBrowserRouter([
       { path: '/register/parent', element: <RegisterParentPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/verify-email', element: <VerifyEmailPage /> },
+      { path: '/accept-invite', element: <AcceptInvitePage /> },
     ],
   },
 
@@ -156,6 +159,7 @@ export const router = createBrowserRouter([
       element: <DashboardLayout />,
       children: [
         { path: '/dashboard/tutor', element: <TutorDashboard /> },
+        { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/tutor/schedule', element: <TutorSchedulePage /> },
         { path: '/dashboard/tutor/students', element: <TutorStudentsPage /> },

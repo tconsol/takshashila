@@ -67,6 +67,16 @@ export class AuthController {
     }
   }
 
+  async acceptInvite(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { token, password } = req.body;
+      await authService.acceptInvite(token, password);
+      sendSuccess(res, null, 'Account activated successfully. You can now log in.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       await authService.forgotPassword(req.body);

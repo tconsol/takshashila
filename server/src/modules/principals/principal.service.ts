@@ -76,6 +76,39 @@ export class PrincipalService {
     return profile;
   }
 
+  async listActive(query: PaginationQuery): Promise<PaginatedResult<PrincipalWithUser>> {
+    const { page, limit, skip } = parsePaginationQuery(query);
+    const filter = { status: PrincipalStatus.ACTIVE, isDeleted: false };
+
+    const [items, total] = await Promise.all([
+      PrincipalProfileModel.aggregate([
+        { $match: filter },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'userPublicId',
+            foreignField: 'publicId',
+            as: 'user',
+          },
+        },
+        { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            firstName: { $ifNull: ['$user.firstName', ''] },
+            lastName: { $ifNull: ['$user.lastName', ''] },
+            email: { $ifNull: ['$user.email', ''] },
+          },
+        },
+        { $project: { user: 0 } },
+      ]),
+      PrincipalProfileModel.countDocuments(filter),
+    ]);
+    return buildPaginatedResult(items, total, page, limit);
+  }
+
   async listPending(query: PaginationQuery): Promise<PaginatedResult<PrincipalWithUser>> {
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter = { status: PrincipalStatus.PENDING_APPROVAL, isDeleted: false };

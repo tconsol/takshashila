@@ -18,12 +18,12 @@ const statusVariant: Record<string, BadgeVariant> = {
 };
 
 const TABS = [
-  { key: 'pending', label: 'Pending Approval' },
   { key: 'all', label: 'All Principals' },
+  { key: 'pending', label: 'Pending Approval' },
 ];
 
 export function AdminPrincipalsPage() {
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState('all');
   const { data: pendingData, isLoading: pendingLoading } = usePendingPrincipals();
   const { data: allData, isLoading: allLoading } = usePrincipalList();
   const { mutateAsync: approve, isPending: approving } = useApprovePrincipal();

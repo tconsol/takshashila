@@ -9,7 +9,14 @@ export const createTutorProfileSchema = z.object({
   timezone: z.string().optional(),
 });
 
-export const updateTutorProfileSchema = createTutorProfileSchema.partial();
+export const updateTutorProfileSchema = z.object({
+  subjects: z.array(z.string().min(1)).optional(),
+  languages: z.array(z.string().min(1)).optional(),
+  hourlyRateCents: z.number().int().min(0).optional(),
+  bio: z.string().max(1000).optional(),
+  qualifications: z.array(z.string()).optional(),
+  timezone: z.string().optional(),
+});
 
 export const inviteTutorSchema = z.object({
   email: z.string().email(),

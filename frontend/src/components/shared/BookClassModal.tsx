@@ -8,7 +8,8 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { useTutorSlots } from '../../hooks/use-schedules';
 import { useBookClass } from '../../hooks/use-classes';
-import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
+import { useAuthStore } from '../../stores/auth.store';
 import type { TutorProfile } from '../../services/tutors.service';
 
 const schema = z.object({
@@ -29,6 +30,7 @@ interface BookClassModalProps {
 
 export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassModalProps) {
   const [error, setError] = useState<string | null>(null);
+  const userTimezone = useAuthStore((s) => s.user?.timezone) ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const { data: slots = [], isLoading: slotsLoading } = useTutorSlots(tutor.publicId);
   const { mutateAsync: bookClass, isPending } = useBookClass();
 
@@ -41,7 +43,7 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
 
   const slotOptions = availableSlots.map((s) => ({
     value: s.publicId,
-    label: `${format(new Date(s.startUTC), 'EEE MMM d, h:mm a')} – ${format(new Date(s.endUTC), 'h:mm a')}`,
+    label: `${formatInTimeZone(new Date(s.startUTC), userTimezone, 'EEE MMM d, h:mm a')} – ${formatInTimeZone(new Date(s.endUTC), userTimezone, 'h:mm a')} (${userTimezone.split('/').pop()?.replace('_', ' ')})`,
   }));
 
   const subjectOptions = tutor.subjects.map((s) => ({ value: s, label: s }));

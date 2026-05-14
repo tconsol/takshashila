@@ -3,6 +3,8 @@ import type { AuthRequest } from '../shared/types';
 import { verifyAccessToken } from '../utils/token';
 import { getRedisClient } from '../config/redis';
 import { AuthenticationError } from '../utils/error';
+import { userRepository } from '../modules/users/user.repository';
+import { UserStatus } from '../modules/users/user.types';
 
 export async function authMiddleware(
   req: AuthRequest,
@@ -18,12 +20,25 @@ export async function authMiddleware(
 
     const payload = verifyAccessToken(token);
 
-    const redis = getRedisClient();
-    const sessionKey = `session:${payload.sessionId}`;
-    const session = await redis.get(sessionKey);
+    // Validate session in Redis
+    try {
+      const redis = getRedisClient();
+      const session = await redis.get(`session:${payload.sessionId}`);
+      if (!session) {
+        throw new AuthenticationError('Session expired or revoked');
+      }
+    } catch (err) {
+      if (err instanceof AuthenticationError) throw err;
+      // Redis unavailable — fall through to DB check below
+    }
 
-    if (!session) {
-      throw new AuthenticationError('Session expired or revoked');
+    // Verify user still exists in DB and is not deleted/suspended
+    const user = await userRepository.findByPublicId(payload.publicId);
+    if (!user) {
+      throw new AuthenticationError('Account not found');
+    }
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new AuthenticationError('Your account has been suspended');
     }
 
     req.user = payload;

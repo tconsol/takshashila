@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Users, GraduationCap, Video, ArrowUpRight, UserPlus, Building2,
@@ -15,16 +15,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Spinner } from '../../components/ui/Loading';
 import { api } from '../../lib/axios';
-
-interface PendingTutor {
-  publicId: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  subjects?: string[];
-  status?: string;
-  createdAt?: string;
-}
+import { usePendingTutors, useInviteTutor } from '../../hooks/use-tutors';
 
 function usePrincipalStats() {
   return useQuery({
@@ -36,28 +27,10 @@ function usePrincipalStats() {
   });
 }
 
-function usePendingTutors() {
-  return useQuery<PendingTutor[]>({
-    queryKey: ['tutors', 'pending'],
-    queryFn: async () => {
-      const { data } = await api.get('/tutors/pending', { params: { limit: 5 } });
-      return data?.data?.items ?? [];
-    },
-  });
-}
-
-function useInviteTutor() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: { email: string; firstName: string; lastName: string; subjects: string[] }) =>
-      api.post('/tutors/invite', payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tutors'] }),
-  });
-}
-
 export function PrincipalDashboard() {
   const { data: stats, isLoading: statsLoading } = usePrincipalStats();
-  const { data: pendingTutors = [], isLoading: tutorsLoading } = usePendingTutors();
+  const { data: pendingTutorsData, isLoading: tutorsLoading } = usePendingTutors();
+  const pendingTutors = pendingTutorsData?.items ?? [];
   const [inviteOpen, setInviteOpen] = useState(false);
 
   return (
@@ -120,11 +93,11 @@ export function PrincipalDashboard() {
                   <div key={t.publicId} className="flex items-center justify-between rounded-xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-violet-100 text-sm font-semibold text-brand-700 dark:from-brand-900/40 dark:to-violet-900/40 dark:text-brand-300">
-                        {(t.firstName?.[0] ?? 'T').toUpperCase()}{(t.lastName?.[0] ?? '').toUpperCase()}
+                        {(t.displayName?.[0] ?? 'T').toUpperCase()}{(t.displayName?.split(' ')[1]?.[0] ?? '').toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                          {t.firstName} {t.lastName}
+                          {t.displayName}
                         </p>
                         <p className="truncate text-xs text-gray-500">
                           {t.email ?? '—'}

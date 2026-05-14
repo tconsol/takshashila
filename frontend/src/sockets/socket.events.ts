@@ -31,6 +31,9 @@ export const SocketEvent = {
   // Recording
   RECORDING_STARTED: 'recording:started',
   RECORDING_STOPPED: 'recording:stopped',
+
+  // Data invalidation (server pushes when data changes)
+  DATA_INVALIDATE: 'data:invalidate',
 } as const;
 
 export type SocketEvent = (typeof SocketEvent)[keyof typeof SocketEvent];

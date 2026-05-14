@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   Users, Video, BookOpen, DollarSign, Clock, GraduationCap,
-  CalendarDays, ArrowUpRight, Plus,
+  CalendarDays, ArrowUpRight, Plus, AlertTriangle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -65,10 +65,22 @@ function useTutorWalletBalance() {
 const formatINR = (cents: number) =>
   `₹${(cents / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
+function useProfileCompleteness() {
+  return useQuery({
+    queryKey: ['tutors', 'me'],
+    queryFn: () => api.get('/tutors/me').then((r) => r.data.data),
+  });
+}
+
 export function TutorDashboard() {
   const { data: stats, isLoading: statsLoading } = useTutorStats();
   const { data: classes = [], isLoading: classesLoading } = useTutorClasses();
   const { data: balanceCents = 0 } = useTutorWalletBalance();
+  const { data: tutorProfile } = useProfileCompleteness();
+
+  const profileIncomplete =
+    tutorProfile &&
+    (tutorProfile.subjects?.length === 0 || !tutorProfile.bio || tutorProfile.hourlyRateCents === 0);
 
   return (
     <div className="animate-fade-in">
@@ -94,6 +106,23 @@ export function TutorDashboard() {
       />
 
       <LiveClassBanner />
+
+      {profileIncomplete && (
+        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 dark:border-amber-800/40 dark:bg-amber-900/20">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1 text-sm">
+            <span className="font-semibold text-amber-800 dark:text-amber-300">Your tutor profile is incomplete.</span>
+            <span className="ml-1.5 text-amber-700 dark:text-amber-400">
+              Add your subjects, bio, and hourly rate so students can find and book you.
+            </span>
+          </div>
+          <Link to="/profile">
+            <Button size="sm" variant="outline" className="shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/40">
+              Complete profile
+            </Button>
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard

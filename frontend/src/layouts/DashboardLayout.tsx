@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../components/shared/Sidebar';
 import { TopBar } from '../components/shared/TopBar';
+import { useDataInvalidation } from '../hooks/use-data-invalidation';
 
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  useDataInvalidation();
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-gradient-to-br from-brand-50/30 via-white to-violet-50/20 dark:from-gray-950 dark:via-gray-950 dark:to-brand-950/40">

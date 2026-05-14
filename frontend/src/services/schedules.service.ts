@@ -14,7 +14,7 @@ export interface AvailabilitySlot {
 export interface CreateSlotDto {
   startUTC: string;
   endUTC: string;
-  timezone: string;
+  ianaTimezone: string;
   recurrenceRule?: string;
 }
 
