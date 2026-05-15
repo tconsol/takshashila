@@ -19,3 +19,10 @@ export const createStudentByTutorSchema = z.object({
 });
 
 export type CreateStudentByTutorDto = z.infer<typeof createStudentByTutorSchema>;
+
+export const inviteExistingStudentSchema = z.object({
+  email: z.string().email().optional(),
+  phone: z.string().min(5).optional(),
+}).refine((d) => d.email || d.phone, { message: 'Provide email or phone' });
+
+export type InviteExistingStudentDto = z.infer<typeof inviteExistingStudentSchema>;

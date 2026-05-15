@@ -6,14 +6,14 @@ import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 export class TutorController {
   async getMyProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const profile = await tutorService.getByUserPublicId(req.user!.publicId);
+      const profile = await tutorService.getByUserPublicIdForDisplay(req.user!.publicId);
       sendSuccess(res, profile, 'Tutor profile fetched');
     } catch (error) { next(error); }
   }
 
   async getByPublicId(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const profile = await tutorService.getByPublicId(req.params.tutorId);
+      const profile = await tutorService.getByPublicIdForDisplay(req.params.tutorId);
       sendSuccess(res, profile, 'Tutor profile fetched');
     } catch (error) { next(error); }
   }

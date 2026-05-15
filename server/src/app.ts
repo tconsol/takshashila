@@ -32,6 +32,7 @@ import worksheetRoutes from './modules/worksheets/worksheet.routes';
 import joinRequestRoutes from './modules/join-requests/join-request.routes';
 import { badgesRouter } from './modules/badges/badges.routes';
 import demoRequestRoutes from './modules/demo-requests/demo-request.routes';
+import resourceRoutes from './modules/resources/resource.routes';
 
 const app = express();
 
@@ -102,6 +103,7 @@ app.use(`${API_BASE}/worksheets`, worksheetRoutes);
 app.use(`${API_BASE}/join-requests`, joinRequestRoutes);
 app.use(`${API_BASE}/badges`, badgesRouter);
 app.use(`${API_BASE}/demo-requests`, demoRequestRoutes);
+app.use(`${API_BASE}/resources`, resourceRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

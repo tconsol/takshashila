@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, BookOpen, Calendar, Wallet, Settings,
   BarChart3, Shield, Headphones, GraduationCap, LogOut, ChevronRight,
   UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText, Building2,
-  Sparkles,
+  Sparkles, FolderOpen,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth.store';
@@ -55,7 +55,8 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Classes', href: '/dashboard/tutor/classes', icon: Video },
     { label: 'Schedule', href: '/dashboard/tutor/schedule', icon: Calendar },
     { label: 'Assignments', href: '/dashboard/tutor/assignments', icon: BookOpen },
-    { label: 'Worksheets', href: '/dashboard/tutor/worksheets', icon: FileText },
+    { label: 'Worksheets', href: '/dashboard/tutor/worksheets', icon: FileText, badgeKey: 'worksheets' },
+    { label: 'Resources', href: '/dashboard/tutor/resources', icon: FolderOpen },
     { label: 'Attendance', href: '/dashboard/tutor/attendance', icon: UserCheck },
     { label: 'Progress', href: '/dashboard/tutor/progress', icon: BarChart3 },
     { label: 'Find Principal', href: '/dashboard/tutor/principals', icon: Building2, badgeKey: 'principals' },
@@ -65,10 +66,12 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   ],
   STUDENT: [
     { label: 'Overview', href: '/dashboard/student', icon: LayoutDashboard },
+    { label: 'My Tutor', href: '/dashboard/student/my-tutor', icon: GraduationCap },
     { label: 'Find Tutors', href: '/dashboard/student/tutors', icon: Search },
     { label: 'Classes', href: '/dashboard/student/classes', icon: Video, badgeKey: 'scheduleAlert' },
     { label: 'Assignments', href: '/dashboard/student/assignments', icon: BookOpen },
-    { label: 'Worksheets', href: '/dashboard/student/worksheets', icon: FileText },
+    { label: 'Worksheets', href: '/dashboard/student/worksheets', icon: FileText, badgeKey: 'worksheets' },
+    { label: 'Resources', href: '/dashboard/student/resources', icon: FolderOpen },
     { label: 'Attendance', href: '/dashboard/student/attendance', icon: UserCheck },
     { label: 'Progress', href: '/dashboard/student/progress', icon: BarChart3 },
     { label: 'Messages', href: '/chat', icon: MessageSquare, badgeKey: 'messages' },

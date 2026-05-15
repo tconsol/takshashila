@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   Video, BookOpen, BarChart3, Wallet, ArrowUpRight, Plus,
-  Sparkles, Target, GraduationCap,
+  Sparkles, Target, GraduationCap, Star, MessageSquare,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -13,7 +13,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
+import { Avatar } from '../../components/ui/Avatar';
 import { LiveClassBanner } from '../../features/live-class/LiveClassBanner';
+import { useMyTutor } from '../../hooks/use-students';
 import { api } from '../../lib/axios';
 
 interface ClassItem {
@@ -75,6 +77,7 @@ export function StudentDashboard() {
   const { data: stats, isLoading: statsLoading } = useStudentStats();
   const { data: classes = [], isLoading: classesLoading } = useStudentClasses();
   const { data: balanceCents = 0 } = useWalletBalance();
+  const { data: myTutor } = useMyTutor();
 
   return (
     <div className="animate-fade-in">
@@ -180,26 +183,72 @@ export function StudentDashboard() {
           </CardContent>
         </Card>
 
-        <Card tone="gradient" padding="lg">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/70 text-pink-600 ring-1 ring-pink-100 dark:bg-gray-900/60 dark:text-pink-300">
-            <Target className="h-6 w-6" />
-          </div>
-          <h3 className="mt-4 text-base font-semibold text-gray-900 dark:text-white">
-            Try a free demo
-          </h3>
-          <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-300">
-            You have <span className="font-semibold text-pink-600 dark:text-pink-400">3 demo credits</span>
-            {' '}to explore tutors before committing.
-          </p>
-          <Link to="/dashboard/student/tutors" className="mt-5 block">
-            <Button variant="gradient" fullWidth>
-              <BookOpen className="h-4 w-4" /> Browse tutors
-            </Button>
-          </Link>
-          <p className="mt-3 text-[11px] text-gray-500">
-            1 demo per tutor · non-transferable
-          </p>
-        </Card>
+        {myTutor ? (
+          <Card className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <Avatar name={myTutor.displayName} size="lg" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-400">My Tutor</p>
+                <p className="text-base font-bold text-gray-900 dark:text-white truncate">{myTutor.displayName}</p>
+                {myTutor.isVerified && (
+                  <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    Verified
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {myTutor.subjects?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {myTutor.subjects.slice(0, 4).map((s) => (
+                  <span key={s} className="rounded-full bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-700 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:text-brand-300">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {myTutor.rating > 0 && (
+              <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                <span className="font-semibold text-gray-800 dark:text-white">{myTutor.rating.toFixed(1)}</span>
+                <span className="text-xs">rating</span>
+              </div>
+            )}
+
+            {myTutor.bio && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{myTutor.bio}</p>
+            )}
+
+            <Link to="/chat" className="mt-auto">
+              <Button variant="outline" fullWidth size="sm">
+                <MessageSquare className="h-4 w-4" /> Message Tutor
+              </Button>
+            </Link>
+          </Card>
+        ) : (
+          <Card tone="gradient" padding="lg">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/70 text-pink-600 ring-1 ring-pink-100 dark:bg-gray-900/60 dark:text-pink-300">
+              <Target className="h-6 w-6" />
+            </div>
+            <h3 className="mt-4 text-base font-semibold text-gray-900 dark:text-white">
+              Try a free demo
+            </h3>
+            <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-300">
+              You have <span className="font-semibold text-pink-600 dark:text-pink-400">3 demo credits</span>
+              {' '}to explore tutors before committing.
+            </p>
+            <Link to="/dashboard/student/tutors" className="mt-5 block">
+              <Button variant="gradient" fullWidth>
+                <BookOpen className="h-4 w-4" /> Browse tutors
+              </Button>
+            </Link>
+            <p className="mt-3 text-[11px] text-gray-500">
+              1 demo per tutor · non-transferable
+            </p>
+          </Card>
+        )}
       </div>
     </div>
   );

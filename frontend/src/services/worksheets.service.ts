@@ -1,35 +1,48 @@
 import { api } from '../lib/axios';
 
+export interface IQuestion {
+  questionText: string;
+  options: [string, string, string, string];
+  correctIndex: 0 | 1 | 2 | 3;
+  explanation: string;
+}
+
 export interface Worksheet {
   publicId: string;
   tutorPublicId: string;
+  classPublicId?: string;
   title: string;
-  description: string;
-  content: string;
-  fileUrl?: string;
   subject?: string;
-  sharedWithStudentPublicIds: string[];
+  type: 'WORKSHEET' | 'ASSIGNMENT';
+  dueDate?: string;
+  questions: IQuestion[];
+  assignedToStudentPublicIds: string[];
   status: 'DRAFT' | 'PUBLISHED';
+  mySubmission?: WorksheetSubmission;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateWorksheetDto {
-  title: string;
-  description: string;
-  content: string;
-  fileUrl?: string;
-  subject?: string;
-  sharedWithStudentPublicIds?: string[];
+export interface WorksheetSubmission {
+  publicId: string;
+  worksheetPublicId: string;
+  studentPublicId: string;
+  answers: number[];
+  score: number;
+  correctCount: number;
+  totalQuestions: number;
+  timeTakenSeconds?: number;
+  submittedAt: string;
 }
 
-export interface UpdateWorksheetDto {
-  title?: string;
-  description?: string;
-  content?: string;
-  fileUrl?: string;
+export interface CreateWorksheetDto {
+  classPublicId?: string;
+  title: string;
   subject?: string;
-  sharedWithStudentPublicIds?: string[];
+  type: 'WORKSHEET' | 'ASSIGNMENT';
+  dueDate?: string;
+  questions: IQuestion[];
+  assignedToStudentPublicIds?: string[];
 }
 
 export interface PaginatedWorksheets {
@@ -53,18 +66,15 @@ export const worksheetsService = {
   getById: (id: string) =>
     api.get(`/worksheets/${id}`).then((r) => r.data.data as Worksheet),
 
-  update: (id: string, dto: UpdateWorksheetDto) =>
-    api.patch(`/worksheets/${id}`, dto).then((r) => r.data.data as Worksheet),
-
-  publish: (id: string) =>
-    api.post(`/worksheets/${id}/publish`).then((r) => r.data.data as Worksheet),
-
-  unpublish: (id: string) =>
-    api.post(`/worksheets/${id}/unpublish`).then((r) => r.data.data as Worksheet),
-
-  shareWithStudents: (id: string, studentPublicIds: string[]) =>
-    api.post(`/worksheets/${id}/share`, { studentPublicIds }).then((r) => r.data.data as Worksheet),
-
   delete: (id: string) =>
     api.delete(`/worksheets/${id}`),
+
+  submitAnswers: (id: string, answers: number[], timeTakenSeconds?: number) =>
+    api.post(`/worksheets/${id}/submit`, { answers, timeTakenSeconds }).then((r) => r.data.data as WorksheetSubmission),
+
+  getSubmissions: (id: string) =>
+    api.get(`/worksheets/${id}/submissions`).then((r) => r.data.data as WorksheetSubmission[]),
+
+  getMySubmission: (id: string) =>
+    api.get(`/worksheets/${id}/my-submission`).then((r) => r.data.data as WorksheetSubmission | null),
 };

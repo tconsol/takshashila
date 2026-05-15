@@ -6,11 +6,13 @@ import type { CreateDemoRequestDto, RejectDemoRequestDto } from './demo-request.
 import { scheduleService } from '../schedules/schedule.service';
 import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
+import { tutorRepository } from '../tutors/tutor.repository';
 import { AvailabilitySlotModel, ScheduledClassModel } from '../schedules/schedule.model';
 import { StudentProfileModel } from '../students/student.model';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentStatus } from '../students/student.types';
 import { ClassType, ClassStatus } from '../schedules/schedule.types';
+import { walletService } from '../wallets/wallet.service';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
@@ -183,18 +185,39 @@ export class DemoRequestService {
         { new: true },
       ).lean();
 
-      // Look up student's userPublicId so we can push to their socket room
-      const studentProfile = await StudentProfileModel.findOne(
+      // Connect student to this tutor: set tutorPublicId and activate them
+      const studentProfile = await StudentProfileModel.findOneAndUpdate(
         { publicId: request.studentPublicId, isDeleted: false },
-        { userPublicId: 1 },
+        {
+          $set: {
+            tutorPublicId: tutorProfile.publicId,
+            status: StudentStatus.ACTIVE,
+            approvedBy: tutorUserPublicId,
+            approvedAt: new Date(),
+          },
+        },
+        { new: true },
       ).lean();
 
+      // Initialize demo credits for the student if not already done
       if (studentProfile?.userPublicId) {
+        await walletService.initializeDemoCredits(studentProfile.userPublicId).catch(() => {});
+
         domainEvents.emit(DomainEvent.DEMO_REQUEST_ACCEPTED, {
           tutorUserPublicId: tutorUserPublicId,
           studentUserPublicId: studentProfile.userPublicId,
           classPublicId: scheduledClass.publicId,
           subject: request.preferredSubject,
+        });
+
+        await tutorRepository.incrementStats(tutorProfile.publicId, { totalStudents: 1 });
+
+        // Invalidate student list for the tutor
+        domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
+          studentPublicId: request.studentPublicId,
+          studentUserPublicId: studentProfile.userPublicId,
+          tutorUserPublicId,
+          approvedBy: tutorUserPublicId,
         });
       }
 

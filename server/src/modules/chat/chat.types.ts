@@ -19,6 +19,10 @@ export interface IMessage {
   body: string;
   isRead: boolean;
   readAt?: Date;
+  mediaPublicId?: string;
+  mediaMimeType?: string;
+  mediaName?: string;
+  mediaSizeBytes?: number;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -29,5 +33,9 @@ export interface StartConversationDto {
 }
 
 export interface SendMessageDto {
-  body: string;
+  body?: string;
+  mediaPublicId?: string;
+  mediaMimeType?: string;
+  mediaName?: string;
+  mediaSizeBytes?: number;
 }

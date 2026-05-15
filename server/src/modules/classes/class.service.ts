@@ -75,7 +75,9 @@ export class ClassService {
       domainEvents.emit(DomainEvent.CLASS_BOOKED, {
         classPublicId: scheduledClass.publicId,
         tutorPublicId: dto.tutorPublicId,
+        tutorUserPublicId: tutorProfile.userPublicId,
         studentPublicId: studentProfile.publicId,
+        studentUserPublicId: studentUserPublicId,
         classType: dto.classType,
         costCents,
       });
@@ -193,10 +195,17 @@ export class ClassService {
       await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
     }
 
+    const studentProfileForEvent = await StudentProfileModel.findOne(
+      { publicId: scheduled.studentPublicId, isDeleted: false },
+      { userPublicId: 1 },
+    ).lean();
+
     domainEvents.emit(DomainEvent.CLASS_COMPLETED, {
       classPublicId,
       tutorPublicId: scheduled.tutorPublicId,
+      tutorUserPublicId,
       studentPublicId: scheduled.studentPublicId,
+      studentUserPublicId: studentProfileForEvent?.userPublicId ?? '',
       costCents: scheduled.costCents,
     });
 
@@ -249,10 +258,17 @@ export class ClassService {
 
     await tutorService.recordClassCancelled(scheduled.tutorPublicId);
 
+    const [cancelledTutorProfile, cancelledStudentProfile] = await Promise.all([
+      TutorProfileModel.findOne({ publicId: scheduled.tutorPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
+      StudentProfileModel.findOne({ publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
+    ]);
+
     domainEvents.emit(DomainEvent.CLASS_CANCELLED, {
       classPublicId,
       cancelledBy: actorPublicId,
       reason: dto.reason,
+      tutorUserPublicId: cancelledTutorProfile?.userPublicId ?? '',
+      studentUserPublicId: cancelledStudentProfile?.userPublicId ?? '',
     });
 
     return updated!;

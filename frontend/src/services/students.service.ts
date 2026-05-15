@@ -3,19 +3,30 @@
 export interface StudentProfile {
   publicId: string;
   userPublicId: string;
-  firstName: string;
-  lastName: string;
+  tutorPublicId?: string;
+  firstName?: string;
+  lastName?: string;
   displayName: string;
   email?: string;
   status: string;
   grade?: string;
   notes?: string;
-  subjects: string[];
+  subjects?: string[];
   demoClassesUsed: number;
   totalClassesAttended: number;
   totalClassesMissed: number;
+  totalClassesBooked?: number;
   attendanceRate: number;
   createdAt: string;
+}
+
+export interface StudentLookupResult {
+  publicId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  alreadyLinked: boolean;
 }
 
 export interface CreateStudentDto {
@@ -63,5 +74,17 @@ export const studentsService = {
       '/students/my-students',
       { params },
     ).then((r) => r.data.data),
+
+  lookupStudent: (query: { email?: string; phone?: string }) =>
+    api.get<{ data: StudentLookupResult }>('/students/lookup', { params: query }).then((r) => r.data.data),
+
+  inviteExisting: (body: { email?: string; phone?: string }) =>
+    api.post<{ data: StudentProfile }>('/students/invite-existing', body).then((r) => r.data.data),
+
+  acceptInvite: () =>
+    api.post<{ data: StudentProfile }>('/students/me/accept-invite').then((r) => r.data.data),
+
+  declineInvite: () =>
+    api.post('/students/me/decline-invite').then(() => null),
 };
 

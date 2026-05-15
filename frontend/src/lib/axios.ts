@@ -10,67 +10,53 @@ export const api = axios.create({
   timeout: 15000,
 });
 
-api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// ── Token helpers ─────────────────────────────────────────────────────────────
+
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = typeof payload.exp === 'number' ? payload.exp : 0;
+    return Math.floor(Date.now() / 1000) >= exp;
+  } catch {
+    return true;
   }
+}
+
+function logout() {
+  useAuthStore.getState().clearAuth();
+  window.location.href = '/login';
+}
+
+// ── Request interceptor — attach token, auto-logout if expired ───────────────
+
+api.interceptors.request.use((config) => {
+  const { accessToken } = useAuthStore.getState();
+  if (!accessToken) return config;
+
+  if (isTokenExpired(accessToken)) {
+    logout();
+    return Promise.reject(new Error('Session expired. Please log in again.'));
+  }
+
+  config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
 });
 
-let isRefreshing = false;
-let refreshQueue: Array<(token: string) => void> = [];
+// ── Response interceptor — handle unexpected 401s ────────────────────────────
 
 api.interceptors.response.use(
   (res) => res,
-  async (error) => {
-    const original = error.config;
+  (error) => {
+    const isAuthEndpoint =
+      error.config?.url?.includes('/auth/login') ||
+      error.config?.url?.includes('/auth/refresh');
 
-    const isAuthEndpoint = original.url?.includes('/auth/login') || original.url?.includes('/auth/refresh');
-
-    if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
-      if (isRefreshing) {
-        return new Promise((resolve) => {
-          refreshQueue.push((token) => {
-            original.headers.Authorization = `Bearer ${token}`;
-            resolve(api(original));
-          });
-        });
-      }
-
-      original._retry = true;
-      isRefreshing = true;
-
-      try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) throw new Error('No refresh token');
-
-        const { data } = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken });
-        const newAccessToken: string = data.data.accessToken;
-
-        useAuthStore.getState().setAccessToken(newAccessToken);
-        localStorage.setItem('refreshToken', data.data.refreshToken);
-
-        refreshQueue.forEach((cb) => cb(newAccessToken));
-        refreshQueue = [];
-
-        original.headers.Authorization = `Bearer ${newAccessToken}`;
-        return api(original);
-      } catch {
-        refreshQueue = [];
-        useAuthStore.getState().clearAuth();
-        window.location.href = '/login';
-        return Promise.reject(error);
-      } finally {
-        isRefreshing = false;
-      }
+    if (error.response?.status === 401 && !isAuthEndpoint) {
+      logout();
     }
 
-    // Normalise error message so callers get the API message, not "Request failed with status 404"
     const apiMessage = error.response?.data?.message;
-    if (apiMessage) {
-      error.message = apiMessage;
-    }
+    if (apiMessage) error.message = apiMessage;
     return Promise.reject(error);
   },
 );

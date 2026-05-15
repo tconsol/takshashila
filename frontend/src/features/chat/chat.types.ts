@@ -2,6 +2,7 @@ export interface IConversation {
   publicId: string;
   participantPublicIds: [string, string];
   participantRoles: [string, string];
+  participantNames?: [string, string];
   lastMessageAt?: string;
   lastMessagePreview?: string;
   unreadCounts: Record<string, number>;
@@ -16,5 +17,17 @@ export interface IMessage {
   body: string;
   isRead: boolean;
   readAt?: string;
+  mediaPublicId?: string;
+  mediaMimeType?: string;
+  mediaName?: string;
+  mediaSizeBytes?: number;
   createdAt: string;
+}
+
+export interface SendMessagePayload {
+  body?: string;
+  mediaPublicId?: string;
+  mediaMimeType?: string;
+  mediaName?: string;
+  mediaSizeBytes?: number;
 }

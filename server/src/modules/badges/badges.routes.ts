@@ -13,6 +13,8 @@ import { StudentStatus } from '../students/student.types';
 import { TicketModel } from '../support/support.model';
 import { TicketStatus } from '../support/support.types';
 import { chatService } from '../chat/chat.service';
+import { WorksheetModel, WorksheetSubmissionModel } from '../worksheets/worksheet.model';
+import { WorksheetStatus } from '../worksheets/worksheet.types';
 
 const router = Router();
 router.use(authMiddleware);
@@ -60,6 +62,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
     }
 
     if (role === 'TUTOR') {
+      const tutorProfile = await TutorProfileModel.findOne({ userPublicId: publicId, isDeleted: false }, { publicId: 1 }).lean();
       const joinRequests = await JoinRequestModel.countDocuments({
         tutorUserPublicId: publicId,
         initiatedBy: JoinRequestInitiator.PRINCIPAL,
@@ -67,6 +70,41 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
         isDeleted: false,
       });
       if (joinRequests > 0) badges['principals'] = joinRequests;
+
+      // New worksheet submissions for this tutor
+      if (tutorProfile) {
+        const tutorWorksheetIds = await WorksheetModel.distinct('publicId', {
+          tutorPublicId: tutorProfile.publicId,
+          status: WorksheetStatus.PUBLISHED,
+          isDeleted: false,
+        });
+        const newSubmissions = await WorksheetSubmissionModel.countDocuments({
+          worksheetPublicId: { $in: tutorWorksheetIds },
+          isDeleted: false,
+        });
+        if (newSubmissions > 0) badges['worksheets'] = newSubmissions;
+      }
+    }
+
+    if (role === 'STUDENT') {
+      const studentProfile = await StudentProfileModel.findOne({ userPublicId: publicId, isDeleted: false }, { publicId: 1 }).lean();
+      if (studentProfile) {
+        const filter = {
+          $or: [
+            { assignedToStudentPublicIds: studentProfile.publicId },
+            { assignedToStudentPublicIds: { $size: 0 } },
+          ],
+          status: WorksheetStatus.PUBLISHED,
+          isDeleted: false,
+        };
+        const totalAssigned = await WorksheetModel.countDocuments(filter);
+        const submitted = await WorksheetSubmissionModel.countDocuments({
+          studentPublicId: studentProfile.publicId,
+          isDeleted: false,
+        });
+        const pending = Math.max(0, totalAssigned - submitted);
+        if (pending > 0) badges['worksheets'] = pending;
+      }
     }
 
     if (role === 'ADMIN' || role === 'SUPER_ADMIN') {

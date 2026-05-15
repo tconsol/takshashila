@@ -144,25 +144,13 @@ function WorksheetsTab({ studentPublicId }: { studentPublicId: string }) {
                 <p className="font-semibold text-gray-900 dark:text-white">{w.title}</p>
                 {w.subject && <Badge variant="info">{w.subject}</Badge>}
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{w.description}</p>
+              <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
+                <span>{w.questions?.length ?? 0} questions</span>
+                {w.dueDate && <span>Due {format(new Date(w.dueDate), 'MMM d')}</span>}
+              </div>
               <p className="text-xs text-gray-400 mt-1">Added {format(new Date(w.createdAt), 'MMM d, yyyy')}</p>
             </div>
           </div>
-          {w.content && (
-            <div className="mt-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 line-clamp-3 whitespace-pre-wrap">
-              {w.content}
-            </div>
-          )}
-          {w.fileUrl && (
-            <a
-              href={w.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
-            >
-              <FileText className="h-3 w-3" /> Download worksheet
-            </a>
-          )}
         </div>
       ))}
     </div>

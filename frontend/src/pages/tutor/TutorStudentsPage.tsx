@@ -13,13 +13,15 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { AttendanceSheet } from '../../components/shared/AttendanceSheet';
 import { useMyClassesAsTutor } from '../../hooks/use-classes';
-import { useMyStudentsAsTutor, useCreateStudent } from '../../hooks/use-students';
+import { useMyStudentsAsTutor, useCreateStudent, useInviteExistingStudent } from '../../hooks/use-students';
+import { studentsService } from '../../services/students.service';
+import type { StudentLookupResult } from '../../services/students.service';
 import { useQuery } from '@tanstack/react-query';
 import { attendanceService } from '../../services/attendance.service';
 import { formatInTimeZone } from 'date-fns-tz';
 import type { ClassRecord } from '../../services/classes.service';
 import { useStartConversation } from '../../features/chat/use-chat';
-import { UserPlus, GraduationCap, BookOpen, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, GraduationCap, BookOpen, Eye, EyeOff, Search } from 'lucide-react';
 import { GRADE_OPTIONS, GRADE_LIST } from '../../constants/grades';
 
 // ── Create-student form schema ───────────────────────────────────────
@@ -55,11 +57,17 @@ export function TutorStudentsPage() {
     Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const [tab, setTab]                   = useState<'students' | 'classes'>('students');
-  const [showCreate, setShowCreate]     = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm]   = useState(false);
-  const [formError, setFormError]       = useState<string | null>(null);
-  const [selectedClass, setSelectedClass] = useState<ClassRecord | null>(null);
+  const [showCreate, setShowCreate]         = useState(false);
+  const [showInvite, setShowInvite]         = useState(false);
+  const [showPassword, setShowPassword]     = useState(false);
+  const [showConfirm, setShowConfirm]       = useState(false);
+  const [formError, setFormError]           = useState<string | null>(null);
+  const [selectedClass, setSelectedClass]   = useState<ClassRecord | null>(null);
+  const [inviteQuery, setInviteQuery]       = useState('');
+  const [inviteMode, setInviteMode]         = useState<'email' | 'phone'>('email');
+  const [lookupResult, setLookupResult]     = useState<StudentLookupResult | null>(null);
+  const [lookupError, setLookupError]       = useState<string | null>(null);
+  const [lookupLoading, setLookupLoading]   = useState(false);
 
   // ── data ──
   const { data: studentsPage, isLoading: studentsLoading } = useMyStudentsAsTutor({ limit: '200' });
@@ -76,6 +84,7 @@ export function TutorStudentsPage() {
 
   const { mutateAsync: startConversation } = useStartConversation();
   const { mutateAsync: createStudent, isPending: creating } = useCreateStudent();
+  const { mutateAsync: inviteExisting, isPending: inviting } = useInviteExistingStudent();
 
   // ── form ──
   const {
@@ -86,6 +95,36 @@ export function TutorStudentsPage() {
   const handleMessage = async (userPublicId: string) => {
     const conv = await startConversation({ recipientPublicId: userPublicId, recipientRole: 'STUDENT' });
     navigate(`/chat/${conv.publicId}`);
+  };
+
+  const handleLookup = async () => {
+    setLookupError(null);
+    setLookupResult(null);
+    if (!inviteQuery.trim()) return;
+    setLookupLoading(true);
+    try {
+      const params = inviteMode === 'email' ? { email: inviteQuery.trim() } : { phone: inviteQuery.trim() };
+      const result = await studentsService.lookupStudent(params);
+      setLookupResult(result);
+    } catch (e: unknown) {
+      setLookupError(e instanceof Error ? e.message : 'Student not found');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const handleSendInvite = async () => {
+    if (!lookupResult) return;
+    setLookupError(null);
+    try {
+      const params = inviteMode === 'email' ? { email: inviteQuery.trim() } : { phone: inviteQuery.trim() };
+      await inviteExisting(params);
+      setShowInvite(false);
+      setInviteQuery('');
+      setLookupResult(null);
+    } catch (e: unknown) {
+      setLookupError(e instanceof Error ? e.message : 'Failed to send invite');
+    }
   };
 
   const onSubmit = async (data: CreateStudentForm) => {
@@ -112,10 +151,16 @@ export function TutorStudentsPage() {
           title="My Students"
           subtitle={`${students.length} student${students.length !== 1 ? 's' : ''} linked to your account`}
         />
-        <Button onClick={() => setShowCreate(true)}>
-          <UserPlus size={16} className="mr-1.5" />
-          Add Student
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowInvite(true)}>
+            <Search size={16} className="mr-1.5" />
+            Find & Invite
+          </Button>
+          <Button onClick={() => setShowCreate(true)}>
+            <UserPlus size={16} className="mr-1.5" />
+            Create New
+          </Button>
+        </div>
       </div>
 
       {/* ── Tabs ── */}
@@ -155,64 +200,65 @@ export function TutorStudentsPage() {
               <Button size="sm" onClick={() => setShowCreate(true)}>Add your first student</Button>
             </div>
           ) : (
-            <>
-              {/* Table header */}
-              <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-4 px-5 py-2.5 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                <span />
-                <span>Student</span>
-                <span className="text-center">Grade</span>
-                <span className="text-center">Attendance</span>
-                <span className="text-center">Status</span>
-                <span />
-              </div>
-
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3 w-10" />
+                  <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-3 py-3">Student</th>
+                  <th className="text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-3 py-3 w-24">Grade</th>
+                  <th className="text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-3 py-3 w-28">Attendance</th>
+                  <th className="text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-3 py-3 w-32">Status</th>
+                  <th className="text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3 w-24">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {students.map((student) => {
-                  const name = student.displayName || `${student.firstName} ${student.lastName}`.trim() || 'Student';
+                  const name = student.displayName || `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim() || 'Student';
+                  const attendancePct = Math.round(student.attendanceRate ?? 0);
                   return (
-                    <div
-                      key={student.publicId}
-                      className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-4 px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                    >
-                      <Avatar name={name} size="sm" />
-
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{name}</p>
+                    <tr key={student.publicId} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <Avatar name={name} size="sm" />
+                      </td>
+                      <td className="px-3 py-3.5 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{name}</p>
                         {student.email && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{student.email}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-xs">{student.email}</p>
                         )}
                         {student.notes && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5 italic">{student.notes}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-xs mt-0.5 italic">{student.notes}</p>
                         )}
-                      </div>
-
-                      <span className="text-sm text-gray-500 dark:text-gray-400 text-center min-w-[48px]">
-                        {student.grade ?? '—'}
-                      </span>
-
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center min-w-[56px]">
-                        {student.totalClassesAttended > 0
-                          ? `${Math.round(student.attendanceRate)}%`
-                          : '—'}
-                      </span>
-
-                      <div className="flex justify-center min-w-[100px]">
+                      </td>
+                      <td className="px-3 py-3.5 text-center">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">{student.grade ?? '—'}</span>
+                      </td>
+                      <td className="px-3 py-3.5 text-center">
+                        <span className={`text-sm font-medium ${
+                          attendancePct >= 75 ? 'text-green-600 dark:text-green-400'
+                          : attendancePct >= 50 ? 'text-yellow-600 dark:text-yellow-400'
+                          : attendancePct === 0 ? 'text-gray-400' : 'text-red-500'
+                        }`}>
+                          {student.totalClassesAttended > 0 ? `${attendancePct}%` : '—'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3.5 text-center">
                         <Badge variant={STATUS_VARIANT[student.status] ?? 'default'}>
                           {student.status.replace('_', ' ')}
                         </Badge>
-                      </div>
-
-                      <button
-                        onClick={() => handleMessage(student.userPublicId)}
-                        className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap"
-                      >
-                        Message
-                      </button>
-                    </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <button
+                          onClick={() => handleMessage(student.userPublicId)}
+                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap"
+                        >
+                          Message
+                        </button>
+                      </td>
+                    </tr>
                   );
                 })}
-              </div>
-            </>
+              </tbody>
+            </table>
           )}
         </div>
       )}
@@ -282,6 +328,85 @@ export function TutorStudentsPage() {
             />
           </div>
         )}
+      </Modal>
+
+      {/* ── Find & Invite existing student modal ── */}
+      <Modal
+        open={showInvite}
+        onClose={() => { setShowInvite(false); setInviteQuery(''); setLookupResult(null); setLookupError(null); }}
+        title="Find & Invite Student"
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowInvite(false)}>Cancel</Button>
+            {lookupResult && !lookupResult.alreadyLinked && (
+              <Button onClick={handleSendInvite} loading={inviting}>Send Invite</Button>
+            )}
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
+            Search for an existing student account by email or phone. An invite will be sent — the student must accept to appear in your students list.
+          </div>
+
+          {/* Toggle email / phone */}
+          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">
+            {(['email', 'phone'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => { setInviteMode(mode); setInviteQuery(''); setLookupResult(null); setLookupError(null); }}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  inviteMode === mode ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                {mode === 'email' ? 'Email' : 'Phone'}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type={inviteMode === 'email' ? 'email' : 'tel'}
+              value={inviteQuery}
+              onChange={(e) => { setInviteQuery(e.target.value); setLookupResult(null); setLookupError(null); }}
+              onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
+              placeholder={inviteMode === 'email' ? 'student@example.com' : '+91 98765 43210'}
+              className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <Button type="button" variant="outline" onClick={handleLookup} loading={lookupLoading}>
+              Search
+            </Button>
+          </div>
+
+          {lookupError && (
+            <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{lookupError}</p>
+          )}
+
+          {lookupResult && (
+            <div className={`rounded-xl border p-4 flex items-center gap-3 ${
+              lookupResult.alreadyLinked
+                ? 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
+                : 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
+            }`}>
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 font-semibold text-indigo-600 text-sm ring-1 ring-indigo-200">
+                {lookupResult.firstName[0]}{lookupResult.lastName[0]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {lookupResult.firstName} {lookupResult.lastName}
+                </p>
+                <p className="text-xs text-gray-500 truncate">{lookupResult.email}</p>
+              </div>
+              {lookupResult.alreadyLinked ? (
+                <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Already linked</span>
+              ) : (
+                <span className="text-xs font-medium text-green-700 dark:text-green-400">Found</span>
+              )}
+            </div>
+          )}
+        </div>
       </Modal>
 
       {/* ── Create Student modal ── */}

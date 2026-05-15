@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studentsService } from '../services/students.service';
+import { tutorsService } from '../services/tutors.service';
 import type { CreateStudentDto } from '../services/students.service';
 
 export const studentKeys = {
@@ -64,10 +65,46 @@ export function useMyStudentsAsTutor(params?: Record<string, string>) {
   });
 }
 
+export function useMyTutor() {
+  const { data: profile } = useMyStudentProfile();
+  return useQuery({
+    queryKey: ['tutors', 'my-tutor', profile?.tutorPublicId],
+    queryFn: () => tutorsService.getByPublicId(profile!.tutorPublicId!),
+    enabled: !!profile?.tutorPublicId,
+  });
+}
+
 export function useCreateStudent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateStudentDto) => studentsService.createStudent(dto),
     onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.myTutorStudents() }),
+  });
+}
+
+export function useInviteExistingStudent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { email?: string; phone?: string }) => studentsService.inviteExisting(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.myTutorStudents() }),
+  });
+}
+
+export function useAcceptInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => studentsService.acceptInvite(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: studentKeys.myProfile() });
+      qc.invalidateQueries({ queryKey: ['tutors', 'my-tutor'] });
+    },
+  });
+}
+
+export function useDeclineInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => studentsService.declineInvite(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.myProfile() }),
   });
 }

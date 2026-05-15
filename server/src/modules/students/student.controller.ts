@@ -3,7 +3,7 @@ import type { AuthRequest } from '../../shared/types';
 import { studentService } from './student.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 import { NotFoundError } from '../../utils/error';
-import type { CreateStudentByTutorDto } from './student.validators';
+import type { CreateStudentByTutorDto, InviteExistingStudentDto } from './student.validators';
 
 export class StudentController {
   async createStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -75,6 +75,36 @@ export class StudentController {
     try {
       const result = await studentService.listPending(req.query);
       sendPaginated(res, result, 'Pending students fetched');
+    } catch (error) { next(error); }
+  }
+
+  async lookupStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const dto = req.query as InviteExistingStudentDto;
+      const result = await studentService.lookupByEmailOrPhone(req.user!.publicId, dto);
+      sendSuccess(res, result, 'Student found');
+    } catch (error) { next(error); }
+  }
+
+  async inviteExistingStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const dto = req.body as InviteExistingStudentDto;
+      const profile = await studentService.inviteExisting(req.user!.publicId, dto);
+      sendCreated(res, profile, 'Invite sent');
+    } catch (error) { next(error); }
+  }
+
+  async acceptInvite(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const profile = await studentService.acceptInvite(req.user!.publicId);
+      sendSuccess(res, profile, 'Invite accepted');
+    } catch (error) { next(error); }
+  }
+
+  async declineInvite(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await studentService.declineInvite(req.user!.publicId);
+      sendSuccess(res, null, 'Invite declined');
     } catch (error) { next(error); }
   }
 

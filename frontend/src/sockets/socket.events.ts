@@ -45,6 +45,10 @@ export const SocketEvent = {
   // Demo request outcomes pushed to student in real-time
   DEMO_ACCEPTED: 'demo:accepted',
   DEMO_REJECTED: 'demo:rejected',
+  // New demo request pushed to tutor in real-time
+  DEMO_NEW_REQUEST: 'demo:new-request',
+  // Tutor invite pushed to student
+  STUDENT_INVITED: 'student:invited',
 } as const;
 
 export type SocketEvent = (typeof SocketEvent)[keyof typeof SocketEvent];

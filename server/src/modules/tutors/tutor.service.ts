@@ -58,10 +58,29 @@ export class TutorService {
     return profile;
   }
 
+  async getByPublicIdForDisplay(publicId: string): Promise<ITutorProfile & { displayName: string; email: string }> {
+    const profile = await this.getByPublicId(publicId);
+    return this._hydrateOne(profile);
+  }
+
   async getByUserPublicId(userPublicId: string): Promise<ITutorProfile> {
     const profile = await tutorRepository.findByUserPublicId(userPublicId);
     if (!profile) throw new NotFoundError('Tutor profile');
     return profile;
+  }
+
+  async getByUserPublicIdForDisplay(userPublicId: string): Promise<ITutorProfile & { displayName: string; email: string }> {
+    const profile = await this.getByUserPublicId(userPublicId);
+    return this._hydrateOne(profile);
+  }
+
+  private async _hydrateOne(profile: ITutorProfile): Promise<ITutorProfile & { displayName: string; email: string }> {
+    const user = await userRepository.findByPublicId(profile.userPublicId);
+    return {
+      ...profile,
+      displayName: user ? `${user.firstName} ${user.lastName}`.trim() : 'Unknown Tutor',
+      email: user?.email ?? '',
+    };
   }
 
   async getMyPrincipal(tutorUserPublicId: string): Promise<(object & { firstName: string; lastName: string; email: string }) | null> {

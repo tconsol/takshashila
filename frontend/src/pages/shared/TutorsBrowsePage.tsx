@@ -345,9 +345,10 @@ function TutorCard({ tutor, onBook }: { tutor: TutorListing; onBook: () => void 
               <Languages className="h-3.5 w-3.5" /> {tutor.languages.slice(0, 2).join(', ')}
             </span>
           )}
-          {tutor.timezone && (
+          {tutor.timezone && tutor.timezone !== 'UTC' && (
             <span className="inline-flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" /> {tutor.timezone.split('/').pop()}
+              <Clock className="h-3.5 w-3.5" />
+              {tutor.timezone.split('/').pop()?.replace(/_/g, ' ')}
             </span>
           )}
         </div>

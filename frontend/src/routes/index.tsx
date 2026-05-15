@@ -54,14 +54,17 @@ import { TutorAttendancePage } from '../pages/tutor/TutorAttendancePage';
 import { TutorProgressPage } from '../pages/tutor/TutorProgressPage';
 import { TutorWalletPage } from '../pages/tutor/TutorWalletPage';
 import { TutorDemoRequestsPage } from '../pages/tutor/TutorDemoRequestsPage';
+import { TutorResourcesPage } from '../pages/tutor/TutorResourcesPage';
 
 // Student pages
+import { StudentMyTutorPage } from '../pages/student/StudentMyTutorPage';
 import { StudentClassesPage } from '../pages/student/StudentClassesPage';
 import { StudentAssignmentsPage } from '../pages/student/StudentAssignmentsPage';
 import { StudentAttendancePage } from '../pages/student/StudentAttendancePage';
 import { StudentProgressPage } from '../pages/student/StudentProgressPage';
 import { StudentWalletPage } from '../pages/student/StudentWalletPage';
 import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
+import { StudentResourcesPage } from '../pages/student/StudentResourcesPage';
 
 // Parent pages
 import { ParentChildrenPage } from '../pages/parent/ParentChildrenPage';
@@ -169,6 +172,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/tutor/students', element: <TutorStudentsPage /> },
         { path: '/dashboard/tutor/assignments', element: <TutorAssignmentsPage /> },
         { path: '/dashboard/tutor/worksheets', element: <TutorWorksheetsPage /> },
+        { path: '/dashboard/tutor/resources', element: <TutorResourcesPage /> },
         { path: '/dashboard/tutor/attendance', element: <TutorAttendancePage /> },
         { path: '/dashboard/tutor/progress', element: <TutorProgressPage /> },
         { path: '/dashboard/tutor/wallet', element: <TutorWalletPage /> },
@@ -183,10 +187,12 @@ export const router = createBrowserRouter([
       element: <DashboardLayout />,
       children: [
         { path: '/dashboard/student', element: <StudentDashboard /> },
+        { path: '/dashboard/student/my-tutor', element: <StudentMyTutorPage /> },
         { path: '/dashboard/student/tutors', element: <TutorsBrowsePage variant="student" /> },
         { path: '/dashboard/student/classes', element: <StudentClassesPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
         { path: '/dashboard/student/worksheets', element: <StudentWorksheetsPage /> },
+        { path: '/dashboard/student/resources', element: <StudentResourcesPage /> },
         { path: '/dashboard/student/attendance', element: <StudentAttendancePage /> },
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },
         { path: '/dashboard/student/wallet', element: <StudentWalletPage /> },

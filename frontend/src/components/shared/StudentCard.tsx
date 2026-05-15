@@ -53,7 +53,7 @@ export function StudentCard({ student, onApprove, onSuspend, onView, onMessage }
         </div>
         {(student.subjects?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
-            {student.subjects.slice(0, 4).map((s) => (
+            {(student.subjects ?? []).slice(0, 4).map((s) => (
               <span key={s} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md px-2 py-0.5">
                 {s}
               </span>
