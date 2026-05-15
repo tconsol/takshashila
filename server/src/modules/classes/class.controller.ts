@@ -4,7 +4,12 @@ import { classService } from './class.service';
 import { tutorService } from '../tutors/tutor.service';
 import { studentService } from '../students/student.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
-import { NotFoundError } from '../../utils/error';
+import { NotFoundError, AppError } from '../../utils/error';
+import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
+import { env } from '../../config/env';
+import { ScheduledClassModel } from '../schedules/schedule.model';
+import { TutorProfileModel } from '../tutors/tutor.model';
+import { StudentProfileModel } from '../students/student.model';
 
 function parseClassFilters(query: Record<string, unknown>) {
   return {
@@ -26,6 +31,13 @@ export class ClassController {
     try {
       const cls = await classService.startClass(req.params.classId, req.user!.publicId);
       sendSuccess(res, cls, 'Class started');
+    } catch (error) { next(error); }
+  }
+
+  async joinClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const cls = await classService.joinClass(req.params.classId, req.user!.publicId, req.user!.role);
+      sendSuccess(res, cls, 'Joined class');
     } catch (error) { next(error); }
   }
 
@@ -101,6 +113,50 @@ export class ClassController {
     try {
       const cls = await classService.saveRecording(req.params.classId, req.user!.publicId, req.body);
       sendSuccess(res, cls, 'Recording saved');
+    } catch (error) { next(error); }
+  }
+
+  async getAgoraToken(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { classId } = req.params;
+      const userPublicId = req.user!.publicId;
+      const role = req.user!.role;
+
+      const cls = await ScheduledClassModel.findOne({ publicId: classId, isDeleted: false }).lean();
+      if (!cls) throw new NotFoundError('Class');
+
+      // Verify the requesting user belongs to this class
+      let authorized = false;
+      if (role === 'TUTOR') {
+        const tutorProfile = await TutorProfileModel.findOne({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
+        authorized = tutorProfile?.publicId === cls.tutorPublicId;
+      } else if (role === 'STUDENT') {
+        const studentProfile = await StudentProfileModel.findOne({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
+        authorized = studentProfile?.publicId === cls.studentPublicId;
+      } else {
+        // PRINCIPAL, ADMIN, SUPER_ADMIN can observe
+        authorized = true;
+      }
+
+      if (!authorized) throw new AppError('Not authorized to join this class', 403);
+
+      const expireTime = Math.floor(Date.now() / 1000) + env.AGORA_TOKEN_EXPIRE_SECONDS;
+      const token = RtcTokenBuilder.buildTokenWithUid(
+        env.AGORA_APP_ID,
+        env.AGORA_APP_CERTIFICATE,
+        classId,   // channel name = classPublicId
+        0,         // uid 0 = auto-assign
+        RtcRole.PUBLISHER,
+        expireTime,
+      );
+
+      sendSuccess(res, {
+        appId: env.AGORA_APP_ID,
+        channel: classId,
+        token,
+        uid: 0,
+        expireTime,
+      }, 'Agora token generated');
     } catch (error) { next(error); }
   }
 }

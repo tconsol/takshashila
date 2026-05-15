@@ -1,4 +1,4 @@
-import { useState, forwardRef } from 'react';
+import { useState, forwardRef, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,12 +6,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   User, Mail, Phone, Globe, ShieldCheck, Camera,
   CheckCircle2, AlertCircle, Lock, Eye, EyeOff,
-  BookOpen, IndianRupee, Sparkles, GraduationCap, Calendar,
+  BookOpen, DollarSign, Sparkles, GraduationCap, Calendar,
 } from 'lucide-react';
+import { formatInTimeZone } from 'date-fns-tz';
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../stores/auth.store';
-import { Select } from '../../components/ui/Select';
-import { TIMEZONE_OPTIONS } from '../../constants/timezones';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SUBJECT_OPTIONS = [
@@ -53,16 +52,14 @@ const profileSchema = z.object({
   firstName: z.string().min(1, 'Required').max(50),
   lastName: z.string().min(1, 'Required').max(50),
   phone: z.string().optional(),
-  timezone: z.string().min(1, 'Timezone required'),
 });
 
 const tutorProfileSchema = z.object({
   bio: z.string().max(1000).optional(),
   subjects: z.array(z.string()).default([]),
   languages: z.array(z.string()).default([]),
-  hourlyRateINR: z.coerce.number().int().min(0, 'Rate cannot be negative').default(0),
+  hourlyRateUSD: z.coerce.number().int().min(0, 'Rate cannot be negative').default(0),
   qualifications: z.string().optional(),
-  timezone: z.string().min(1, 'Timezone required').default('Asia/Kolkata'),
 });
 
 const passwordSchema = z.object({
@@ -186,21 +183,40 @@ export function ProfilePage() {
 
   const isTutor = user?.role === 'TUTOR';
 
+  // Fetch fresh user data from server — used for hero card and timezone display
+  const { data: freshUser } = useQuery({
+    queryKey: ['users', 'me'],
+    queryFn: () => api.get('/users/me').then((r) => r.data.data),
+  });
+
+  // Sync fresh user into auth store so other parts of the app stay current
+  useEffect(() => {
+    if (freshUser && user) setUser({ ...user, ...freshUser });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freshUser]);
+
+  const activeUser = freshUser ?? user;
+  const userTimezone = activeUser?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   // ── Account form ──
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      firstName: user?.firstName ?? '',
-      lastName: user?.lastName ?? '',
-      phone: user?.phone ?? '',
-      timezone: user?.timezone ?? 'Asia/Kolkata',
-    },
+    defaultValues: { firstName: '', lastName: '', phone: '' },
   });
+
+  // Populate fields as soon as server data arrives
+  useEffect(() => {
+    if (!freshUser) return;
+    profileForm.setValue('firstName', freshUser.firstName ?? '', { shouldDirty: false });
+    profileForm.setValue('lastName',  freshUser.lastName  ?? '', { shouldDirty: false });
+    profileForm.setValue('phone',     freshUser.phone     ?? '', { shouldDirty: false });
+  }, [freshUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { mutateAsync: updateProfile, isPending: savingProfile } = useMutation({
     mutationFn: (d: ProfileForm) => api.patch('/users/me', d).then((r) => r.data.data),
     onSuccess: (updated) => {
       if (updated && user) setUser({ ...user, ...updated });
+      queryClient.invalidateQueries({ queryKey: ['users', 'me'] });
       setProfileFeedback({ type: 'success', message: 'Account updated successfully!' });
       setTimeout(() => setProfileFeedback(null), 4000);
     },
@@ -216,14 +232,13 @@ export function ProfilePage() {
 
   const tutorForm = useForm<TutorProfileForm>({
     resolver: zodResolver(tutorProfileSchema),
-    defaultValues: { bio: '', subjects: [], languages: [], hourlyRateINR: 0, qualifications: '', timezone: 'Asia/Kolkata' },
+    defaultValues: { bio: '', subjects: [], languages: [], hourlyRateUSD: 0, qualifications: '' },
     values: tutorData ? {
       bio: tutorData.bio ?? '',
       subjects: tutorData.subjects ?? [],
       languages: tutorData.languages ?? [],
-      hourlyRateINR: Math.round((tutorData.hourlyRateCents ?? 0) / 100),
+      hourlyRateUSD: Math.round((tutorData.hourlyRateCents ?? 0) / 100),
       qualifications: (tutorData.qualifications ?? []).join(', '),
-      timezone: tutorData.timezone ?? 'Asia/Kolkata',
     } : undefined,
   });
 
@@ -232,9 +247,8 @@ export function ProfilePage() {
       bio: d.bio || undefined,
       subjects: d.subjects,
       languages: d.languages,
-      hourlyRateCents: d.hourlyRateINR * 100,
+      hourlyRateCents: d.hourlyRateUSD * 100,
       qualifications: d.qualifications ? d.qualifications.split(',').map((q) => q.trim()).filter(Boolean) : [],
-      timezone: d.timezone,
     }).then((r) => r.data.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tutors', 'me'] });
@@ -261,7 +275,8 @@ export function ProfilePage() {
 
   if (!user) return null;
 
-  const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+  const displayUser = activeUser ?? user;
+  const initials = `${(displayUser.firstName ?? '?')[0]}${(displayUser.lastName ?? '?')[0]}`.toUpperCase();
   const gradient = ROLE_GRADIENTS[user.role] ?? 'from-brand-600 to-violet-600';
   const roleLabel = ROLE_LABELS[user.role] ?? user.role;
 
@@ -296,8 +311,8 @@ export function ProfilePage() {
           <div className="relative -mt-12 mb-4 flex items-end justify-between">
             <div className="relative">
               <div className={`flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} text-3xl font-bold text-white shadow-lg ring-4 ring-white dark:ring-gray-900`}>
-                {user.avatarUrl
-                  ? <img src={user.avatarUrl} alt={initials} className="h-full w-full rounded-2xl object-cover" />
+                {displayUser.avatarUrl
+                  ? <img src={displayUser.avatarUrl} alt={initials} className="h-full w-full rounded-2xl object-cover" />
                   : initials}
               </div>
               <button
@@ -312,7 +327,7 @@ export function ProfilePage() {
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${ROLE_BADGE[user.role] ?? ''}`}>
                 {roleLabel}
               </span>
-              {user.emailVerified
+              {displayUser.emailVerified
                 ? <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
                     <CheckCircle2 className="h-3 w-3" /> Verified
                   </span>
@@ -323,9 +338,9 @@ export function ProfilePage() {
           </div>
 
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            {user.firstName} {user.lastName}
+            {displayUser.firstName} {displayUser.lastName}
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{displayUser.email}</p>
 
           <div className="mt-4 flex flex-wrap gap-5 text-xs text-gray-400">
             <span className="flex items-center gap-1.5">
@@ -370,16 +385,16 @@ export function ProfilePage() {
       </div>
 
       {/* ── Tab navigation ── */}
-      <div className="flex gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-gray-800/60">
+      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === key
-                ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                ? 'bg-brand-600 text-white shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -395,49 +410,50 @@ export function ProfilePage() {
           <form onSubmit={profileForm.handleSubmit((d) => updateProfile(d))} className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="First Name" error={profileForm.formState.errors.firstName?.message}>
-                <TextInput
-                  icon={User}
-                  placeholder="First name"
-                  {...profileForm.register('firstName')}
+                <Controller
+                  control={profileForm.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <TextInput icon={User} placeholder="First name" {...field} />
+                  )}
                 />
               </Field>
               <Field label="Last Name" error={profileForm.formState.errors.lastName?.message}>
-                <TextInput
-                  icon={User}
-                  placeholder="Last name"
-                  {...profileForm.register('lastName')}
+                <Controller
+                  control={profileForm.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <TextInput icon={User} placeholder="Last name" {...field} />
+                  )}
                 />
               </Field>
               <Field label="Email" hint="Email cannot be changed">
-                <TextInput icon={Mail} value={user.email} readOnly />
+                <TextInput icon={Mail} value={displayUser.email} readOnly />
               </Field>
               <Field label="Phone">
-                <TextInput
-                  icon={Phone}
-                  placeholder="+91 9876543210"
-                  {...profileForm.register('phone')}
+                <Controller
+                  control={profileForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <TextInput icon={Phone} placeholder="+91 9876543210" {...field} />
+                  )}
                 />
               </Field>
             </div>
 
-            <Field label="Timezone" error={profileForm.formState.errors.timezone?.message}
-              hint="Used to display your local time across the platform">
-              <Controller
-                control={profileForm.control}
-                name="timezone"
-                render={({ field }) => (
-                  <Select
-                    options={TIMEZONE_OPTIONS}
-                    placeholder="Select your timezone"
-                    leftIcon={<Globe className="h-4 w-4" />}
-                    name={field.name}
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    onBlur={field.onBlur}
-                  />
-                )}
-              />
-            </Field>
+            {/* Timezone — read-only, auto-detected */}
+            <div className="flex items-center gap-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 px-4 py-3">
+              <Globe className="h-4 w-4 text-indigo-500 shrink-0" />
+              <div className="text-sm">
+                <span className="font-medium text-indigo-700 dark:text-indigo-300">{userTimezone}</span>
+                <span className="ml-1.5 text-indigo-500">
+                  (UTC{formatInTimeZone(new Date(), userTimezone, 'xxx')})
+                </span>
+                <p className="text-xs text-indigo-400 dark:text-indigo-500 mt-0.5">
+                  Auto-detected from your device — class times display in this timezone
+                </p>
+              </div>
+            </div>
 
             <div className="flex justify-end pt-1">
               <SaveButton pending={savingProfile} />
@@ -531,45 +547,33 @@ export function ProfilePage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Hourly Rate (₹)" error={tutorForm.formState.errors.hourlyRateINR?.message}>
+              <Field label="Hourly Rate ($)" error={tutorForm.formState.errors.hourlyRateUSD?.message}>
                 <div className="relative">
-                  <IndianRupee className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <DollarSign className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
-                    {...tutorForm.register('hourlyRateINR', { valueAsNumber: true })}
+                    {...tutorForm.register('hourlyRateUSD', { valueAsNumber: true })}
                     type="number"
                     min={0}
-                    placeholder="e.g. 800"
+                    placeholder="e.g. 50"
                     className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-3.5 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800"
                   />
                 </div>
               </Field>
 
-              <Field label="Teaching Timezone" error={tutorForm.formState.errors.timezone?.message}>
+              <Field label="Qualifications" hint="Separate multiple qualifications with commas">
                 <Controller
                   control={tutorForm.control}
-                  name="timezone"
+                  name="qualifications"
                   render={({ field }) => (
-                    <Select
-                      options={TIMEZONE_OPTIONS}
-                      placeholder="Select timezone"
-                      leftIcon={<Globe className="h-4 w-4" />}
-                      name={field.name}
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      onBlur={field.onBlur}
+                    <TextInput
+                      icon={BookOpen}
+                      placeholder="e.g. B.Sc Mathematics, M.Sc Physics"
+                      {...field}
                     />
                   )}
                 />
               </Field>
             </div>
-
-            <Field label="Qualifications" hint="Separate multiple qualifications with commas">
-              <TextInput
-                icon={BookOpen}
-                placeholder="e.g. B.Sc Mathematics, M.Sc Physics, CTET Certified"
-                {...tutorForm.register('qualifications')}
-              />
-            </Field>
 
             <div className="flex justify-end pt-1">
               <SaveButton pending={savingTutor} label="Save teaching profile" />

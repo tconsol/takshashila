@@ -33,6 +33,8 @@ import { PrincipalProfileModel } from '../principals/principal.model';
 import { PrincipalStatus } from '../principals/principal.types';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { TutorStatus } from '../tutors/tutor.types';
+import { StudentProfileModel } from '../students/student.model';
+import { StudentStatus } from '../students/student.types';
 
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -130,6 +132,30 @@ export class AuthService {
       }
     }
 
+    // Auto-create student profile for self-registered students
+    if (user.role === 'STUDENT') {
+      try {
+        await StudentProfileModel.create({
+          publicId: uuidv4(),
+          userPublicId: user.publicId,
+          previousTutorPublicIds: [],
+          status: StudentStatus.PENDING_APPROVAL,
+          demoClassesUsed: 0,
+          demoClassTakenWith: [],
+          totalClassesAttended: 0,
+          totalClassesCancelled: 0,
+          totalClassesMissed: 0,
+          totalClassesBooked: 0,
+          attendanceRate: 0,
+          grade: dto.grade,
+          invitedBy: user.publicId,
+          isDeleted: false,
+        });
+      } catch (err) {
+        console.warn('[auth] Could not create student profile:', (err as Error).message);
+      }
+    }
+
     return { publicId: user.publicId };
   }
 
@@ -167,6 +193,32 @@ export class AuthService {
       }
       if (principalProfile.status === PrincipalStatus.INACTIVE) {
         throw new AuthenticationError('Your account is inactive. Please contact support.');
+      }
+    }
+
+    // Ensure student profile exists for legacy accounts that pre-date profile auto-creation
+    if (user.role === 'STUDENT') {
+      const existing = await StudentProfileModel.findOne({ userPublicId: user.publicId, isDeleted: false }).lean();
+      if (!existing) {
+        try {
+          await StudentProfileModel.create({
+            publicId: uuidv4(),
+            userPublicId: user.publicId,
+            previousTutorPublicIds: [],
+            status: StudentStatus.PENDING_APPROVAL,
+            demoClassesUsed: 0,
+            demoClassTakenWith: [],
+            totalClassesAttended: 0,
+            totalClassesCancelled: 0,
+            totalClassesMissed: 0,
+            totalClassesBooked: 0,
+            attendanceRate: 0,
+            invitedBy: user.publicId,
+            isDeleted: false,
+          });
+        } catch (err) {
+          console.warn('[auth] Could not auto-create student profile on login:', (err as Error).message);
+        }
       }
     }
 

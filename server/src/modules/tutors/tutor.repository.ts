@@ -31,12 +31,18 @@ export class TutorRepository {
   ): Promise<PaginatedResult<ITutorProfile>> {
     const { page, limit, skip, sortBy, sortOrder } = parsePaginationQuery(query);
 
-    const filter: Record<string, unknown> = { isDeleted: false, status: 'ACTIVE' };
+    const filter: Record<string, unknown> = {
+      isDeleted: false,
+      status: { $in: ['ACTIVE', 'UNDER_VERIFICATION'] },
+    };
     if (filters.subject) filter.subjects = { $in: [filters.subject] };
     if (filters.language) filter.languages = { $in: [filters.language] };
     if (filters.timezone) filter.timezone = filters.timezone;
     if (filters.minRating) filter.rating = { $gte: filters.minRating };
-    if (filters.maxHourlyRateCents) filter.hourlyRateCents = { $lte: filters.maxHourlyRateCents };
+    const rateFilter: Record<string, number> = {};
+    if (filters.minHourlyRateCents) rateFilter.$gte = filters.minHourlyRateCents;
+    if (filters.maxHourlyRateCents) rateFilter.$lte = filters.maxHourlyRateCents;
+    if (Object.keys(rateFilter).length > 0) filter.hourlyRateCents = rateFilter;
     if (filters.isVerified !== undefined) filter.isVerified = filters.isVerified;
     if (filters.principalPublicId) filter.principalPublicId = filters.principalPublicId;
 

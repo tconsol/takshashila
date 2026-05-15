@@ -9,13 +9,14 @@ import { authService } from '../../services/auth.service';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { GRADE_OPTIONS, GRADE_LIST } from '../../constants/grades';
 
 const schema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50),
   lastName: z.string().min(1, 'Last name is required').max(50),
   email: z.string().email('Enter a valid email'),
   phone: z.string().optional(),
-  grade: z.string().optional(),
+  grade: z.enum(GRADE_LIST, { errorMap: () => ({ message: 'Please select a grade' }) }),
   password: z
     .string()
     .min(8, 'Min 8 characters')
@@ -28,8 +29,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const GRADES = ['Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'Undergraduate', 'Postgraduate', 'Other'];
-
 export function RegisterStudentPage() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
@@ -37,7 +36,7 @@ export function RegisterStudentPage() {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const mutation = useMutation({
-    mutationFn: ({ confirmPassword: _, grade: __, ...data }: FormData) =>
+    mutationFn: ({ confirmPassword: _, ...data }: FormData) =>
       authService.register({ ...data, role: 'STUDENT' }),
     onSuccess: () => navigate('/login?registered=true'),
   });
@@ -83,9 +82,10 @@ export function RegisterStudentPage() {
           <Input label="Phone (optional)" placeholder="+91 98765 43210" leftIcon={<Phone className="h-4 w-4" />} error={errors.phone?.message} {...register('phone')} />
 
           <Select
-            label="Grade / Level"
-            options={GRADES.map((g) => ({ value: g, label: g }))}
+            label="Grade"
+            options={GRADE_OPTIONS}
             placeholder="Select grade"
+            error={errors.grade?.message}
             {...register('grade')}
           />
         </div>

@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -31,6 +31,7 @@ import parentRoutes from './modules/parents/parent.routes';
 import worksheetRoutes from './modules/worksheets/worksheet.routes';
 import joinRequestRoutes from './modules/join-requests/join-request.routes';
 import { badgesRouter } from './modules/badges/badges.routes';
+import demoRequestRoutes from './modules/demo-requests/demo-request.routes';
 
 const app = express();
 
@@ -100,6 +101,7 @@ app.use(`${API_BASE}/parents`, parentRoutes);
 app.use(`${API_BASE}/worksheets`, worksheetRoutes);
 app.use(`${API_BASE}/join-requests`, joinRequestRoutes);
 app.use(`${API_BASE}/badges`, badgesRouter);
+app.use(`${API_BASE}/demo-requests`, demoRequestRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

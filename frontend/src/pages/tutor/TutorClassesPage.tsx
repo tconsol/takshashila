@@ -4,49 +4,46 @@ import { ClassCard } from '../../components/shared/ClassCard';
 import { Tabs } from '../../components/ui/Tabs';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { useMyClassesAsTutor, useStartClass, useCompleteClass, useCancelClass, useSetMeetingUrl } from '../../hooks/use-classes';
+import { useMyClassesAsTutor, useCompleteClass, useCancelClass } from '../../hooks/use-classes';
 import type { ClassRecord } from '../../services/classes.service';
 
-const TABS = [
-  { key: 'SCHEDULED', label: 'Upcoming' },
-  { key: 'IN_PROGRESS', label: 'In Progress' },
-  { key: 'COMPLETED', label: 'Completed' },
-  { key: 'CANCELLED', label: 'Cancelled' },
-];
+const EMPTY_LABELS: Record<string, string> = {
+  SCHEDULED: 'No upcoming classes',
+  LIVE: 'No classes in progress',
+  COMPLETED: 'No completed classes',
+  CANCELLED: 'No cancelled classes',
+};
 
 export function TutorClassesPage() {
   const [activeTab, setActiveTab] = useState('SCHEDULED');
   const [cancelTarget, setCancelTarget] = useState<ClassRecord | null>(null);
   const [cancelReason, setCancelReason] = useState('');
-  const [meetingTarget, setMeetingTarget] = useState<ClassRecord | null>(null);
-  const [meetingUrl, setMeetingUrl] = useState('');
 
   const { data, isLoading } = useMyClassesAsTutor({ status: activeTab });
-  const { mutateAsync: startClass } = useStartClass();
+  const { data: liveData } = useMyClassesAsTutor({ status: 'LIVE', limit: '1' });
+  const hasLive = (liveData?.total ?? 0) > 0;
+
   const { mutateAsync: completeClass } = useCompleteClass();
   const { mutateAsync: cancelClass, isPending: cancelling } = useCancelClass();
-  const { mutateAsync: setUrl, isPending: settingUrl } = useSetMeetingUrl();
 
   const classes = data?.items ?? [];
 
+  const TABS = [
+    { key: 'SCHEDULED', label: 'Upcoming' },
+    { key: 'LIVE', label: 'In Progress', indicator: hasLive },
+    { key: 'COMPLETED', label: 'Completed' },
+    { key: 'CANCELLED', label: 'Cancelled' },
+  ];
+
   const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate', cls: ClassRecord) => {
-    if (action === 'start') startClass(cls.publicId);
-    else if (action === 'complete') completeClass(cls.publicId);
+    if (action === 'complete') completeClass(cls.publicId);
     else if (action === 'cancel') { setCancelTarget(cls); setCancelReason(''); }
-    else if (action === 'join' && cls.meetingUrl) window.open(cls.meetingUrl, '_blank');
   };
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
     await cancelClass({ classId: cancelTarget.publicId, dto: { reason: cancelReason } });
     setCancelTarget(null);
-  };
-
-  const handleSetMeetingUrl = async () => {
-    if (!meetingTarget) return;
-    await setUrl({ classId: meetingTarget.publicId, url: meetingUrl });
-    setMeetingTarget(null);
   };
 
   return (
@@ -61,22 +58,12 @@ export function TutorClassesPage() {
         </div>
       ) : classes.length === 0 ? (
         <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-          No {activeTab.toLowerCase()} classes
+          {EMPTY_LABELS[activeTab] ?? 'No classes found'}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {classes.map((cls) => (
-            <div key={cls.publicId} className="space-y-2">
-              <ClassCard cls={cls} perspective="tutor" onAction={handleAction} />
-              {(cls.status === 'SCHEDULED' || cls.status === 'IN_PROGRESS') && (
-                <button
-                  onClick={() => { setMeetingTarget(cls); setMeetingUrl(cls.meetingUrl ?? ''); }}
-                  className="w-full text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 text-center"
-                >
-                  {cls.meetingUrl ? 'Update meeting URL' : '+ Add meeting URL'}
-                </button>
-              )}
-            </div>
+            <ClassCard key={cls.publicId} cls={cls} perspective="tutor" onAction={handleAction} />
           ))}
         </div>
       )}
@@ -107,27 +94,6 @@ export function TutorClassesPage() {
             className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
           />
         </div>
-      </Modal>
-
-      <Modal
-        open={!!meetingTarget}
-        onClose={() => setMeetingTarget(null)}
-        title="Set Meeting URL"
-        size="sm"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setMeetingTarget(null)}>Cancel</Button>
-            <Button onClick={handleSetMeetingUrl} loading={settingUrl} disabled={!meetingUrl.trim()}>Save</Button>
-          </>
-        }
-      >
-        <Input
-          label="Meeting URL"
-          placeholder="https://meet.google.com/…"
-          value={meetingUrl}
-          onChange={(e) => setMeetingUrl(e.target.value)}
-          type="url"
-        />
       </Modal>
     </div>
   );

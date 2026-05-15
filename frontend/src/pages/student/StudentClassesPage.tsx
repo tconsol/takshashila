@@ -16,16 +16,26 @@ import { RateClassModal } from '../../features/ratings/RateClassModal';
 import { useMyRatedClassIds } from '../../features/ratings/use-ratings';
 import { useStartConversation } from '../../features/chat/use-chat';
 
-const TABS = [
-  { key: 'SCHEDULED', label: 'Upcoming' },
-  { key: 'IN_PROGRESS', label: 'In Progress' },
-  { key: 'COMPLETED', label: 'Completed' },
-  { key: 'CANCELLED', label: 'Cancelled' },
-];
+const EMPTY_LABELS: Record<string, string> = {
+  SCHEDULED: 'No upcoming classes',
+  LIVE: 'No classes in progress',
+  COMPLETED: 'No completed classes',
+  CANCELLED: 'No cancelled classes',
+};
 
 export function StudentClassesPage() {
   const [activeTab, setActiveTab] = useState('SCHEDULED');
   const [showFindTutor, setShowFindTutor] = useState(false);
+
+  const { data: liveData } = useMyClassesAsStudent({ status: 'LIVE', limit: '1' });
+  const hasLive = (liveData?.total ?? 0) > 0;
+
+  const TABS = [
+    { key: 'SCHEDULED', label: 'Upcoming' },
+    { key: 'LIVE', label: 'In Progress', indicator: hasLive },
+    { key: 'COMPLETED', label: 'Completed' },
+    { key: 'CANCELLED', label: 'Cancelled' },
+  ];
   const [bookingTutor, setBookingTutor] = useState<TutorProfile | null>(null);
   const [cancelTarget, setCancelTarget] = useState<ClassRecord | null>(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -76,7 +86,7 @@ export function StudentClassesPage() {
           </div>
         ) : classes.length === 0 ? (
           <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-            No {activeTab.toLowerCase().replace('_', ' ')} classes
+            {EMPTY_LABELS[activeTab] ?? 'No classes found'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

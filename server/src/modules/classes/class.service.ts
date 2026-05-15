@@ -9,6 +9,8 @@ import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
 import { tutorRepository } from '../tutors/tutor.repository';
 import { principalService } from '../principals/principal.service';
+import { TutorProfileModel } from '../tutors/tutor.model';
+import { StudentProfileModel } from '../students/student.model';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
@@ -36,7 +38,7 @@ export class ClassService {
     const tutorProfile = await tutorService.getByPublicId(dto.tutorPublicId);
     const studentProfile = await studentService.getByUserPublicId(studentUserPublicId);
 
-    const costCents = dto.classType === ClassType.DEMO ? 0 : tutorProfile.hourlyRateCents;
+    const costCents = tutorProfile.hourlyRateCents;
 
     await scheduleService.blockSlot(slot.publicId);
 
@@ -49,18 +51,6 @@ export class ClassService {
           idempotencyKey: `booking-debit-${dto.idempotencyKey}`,
           referenceId: dto.availabilitySlotPublicId,
           referenceType: 'BOOKING',
-        });
-      }
-
-      if (dto.classType === ClassType.DEMO) {
-        const canUse = await studentService.canUseDemoCredit(studentUserPublicId, dto.tutorPublicId);
-        if (!canUse) {
-          throw new AppError('Demo credit not available for this tutor', 400);
-        }
-        await studentService.recordDemoClassUsed(studentProfile.publicId, dto.tutorPublicId);
-        domainEvents.emit(DomainEvent.DEMO_USED, {
-          studentPublicId: studentProfile.publicId,
-          tutorPublicId: dto.tutorPublicId,
         });
       }
 
@@ -116,6 +106,53 @@ export class ClassService {
     });
 
     return scheduled;
+  }
+
+  async joinClass(classPublicId: string, userPublicId: string, role: string): Promise<IScheduledClass> {
+    const cls = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (!cls) throw new NotFoundError('Class');
+
+    // Verify user belongs to this class
+    let authorized = false;
+    if (role === 'TUTOR') {
+      const tutorProfile = await TutorProfileModel.findOne({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
+      authorized = tutorProfile?.publicId === cls.tutorPublicId;
+    } else if (role === 'STUDENT') {
+      const studentProfile = await StudentProfileModel.findOne({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
+      authorized = studentProfile?.publicId === cls.studentPublicId;
+    } else {
+      authorized = true;
+    }
+    if (!authorized) throw new AppError('Not authorized to join this class', 403);
+
+    // If already LIVE (or other terminal state), return as-is
+    if (cls.status !== ClassStatus.SCHEDULED) return cls;
+
+    // Transition SCHEDULED → LIVE
+    const updated = await ScheduledClassModel.findOneAndUpdate(
+      { publicId: classPublicId, status: ClassStatus.SCHEDULED, isDeleted: false },
+      { $set: { status: ClassStatus.LIVE } },
+      { new: true },
+    ).lean();
+
+    // Race condition — another participant won the race, fetch current state
+    if (!updated) {
+      return (await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean()) ?? cls;
+    }
+
+    // Emit with full payload so socket can invalidate both parties
+    const [tutorProfile, studentProfile] = await Promise.all([
+      TutorProfileModel.findOne({ publicId: cls.tutorPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
+      StudentProfileModel.findOne({ publicId: cls.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
+    ]);
+
+    domainEvents.emit(DomainEvent.CLASS_STARTED, {
+      classPublicId,
+      tutorUserPublicId: tutorProfile?.userPublicId ?? '',
+      studentUserPublicId: studentProfile?.userPublicId ?? '',
+    });
+
+    return updated;
   }
 
   async completeClass(classPublicId: string, tutorUserPublicId: string): Promise<IScheduledClass> {
@@ -294,11 +331,12 @@ export class ClassService {
       return buildPaginatedResult([], 0, 1, 20);
     }
     const { page, limit, skip } = parsePaginationQuery(query);
+    const statusFilter = (query as Record<string, unknown>).status as string | undefined;
     const filter: Record<string, unknown> = {
       tutorPublicId: { $in: tutorPublicIds },
-      status: ClassStatus.LIVE,
       isDeleted: false,
     };
+    if (statusFilter) filter.status = statusFilter;
     const [items, total] = await Promise.all([
       ScheduledClassModel.find(filter).sort({ startUTC: -1 }).skip(skip).limit(limit).lean(),
       ScheduledClassModel.countDocuments(filter),

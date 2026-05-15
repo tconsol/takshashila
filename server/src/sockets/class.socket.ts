@@ -27,10 +27,11 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
     });
   });
 
-  socket.on('class:chat', (payload: { classPublicId: string; message: string }) => {
+  socket.on('class:chat', (payload: { classPublicId: string; message: string; senderName?: string }) => {
     io.to(`class:${payload.classPublicId}`).emit('class:chat-message', {
       from: socket.userPublicId,
       role: socket.userRole,
+      name: payload.senderName ?? '',
       message: payload.message,
       timestamp: new Date().toISOString(),
     });
@@ -39,6 +40,16 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   socket.on('class:raise-hand', (classPublicId: string) => {
     socket.to(`class:${classPublicId}`).emit('class:hand-raised', {
       userPublicId: socket.userPublicId,
+    });
+  });
+
+  // ─── Participant name announcements (Agora UID → display name) ──────────────
+
+  socket.on('class:announce', (payload: { classPublicId: string; agoraUid: number; name: string; role: string }) => {
+    socket.to(`class:${payload.classPublicId}`).emit('class:announce', {
+      agoraUid: payload.agoraUid,
+      name: payload.name,
+      role: payload.role,
     });
   });
 
@@ -78,6 +89,15 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
     socket.to(`class:${classPublicId}`).emit('rtc:peer-left', {
       socketId: socket.id,
       userPublicId: socket.userPublicId,
+    });
+  });
+
+  // ─── Screen share signaling ─────────────────────────────────────────────────
+
+  socket.on('class:screen-share', (payload: { classPublicId: string; agoraUid: number; active: boolean }) => {
+    socket.to(`class:${payload.classPublicId}`).emit('class:screen-share', {
+      agoraUid: payload.agoraUid,
+      active: payload.active,
     });
   });
 

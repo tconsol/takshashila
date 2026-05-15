@@ -4,6 +4,8 @@ import {
   CalendarDays, ArrowUpRight, Plus, AlertTriangle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatInTimeZone } from 'date-fns-tz';
+import { useAuthStore } from '../../stores/auth.store';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { EmptyState } from '../../components/shared/EmptyState';
@@ -12,6 +14,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { LiveClassBanner } from '../../features/live-class/LiveClassBanner';
+import { DemoRequestsSection } from '../../components/shared/DemoRequestsSection';
 import { api } from '../../lib/axios';
 
 interface ClassItem {
@@ -63,7 +66,7 @@ function useTutorWalletBalance() {
 }
 
 const formatINR = (cents: number) =>
-  `₹${(cents / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 
 function useProfileCompleteness() {
   return useQuery({
@@ -73,6 +76,10 @@ function useProfileCompleteness() {
 }
 
 export function TutorDashboard() {
+  const userTimezone =
+    useAuthStore((s) => s.user?.timezone) ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   const { data: stats, isLoading: statsLoading } = useTutorStats();
   const { data: classes = [], isLoading: classesLoading } = useTutorClasses();
   const { data: balanceCents = 0 } = useTutorWalletBalance();
@@ -106,6 +113,8 @@ export function TutorDashboard() {
       />
 
       <LiveClassBanner />
+
+      <DemoRequestsSection />
 
       {profileIncomplete && (
         <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 dark:border-amber-800/40 dark:bg-amber-900/20">
@@ -191,7 +200,7 @@ export function TutorDashboard() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{cls.subject}</p>
                         <p className="text-xs text-gray-500">
-                          {new Date(cls.scheduledStartUTC).toLocaleString()}
+                          {formatInTimeZone(new Date(cls.scheduledStartUTC), userTimezone, 'EEE, MMM d · h:mm a zzz')}
                         </p>
                       </div>
                     </div>

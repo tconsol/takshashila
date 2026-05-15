@@ -22,6 +22,7 @@ export const AvailabilityStatus = {
   AVAILABLE: 'AVAILABLE',
   BOOKED: 'BOOKED',
   BLOCKED: 'BLOCKED',
+  CANCELLED: 'CANCELLED',
 } as const;
 export type AvailabilityStatus = (typeof AvailabilityStatus)[keyof typeof AvailabilityStatus];
 

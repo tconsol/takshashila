@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const bookClassSchema = z.object({
   tutorPublicId: z.string().min(1),
   availabilitySlotPublicId: z.string().min(1),
-  classType: z.enum(['DEMO', 'ONE_ON_ONE', 'GROUP', 'RECURRING']),
+  classType: z.enum(['ONE_ON_ONE', 'GROUP', 'RECURRING']),
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   idempotencyKey: z.string().min(1),

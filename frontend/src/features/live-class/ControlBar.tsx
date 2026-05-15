@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   Mic, MicOff, Video, VideoOff, Monitor, MonitorOff,
   PenLine, Circle, Square, Hand, PhoneOff,
@@ -6,8 +6,9 @@ import {
 import { api } from '../../lib/axios';
 import { classesService } from '../../services/classes.service';
 import { SocketEvent } from '../../sockets/socket.events';
-import type { Socket } from 'socket.io-client';
+import { useSocket } from '../../sockets/use-socket';
 import { cn } from '../../lib/utils';
+import type { ICameraVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
 
 interface ControlBarProps {
   classPublicId: string;
@@ -16,15 +17,15 @@ interface ControlBarProps {
   isScreenSharing: boolean;
   isWhiteboardOpen: boolean;
   isTutor: boolean;
-  localStream: MediaStream | null;
-  remoteStreams: MediaStream[];
-  socket: Socket | null;
-  onToggleMute: () => void;
-  onToggleCamera: () => void;
-  onStartScreenShare: () => void;
-  onStopScreenShare: () => void;
+  localVideoTrack: ICameraVideoTrack | null;
+  localAudioTrack: IMicrophoneAudioTrack | null;
+  onToggleMute: () => Promise<void>;
+  onToggleCamera: () => Promise<void>;
+  onStartScreenShare: () => Promise<void>;
+  onStopScreenShare: () => Promise<void>;
   onToggleWhiteboard: () => void;
   onRaiseHand: () => void;
+  isHandRaised: boolean;
   onLeave: () => void;
 }
 
@@ -35,39 +36,44 @@ export function ControlBar({
   isScreenSharing,
   isWhiteboardOpen,
   isTutor,
-  localStream,
-  remoteStreams,
-  socket,
+  localVideoTrack,
+  localAudioTrack,
   onToggleMute,
   onToggleCamera,
   onStartScreenShare,
   onStopScreenShare,
   onToggleWhiteboard,
   onRaiseHand,
+  isHandRaised,
   onLeave,
 }: ControlBarProps) {
+  const { socket } = useSocket();
   const [isRecording, setIsRecording] = useState(false);
   const [isUploadingRecording, setIsUploadingRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  useEffect(() => {
+    if (!isRecording) { setRecordingSeconds(0); return; }
+    const id = setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [isRecording]);
+
+  function formatTime(s: number) {
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+
   async function startRecording() {
-    if (!localStream) return;
+    const recordStream = new MediaStream();
 
-    // Mix all audio tracks via AudioContext
-    const audioCtx = new AudioContext();
-    const dest = audioCtx.createMediaStreamDestination();
-    const allStreams = [localStream, ...remoteStreams].filter(Boolean);
-    allStreams.forEach((s) => {
-      if (s.getAudioTracks().length > 0) {
-        audioCtx.createMediaStreamSource(s).connect(dest);
-      }
-    });
+    const videoMediaTrack = localVideoTrack?.getMediaStreamTrack();
+    if (videoMediaTrack) recordStream.addTrack(videoMediaTrack);
 
-    const videoTrack = localStream.getVideoTracks()[0];
-    const recordStream = videoTrack
-      ? new MediaStream([videoTrack, ...dest.stream.getTracks()])
-      : dest.stream;
+    const audioMediaTrack = localAudioTrack?.getMediaStreamTrack();
+    if (audioMediaTrack) recordStream.addTrack(audioMediaTrack);
+
+    if (recordStream.getTracks().length === 0) return;
 
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
       ? 'video/webm;codecs=vp9,opus'
@@ -81,14 +87,12 @@ export function ControlBar({
     };
 
     recorder.onstop = async () => {
-      audioCtx.close();
       await uploadRecording(mimeType);
     };
 
     recorder.start(5000);
     mediaRecorderRef.current = recorder;
     setIsRecording(true);
-
     socket?.emit(SocketEvent.RECORDING_STARTED, classPublicId);
   }
 
@@ -107,7 +111,6 @@ export function ControlBar({
       const ext = mimeType.includes('webm') ? 'webm' : 'mp4';
       const fileName = `recording-${classPublicId}-${Date.now()}.${ext}`;
 
-      // Request signed upload URL from existing media service
       const { data: urlRes } = await api.post('/media/upload-url', {
         mediaType: 'CLASS_RECORDING',
         entityPublicId: classPublicId,
@@ -180,31 +183,39 @@ export function ControlBar({
 
       {/* Record (tutor only) */}
       {isTutor && (
-        <button
-          onClick={isRecording ? stopRecording : startRecording}
-          disabled={isUploadingRecording}
-          title={isRecording ? 'Stop recording' : 'Start recording'}
-          className={cn(
-            btnBase,
-            isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-700 hover:bg-gray-600',
-            isUploadingRecording && 'opacity-60 cursor-not-allowed',
+        <div className="flex items-center gap-2">
+          {isRecording && (
+            <div className="flex items-center gap-1.5 rounded-lg bg-red-500/20 px-2.5 py-1.5">
+              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-xs font-mono font-semibold text-red-400">{formatTime(recordingSeconds)}</span>
+            </div>
           )}
-        >
-          {isUploadingRecording
-            ? <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-            : isRecording
-            ? <Square className="h-4 w-4 text-white fill-white" />
-            : <Circle className={cn('h-4 w-4 text-red-400', isRecording && 'animate-pulse fill-red-500')} />}
-        </button>
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={isUploadingRecording}
+            title={isRecording ? 'Stop recording' : 'Start recording'}
+            className={cn(
+              btnBase,
+              isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-700 hover:bg-gray-600',
+              isUploadingRecording && 'opacity-60 cursor-not-allowed',
+            )}
+          >
+            {isUploadingRecording
+              ? <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+              : isRecording
+              ? <Square className="h-4 w-4 text-white fill-white" />
+              : <Circle className="h-4 w-4 text-red-400" />}
+          </button>
+        </div>
       )}
 
       {/* Raise hand */}
       <button
         onClick={onRaiseHand}
-        title="Raise hand"
-        className={cn(btnBase, 'bg-yellow-500/20 hover:bg-yellow-500/30')}
+        title={isHandRaised ? 'Lower hand' : 'Raise hand'}
+        className={cn(btnBase, isHandRaised ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-yellow-500/20 hover:bg-yellow-500/30')}
       >
-        <Hand className="h-5 w-5 text-yellow-400" />
+        <Hand className={cn('h-5 w-5', isHandRaised ? 'text-white' : 'text-yellow-400')} />
       </button>
 
       {/* Divider */}

@@ -4,6 +4,8 @@ import {
   Sparkles, Target, GraduationCap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatInTimeZone } from 'date-fns-tz';
+import { useAuthStore } from '../../stores/auth.store';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { EmptyState } from '../../components/shared/EmptyState';
@@ -63,9 +65,13 @@ function useWalletBalance() {
 }
 
 const formatINR = (cents: number) =>
-  `₹${(cents / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 
 export function StudentDashboard() {
+  const userTimezone =
+    useAuthStore((s) => s.user?.timezone) ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   const { data: stats, isLoading: statsLoading } = useStudentStats();
   const { data: classes = [], isLoading: classesLoading } = useStudentClasses();
   const { data: balanceCents = 0 } = useWalletBalance();
@@ -160,7 +166,7 @@ export function StudentDashboard() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{cls.subject}</p>
                         <p className="text-xs text-gray-500">
-                          {new Date(cls.scheduledStartUTC).toLocaleString()}
+                          {formatInTimeZone(new Date(cls.scheduledStartUTC), userTimezone, 'EEE, MMM d · h:mm a zzz')}
                         </p>
                       </div>
                     </div>

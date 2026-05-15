@@ -31,6 +31,7 @@ export const tutorSearchSchema = z.object({
   language: z.string().optional(),
   timezone: z.string().optional(),
   minRating: z.coerce.number().min(0).max(5).optional(),
+  minHourlyRateCents: z.coerce.number().int().min(0).optional(),
   maxHourlyRateCents: z.coerce.number().int().min(0).optional(),
   isVerified: z.coerce.boolean().optional(),
   page: z.coerce.number().int().min(1).optional(),

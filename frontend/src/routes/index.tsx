@@ -41,6 +41,7 @@ import { PrincipalStudentsPage } from '../pages/principal/PrincipalStudentsPage'
 // Principal pages
 import { PrincipalAnalyticsPage } from '../pages/principal/PrincipalAnalyticsPage';
 import { PrincipalWalletPage } from '../pages/principal/PrincipalWalletPage';
+import { PrincipalClassesPage } from '../pages/principal/PrincipalClassesPage';
 
 // Tutor pages
 import { TutorPrincipalsPage } from '../pages/tutor/TutorPrincipalsPage';
@@ -52,6 +53,7 @@ import { TutorWorksheetsPage } from '../pages/tutor/TutorWorksheetsPage';
 import { TutorAttendancePage } from '../pages/tutor/TutorAttendancePage';
 import { TutorProgressPage } from '../pages/tutor/TutorProgressPage';
 import { TutorWalletPage } from '../pages/tutor/TutorWalletPage';
+import { TutorDemoRequestsPage } from '../pages/tutor/TutorDemoRequestsPage';
 
 // Student pages
 import { StudentClassesPage } from '../pages/student/StudentClassesPage';
@@ -146,6 +148,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/principal', element: <PrincipalDashboard /> },
         { path: '/dashboard/principal/tutors', element: <PrincipalTutorsPage /> },
         { path: '/dashboard/principal/students', element: <PrincipalStudentsPage /> },
+        { path: '/dashboard/principal/classes', element: <PrincipalClassesPage /> },
         { path: '/dashboard/principal/analytics', element: <PrincipalAnalyticsPage /> },
         { path: '/dashboard/principal/wallet', element: <PrincipalWalletPage /> },
       ],
@@ -159,6 +162,7 @@ export const router = createBrowserRouter([
       element: <DashboardLayout />,
       children: [
         { path: '/dashboard/tutor', element: <TutorDashboard /> },
+        { path: '/dashboard/tutor/demo-requests', element: <TutorDemoRequestsPage /> },
         { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/tutor/schedule', element: <TutorSchedulePage /> },

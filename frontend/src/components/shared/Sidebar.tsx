@@ -3,10 +3,13 @@ import {
   LayoutDashboard, Users, BookOpen, Calendar, Wallet, Settings,
   BarChart3, Shield, Headphones, GraduationCap, LogOut, ChevronRight,
   UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText, Building2,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth.store';
 import { useSidebarBadges } from '../../hooks/use-sidebar-badges';
+import { useScheduleAlertsStore } from '../../stores/schedule-alerts.store';
+import { useDemoRequestsAsTutor } from '../../hooks/use-demo-requests';
 import type { Role } from '../../types';
 
 interface NavItem {
@@ -36,9 +39,10 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Profile', href: '/profile', icon: UserCircle },
   ],
   PRINCIPAL: [
-    { label: 'Overview', href: '/dashboard/principal', icon: LayoutDashboard },
+    { label: 'Overview', href: '/dashboard/principal', icon: LayoutDashboard, badgeKey: 'scheduleAlert' },
     { label: 'Tutors', href: '/dashboard/principal/tutors', icon: GraduationCap, badgeKey: 'tutors' },
     { label: 'Students', href: '/dashboard/principal/students', icon: Users, badgeKey: 'students' },
+    { label: 'Classes', href: '/dashboard/principal/classes', icon: Video },
     { label: 'Analytics', href: '/dashboard/principal/analytics', icon: BarChart3 },
     { label: 'Messages', href: '/chat', icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Wallet', href: '/dashboard/principal/wallet', icon: Wallet },
@@ -46,6 +50,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   ],
   TUTOR: [
     { label: 'Overview', href: '/dashboard/tutor', icon: LayoutDashboard },
+    { label: 'Demo Requests', href: '/dashboard/tutor/demo-requests', icon: Sparkles, badgeKey: 'demoRequests' },
     { label: 'Students', href: '/dashboard/tutor/students', icon: Users },
     { label: 'Classes', href: '/dashboard/tutor/classes', icon: Video },
     { label: 'Schedule', href: '/dashboard/tutor/schedule', icon: Calendar },
@@ -61,7 +66,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   STUDENT: [
     { label: 'Overview', href: '/dashboard/student', icon: LayoutDashboard },
     { label: 'Find Tutors', href: '/dashboard/student/tutors', icon: Search },
-    { label: 'Classes', href: '/dashboard/student/classes', icon: Video },
+    { label: 'Classes', href: '/dashboard/student/classes', icon: Video, badgeKey: 'scheduleAlert' },
     { label: 'Assignments', href: '/dashboard/student/assignments', icon: BookOpen },
     { label: 'Worksheets', href: '/dashboard/student/worksheets', icon: FileText },
     { label: 'Attendance', href: '/dashboard/student/attendance', icon: UserCheck },
@@ -99,10 +104,33 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const { user, clearAuth } = useAuthStore();
   const badges = useSidebarBadges();
+  const scheduleAlertCount = useScheduleAlertsStore((s) => s.count);
+  const clearScheduleAlerts = useScheduleAlertsStore((s) => s.clear);
+  const isTutor = user?.role === 'TUTOR';
+  const { data: demoRequestData } = useDemoRequestsAsTutor(
+    { status: 'PENDING', limit: '1' },
+    isTutor,
+  );
+  const demoRequestCount = isTutor ? (demoRequestData?.total ?? 0) : 0;
 
   if (!user) return null;
 
   const items = NAV_ITEMS[user.role] ?? [];
+
+  const getBadgeCount = (badgeKey: string | undefined, href: string): number => {
+    if (!badgeKey) return 0;
+    if (badgeKey === 'scheduleAlert') {
+      if (location.pathname === href) {
+        if (scheduleAlertCount > 0) setTimeout(clearScheduleAlerts, 0);
+        return 0;
+      }
+      return scheduleAlertCount;
+    }
+    if (badgeKey === 'demoRequests') {
+      return location.pathname === href ? 0 : demoRequestCount;
+    }
+    return badges[badgeKey] ?? 0;
+  };
 
   const handleLogout = async () => {
     try {
@@ -139,7 +167,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {items.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
-              const badgeCount = item.badgeKey ? (badges[item.badgeKey] ?? 0) : 0;
+              const badgeCount = getBadgeCount(item.badgeKey, item.href);
 
               return (
                 <li key={item.href}>

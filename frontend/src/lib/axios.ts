@@ -66,6 +66,11 @@ api.interceptors.response.use(
       }
     }
 
+    // Normalise error message so callers get the API message, not "Request failed with status 404"
+    const apiMessage = error.response?.data?.message;
+    if (apiMessage) {
+      error.message = apiMessage;
+    }
     return Promise.reject(error);
   },
 );

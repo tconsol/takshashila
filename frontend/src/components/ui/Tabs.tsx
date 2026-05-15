@@ -4,6 +4,7 @@ export interface TabItem {
   key: string;
   label: string;
   icon?: ReactNode;
+  indicator?: boolean; // pulsing green dot
 }
 
 interface TabsProps {
@@ -15,19 +16,25 @@ interface TabsProps {
 
 export function Tabs({ tabs, activeTab, onChange, className = '' }: TabsProps) {
   return (
-    <div className={`flex gap-1 border-b border-gray-200 dark:border-gray-700 ${className}`}>
+    <div className={`flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit ${className}`}>
       {tabs.map((tab) => (
         <button
           key={tab.key}
           onClick={() => onChange(tab.key)}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px ${
+          className={`relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
             activeTab === tab.key
-              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
           {tab.icon}
           {tab.label}
+          {tab.indicator && (
+            <span className="relative flex h-2 w-2 ml-0.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+            </span>
+          )}
         </button>
       ))}
     </div>

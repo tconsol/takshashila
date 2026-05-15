@@ -34,6 +34,27 @@ const envSchema = z.object({
   GCP_BUCKET_NAME: z.string().optional(),
   GCP_KEY_FILE: z.string().optional(),
 
+  // ── Agora RTC ───────────────────────────────────────────────────────────────
+  AGORA_APP_ID: z.string().min(1, 'AGORA_APP_ID is required'),
+  AGORA_APP_CERTIFICATE: z.string().min(1, 'AGORA_APP_CERTIFICATE is required'),
+  AGORA_TOKEN_EXPIRE_SECONDS: z.coerce.number().default(3600),
+
+  // ── Agora Cloud Recording ───────────────────────────────────────────────────
+  AGORA_CUSTOMER_ID: z.string().optional(),
+  AGORA_CUSTOMER_SECRET: z.string().optional(),
+  AGORA_RECORDING_ENABLED: z.coerce.boolean().default(false),
+  GCS_ACCESS_KEY: z.string().optional(),
+  GCS_SECRET_KEY: z.string().optional(),
+  GCS_RECORDING_BUCKET: z.string().optional(),
+
+  // ── Agora Whiteboard (Netless) ──────────────────────────────────────────────
+  AGORA_WHITEBOARD_APP_ID: z.string().optional(),
+  AGORA_WHITEBOARD_AK: z.string().optional(),
+  AGORA_WHITEBOARD_SK: z.string().optional(),
+  AGORA_WHITEBOARD_REGION: z.string().default('sg'),
+  AGORA_WHITEBOARD_TOKEN_EXPIRY_HOURS: z.coerce.number().default(24),
+
+  // ── Payments ────────────────────────────────────────────────────────────────
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 

@@ -7,7 +7,7 @@ const studentProfileSchema = new Schema<IStudentProfile>(
   {
     publicId: { type: String, default: uuidv4, unique: true, index: true },
     userPublicId: { type: String, required: true, index: true },
-    tutorPublicId: { type: String, required: true, index: true },
+    tutorPublicId: { type: String, index: true },
     previousTutorPublicIds: [{ type: String }],
     status: {
       type: String,

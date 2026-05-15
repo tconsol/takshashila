@@ -65,6 +65,7 @@ export interface TutorSearchFilters {
   language?: string;
   timezone?: string;
   minRating?: number;
+  minHourlyRateCents?: number;
   maxHourlyRateCents?: number;
   isVerified?: boolean;
   principalPublicId?: string;

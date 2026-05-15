@@ -3,8 +3,17 @@ import type { AuthRequest } from '../../shared/types';
 import { studentService } from './student.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 import { NotFoundError } from '../../utils/error';
+import type { CreateStudentByTutorDto } from './student.validators';
 
 export class StudentController {
+  async createStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const dto = req.body as CreateStudentByTutorDto;
+      const student = await studentService.createByTutor(req.user!.publicId, dto);
+      sendCreated(res, student, 'Student created and linked to your account');
+    } catch (error) { next(error); }
+  }
+
   async getMyProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const profile = await studentService.getByUserPublicId(req.user!.publicId);

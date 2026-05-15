@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studentsService } from '../services/students.service';
+import type { CreateStudentDto } from '../services/students.service';
 
 export const studentKeys = {
   all: ['students'] as const,
@@ -7,6 +8,7 @@ export const studentKeys = {
   detail: (id: string) => [...studentKeys.all, id] as const,
   pending: () => [...studentKeys.all, 'pending'] as const,
   list: (params?: Record<string, string>) => [...studentKeys.all, 'list', params] as const,
+  myTutorStudents: (params?: Record<string, string>) => [...studentKeys.all, 'my-tutor', params] as const,
 };
 
 export function useMyStudentProfile() {
@@ -52,5 +54,20 @@ export function useSuspendStudent() {
     mutationFn: ({ publicId, reason }: { publicId: string; reason: string }) =>
       studentsService.suspend(publicId, reason),
     onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.all }),
+  });
+}
+
+export function useMyStudentsAsTutor(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: studentKeys.myTutorStudents(params),
+    queryFn: () => studentsService.getMyStudentsAsTutor(params),
+  });
+}
+
+export function useCreateStudent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateStudentDto) => studentsService.createStudent(dto),
+    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.myTutorStudents() }),
   });
 }

@@ -15,6 +15,7 @@ export const registerSchema = z.object({
   role: z.enum(ROLES_LIST as [string, ...string[]]).optional(),
   phone: z.string().optional(),
   timezone: z.string().optional(),
+  grade: z.string().optional(),
 });
 
 export const loginSchema = z.object({

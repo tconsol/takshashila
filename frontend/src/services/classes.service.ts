@@ -22,10 +22,11 @@ function mapClass(raw: any): ClassRecord {
 
 export interface BookClassDto {
   tutorPublicId: string;
-  slotPublicId: string;
-  classType: 'DEMO' | 'REGULAR' | 'INTENSIVE';
-  subject: string;
-  notes?: string;
+  availabilitySlotPublicId: string;
+  classType: 'ONE_ON_ONE' | 'GROUP' | 'RECURRING';
+  title: string;
+  description?: string;
+  idempotencyKey: string;
 }
 
 export interface CancelClassDto {
@@ -72,8 +73,17 @@ export const classesService = {
       items: (r.data.data?.items ?? []).map(mapClass),
     } as PaginatedClasses)),
 
+  getMyAsPrincipal: (params?: Record<string, string>) =>
+    api.get('/classes/my/principal', { params }).then((r) => ({
+      ...r.data.data,
+      items: (r.data.data?.items ?? []).map(mapClass),
+    } as PaginatedClasses)),
+
   getById: (classId: string) =>
     api.get(`/classes/${classId}`).then((r) => mapClass(r.data.data)),
+
+  join: (classId: string) =>
+    api.post(`/classes/${classId}/join`).then((r) => mapClass(r.data.data)),
 
   start: (classId: string) =>
     api.post(`/classes/${classId}/start`).then((r) => mapClass(r.data.data)),
@@ -89,5 +99,8 @@ export const classesService = {
 
   saveRecording: (classId: string, dto: { gcsObjectKey: string; recordingUrl: string }) =>
     api.post(`/classes/${classId}/recording`, dto).then((r) => mapClass(r.data.data)),
+
+  getAgoraToken: (classId: string): Promise<{ appId: string; channel: string; token: string; uid: number }> =>
+    api.get(`/classes/${classId}/agora-token`).then((r) => r.data.data),
 };
 

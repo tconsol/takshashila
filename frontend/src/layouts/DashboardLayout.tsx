@@ -3,10 +3,14 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../components/shared/Sidebar';
 import { TopBar } from '../components/shared/TopBar';
 import { useDataInvalidation } from '../hooks/use-data-invalidation';
+import { useTimezoneSync } from '../hooks/use-timezone-sync';
+import { useScheduleAlerts } from '../hooks/use-schedule-alerts';
 
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   useDataInvalidation();
+  useTimezoneSync();
+  useScheduleAlerts();
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-gradient-to-br from-brand-50/30 via-white to-violet-50/20 dark:from-gray-950 dark:via-gray-950 dark:to-brand-950/40">

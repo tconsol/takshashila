@@ -6,7 +6,9 @@ import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { doSlotsOverlap, isSlotInPast } from '../../utils/timezone';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
-import type { CreateAvailabilitySlotDto } from './schedule.validators';
+import type { CreateAvailabilitySlotDto, RescheduleSlotDto } from './schedule.validators';
+import { domainEvents } from '../../events/event-emitter';
+import { DomainEvent } from '../../constants/events';
 
 export class ScheduleService {
   async createSlot(
@@ -34,6 +36,11 @@ export class ScheduleService {
       status: AvailabilityStatus.AVAILABLE,
       isRecurring: dto.isRecurring || false,
       isDeleted: false,
+    });
+
+    domainEvents.emit(DomainEvent.SLOT_CREATED, {
+      tutorPublicId,
+      slotPublicId: slot.publicId,
     });
 
     return slot.toObject();
@@ -79,6 +86,59 @@ export class ScheduleService {
       .lean();
   }
 
+  async cancelSlot(publicId: string, tutorPublicId: string): Promise<IAvailabilitySlot> {
+    const slot = await AvailabilitySlotModel.findOne({ publicId, tutorPublicId, isDeleted: false });
+    if (!slot) throw new NotFoundError('Availability slot');
+
+    if (slot.status === AvailabilityStatus.BOOKED) {
+      throw new ConflictError('Cannot cancel a booked slot — cancel the class first');
+    }
+
+    const updated = await AvailabilitySlotModel.findOneAndUpdate(
+      { publicId },
+      { $set: { status: AvailabilityStatus.CANCELLED } },
+      { new: true },
+    ).lean();
+
+    domainEvents.emit(DomainEvent.SLOT_CANCELLED, {
+      tutorPublicId,
+      slotPublicId: publicId,
+    });
+
+    return updated!;
+  }
+
+  async rescheduleSlot(publicId: string, tutorPublicId: string, dto: RescheduleSlotDto): Promise<IAvailabilitySlot> {
+    const slot = await AvailabilitySlotModel.findOne({ publicId, tutorPublicId, isDeleted: false });
+    if (!slot) throw new NotFoundError('Availability slot');
+
+    if (slot.status === AvailabilityStatus.BOOKED) {
+      throw new ConflictError('Cannot reschedule a booked slot — reschedule the class instead');
+    }
+
+    const start = new Date(dto.startUTC);
+    const end = new Date(dto.endUTC);
+
+    if (isSlotInPast(start)) throw new AppError('Cannot reschedule to a time in the past', 400);
+
+    await this.assertNoConflict(tutorPublicId, start, end, publicId);
+
+    const durationMinutes = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
+
+    const updated = await AvailabilitySlotModel.findOneAndUpdate(
+      { publicId },
+      { $set: { startUTC: start, endUTC: end, durationMinutes, status: AvailabilityStatus.AVAILABLE } },
+      { new: true },
+    ).lean();
+
+    domainEvents.emit(DomainEvent.SLOT_RESCHEDULED, {
+      tutorPublicId,
+      slotPublicId: publicId,
+    });
+
+    return updated!;
+  }
+
   async blockSlot(publicId: string): Promise<IAvailabilitySlot> {
     const slot = await AvailabilitySlotModel.findOneAndUpdate(
       { publicId, status: AvailabilityStatus.AVAILABLE, isDeleted: false },
@@ -117,6 +177,7 @@ export class ScheduleService {
     const filter: Record<string, unknown> = {
       tutorPublicId,
       isDeleted: false,
+      status: { $ne: AvailabilityStatus.CANCELLED },
       $or: [
         { startUTC: { $lt: end }, endUTC: { $gt: start } },
       ],
@@ -131,8 +192,9 @@ export class ScheduleService {
     tutorPublicId: string,
     start: Date,
     end: Date,
+    excludeSlotId?: string,
   ): Promise<void> {
-    const hasConflict = await this.checkConflicts(tutorPublicId, start, end);
+    const hasConflict = await this.checkConflicts(tutorPublicId, start, end, excludeSlotId);
     if (hasConflict) {
       throw new ConflictError('Slot overlaps with an existing availability slot');
     }

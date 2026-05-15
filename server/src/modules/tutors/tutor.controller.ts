@@ -57,16 +57,15 @@ export class TutorController {
 
   async search(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { subject, language, timezone, minRating, maxHourlyRateCents, isVerified, ...paginationQuery } = req.query as Record<string, string>;
+      const { subject, language, timezone, minRating, minHourlyRateCents, maxHourlyRateCents, isVerified, ...paginationQuery } = req.query as Record<string, string>;
       const result = await tutorService.search(
         {
           subject,
           language,
           timezone,
           minRating: minRating ? +minRating : undefined,
+          minHourlyRateCents: minHourlyRateCents ? +minHourlyRateCents : undefined,
           maxHourlyRateCents: maxHourlyRateCents ? +maxHourlyRateCents : undefined,
-          // Only filter by verification status when the caller explicitly asks for it —
-          // otherwise we'd hide every verified tutor by sending `isVerified=false`
           isVerified: isVerified === undefined ? undefined : isVerified === 'true',
         },
         paginationQuery,

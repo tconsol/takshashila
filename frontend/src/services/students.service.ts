@@ -6,8 +6,10 @@ export interface StudentProfile {
   firstName: string;
   lastName: string;
   displayName: string;
+  email?: string;
   status: string;
   grade?: string;
+  notes?: string;
   subjects: string[];
   demoClassesUsed: number;
   totalClassesAttended: number;
@@ -16,7 +18,21 @@ export interface StudentProfile {
   createdAt: string;
 }
 
+export interface CreateStudentDto {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  grade?: string;
+  notes?: string;
+}
+
 export const studentsService = {
+  createStudent: (dto: CreateStudentDto) =>
+    api.post<{ data: StudentProfile }>('/students', dto).then((r) => r.data.data),
+
+
   getMyProfile: () =>
     api.get<{ data: StudentProfile }>('/students/me').then((r) => r.data.data),
 
