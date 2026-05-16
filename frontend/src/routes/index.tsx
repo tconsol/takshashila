@@ -56,6 +56,7 @@ import { TutorWalletPage } from '../pages/tutor/TutorWalletPage';
 import { TutorDemoRequestsPage } from '../pages/tutor/TutorDemoRequestsPage';
 import { TutorResourcesPage } from '../pages/tutor/TutorResourcesPage';
 import { TutorWorksheetResultsPage } from '../pages/tutor/TutorWorksheetResultsPage';
+import { TutorCreateClassPage } from '../pages/tutor/TutorCreateClassPage';
 
 // Student pages
 import { StudentMyTutorPage } from '../pages/student/StudentMyTutorPage';
@@ -170,6 +171,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/tutor/demo-requests', element: <TutorDemoRequestsPage /> },
         { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
+        { path: '/dashboard/tutor/classes/create', element: <TutorCreateClassPage /> },
         { path: '/dashboard/tutor/schedule', element: <TutorSchedulePage /> },
         { path: '/dashboard/tutor/students', element: <TutorStudentsPage /> },
         { path: '/dashboard/tutor/assignments', element: <TutorAssignmentsPage /> },

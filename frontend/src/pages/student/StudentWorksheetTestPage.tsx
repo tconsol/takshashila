@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
+import { CompletionCelebration } from '../../components/ui/CompletionCelebration';
 import { useWorksheet, useMySubmission, useSubmitWorksheet } from '../../hooks/use-worksheets';
 import type { WorksheetSubmission, IQuestion } from '../../services/worksheets.service';
 
@@ -249,6 +250,12 @@ export function StudentWorksheetTestPage() {
   const { worksheetId } = useParams<{ worksheetId: string }>();
   const navigate = useNavigate();
   const [freshResult, setFreshResult] = useState<WorksheetSubmission | null>(null);
+  const [celebrating, setCelebrating] = useState(false);
+
+  const handleDone = (result: WorksheetSubmission) => {
+    setFreshResult(result);
+    setCelebrating(true);
+  };
 
   const { data: worksheet, isLoading: loadingWorksheet } = useWorksheet(worksheetId ?? '');
   const { data: existingSubmission, isLoading: loadingSubmission } = useMySubmission(worksheetId ?? '');
@@ -315,6 +322,16 @@ export function StudentWorksheetTestPage() {
     );
   }
 
+  // Celebration overlay (shown immediately after submit, before results)
+  if (celebrating && freshResult) {
+    return (
+      <CompletionCelebration
+        score={freshResult.score}
+        onDone={() => setCelebrating(false)}
+      />
+    );
+  }
+
   // Test taking
   return (
     <div>
@@ -323,7 +340,7 @@ export function StudentWorksheetTestPage() {
         worksheetId={worksheet.publicId}
         questions={worksheet.questions}
         title={worksheet.title}
-        onDone={setFreshResult}
+        onDone={handleDone}
       />
     </div>
   );
