@@ -20,6 +20,7 @@ export const DomainEvent = {
 
   // ─── Classes ──────────────────────────────────────────
   CLASS_BOOKED: 'CLASS_BOOKED',
+  CLASS_CREATED_BY_TUTOR: 'CLASS_CREATED_BY_TUTOR',
   CLASS_STARTED: 'CLASS_STARTED',
   CLASS_COMPLETED: 'CLASS_COMPLETED',
   CLASS_CANCELLED: 'CLASS_CANCELLED',

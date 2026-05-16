@@ -10,6 +10,7 @@ import { studentService } from '../students/student.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 import { getIO } from '../../sockets/socket.handler';
 import { StudentProfileModel } from '../students/student.model';
+import { UserModel } from '../users/user.model';
 
 const router = Router();
 router.use(authMiddleware);
@@ -68,7 +69,28 @@ router.get('/:worksheetId/submissions', requireRole(Role.TUTOR), async (req: Aut
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const submissions = await worksheetService.getSubmissionsForWorksheet(req.params.worksheetId, tutor.publicId);
-    sendSuccess(res, submissions, 'Submissions fetched');
+
+    // Enrich with student names
+    const studentPublicIds = [...new Set(submissions.map((s) => s.studentPublicId))];
+    const studentProfiles = await StudentProfileModel.find(
+      { publicId: { $in: studentPublicIds }, isDeleted: false },
+      { publicId: 1, userPublicId: 1 },
+    ).lean();
+    const userPublicIds = studentProfiles.map((sp) => sp.userPublicId);
+    const users = await UserModel.find(
+      { publicId: { $in: userPublicIds } },
+      { publicId: 1, firstName: 1, lastName: 1 },
+    ).lean();
+
+    const spMap = new Map(studentProfiles.map((sp) => [sp.publicId, sp.userPublicId]));
+    const userMap = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+
+    const enriched = submissions.map((s) => ({
+      ...s,
+      studentName: userMap.get(spMap.get(s.studentPublicId) ?? '') ?? 'Unknown Student',
+    }));
+
+    sendSuccess(res, enriched, 'Submissions fetched');
   } catch (e) { next(e); }
 });
 

@@ -109,6 +109,20 @@ export class ClassController {
     } catch (error) { next(error); }
   }
 
+  async tutorCreateClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const classes = await classService.tutorCreateClasses(req.user!.publicId, req.body);
+      sendCreated(res, classes, `${classes.length} class${classes.length !== 1 ? 'es' : ''} created`);
+    } catch (error) { next(error); }
+  }
+
+  async tutorReschedule(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const cls = await classService.tutorReschedule(req.params.classId, req.user!.publicId, req.body);
+      sendSuccess(res, cls, 'Class rescheduled');
+    } catch (error) { next(error); }
+  }
+
   async saveRecording(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const cls = await classService.saveRecording(req.params.classId, req.user!.publicId, req.body);

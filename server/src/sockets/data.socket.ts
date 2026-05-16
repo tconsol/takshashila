@@ -80,6 +80,24 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     ], 'wallet');
   });
 
+  domainEvents.on(DomainEvent.CLASS_CREATED_BY_TUTOR, (payload: {
+    tutorUserPublicId: string;
+    studentUserPublicIds: string[];
+    title: string;
+    classType: string;
+    count: number;
+  }) => {
+    const studentRooms = payload.studentUserPublicIds.map((uid) => `user:${uid}`);
+    invalidate(io, [...studentRooms, `user:${payload.tutorUserPublicId}`, 'role:PRINCIPAL'], 'classes');
+    studentRooms.forEach((room) => {
+      io.to(room).emit('class:created', {
+        title: payload.title,
+        classType: payload.classType,
+        count: payload.count,
+      });
+    });
+  });
+
   domainEvents.on(DomainEvent.CLASS_COMPLETED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
     invalidate(io, [
       `user:${payload.tutorUserPublicId}`,

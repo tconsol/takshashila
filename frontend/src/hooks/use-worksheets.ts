@@ -25,6 +25,22 @@ export function useMyWorksheetsAsStudent(params?: Record<string, string>) {
   });
 }
 
+export function useWorksheet(worksheetId: string) {
+  return useQuery({
+    queryKey: worksheetKeys.detail(worksheetId),
+    queryFn: () => worksheetsService.getById(worksheetId),
+    enabled: !!worksheetId,
+  });
+}
+
+export function useMySubmission(worksheetId: string) {
+  return useQuery({
+    queryKey: worksheetKeys.mySubmission(worksheetId),
+    queryFn: () => worksheetsService.getMySubmission(worksheetId),
+    enabled: !!worksheetId,
+  });
+}
+
 export function useWorksheetSubmissions(worksheetId: string) {
   return useQuery({
     queryKey: worksheetKeys.submissions(worksheetId),

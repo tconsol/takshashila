@@ -103,6 +103,11 @@ export function useDataInvalidation() {
       toast.info('Worksheet submitted', `${worksheetTitle} — Score: ${score}%`);
     };
 
+    const handleClassCreated = ({ title }: { classPublicId: string; title: string; tutorPublicId: string }) => {
+      qc.invalidateQueries({ queryKey: ['classes'] });
+      toast.info('New class scheduled!', title);
+    };
+
     socket.on(SocketEvent.DATA_INVALIDATE, handleInvalidate);
     socket.on(SocketEvent.DEMO_ACCEPTED, handleDemoAccepted);
     socket.on(SocketEvent.DEMO_REJECTED, handleDemoRejected);
@@ -111,6 +116,7 @@ export function useDataInvalidation() {
     socket.on('chat:message', handleChatMessage);
     socket.on('worksheet:new', handleWorksheetNew);
     socket.on('worksheet:submitted', handleWorksheetSubmitted);
+    socket.on('class:created', handleClassCreated);
 
     return () => {
       socket.off(SocketEvent.DATA_INVALIDATE, handleInvalidate);
@@ -121,6 +127,7 @@ export function useDataInvalidation() {
       socket.off('chat:message', handleChatMessage);
       socket.off('worksheet:new', handleWorksheetNew);
       socket.off('worksheet:submitted', handleWorksheetSubmitted);
+      socket.off('class:created', handleClassCreated);
     };
   }, [socket, qc, toast, user?.publicId, location.pathname]);
 }

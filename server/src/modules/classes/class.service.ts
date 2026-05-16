@@ -17,7 +17,7 @@ import { DomainEvent } from '../../constants/events';
 import { calculateCommission } from '../../utils/currency';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
-import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto, SaveRecordingDto } from './class.validators';
+import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto, SaveRecordingDto, TutorCreateClassDto, TutorRescheduleDto } from './class.validators';
 
 export class ClassService {
   async bookClass(
@@ -358,6 +358,140 @@ export class ClassService {
       ScheduledClassModel.countDocuments(filter),
     ]);
     return buildPaginatedResult(items, total, page, limit);
+  }
+
+  async tutorCreateClasses(
+    tutorUserPublicId: string,
+    dto: TutorCreateClassDto,
+  ): Promise<IScheduledClass[]> {
+    const tutorProfile = await tutorService.getByUserPublicId(tutorUserPublicId);
+
+    // Determine student public IDs to assign
+    let studentPublicIds: string[] = dto.studentPublicIds;
+    if (studentPublicIds.length === 0) {
+      const allStudents = await StudentProfileModel.find(
+        { tutorPublicId: tutorProfile.publicId, isDeleted: false, status: { $in: ['ACTIVE', 'APPROVED'] } },
+        { publicId: 1 },
+      ).lean();
+      studentPublicIds = allStudents.map((s) => s.publicId);
+    }
+
+    // Build list of occurrences
+    const occurrences: Array<{ start: Date; end: Date }> = [];
+    const startMs = new Date(dto.startUTC).getTime();
+    const endMs = new Date(dto.endUTC).getTime();
+    const durationMs = endMs - startMs;
+
+    if (dto.recurrence === 'NONE' || !dto.recurrenceEndDate) {
+      occurrences.push({ start: new Date(dto.startUTC), end: new Date(dto.endUTC) });
+    } else {
+      const recEnd = new Date(dto.recurrenceEndDate).getTime();
+      const stepMs = dto.recurrence === 'DAILY' ? 86_400_000 : 7 * 86_400_000;
+      let cur = startMs;
+      while (cur <= recEnd) {
+        occurrences.push({ start: new Date(cur), end: new Date(cur + durationMs) });
+        cur += stepMs;
+        if (occurrences.length > 365) break; // safety cap
+      }
+    }
+
+    // Create one ScheduledClass per occurrence × student (or just for the tutor if no students)
+    const created: IScheduledClass[] = [];
+    const ianaTimezone = 'UTC';
+    const durationMinutes = Math.round(durationMs / 60_000);
+
+    for (const occ of occurrences) {
+      // For GROUP/RECURRING with multiple students, create one class per student so each has their own record
+      const targets = studentPublicIds.length > 0 ? studentPublicIds : [''];
+      for (const studentPublicId of targets) {
+        const cls = await ScheduledClassModel.create({
+          publicId: uuidv4(),
+          tutorPublicId: tutorProfile.publicId,
+          studentPublicId: studentPublicId || '',
+          classType: dto.classType,
+          status: ClassStatus.SCHEDULED,
+          startUTC: occ.start,
+          endUTC: occ.end,
+          ianaTimezone,
+          durationMinutes,
+          title: dto.title,
+          description: dto.description,
+          costCents: 0,
+          idempotencyKey: uuidv4(),
+          isDeleted: false,
+        });
+        created.push(cls.toObject());
+      }
+    }
+
+    // Notify assigned students via domain event
+    if (studentPublicIds.length > 0) {
+      const studentProfiles = await StudentProfileModel.find(
+        { publicId: { $in: studentPublicIds }, isDeleted: false },
+        { userPublicId: 1, publicId: 1 },
+      ).lean();
+      for (const sp of studentProfiles) {
+        domainEvents.emit(DomainEvent.CLASS_BOOKED, {
+          classPublicId: created[0]?.publicId ?? '',
+          tutorPublicId: tutorProfile.publicId,
+          tutorUserPublicId,
+          studentPublicId: sp.publicId ?? '',
+          studentUserPublicId: sp.userPublicId,
+          classType: dto.classType,
+          costCents: 0,
+        });
+      }
+      // Emit specific class:created event so students get a toast notification
+      domainEvents.emit(DomainEvent.CLASS_CREATED_BY_TUTOR, {
+        tutorPublicId: tutorProfile.publicId,
+        tutorUserPublicId,
+        studentUserPublicIds: studentProfiles.map((sp) => sp.userPublicId),
+        title: dto.title,
+        classType: dto.classType,
+        count: created.length,
+      });
+    }
+
+    return created;
+  }
+
+  async tutorReschedule(
+    classPublicId: string,
+    tutorUserPublicId: string,
+    dto: TutorRescheduleDto,
+  ): Promise<IScheduledClass> {
+    const tutorProfile = await tutorService.getByUserPublicId(tutorUserPublicId);
+    const cls = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (!cls) throw new NotFoundError('Class');
+    if (cls.tutorPublicId !== tutorProfile.publicId) throw new AppError('Not your class', 403);
+    if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED) {
+      throw new AppError('Cannot reschedule a completed or cancelled class', 400);
+    }
+
+    const durationMinutes = Math.round(
+      (new Date(dto.endUTC).getTime() - new Date(dto.startUTC).getTime()) / 60_000,
+    );
+
+    const updated = await ScheduledClassModel.findOneAndUpdate(
+      { publicId: classPublicId },
+      { $set: { startUTC: new Date(dto.startUTC), endUTC: new Date(dto.endUTC), durationMinutes } },
+      { new: true },
+    ).lean();
+
+    const studentProfile = await StudentProfileModel.findOne(
+      { publicId: cls.studentPublicId, isDeleted: false },
+      { userPublicId: 1 },
+    ).lean();
+
+    domainEvents.emit(DomainEvent.CLASS_RESCHEDULED, {
+      classPublicId,
+      tutorPublicId: tutorProfile.publicId,
+      tutorUserPublicId,
+      studentUserPublicId: studentProfile?.userPublicId ?? '',
+      newStartUTC: dto.startUTC,
+    });
+
+    return updated!;
   }
 
   async saveRecording(

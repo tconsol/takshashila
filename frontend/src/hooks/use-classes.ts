@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { classesService } from '../services/classes.service';
-import type { BookClassDto, CancelClassDto } from '../services/classes.service';
+import type { BookClassDto, CancelClassDto, TutorCreateClassDto, TutorRescheduleDto } from '../services/classes.service';
 import { useToast } from '../components/ui/Toast';
 
 export const classKeys = {
@@ -100,6 +100,33 @@ export function useCancelClass() {
     onError: (err: Error) => {
       toast.error('Could not cancel class', err.message);
     },
+  });
+}
+
+export function useTutorCreateClass() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: (dto: TutorCreateClassDto) => classesService.tutorCreate(dto),
+    onSuccess: (classes) => {
+      qc.invalidateQueries({ queryKey: classKeys.all });
+      toast.success(`${classes.length} class${classes.length !== 1 ? 'es' : ''} created!`);
+    },
+    onError: (err: Error) => toast.error('Could not create class', err.message),
+  });
+}
+
+export function useTutorReschedule() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({ classId, dto }: { classId: string; dto: TutorRescheduleDto }) =>
+      classesService.tutorReschedule(classId, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: classKeys.all });
+      toast.success('Class rescheduled!');
+    },
+    onError: (err: Error) => toast.error('Could not reschedule', err.message),
   });
 }
 

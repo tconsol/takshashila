@@ -55,6 +55,7 @@ import { TutorProgressPage } from '../pages/tutor/TutorProgressPage';
 import { TutorWalletPage } from '../pages/tutor/TutorWalletPage';
 import { TutorDemoRequestsPage } from '../pages/tutor/TutorDemoRequestsPage';
 import { TutorResourcesPage } from '../pages/tutor/TutorResourcesPage';
+import { TutorWorksheetResultsPage } from '../pages/tutor/TutorWorksheetResultsPage';
 
 // Student pages
 import { StudentMyTutorPage } from '../pages/student/StudentMyTutorPage';
@@ -64,6 +65,7 @@ import { StudentAttendancePage } from '../pages/student/StudentAttendancePage';
 import { StudentProgressPage } from '../pages/student/StudentProgressPage';
 import { StudentWalletPage } from '../pages/student/StudentWalletPage';
 import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
+import { StudentWorksheetTestPage } from '../pages/student/StudentWorksheetTestPage';
 import { StudentResourcesPage } from '../pages/student/StudentResourcesPage';
 
 // Parent pages
@@ -172,6 +174,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/tutor/students', element: <TutorStudentsPage /> },
         { path: '/dashboard/tutor/assignments', element: <TutorAssignmentsPage /> },
         { path: '/dashboard/tutor/worksheets', element: <TutorWorksheetsPage /> },
+        { path: '/dashboard/tutor/worksheets/:worksheetId/results', element: <TutorWorksheetResultsPage /> },
         { path: '/dashboard/tutor/resources', element: <TutorResourcesPage /> },
         { path: '/dashboard/tutor/attendance', element: <TutorAttendancePage /> },
         { path: '/dashboard/tutor/progress', element: <TutorProgressPage /> },
@@ -192,6 +195,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/classes', element: <StudentClassesPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
         { path: '/dashboard/student/worksheets', element: <StudentWorksheetsPage /> },
+        { path: '/dashboard/student/worksheets/:worksheetId/test', element: <StudentWorksheetTestPage /> },
         { path: '/dashboard/student/resources', element: <StudentResourcesPage /> },
         { path: '/dashboard/student/attendance', element: <StudentAttendancePage /> },
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },

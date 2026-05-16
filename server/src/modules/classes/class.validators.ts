@@ -39,8 +39,28 @@ export const saveRecordingSchema = z.object({
   recordingUrl: z.string().url(),
 });
 
+export const tutorCreateClassSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  classType: z.enum(['DEMO', 'ONE_ON_ONE', 'GROUP', 'RECURRING']),
+  startUTC: z.string().datetime(),
+  endUTC: z.string().datetime(),
+  // For RECURRING: DAILY or WEEKLY, repeat until recurrenceEndDate
+  recurrence: z.enum(['NONE', 'DAILY', 'WEEKLY']).default('NONE'),
+  recurrenceEndDate: z.string().datetime().optional(),
+  // empty array = all students; list of publicIds = specific students
+  studentPublicIds: z.array(z.string()).default([]),
+});
+
+export const tutorRescheduleSchema = z.object({
+  startUTC: z.string().datetime(),
+  endUTC: z.string().datetime(),
+});
+
 export type BookClassDto = z.infer<typeof bookClassSchema>;
 export type CancelClassDto = z.infer<typeof cancelClassSchema>;
 export type RescheduleClassDto = z.infer<typeof rescheduleClassSchema>;
 export type SetMeetingUrlDto = z.infer<typeof setMeetingUrlSchema>;
 export type SaveRecordingDto = z.infer<typeof saveRecordingSchema>;
+export type TutorCreateClassDto = z.infer<typeof tutorCreateClassSchema>;
+export type TutorRescheduleDto = z.infer<typeof tutorRescheduleSchema>;

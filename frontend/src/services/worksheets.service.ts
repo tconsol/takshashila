@@ -27,6 +27,7 @@ export interface WorksheetSubmission {
   publicId: string;
   worksheetPublicId: string;
   studentPublicId: string;
+  studentName?: string;
   answers: number[];
   score: number;
   correctCount: number;

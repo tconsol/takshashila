@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, ClipboardList } from 'lucide-react';
+import { BookOpen, ClipboardList, Plus, Calendar } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { ClassCard } from '../../components/shared/ClassCard';
 import { Tabs } from '../../components/ui/Tabs';
@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { useMyClassesAsTutor, useCompleteClass, useCancelClass } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
 import { WorksheetUploadModal } from '../../features/worksheets/WorksheetUploadModal';
+import { TutorCreateClassModal, TutorRescheduleModal } from '../../features/classes/TutorCreateClassModal';
 import type { ClassRecord } from '../../services/classes.service';
 
 const EMPTY_LABELS: Record<string, string> = {
@@ -23,6 +24,8 @@ export function TutorClassesPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [uploadTarget, setUploadTarget] = useState<ClassRecord | null>(null);
   const [uploadType, setUploadType] = useState<'WORKSHEET' | 'ASSIGNMENT'>('WORKSHEET');
+  const [showCreate, setShowCreate] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<ClassRecord | null>(null);
 
   const { data, isLoading } = useMyClassesAsTutor({ status: activeTab });
   const { data: liveData } = useMyClassesAsTutor({ status: 'LIVE', limit: '1' });
@@ -45,9 +48,10 @@ export function TutorClassesPage() {
     { key: 'CANCELLED', label: 'Cancelled' },
   ];
 
-  const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate', cls: ClassRecord) => {
+  const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate' | 'reschedule', cls: ClassRecord) => {
     if (action === 'complete') completeClass(cls.publicId);
     else if (action === 'cancel') { setCancelTarget(cls); setCancelReason(''); }
+    else if (action === 'reschedule') setRescheduleTarget(cls);
   };
 
   const handleCancel = async () => {
@@ -63,7 +67,12 @@ export function TutorClassesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="My Classes" subtitle="Manage your scheduled and completed sessions" />
+      <div className="flex items-center justify-between gap-4">
+        <PageHeader title="My Classes" subtitle="Manage your scheduled and completed sessions" />
+        <Button variant="gradient" onClick={() => setShowCreate(true)} className="shrink-0">
+          <Plus className="h-4 w-4" /> Create Class
+        </Button>
+      </div>
 
       <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
 
@@ -80,6 +89,20 @@ export function TutorClassesPage() {
           {classes.map((cls) => (
             <div key={cls.publicId} className="flex flex-col gap-0">
               <ClassCard cls={cls} perspective="tutor" onAction={handleAction} />
+
+              {/* Reschedule button for SCHEDULED classes */}
+              {cls.status === 'SCHEDULED' && (
+                <div className="flex gap-2 px-5 pb-3 -mt-1 bg-white dark:bg-gray-800 rounded-b-xl border border-t-0 border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setRescheduleTarget(cls)}
+                    className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg py-1.5 transition-colors"
+                  >
+                    <Calendar className="h-3.5 w-3.5" /> Reschedule
+                  </button>
+                </div>
+              )}
+
+              {/* Worksheet/Assignment buttons for COMPLETED classes */}
               {cls.status === 'COMPLETED' && (
                 <div className="flex gap-2 px-5 pb-5 -mt-2 bg-white dark:bg-gray-800 rounded-b-xl border border-t-0 border-gray-200 dark:border-gray-700">
                   <button
@@ -129,6 +152,16 @@ export function TutorClassesPage() {
           />
         </div>
       </Modal>
+
+      {/* Create class modal */}
+      <TutorCreateClassModal open={showCreate} onClose={() => setShowCreate(false)} />
+
+      {/* Reschedule modal */}
+      <TutorRescheduleModal
+        cls={rescheduleTarget}
+        open={!!rescheduleTarget}
+        onClose={() => setRescheduleTarget(null)}
+      />
 
       {/* Worksheet / Assignment upload modal */}
       <WorksheetUploadModal
