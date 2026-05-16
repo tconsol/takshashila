@@ -34,8 +34,23 @@ export function useDataInvalidation() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    audioRef.current = new Audio(notificationSound);
-    audioRef.current.volume = 0.6;
+    const audio = new Audio(notificationSound);
+    audio.volume = 0.6;
+    audioRef.current = audio;
+
+    // Unlock autoplay on first user interaction (browsers block audio until then)
+    const unlock = () => {
+      audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
+    document.addEventListener('click', unlock, true);
+    document.addEventListener('keydown', unlock, true);
+
+    return () => {
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
   }, []);
 
   useEffect(() => {

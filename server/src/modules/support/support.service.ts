@@ -5,6 +5,8 @@ import type { ITicket, ITicketMessage, CreateTicketDto, UpdateTicketDto, AddMess
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import { notificationService } from '../notifications/notification.service';
+import { domainEvents } from '../../events/event-emitter';
+import { DomainEvent } from '../../constants/events';
 
 export class SupportService {
   async createTicket(requesterPublicId: string, dto: CreateTicketDto): Promise<ITicket> {
@@ -25,6 +27,7 @@ export class SupportService {
       isInternal: false,
     });
 
+    domainEvents.emit(DomainEvent.TICKET_CREATED, { ticketPublicId: ticket.publicId });
     return ticket.toObject();
   }
 
@@ -67,6 +70,12 @@ export class SupportService {
         body: `Your ticket "${ticket.subject}" is now ${dto.status}.`,
         data: { ticketPublicId: ticket.publicId },
       });
+
+      if (dto.status === TicketStatus.RESOLVED || dto.status === TicketStatus.CLOSED) {
+        domainEvents.emit(DomainEvent.TICKET_RESOLVED, { ticketPublicId: ticket.publicId });
+      } else {
+        domainEvents.emit(DomainEvent.TICKET_CREATED, { ticketPublicId: ticket.publicId });
+      }
     }
 
     return ticket;

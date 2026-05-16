@@ -73,6 +73,7 @@ export class AttendanceService {
 
     domainEvents.emit(DomainEvent.ATTENDANCE_OVERRIDDEN, {
       attendancePublicId: publicId,
+      studentPublicId: attendance.studentPublicId,
       overriddenBy,
       oldStatus,
       newStatus: dto.status,

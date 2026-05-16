@@ -120,18 +120,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const items = NAV_ITEMS[user.role] ?? [];
 
+  const isOnPage = (href: string): boolean =>
+    href === '/chat' ? location.pathname.startsWith('/chat') : location.pathname === href;
+
   const getBadgeCount = (badgeKey: string | undefined, href: string): number => {
     if (!badgeKey) return 0;
-    if (badgeKey === 'scheduleAlert') {
-      if (location.pathname === href) {
-        if (scheduleAlertCount > 0) setTimeout(clearScheduleAlerts, 0);
-        return 0;
-      }
-      return scheduleAlertCount;
+    if (isOnPage(href)) {
+      if (badgeKey === 'scheduleAlert' && scheduleAlertCount > 0) setTimeout(clearScheduleAlerts, 0);
+      return 0;
     }
-    if (badgeKey === 'demoRequests') {
-      return location.pathname === href ? 0 : demoRequestCount;
-    }
+    if (badgeKey === 'scheduleAlert') return scheduleAlertCount;
+    if (badgeKey === 'demoRequests') return demoRequestCount;
     return badges[badgeKey] ?? 0;
   };
 

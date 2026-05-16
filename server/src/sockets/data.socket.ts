@@ -38,11 +38,6 @@ async function notifyTutorConnections(
 }
 
 export function registerDataInvalidationSocket(io: IOServer): void {
-  // Principals changed → admins & super-admins need fresh data
-  domainEvents.on(DomainEvent.PRINCIPAL_APPROVED, () => {
-    invalidate(io, ['role:ADMIN', 'role:SUPER_ADMIN'], 'principals');
-  });
-
   domainEvents.on(DomainEvent.PRINCIPAL_SUSPENDED, () => {
     invalidate(io, ['role:ADMIN', 'role:SUPER_ADMIN'], 'principals');
   });
@@ -60,24 +55,16 @@ export function registerDataInvalidationSocket(io: IOServer): void {
   });
 
   domainEvents.on(DomainEvent.CLASS_BOOKED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
-    invalidate(io, [
-      `user:${payload.tutorUserPublicId}`,
-      `user:${payload.studentUserPublicId}`,
-      'role:PRINCIPAL',
-      'role:ADMIN',
-    ], 'classes');
+    const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
+    invalidate(io, [...rooms, 'role:PRINCIPAL', 'role:ADMIN'], 'classes');
+    rooms.forEach((r) => io.to(r).emit('schedule:alert'));
   });
 
   domainEvents.on(DomainEvent.CLASS_CANCELLED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
-    invalidate(io, [
-      `user:${payload.tutorUserPublicId}`,
-      `user:${payload.studentUserPublicId}`,
-      'role:PRINCIPAL',
-    ], 'classes');
-    invalidate(io, [
-      `user:${payload.tutorUserPublicId}`,
-      `user:${payload.studentUserPublicId}`,
-    ], 'wallet');
+    const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
+    invalidate(io, [...rooms, 'role:PRINCIPAL'], 'classes');
+    invalidate(io, rooms, 'wallet');
+    rooms.forEach((r) => io.to(r).emit('schedule:alert'));
   });
 
   domainEvents.on(DomainEvent.CLASS_CREATED_BY_TUTOR, (payload: {
@@ -95,15 +82,25 @@ export function registerDataInvalidationSocket(io: IOServer): void {
         classType: payload.classType,
         count: payload.count,
       });
+      // Light up the Classes sidebar badge for each student
+      io.to(room).emit('schedule:alert');
     });
   });
 
   domainEvents.on(DomainEvent.CLASS_COMPLETED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
-    invalidate(io, [
-      `user:${payload.tutorUserPublicId}`,
-      `user:${payload.studentUserPublicId}`,
-    ], 'classes');
+    const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
+    invalidate(io, rooms, 'classes');
     invalidate(io, [`user:${payload.tutorUserPublicId}`], 'wallet');
+    // Refresh student profile so demo count and stats update
+    if (payload.studentUserPublicId) invalidate(io, [`user:${payload.studentUserPublicId}`], 'students');
+    // Refresh tutor stats
+    invalidate(io, [`user:${payload.tutorUserPublicId}`], 'tutors');
+  });
+
+  domainEvents.on(DomainEvent.CLASS_RESCHEDULED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
+    const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
+    invalidate(io, rooms, 'classes');
+    rooms.forEach((r) => io.to(r).emit('schedule:alert'));
   });
 
   // Assignment events
@@ -118,19 +115,31 @@ export function registerDataInvalidationSocket(io: IOServer): void {
   // Attendance
   domainEvents.on(DomainEvent.ATTENDANCE_MARKED, (payload: { studentPublicId: string }) => {
     invalidate(io, [`user:${payload.studentPublicId}`, 'role:TUTOR', 'role:PRINCIPAL'], 'attendance');
+    // Refresh student profile so attendanceRate stat updates everywhere
+    invalidate(io, [`user:${payload.studentPublicId}`], 'students');
   });
 
-  // Wallet / payments
-  domainEvents.on(DomainEvent.CREDITS_ADDED, (payload: { userId: string }) => {
-    invalidate(io, [`user:${payload.userId}`], 'wallet');
+  domainEvents.on(DomainEvent.ATTENDANCE_OVERRIDDEN, (payload: { studentPublicId: string }) => {
+    invalidate(io, [`user:${payload.studentPublicId}`, 'role:TUTOR', 'role:PRINCIPAL'], 'attendance');
+    invalidate(io, [`user:${payload.studentPublicId}`], 'students');
   });
 
-  domainEvents.on(DomainEvent.CREDITS_DEDUCTED, (payload: { userId: string }) => {
-    invalidate(io, [`user:${payload.userId}`], 'wallet');
+  // Wallet / payments — wallet.service emits ownerPublicId, not userId
+  domainEvents.on(DomainEvent.CREDITS_ADDED, (payload: { ownerPublicId: string }) => {
+    invalidate(io, [`user:${payload.ownerPublicId}`], 'wallet');
   });
 
-  domainEvents.on(DomainEvent.CREDITS_REFUNDED, (payload: { userId: string }) => {
-    invalidate(io, [`user:${payload.userId}`], 'wallet');
+  domainEvents.on(DomainEvent.CREDITS_DEDUCTED, (payload: { ownerPublicId: string }) => {
+    invalidate(io, [`user:${payload.ownerPublicId}`], 'wallet');
+  });
+
+  domainEvents.on(DomainEvent.CREDITS_REFUNDED, (payload: { ownerPublicId: string }) => {
+    invalidate(io, [`user:${payload.ownerPublicId}`], 'wallet');
+  });
+
+  // Payment received → wallet already refreshed by CREDITS_ADDED but invalidate transactions too
+  domainEvents.on(DomainEvent.PAYMENT_RECEIVED, (payload: { userPublicId: string }) => {
+    invalidate(io, [`user:${payload.userPublicId}`], 'wallet');
   });
 
   // Support tickets
@@ -143,9 +152,11 @@ export function registerDataInvalidationSocket(io: IOServer): void {
   });
 
   // Student invited by tutor — notify the student so they see the pending invite
-  domainEvents.on(DomainEvent.STUDENT_INVITED, (payload: { userPublicId: string; tutorUserPublicId: string }) => {
+  domainEvents.on(DomainEvent.STUDENT_INVITED, (payload: { userPublicId: string; tutorUserPublicId?: string }) => {
     invalidate(io, [`user:${payload.userPublicId}`], 'students');
-    io.to(`user:${payload.userPublicId}`).emit('student:invited', { tutorUserPublicId: payload.tutorUserPublicId });
+    if (payload.tutorUserPublicId) {
+      io.to(`user:${payload.userPublicId}`).emit('student:invited', { tutorUserPublicId: payload.tutorUserPublicId });
+    }
   });
 
   // Student approved — notify student, their tutor, and all principals
@@ -216,5 +227,60 @@ export function registerDataInvalidationSocket(io: IOServer): void {
 
   domainEvents.on(DomainEvent.JOIN_REQUEST_REJECTED, (payload: { tutorUserPublicId: string; principalUserPublicId: string }) => {
     invalidate(io, [`user:${payload.tutorUserPublicId}`, `user:${payload.principalUserPublicId}`], 'join-requests');
+  });
+
+  // Tutor approved by admin → notify the tutor, refresh admin/principal views
+  domainEvents.on(DomainEvent.TUTOR_APPROVED, (payload: { tutorPublicId: string; userPublicId?: string }) => {
+    if (payload.userPublicId) invalidate(io, [`user:${payload.userPublicId}`], 'tutors');
+    invalidate(io, ['role:ADMIN', 'role:SUPER_ADMIN', 'role:PRINCIPAL'], 'tutors');
+  });
+
+  domainEvents.on(DomainEvent.TUTOR_SUSPENDED, (payload: { tutorPublicId: string; userPublicId?: string }) => {
+    if (payload.userPublicId) invalidate(io, [`user:${payload.userPublicId}`], 'tutors');
+    invalidate(io, ['role:ADMIN', 'role:SUPER_ADMIN', 'role:PRINCIPAL'], 'tutors');
+  });
+
+  // Tutor rated → refresh tutor profile so rating/count updates in UI
+  domainEvents.on(DomainEvent.TUTOR_RATED, (payload: { tutorPublicId: string }) => {
+    TutorProfileModel.findOne({ publicId: payload.tutorPublicId, isDeleted: false }, { userPublicId: 1 })
+      .lean()
+      .then((tutor) => {
+        if (tutor?.userPublicId) invalidate(io, [`user:${tutor.userPublicId}`, 'role:PRINCIPAL', 'role:ADMIN'], 'tutors');
+      })
+      .catch(() => {});
+  });
+
+  // Student transferred between tutors → refresh old tutor, new tutor, student, principal
+  domainEvents.on(DomainEvent.STUDENT_TRANSFERRED, (payload: { studentPublicId: string; fromTutor: string; toTutor: string }) => {
+    Promise.all([
+      StudentProfileModel.findOne({ publicId: payload.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
+      TutorProfileModel.findOne({ publicId: payload.fromTutor, isDeleted: false }, { userPublicId: 1 }).lean(),
+      TutorProfileModel.findOne({ publicId: payload.toTutor, isDeleted: false }, { userPublicId: 1 }).lean(),
+    ]).then(([student, fromTutor, toTutor]) => {
+      const rooms: string[] = ['role:PRINCIPAL'];
+      if (student?.userPublicId) rooms.push(`user:${student.userPublicId}`);
+      if (fromTutor?.userPublicId) rooms.push(`user:${fromTutor.userPublicId}`);
+      if (toTutor?.userPublicId) rooms.push(`user:${toTutor.userPublicId}`);
+      invalidate(io, rooms, 'students');
+      if (fromTutor?.userPublicId) invalidate(io, [`user:${fromTutor.userPublicId}`], 'tutors');
+      if (toTutor?.userPublicId) invalidate(io, [`user:${toTutor.userPublicId}`], 'tutors');
+    }).catch(() => {});
+  });
+
+  domainEvents.on(DomainEvent.STUDENT_INACTIVATED, (payload: { studentPublicId: string; studentUserPublicId?: string }) => {
+    const rooms: string[] = ['role:PRINCIPAL', 'role:TUTOR'];
+    if (payload.studentUserPublicId) rooms.push(`user:${payload.studentUserPublicId}`);
+    invalidate(io, rooms, 'students');
+  });
+
+  // Ticket escalated → same audience as created/resolved
+  domainEvents.on(DomainEvent.TICKET_ESCALATED, () => {
+    invalidate(io, ['role:SUPPORT', 'role:ADMIN', 'role:SUPER_ADMIN'], 'tickets');
+  });
+
+  // Principal approved/suspended → also notify the principal themselves
+  domainEvents.on(DomainEvent.PRINCIPAL_APPROVED, (payload: { principalPublicId: string; userPublicId: string }) => {
+    if (payload.userPublicId) invalidate(io, [`user:${payload.userPublicId}`], 'principals');
+    invalidate(io, ['role:ADMIN', 'role:SUPER_ADMIN'], 'principals');
   });
 }

@@ -156,7 +156,7 @@ export class TutorService {
       verifiedBy: approvedBy,
     });
 
-    domainEvents.emit('TUTOR_APPROVED', { tutorPublicId: publicId, approvedBy });
+    domainEvents.emit(DomainEvent.TUTOR_APPROVED, { tutorPublicId: publicId, userPublicId: updated!.userPublicId, approvedBy });
     return updated!;
   }
 

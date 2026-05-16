@@ -372,6 +372,14 @@ export class AuthService {
       emailVerificationExpiry: undefined,
     });
 
+    // Auto-activate tutor profile so tutor can start working immediately after verification
+    if (user.role === 'TUTOR') {
+      await TutorProfileModel.updateOne(
+        { userPublicId: user.publicId, status: TutorStatus.REGISTERED, isDeleted: false },
+        { $set: { status: TutorStatus.ACTIVE } },
+      );
+    }
+
     domainEvents.emit(DomainEvent.USER_EMAIL_VERIFIED, { userId: user.publicId });
   }
 

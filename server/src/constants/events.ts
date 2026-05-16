@@ -65,6 +65,10 @@ export const DomainEvent = {
   ASSIGNMENT_SUBMITTED: 'ASSIGNMENT_SUBMITTED',
   ASSIGNMENT_GRADED: 'ASSIGNMENT_GRADED',
 
+  // ─── Tutor ────────────────────────────────────────────
+  TUTOR_APPROVED: 'TUTOR_APPROVED',
+  TUTOR_SUSPENDED: 'TUTOR_SUSPENDED',
+
   // ─── Principal ────────────────────────────────────────
   PRINCIPAL_APPROVED: 'PRINCIPAL_APPROVED',
   PRINCIPAL_SUSPENDED: 'PRINCIPAL_SUSPENDED',
