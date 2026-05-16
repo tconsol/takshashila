@@ -16,10 +16,10 @@ import {
 import type { DemoRequest } from '../../services/demo-requests.service';
 
 const STATUS_TABS = [
+  { key: '', label: 'All' },
   { key: 'PENDING', label: 'Pending' },
   { key: 'ACCEPTED', label: 'Accepted' },
   { key: 'REJECTED', label: 'Rejected' },
-  { key: '', label: 'All' },
 ];
 
 function RejectInline({
@@ -158,7 +158,7 @@ function RequestRow({ request, timezone }: { request: DemoRequest; timezone: str
 }
 
 export function TutorDemoRequestsPage() {
-  const [activeTab, setActiveTab] = useState('PENDING');
+  const [activeTab, setActiveTab] = useState('');
   const userTimezone =
     useAuthStore((s) => s.user?.timezone) ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 

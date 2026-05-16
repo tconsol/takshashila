@@ -33,7 +33,7 @@ export class TutorRepository {
 
     const filter: Record<string, unknown> = {
       isDeleted: false,
-      status: { $in: ['ACTIVE', 'UNDER_VERIFICATION'] },
+      status: { $in: ['ACTIVE', 'UNDER_VERIFICATION', 'REGISTERED'] },
     };
     if (filters.subject) filter.subjects = { $in: [filters.subject] };
     if (filters.language) filter.languages = { $in: [filters.language] };
