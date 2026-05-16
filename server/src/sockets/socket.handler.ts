@@ -6,6 +6,7 @@ import { env } from '../config/env';
 import { registerClassSocket } from './class.socket';
 import { registerNotificationSocket } from './notification.socket';
 import { registerChatSocket } from './chat.socket';
+import { registerDataInvalidationSocket } from './data.socket';
 
 export interface AuthSocket extends Socket {
   userPublicId: string;
@@ -39,11 +40,14 @@ export function initSocketServer(httpServer: HttpServer): IOServer {
     }
   });
 
+  registerDataInvalidationSocket(io);
+
   io.on('connection', (socket: Socket) => {
     const authSocket = socket as AuthSocket;
     logger.info('Socket connected', { socketId: socket.id, user: authSocket.userPublicId });
 
     socket.join(`user:${authSocket.userPublicId}`);
+    socket.join(`role:${authSocket.userRole}`);
 
     registerClassSocket(io, authSocket);
     registerNotificationSocket(io, authSocket);

@@ -31,6 +31,10 @@ import type {
 import { walletService } from '../wallets/wallet.service';
 import { PrincipalProfileModel } from '../principals/principal.model';
 import { PrincipalStatus } from '../principals/principal.types';
+import { TutorProfileModel } from '../tutors/tutor.model';
+import { TutorStatus } from '../tutors/tutor.types';
+import { StudentProfileModel } from '../students/student.model';
+import { StudentStatus } from '../students/student.types';
 
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -81,6 +85,34 @@ export class AuthService {
       console.warn('[auth] Could not create wallet for user:', (err as Error).message);
     }
 
+    // Auto-create tutor profile for self-registered tutors
+    if (user.role === 'TUTOR') {
+      try {
+        await TutorProfileModel.create({
+          publicId: uuidv4(),
+          userPublicId: user.publicId,
+          status: TutorStatus.REGISTERED,
+          subjects: [],
+          languages: [],
+          hourlyRateCents: 0,
+          commissionRatePercent: 20,
+          qualifications: [],
+          timezone: dto.timezone || 'UTC',
+          trustScore: 50,
+          totalStudents: 0,
+          totalClassesCompleted: 0,
+          totalClassesCancelled: 0,
+          totalEarningsCents: 0,
+          rating: 0,
+          ratingCount: 0,
+          isVerified: false,
+          isDeleted: false,
+        });
+      } catch (err) {
+        console.warn('[auth] Could not create tutor profile:', (err as Error).message);
+      }
+    }
+
     // Auto-create principal profile in PENDING_APPROVAL state
     if (user.role === 'PRINCIPAL') {
       try {
@@ -97,6 +129,30 @@ export class AuthService {
         });
       } catch (err) {
         console.warn('[auth] Could not create principal profile:', (err as Error).message);
+      }
+    }
+
+    // Auto-create student profile for self-registered students
+    if (user.role === 'STUDENT') {
+      try {
+        await StudentProfileModel.create({
+          publicId: uuidv4(),
+          userPublicId: user.publicId,
+          previousTutorPublicIds: [],
+          status: StudentStatus.PENDING_APPROVAL,
+          demoClassesUsed: 0,
+          demoClassTakenWith: [],
+          totalClassesAttended: 0,
+          totalClassesCancelled: 0,
+          totalClassesMissed: 0,
+          totalClassesBooked: 0,
+          attendanceRate: 0,
+          grade: dto.grade,
+          invitedBy: user.publicId,
+          isDeleted: false,
+        });
+      } catch (err) {
+        console.warn('[auth] Could not create student profile:', (err as Error).message);
       }
     }
 
@@ -137,6 +193,32 @@ export class AuthService {
       }
       if (principalProfile.status === PrincipalStatus.INACTIVE) {
         throw new AuthenticationError('Your account is inactive. Please contact support.');
+      }
+    }
+
+    // Ensure student profile exists for legacy accounts that pre-date profile auto-creation
+    if (user.role === 'STUDENT') {
+      const existing = await StudentProfileModel.findOne({ userPublicId: user.publicId, isDeleted: false }).lean();
+      if (!existing) {
+        try {
+          await StudentProfileModel.create({
+            publicId: uuidv4(),
+            userPublicId: user.publicId,
+            previousTutorPublicIds: [],
+            status: StudentStatus.PENDING_APPROVAL,
+            demoClassesUsed: 0,
+            demoClassTakenWith: [],
+            totalClassesAttended: 0,
+            totalClassesCancelled: 0,
+            totalClassesMissed: 0,
+            totalClassesBooked: 0,
+            attendanceRate: 0,
+            invitedBy: user.publicId,
+            isDeleted: false,
+          });
+        } catch (err) {
+          console.warn('[auth] Could not auto-create student profile on login:', (err as Error).message);
+        }
       }
     }
 
@@ -291,6 +373,32 @@ export class AuthService {
     });
 
     domainEvents.emit(DomainEvent.USER_EMAIL_VERIFIED, { userId: user.publicId });
+  }
+
+  async acceptInvite(token: string, password: string): Promise<void> {
+    const user = await userRepository.findByEmailVerificationToken(token);
+    if (!user) throw new AppError('This invite link is invalid or has expired.', 400);
+
+    const passwordHash = await argon2.hash(password, {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 1,
+    });
+
+    await userRepository.update(user.publicId, {
+      emailVerified: true,
+      status: UserStatus.ACTIVE,
+      passwordHash,
+      emailVerificationToken: undefined,
+      emailVerificationExpiry: undefined,
+    });
+
+    // If the invited user is a tutor, advance status from INVITED → REGISTERED
+    await TutorProfileModel.updateOne(
+      { userPublicId: user.publicId, status: TutorStatus.INVITED },
+      { $set: { status: TutorStatus.REGISTERED } },
+    );
   }
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<void> {

@@ -5,6 +5,7 @@ import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
 import { PrincipalProfileModel } from '../principals/principal.model';
 import { ParentProfileModel } from '../parents/parent.model';
+import { userRepository } from '../users/user.repository';
 import { Role } from '../../constants/roles';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
@@ -117,11 +118,22 @@ export class ChatService {
     return conversation;
   }
 
-  async getConversations(userPublicId: string): Promise<IConversation[]> {
-    return ConversationModel.find({
+  async getConversations(userPublicId: string): Promise<Array<IConversation & { participantNames: string[] }>> {
+    const convos = await ConversationModel.find({
       participantPublicIds: userPublicId,
       isDeleted: false,
     }).sort({ lastMessageAt: -1 }).lean();
+
+    if (convos.length === 0) return [];
+
+    const allIds = [...new Set(convos.flatMap((c) => c.participantPublicIds as string[]))];
+    const users = await userRepository.findManyByPublicIds(allIds);
+    const nameMap = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+
+    return convos.map((c) => ({
+      ...c,
+      participantNames: (c.participantPublicIds as string[]).map((id) => nameMap.get(id) ?? 'Unknown'),
+    }));
   }
 
   async getMessages(
@@ -156,6 +168,11 @@ export class ChatService {
     senderPublicId: string,
     dto: SendMessageDto,
   ): Promise<IMessage> {
+    const body = dto.body?.trim() ?? '';
+    if (!body && !dto.mediaPublicId) {
+      throw Object.assign(new Error('Message must have text or an attachment'), { statusCode: 400 });
+    }
+
     const conversation = await ConversationModel.findOne({
       publicId: conversationPublicId,
       participantPublicIds: senderPublicId,
@@ -169,18 +186,24 @@ export class ChatService {
       publicId: uuidv4(),
       conversationPublicId,
       senderPublicId,
-      body: dto.body.trim(),
+      body,
+      ...(dto.mediaPublicId && {
+        mediaPublicId: dto.mediaPublicId,
+        mediaMimeType: dto.mediaMimeType,
+        mediaName: dto.mediaName,
+        mediaSizeBytes: dto.mediaSizeBytes,
+      }),
     });
 
     const recipientPublicId = conversation.participantPublicIds.find((id) => id !== senderPublicId)!;
 
+    let preview = body.slice(0, 80);
+    if (!preview && dto.mediaName) preview = `📎 ${dto.mediaName}`;
+
     await ConversationModel.updateOne(
       { publicId: conversationPublicId },
       {
-        $set: {
-          lastMessageAt: new Date(),
-          lastMessagePreview: dto.body.trim().slice(0, 80),
-        },
+        $set: { lastMessageAt: new Date(), lastMessagePreview: preview },
         $inc: { [`unreadCounts.${recipientPublicId}`]: 1 },
       },
     );

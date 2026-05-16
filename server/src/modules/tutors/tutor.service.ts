@@ -12,6 +12,7 @@ import { userRepository } from '../users/user.repository';
 import { UserStatus } from '../users/user.types';
 import { DomainEvent } from '../../constants/events';
 import type { UpdateTutorProfileDto } from './tutor.validators';
+import { PrincipalProfileModel } from '../principals/principal.model';
 
 export class TutorService {
   async createProfile(
@@ -57,10 +58,69 @@ export class TutorService {
     return profile;
   }
 
+  async getByPublicIdForDisplay(publicId: string): Promise<ITutorProfile & { displayName: string; email: string }> {
+    const profile = await this.getByPublicId(publicId);
+    return this._hydrateOne(profile);
+  }
+
   async getByUserPublicId(userPublicId: string): Promise<ITutorProfile> {
     const profile = await tutorRepository.findByUserPublicId(userPublicId);
     if (!profile) throw new NotFoundError('Tutor profile');
     return profile;
+  }
+
+  async getByUserPublicIdForDisplay(userPublicId: string): Promise<ITutorProfile & { displayName: string; email: string }> {
+    const profile = await this.getByUserPublicId(userPublicId);
+    return this._hydrateOne(profile);
+  }
+
+  private async _hydrateOne(profile: ITutorProfile): Promise<ITutorProfile & { displayName: string; email: string }> {
+    const user = await userRepository.findByPublicId(profile.userPublicId);
+    return {
+      ...profile,
+      displayName: user ? `${user.firstName} ${user.lastName}`.trim() : 'Unknown Tutor',
+      email: user?.email ?? '',
+    };
+  }
+
+  async getMyPrincipal(tutorUserPublicId: string): Promise<(object & { firstName: string; lastName: string; email: string }) | null> {
+    const tutorProfile = await tutorRepository.findByUserPublicId(tutorUserPublicId);
+    if (!tutorProfile || !tutorProfile.principalPublicId) return null;
+
+    const principalProfiles = await PrincipalProfileModel.aggregate([
+      { $match: { userPublicId: tutorProfile.principalPublicId, isDeleted: false } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userPublicId',
+          foreignField: 'publicId',
+          as: 'user',
+        },
+      },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      // Compute live tutor/student counts so stale counters don't show wrong numbers
+      {
+        $lookup: {
+          from: 'tutorprofiles',
+          let: { pUserPublicId: '$userPublicId' },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ['$principalPublicId', '$$pUserPublicId'] }, { $eq: ['$isDeleted', false] }] } } },
+          ],
+          as: 'tutors',
+        },
+      },
+      {
+        $addFields: {
+          firstName: { $ifNull: ['$user.firstName', ''] },
+          lastName: { $ifNull: ['$user.lastName', ''] },
+          email: { $ifNull: ['$user.email', ''] },
+          totalTutors: { $size: '$tutors' },
+        },
+      },
+      { $project: { user: 0, tutors: 0 } },
+    ]);
+
+    return principalProfiles[0] ?? null;
   }
 
   async updateProfile(publicId: string, dto: UpdateTutorProfileDto): Promise<ITutorProfile> {
@@ -134,15 +194,34 @@ export class TutorService {
   async getByPrincipal(
     principalPublicId: string,
     query: PaginationQuery,
-  ): Promise<PaginatedResult<ITutorProfile>> {
-    return tutorRepository.findByPrincipal(principalPublicId, query);
+  ): Promise<PaginatedResult<ITutorProfile & { displayName: string; email: string }>> {
+    const result = await tutorRepository.findByPrincipal(principalPublicId, query);
+    return this._hydrateWithUser(result);
   }
 
   async getPending(
     query: PaginationQuery,
     principalPublicId?: string,
-  ): Promise<PaginatedResult<ITutorProfile>> {
-    return tutorRepository.findPending(query, principalPublicId);
+  ): Promise<PaginatedResult<ITutorProfile & { displayName: string; email: string }>> {
+    const result = await tutorRepository.findPending(query, principalPublicId);
+    return this._hydrateWithUser(result);
+  }
+
+  private async _hydrateWithUser(
+    result: PaginatedResult<ITutorProfile>,
+  ): Promise<PaginatedResult<ITutorProfile & { displayName: string; email: string }>> {
+    const userPublicIds = result.items.map((t) => t.userPublicId);
+    const users = await userRepository.findManyByPublicIds(userPublicIds);
+    const userMap = new Map(users.map((u) => [u.publicId, u]));
+    const hydrated = result.items.map((t) => {
+      const u = userMap.get(t.userPublicId);
+      return {
+        ...t,
+        displayName: u ? `${u.firstName} ${u.lastName}` : 'Unknown Tutor',
+        email: u?.email ?? '',
+      };
+    });
+    return { ...result, items: hydrated };
   }
 
   /**
@@ -223,6 +302,8 @@ export class TutorService {
       role: user.role,
       verificationToken,
       isInvite: true,
+      firstName: params.firstName,
+      lastName: params.lastName,
       invitedBy: params.invitedBy,
     });
 

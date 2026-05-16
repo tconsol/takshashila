@@ -16,10 +16,10 @@ export class ScheduleController {
   async getMySlots(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const tutorProfile = await tutorService.getByUserPublicId(req.user!.publicId);
-      const from = req.query.from ? new Date(req.query.from as string) : undefined;
-      const to = req.query.to ? new Date(req.query.to as string) : undefined;
-      const result = await scheduleService.getAvailableSlots(tutorProfile.publicId, from, to, req.query);
-      sendPaginated(res, result, 'Slots fetched');
+      const from = req.query.from ? new Date(req.query.from as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const to = req.query.to ? new Date(req.query.to as string) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      const slots = await scheduleService.getMyCalendar(tutorProfile.publicId, from, to);
+      sendSuccess(res, { items: slots, total: slots.length }, 'Slots fetched');
     } catch (error) { next(error); }
   }
 
@@ -47,6 +47,22 @@ export class ScheduleController {
       const tutorProfile = await tutorService.getByUserPublicId(req.user!.publicId);
       await scheduleService.deleteSlot(req.params.slotId, tutorProfile.publicId);
       sendNoContent(res);
+    } catch (error) { next(error); }
+  }
+
+  async cancelSlot(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const tutorProfile = await tutorService.getByUserPublicId(req.user!.publicId);
+      const slot = await scheduleService.cancelSlot(req.params.slotId, tutorProfile.publicId);
+      sendSuccess(res, slot, 'Slot cancelled');
+    } catch (error) { next(error); }
+  }
+
+  async rescheduleSlot(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const tutorProfile = await tutorService.getByUserPublicId(req.user!.publicId);
+      const slot = await scheduleService.rescheduleSlot(req.params.slotId, tutorProfile.publicId, req.body);
+      sendSuccess(res, slot, 'Slot rescheduled');
     } catch (error) { next(error); }
   }
 }

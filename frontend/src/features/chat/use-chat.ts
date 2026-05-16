@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../stores/auth.store';
-import type { IConversation, IMessage } from './chat.types';
+import type { IConversation, IMessage, SendMessagePayload } from './chat.types';
 import type { PaginatedResult } from '../../shared/types';
 
 const chatKeys = {
@@ -67,8 +67,8 @@ export function useStartConversation() {
 export function useSendMessage(conversationPublicId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: string) => {
-      const { data } = await api.post(`/chat/conversations/${conversationPublicId}/messages`, { body });
+    mutationFn: async (payload: SendMessagePayload) => {
+      const { data } = await api.post(`/chat/conversations/${conversationPublicId}/messages`, payload);
       return data as IMessage;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: chatKeys.messages(conversationPublicId) }),

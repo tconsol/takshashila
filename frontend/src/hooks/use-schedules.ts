@@ -28,7 +28,7 @@ export function useCreateSlot() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateSlotDto) => schedulesService.createSlot(dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: scheduleKeys.mySlots() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: scheduleKeys.all }),
   });
 }
 
@@ -36,6 +36,23 @@ export function useDeleteSlot() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (slotPublicId: string) => schedulesService.deleteSlot(slotPublicId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: scheduleKeys.mySlots() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: scheduleKeys.all }),
+  });
+}
+
+export function useCancelSlot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (slotPublicId: string) => schedulesService.cancelSlot(slotPublicId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: scheduleKeys.all }),
+  });
+}
+
+export function useRescheduleSlot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ slotPublicId, startUTC, endUTC }: { slotPublicId: string; startUTC: string; endUTC: string }) =>
+      schedulesService.rescheduleSlot(slotPublicId, { startUTC, endUTC }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: scheduleKeys.all }),
   });
 }

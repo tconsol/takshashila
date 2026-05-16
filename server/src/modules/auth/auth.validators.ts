@@ -15,6 +15,7 @@ export const registerSchema = z.object({
   role: z.enum(ROLES_LIST as [string, ...string[]]).optional(),
   phone: z.string().optional(),
   timezone: z.string().optional(),
+  grade: z.string().optional(),
 });
 
 export const loginSchema = z.object({
@@ -54,6 +55,17 @@ export const changePasswordSchema = z.object({
 
 export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1),
+});
+
+export const acceptInviteSchema = z.object({
+  token: z.string().min(1),
+  password: z
+    .string()
+    .min(8)
+    .regex(/[A-Z]/)
+    .regex(/[a-z]/)
+    .regex(/\d/)
+    .regex(/[!@#$%^&*]/),
 });
 
 export type RegisterDto = z.infer<typeof registerSchema>;

@@ -34,7 +34,10 @@ export function useApprovePrincipal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (publicId: string) => principalsService.approve(publicId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: principalKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: principalKeys.all });
+      qc.invalidateQueries({ queryKey: ['admin-overview'] });
+    },
   });
 }
 
@@ -42,6 +45,9 @@ export function useSuspendPrincipal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (publicId: string) => principalsService.suspend(publicId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: principalKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: principalKeys.all });
+      qc.invalidateQueries({ queryKey: ['admin-overview'] });
+    },
   });
 }

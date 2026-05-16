@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { worksheetsService } from '../services/worksheets.service';
-import type { CreateWorksheetDto, UpdateWorksheetDto } from '../services/worksheets.service';
+import type { CreateWorksheetDto } from '../services/worksheets.service';
 
 export const worksheetKeys = {
   all: ['worksheets'] as const,
   myAsTutor: (p?: Record<string, string>) => [...worksheetKeys.all, 'tutor', p] as const,
   myAsStudent: (p?: Record<string, string>) => [...worksheetKeys.all, 'student', p] as const,
   detail: (id: string) => [...worksheetKeys.all, id] as const,
+  submissions: (id: string) => [...worksheetKeys.all, id, 'submissions'] as const,
+  mySubmission: (id: string) => [...worksheetKeys.all, id, 'my-submission'] as const,
 };
 
 export function useMyWorksheetsAsTutor(params?: Record<string, string>) {
@@ -23,11 +25,27 @@ export function useMyWorksheetsAsStudent(params?: Record<string, string>) {
   });
 }
 
-export function useWorksheet(id: string) {
+export function useWorksheet(worksheetId: string) {
   return useQuery({
-    queryKey: worksheetKeys.detail(id),
-    queryFn: () => worksheetsService.getById(id),
-    enabled: !!id,
+    queryKey: worksheetKeys.detail(worksheetId),
+    queryFn: () => worksheetsService.getById(worksheetId),
+    enabled: !!worksheetId,
+  });
+}
+
+export function useMySubmission(worksheetId: string) {
+  return useQuery({
+    queryKey: worksheetKeys.mySubmission(worksheetId),
+    queryFn: () => worksheetsService.getMySubmission(worksheetId),
+    enabled: !!worksheetId,
+  });
+}
+
+export function useWorksheetSubmissions(worksheetId: string) {
+  return useQuery({
+    queryKey: worksheetKeys.submissions(worksheetId),
+    queryFn: () => worksheetsService.getSubmissions(worksheetId),
+    enabled: !!worksheetId,
   });
 }
 
@@ -35,34 +53,10 @@ export function useCreateWorksheet() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateWorksheetDto) => worksheetsService.create(dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: worksheetKeys.myAsTutor() }),
-  });
-}
-
-export function useUpdateWorksheet() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, dto }: { id: string; dto: UpdateWorksheetDto }) => worksheetsService.update(id, dto),
-    onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: worksheetKeys.detail(id) });
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: worksheetKeys.myAsTutor() });
+      qc.invalidateQueries({ queryKey: ['badges'] });
     },
-  });
-}
-
-export function usePublishWorksheet() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => worksheetsService.publish(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: worksheetKeys.all }),
-  });
-}
-
-export function useUnpublishWorksheet() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => worksheetsService.unpublish(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: worksheetKeys.all }),
   });
 }
 
@@ -71,5 +65,18 @@ export function useDeleteWorksheet() {
   return useMutation({
     mutationFn: (id: string) => worksheetsService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: worksheetKeys.myAsTutor() }),
+  });
+}
+
+export function useSubmitWorksheet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, answers, timeTakenSeconds }: { id: string; answers: number[]; timeTakenSeconds?: number }) =>
+      worksheetsService.submitAnswers(id, answers, timeTakenSeconds),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: worksheetKeys.myAsStudent() });
+      qc.invalidateQueries({ queryKey: worksheetKeys.mySubmission(id) });
+      qc.invalidateQueries({ queryKey: ['badges'] });
+    },
   });
 }

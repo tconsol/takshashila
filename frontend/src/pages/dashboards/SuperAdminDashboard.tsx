@@ -50,7 +50,7 @@ export function SuperAdminDashboard() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['super-admin-overview'],
     queryFn: analyticsService.getSuperAdminOverview,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
   const totalRevenue = data?.revenue30d.totalCents ?? 0;

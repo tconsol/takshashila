@@ -5,7 +5,7 @@ export interface AvailabilitySlot {
   tutorPublicId: string;
   startUTC: string;
   endUTC: string;
-  status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED';
+  status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED' | 'CANCELLED';
   timezone: string;
   recurrenceRule?: string;
   createdAt: string;
@@ -14,7 +14,7 @@ export interface AvailabilitySlot {
 export interface CreateSlotDto {
   startUTC: string;
   endUTC: string;
-  timezone: string;
+  ianaTimezone: string;
   recurrenceRule?: string;
 }
 
@@ -30,5 +30,11 @@ export const schedulesService = {
 
   deleteSlot: (slotPublicId: string) =>
     api.delete(`/schedules/slots/${slotPublicId}`),
+
+  cancelSlot: (slotPublicId: string) =>
+    api.patch<{ data: AvailabilitySlot }>(`/schedules/slots/${slotPublicId}/cancel`).then((r) => r.data.data),
+
+  rescheduleSlot: (slotPublicId: string, dto: { startUTC: string; endUTC: string }) =>
+    api.patch<{ data: AvailabilitySlot }>(`/schedules/slots/${slotPublicId}/reschedule`, dto).then((r) => r.data.data),
 };
 

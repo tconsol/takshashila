@@ -15,6 +15,7 @@ import { RegisterPrincipalPage } from '../pages/auth/RegisterPrincipal';
 import { RegisterParentPage } from '../pages/auth/RegisterParent';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPassword';
 import { VerifyEmailPage } from '../pages/auth/VerifyEmail';
+import { AcceptInvitePage } from '../pages/auth/AcceptInvite';
 
 // Dashboards
 import { SuperAdminDashboard } from '../pages/dashboards/SuperAdminDashboard';
@@ -40,8 +41,10 @@ import { PrincipalStudentsPage } from '../pages/principal/PrincipalStudentsPage'
 // Principal pages
 import { PrincipalAnalyticsPage } from '../pages/principal/PrincipalAnalyticsPage';
 import { PrincipalWalletPage } from '../pages/principal/PrincipalWalletPage';
+import { PrincipalClassesPage } from '../pages/principal/PrincipalClassesPage';
 
 // Tutor pages
+import { TutorPrincipalsPage } from '../pages/tutor/TutorPrincipalsPage';
 import { TutorClassesPage } from '../pages/tutor/TutorClassesPage';
 import { TutorSchedulePage } from '../pages/tutor/TutorSchedulePage';
 import { TutorStudentsPage } from '../pages/tutor/TutorStudentsPage';
@@ -50,14 +53,20 @@ import { TutorWorksheetsPage } from '../pages/tutor/TutorWorksheetsPage';
 import { TutorAttendancePage } from '../pages/tutor/TutorAttendancePage';
 import { TutorProgressPage } from '../pages/tutor/TutorProgressPage';
 import { TutorWalletPage } from '../pages/tutor/TutorWalletPage';
+import { TutorDemoRequestsPage } from '../pages/tutor/TutorDemoRequestsPage';
+import { TutorResourcesPage } from '../pages/tutor/TutorResourcesPage';
+import { TutorWorksheetResultsPage } from '../pages/tutor/TutorWorksheetResultsPage';
 
 // Student pages
+import { StudentMyTutorPage } from '../pages/student/StudentMyTutorPage';
 import { StudentClassesPage } from '../pages/student/StudentClassesPage';
 import { StudentAssignmentsPage } from '../pages/student/StudentAssignmentsPage';
 import { StudentAttendancePage } from '../pages/student/StudentAttendancePage';
 import { StudentProgressPage } from '../pages/student/StudentProgressPage';
 import { StudentWalletPage } from '../pages/student/StudentWalletPage';
 import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
+import { StudentWorksheetTestPage } from '../pages/student/StudentWorksheetTestPage';
+import { StudentResourcesPage } from '../pages/student/StudentResourcesPage';
 
 // Parent pages
 import { ParentChildrenPage } from '../pages/parent/ParentChildrenPage';
@@ -101,6 +110,7 @@ export const router = createBrowserRouter([
       { path: '/register/parent', element: <RegisterParentPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/verify-email', element: <VerifyEmailPage /> },
+      { path: '/accept-invite', element: <AcceptInvitePage /> },
     ],
   },
 
@@ -143,6 +153,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/principal', element: <PrincipalDashboard /> },
         { path: '/dashboard/principal/tutors', element: <PrincipalTutorsPage /> },
         { path: '/dashboard/principal/students', element: <PrincipalStudentsPage /> },
+        { path: '/dashboard/principal/classes', element: <PrincipalClassesPage /> },
         { path: '/dashboard/principal/analytics', element: <PrincipalAnalyticsPage /> },
         { path: '/dashboard/principal/wallet', element: <PrincipalWalletPage /> },
       ],
@@ -156,11 +167,15 @@ export const router = createBrowserRouter([
       element: <DashboardLayout />,
       children: [
         { path: '/dashboard/tutor', element: <TutorDashboard /> },
+        { path: '/dashboard/tutor/demo-requests', element: <TutorDemoRequestsPage /> },
+        { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/tutor/schedule', element: <TutorSchedulePage /> },
         { path: '/dashboard/tutor/students', element: <TutorStudentsPage /> },
         { path: '/dashboard/tutor/assignments', element: <TutorAssignmentsPage /> },
         { path: '/dashboard/tutor/worksheets', element: <TutorWorksheetsPage /> },
+        { path: '/dashboard/tutor/worksheets/:worksheetId/results', element: <TutorWorksheetResultsPage /> },
+        { path: '/dashboard/tutor/resources', element: <TutorResourcesPage /> },
         { path: '/dashboard/tutor/attendance', element: <TutorAttendancePage /> },
         { path: '/dashboard/tutor/progress', element: <TutorProgressPage /> },
         { path: '/dashboard/tutor/wallet', element: <TutorWalletPage /> },
@@ -175,10 +190,13 @@ export const router = createBrowserRouter([
       element: <DashboardLayout />,
       children: [
         { path: '/dashboard/student', element: <StudentDashboard /> },
+        { path: '/dashboard/student/my-tutor', element: <StudentMyTutorPage /> },
         { path: '/dashboard/student/tutors', element: <TutorsBrowsePage variant="student" /> },
         { path: '/dashboard/student/classes', element: <StudentClassesPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
         { path: '/dashboard/student/worksheets', element: <StudentWorksheetsPage /> },
+        { path: '/dashboard/student/worksheets/:worksheetId/test', element: <StudentWorksheetTestPage /> },
+        { path: '/dashboard/student/resources', element: <StudentResourcesPage /> },
         { path: '/dashboard/student/attendance', element: <StudentAttendancePage /> },
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },
         { path: '/dashboard/student/wallet', element: <StudentWalletPage /> },

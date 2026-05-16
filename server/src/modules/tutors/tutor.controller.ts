@@ -6,14 +6,14 @@ import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 export class TutorController {
   async getMyProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const profile = await tutorService.getByUserPublicId(req.user!.publicId);
+      const profile = await tutorService.getByUserPublicIdForDisplay(req.user!.publicId);
       sendSuccess(res, profile, 'Tutor profile fetched');
     } catch (error) { next(error); }
   }
 
   async getByPublicId(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const profile = await tutorService.getByPublicId(req.params.tutorId);
+      const profile = await tutorService.getByPublicIdForDisplay(req.params.tutorId);
       sendSuccess(res, profile, 'Tutor profile fetched');
     } catch (error) { next(error); }
   }
@@ -57,16 +57,15 @@ export class TutorController {
 
   async search(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { subject, language, timezone, minRating, maxHourlyRateCents, isVerified, ...paginationQuery } = req.query as Record<string, string>;
+      const { subject, language, timezone, minRating, minHourlyRateCents, maxHourlyRateCents, isVerified, ...paginationQuery } = req.query as Record<string, string>;
       const result = await tutorService.search(
         {
           subject,
           language,
           timezone,
           minRating: minRating ? +minRating : undefined,
+          minHourlyRateCents: minHourlyRateCents ? +minHourlyRateCents : undefined,
           maxHourlyRateCents: maxHourlyRateCents ? +maxHourlyRateCents : undefined,
-          // Only filter by verification status when the caller explicitly asks for it —
-          // otherwise we'd hide every verified tutor by sending `isVerified=false`
           isVerified: isVerified === undefined ? undefined : isVerified === 'true',
         },
         paginationQuery,
@@ -90,6 +89,13 @@ export class TutorController {
       const principalFilter = isStaff ? undefined : req.user!.publicId;
       const result = await tutorService.getPending(req.query, principalFilter);
       sendPaginated(res, result, 'Pending tutors fetched');
+    } catch (error) { next(error); }
+  }
+
+  async getMyPrincipal(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const principal = await tutorService.getMyPrincipal(req.user!.publicId);
+      sendSuccess(res, principal, 'Principal fetched');
     } catch (error) { next(error); }
   }
 

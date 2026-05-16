@@ -56,14 +56,15 @@ function listingToProfile(t: TutorListing): TutorProfile {
 const SUBJECTS = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Computer Science', 'History', 'Economics'];
 const PRICE_BUCKETS: Array<{ label: string; min?: number; max?: number }> = [
   { label: 'Any price' },
-  { label: 'Under ₹500/hr', max: 50000 },
-  { label: '₹500–1,000/hr', min: 50000, max: 100000 },
-  { label: '₹1,000–2,000/hr', min: 100000, max: 200000 },
-  { label: 'Over ₹2,000/hr', min: 200000 },
+  { label: 'Under $10/hr',  max:  1000 },
+  { label: '$10–20/hr',  min:  1000, max:  2000 },
+  { label: '$20–50/hr',  min:  2000, max:  5000 },
+  { label: '$50–100/hr', min:  5000, max: 10000 },
+  { label: 'Over $100/hr', min: 10000 },
 ];
 
-const formatINR = (cents: number) =>
-  cents > 0 ? `₹${(cents / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : 'Free intro';
+const formatUSD = (cents: number) =>
+  cents > 0 ? `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : 'Free intro';
 
 interface TutorsBrowsePageProps {
   variant?: 'public' | 'student';
@@ -85,6 +86,7 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
       if (subject) params.subject = subject;
       if (minRating > 0) params.minRating = minRating;
       const bucket = PRICE_BUCKETS[priceIdx];
+      if (bucket.min !== undefined) params.minHourlyRateCents = bucket.min;
       if (bucket.max !== undefined) params.maxHourlyRateCents = bucket.max;
       const { data } = await api.get('/tutors/search', { params });
       return data?.data ?? { items: [], total: 0 };
@@ -343,14 +345,15 @@ function TutorCard({ tutor, onBook }: { tutor: TutorListing; onBook: () => void 
               <Languages className="h-3.5 w-3.5" /> {tutor.languages.slice(0, 2).join(', ')}
             </span>
           )}
-          {tutor.timezone && (
+          {tutor.timezone && tutor.timezone !== 'UTC' && (
             <span className="inline-flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" /> {tutor.timezone.split('/').pop()}
+              <Clock className="h-3.5 w-3.5" />
+              {tutor.timezone.split('/').pop()?.replace(/_/g, ' ')}
             </span>
           )}
         </div>
         <span className="font-semibold text-gray-900 dark:text-white">
-          {formatINR(tutor.hourlyRateCents)}{tutor.hourlyRateCents > 0 && <span className="text-gray-400 font-normal">/hr</span>}
+          {formatUSD(tutor.hourlyRateCents)}{tutor.hourlyRateCents > 0 && <span className="text-gray-400 font-normal">/hr</span>}
         </span>
       </div>
 

@@ -10,6 +10,7 @@ export const SocketEvent = {
   CLASS_CHAT_MESSAGE: 'class:chat-message',
   CLASS_RAISE_HAND: 'class:raise-hand',
   CLASS_HAND_RAISED: 'class:hand-raised',
+  CLASS_ANNOUNCE: 'class:announce',
 
   // Notifications
   NOTIFICATION_NEW: 'notification:new',
@@ -25,12 +26,29 @@ export const SocketEvent = {
   RTC_PEER_JOINED: 'rtc:peer-joined',
   RTC_PEER_LEFT: 'rtc:peer-left',
 
+  // Screen share signaling
+  CLASS_SCREEN_SHARE: 'class:screen-share',
+
   // Whiteboard
   WB_UPDATE: 'wb:update',
 
   // Recording
   RECORDING_STARTED: 'recording:started',
   RECORDING_STOPPED: 'recording:stopped',
+
+  // Data invalidation (server pushes when data changes)
+  DATA_INVALIDATE: 'data:invalidate',
+
+  // Schedule alerts (sent to connected students/principals when tutor changes a slot)
+  SCHEDULE_ALERT: 'schedule:alert',
+
+  // Demo request outcomes pushed to student in real-time
+  DEMO_ACCEPTED: 'demo:accepted',
+  DEMO_REJECTED: 'demo:rejected',
+  // New demo request pushed to tutor in real-time
+  DEMO_NEW_REQUEST: 'demo:new-request',
+  // Tutor invite pushed to student
+  STUDENT_INVITED: 'student:invited',
 } as const;
 
 export type SocketEvent = (typeof SocketEvent)[keyof typeof SocketEvent];
@@ -38,6 +56,7 @@ export type SocketEvent = (typeof SocketEvent)[keyof typeof SocketEvent];
 export interface ClassChatMessage {
   from: string;
   role: string;
+  name: string;
   message: string;
   timestamp: string;
 }

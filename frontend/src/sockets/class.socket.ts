@@ -3,7 +3,7 @@ import { useSocket } from './use-socket';
 import { SocketEvent } from './socket.events';
 import type { ClassChatMessage, ClassStatusChangedPayload } from './socket.events';
 
-export function useClassSocket(classPublicId: string | null) {
+export function useClassSocket(classPublicId: string | null, senderName?: string) {
   const { socket } = useSocket();
 
   useEffect(() => {
@@ -17,9 +17,9 @@ export function useClassSocket(classPublicId: string | null) {
   const sendChatMessage = useCallback(
     (message: string) => {
       if (!socket || !classPublicId) return;
-      socket.emit(SocketEvent.CLASS_CHAT, { classPublicId, message });
+      socket.emit(SocketEvent.CLASS_CHAT, { classPublicId, message, senderName });
     },
-    [socket, classPublicId],
+    [socket, classPublicId, senderName],
   );
 
   const raiseHand = useCallback(() => {

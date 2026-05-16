@@ -15,7 +15,7 @@ const ORPHAN_TTL_HOURS = 24;
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'image/gif',
   'application/pdf',
-  'video/mp4', 'video/webm',
+  'video/mp4', 'video/webm', 'video/quicktime',
   'application/zip',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -23,7 +23,9 @@ const ALLOWED_MIME_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 ]);
 
-const MAX_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB
+const VIDEO_MIME_TYPES = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
+const MAX_SIZE_BYTES = 50 * 1024 * 1024;      // 50 MB general
+const MAX_VIDEO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB for videos
 
 function getStorage(): Storage {
   if (env.GCP_KEY_FILE) {
@@ -47,10 +49,13 @@ export class MediaService {
     if (!env.GCP_BUCKET_NAME) throw new AppError('Storage not configured', 503);
 
     if (!ALLOWED_MIME_TYPES.has(dto.mimeType)) {
-      throw new AppError(`MIME type ${dto.mimeType} is not allowed`, 422);
+      throw new AppError(`File type ${dto.mimeType} is not allowed`, 422);
+    }
+    if (VIDEO_MIME_TYPES.has(dto.mimeType) && dto.sizeBytes > MAX_VIDEO_SIZE_BYTES) {
+      throw new AppError('Video files must be under 5 MB', 422);
     }
     if (dto.sizeBytes > MAX_SIZE_BYTES) {
-      throw new AppError(`File size exceeds maximum allowed (${MAX_SIZE_BYTES / 1024 / 1024} MB)`, 422);
+      throw new AppError(`File size exceeds the 50 MB limit`, 422);
     }
 
     const ext = path.extname(dto.originalName).toLowerCase();

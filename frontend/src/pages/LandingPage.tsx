@@ -403,7 +403,7 @@ export function LandingPage() {
                   <div className="grid grid-cols-3 gap-2 border-t border-gray-100 p-4 dark:border-gray-800">
                     {[
                       { label: 'Attendance', value: '94%',  accent: 'text-emerald-600' },
-                      { label: 'Balance',    value: '₹4.8K', accent: 'text-brand-600' },
+                      { label: 'Balance',    value: '$4.8K', accent: 'text-brand-600' },
                       { label: 'Rating',     value: '4.9★', accent: 'text-amber-500' },
                     ].map((s) => (
                       <div key={s.label} className="rounded-xl bg-gray-50 px-2 py-2 text-center dark:bg-gray-800/50">
@@ -712,7 +712,7 @@ export function LandingPage() {
                 Stripe & Razorpay. Wallet credits, auto-refunds and tutor payouts.
               </p>
               <div className="mt-3 flex items-baseline gap-1">
-                <p className="text-2xl font-extrabold text-amber-600">₹4.8K</p>
+                <p className="text-2xl font-extrabold text-amber-600">$4.8K</p>
                 <p className="text-xs text-gray-400">wallet balance</p>
               </div>
               <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-800">

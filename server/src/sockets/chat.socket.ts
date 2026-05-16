@@ -1,6 +1,7 @@
 import { Server as IOServer } from 'socket.io';
 import type { AuthSocket } from './socket.handler';
 import { chatService } from '../modules/chat/chat.service';
+import { userRepository } from '../modules/users/user.repository';
 import { logger } from '../lib/logger';
 
 export function registerChatSocket(io: IOServer, socket: AuthSocket): void {
@@ -24,11 +25,22 @@ export function registerChatSocket(io: IOServer, socket: AuthSocket): void {
     }
   });
 
-  socket.on('chat:typing', (conversationPublicId: string) => {
-    socket.to(`chat:${conversationPublicId}`).emit('chat:typing', {
-      conversationPublicId,
-      userPublicId: socket.userPublicId,
-    });
+  socket.on('chat:typing', async (conversationPublicId: string) => {
+    try {
+      const user = await userRepository.findByPublicId(socket.userPublicId);
+      const displayName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Someone';
+      socket.to(`chat:${conversationPublicId}`).emit('chat:typing', {
+        conversationPublicId,
+        userPublicId: socket.userPublicId,
+        displayName,
+      });
+    } catch {
+      socket.to(`chat:${conversationPublicId}`).emit('chat:typing', {
+        conversationPublicId,
+        userPublicId: socket.userPublicId,
+        displayName: 'Someone',
+      });
+    }
   });
 
   socket.on('chat:read', async (conversationPublicId: string) => {

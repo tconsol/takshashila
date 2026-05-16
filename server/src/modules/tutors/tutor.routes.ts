@@ -19,6 +19,7 @@ router.post('/invite', requireRole(Role.PRINCIPAL, Role.ADMIN, Role.SUPER_ADMIN)
 router.get('/me', requireRole(Role.TUTOR), tutorController.getMyProfile.bind(tutorController));
 router.put('/me', requireRole(Role.TUTOR), validate(updateTutorProfileSchema), tutorController.updateMyProfile.bind(tutorController));
 router.post('/me/submit-verification', requireRole(Role.TUTOR), tutorController.submitForVerification.bind(tutorController));
+router.get('/my-principal', requireRole(Role.TUTOR), tutorController.getMyPrincipal.bind(tutorController));
 router.get('/by-principal/:principalId', requirePermission(Permission.VIEW_TUTOR_ANALYTICS), tutorController.getByPrincipal.bind(tutorController));
 router.get('/my-tutors', requireRole(Role.PRINCIPAL), tutorController.getByPrincipal.bind(tutorController));
 router.get('/:tutorId', tutorController.getByPublicId.bind(tutorController));

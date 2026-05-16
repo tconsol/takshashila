@@ -51,7 +51,11 @@ export function RegisterTutorPage() {
 
   const mutation = useMutation({
     mutationFn: ({ confirmPassword: _, subjects: __, ...data }: FormData) =>
-      authService.register({ ...data, role: 'TUTOR' }),
+      authService.register({
+        ...data,
+        role: 'TUTOR',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
     onSuccess: () => navigate('/login?registered=true'),
   });
 

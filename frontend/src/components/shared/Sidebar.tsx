@@ -2,16 +2,21 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, BookOpen, Calendar, Wallet, Settings,
   BarChart3, Shield, Headphones, GraduationCap, LogOut, ChevronRight,
-  UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText,
+  UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText, Building2,
+  Sparkles, FolderOpen,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth.store';
+import { useSidebarBadges } from '../../hooks/use-sidebar-badges';
+import { useScheduleAlertsStore } from '../../stores/schedule-alerts.store';
+import { useDemoRequestsAsTutor } from '../../hooks/use-demo-requests';
 import type { Role } from '../../types';
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
+  badgeKey?: string;
 }
 
 const NAV_ITEMS: Record<Role, NavItem[]> = {
@@ -21,47 +26,55 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Analytics', href: '/dashboard/super-admin/analytics', icon: BarChart3 },
     { label: 'Audit Logs', href: '/dashboard/super-admin/audit', icon: BookOpen },
     { label: 'Settings', href: '/dashboard/super-admin/settings', icon: Settings },
+    { label: 'Messages', href: '/chat', icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Profile', href: '/profile', icon: UserCircle },
   ],
   ADMIN: [
     { label: 'Overview', href: '/dashboard/admin', icon: LayoutDashboard },
-    { label: 'Principals', href: '/dashboard/admin/principals', icon: Users },
-    { label: 'Tutors', href: '/dashboard/admin/tutors', icon: GraduationCap },
+    { label: 'Principals', href: '/dashboard/admin/principals', icon: Users, badgeKey: 'principals' },
+    { label: 'Tutors', href: '/dashboard/admin/tutors', icon: GraduationCap, badgeKey: 'tutors' },
     { label: 'Analytics', href: '/dashboard/admin/analytics', icon: BarChart3 },
-    { label: 'Support', href: '/dashboard/admin/support', icon: Headphones },
+    { label: 'Support', href: '/dashboard/admin/support', icon: Headphones, badgeKey: 'support' },
+    { label: 'Messages', href: '/chat', icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Profile', href: '/profile', icon: UserCircle },
   ],
   PRINCIPAL: [
-    { label: 'Overview', href: '/dashboard/principal', icon: LayoutDashboard },
-    { label: 'Tutors', href: '/dashboard/principal/tutors', icon: GraduationCap },
-    { label: 'Students', href: '/dashboard/principal/students', icon: Users },
+    { label: 'Overview', href: '/dashboard/principal', icon: LayoutDashboard, badgeKey: 'scheduleAlert' },
+    { label: 'Tutors', href: '/dashboard/principal/tutors', icon: GraduationCap, badgeKey: 'tutors' },
+    { label: 'Students', href: '/dashboard/principal/students', icon: Users, badgeKey: 'students' },
+    { label: 'Classes', href: '/dashboard/principal/classes', icon: Video },
     { label: 'Analytics', href: '/dashboard/principal/analytics', icon: BarChart3 },
-    { label: 'Messages', href: '/chat', icon: MessageSquare },
+    { label: 'Messages', href: '/chat', icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Wallet', href: '/dashboard/principal/wallet', icon: Wallet },
     { label: 'Profile', href: '/profile', icon: UserCircle },
   ],
   TUTOR: [
     { label: 'Overview', href: '/dashboard/tutor', icon: LayoutDashboard },
+    { label: 'Demo Requests', href: '/dashboard/tutor/demo-requests', icon: Sparkles, badgeKey: 'demoRequests' },
     { label: 'Students', href: '/dashboard/tutor/students', icon: Users },
     { label: 'Classes', href: '/dashboard/tutor/classes', icon: Video },
     { label: 'Schedule', href: '/dashboard/tutor/schedule', icon: Calendar },
     { label: 'Assignments', href: '/dashboard/tutor/assignments', icon: BookOpen },
-    { label: 'Worksheets', href: '/dashboard/tutor/worksheets', icon: FileText },
+    { label: 'Worksheets', href: '/dashboard/tutor/worksheets', icon: FileText, badgeKey: 'worksheets' },
+    { label: 'Resources', href: '/dashboard/tutor/resources', icon: FolderOpen },
     { label: 'Attendance', href: '/dashboard/tutor/attendance', icon: UserCheck },
     { label: 'Progress', href: '/dashboard/tutor/progress', icon: BarChart3 },
-    { label: 'Messages', href: '/chat', icon: MessageSquare },
+    { label: 'Find Principal', href: '/dashboard/tutor/principals', icon: Building2, badgeKey: 'principals' },
+    { label: 'Messages', href: '/chat', icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Wallet', href: '/dashboard/tutor/wallet', icon: Wallet },
     { label: 'Profile', href: '/profile', icon: UserCircle },
   ],
   STUDENT: [
     { label: 'Overview', href: '/dashboard/student', icon: LayoutDashboard },
+    { label: 'My Tutor', href: '/dashboard/student/my-tutor', icon: GraduationCap },
     { label: 'Find Tutors', href: '/dashboard/student/tutors', icon: Search },
-    { label: 'Classes', href: '/dashboard/student/classes', icon: Video },
+    { label: 'Classes', href: '/dashboard/student/classes', icon: Video, badgeKey: 'scheduleAlert' },
     { label: 'Assignments', href: '/dashboard/student/assignments', icon: BookOpen },
-    { label: 'Worksheets', href: '/dashboard/student/worksheets', icon: FileText },
+    { label: 'Worksheets', href: '/dashboard/student/worksheets', icon: FileText, badgeKey: 'worksheets' },
+    { label: 'Resources', href: '/dashboard/student/resources', icon: FolderOpen },
     { label: 'Attendance', href: '/dashboard/student/attendance', icon: UserCheck },
     { label: 'Progress', href: '/dashboard/student/progress', icon: BarChart3 },
-    { label: 'Messages', href: '/chat', icon: MessageSquare },
+    { label: 'Messages', href: '/chat', icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Wallet', href: '/dashboard/student/wallet', icon: Wallet },
     { label: 'Profile', href: '/profile', icon: UserCircle },
   ],
@@ -73,12 +86,14 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Assignments', href: '/dashboard/parent/assignments', icon: BookOpen },
     { label: 'Worksheets', href: '/dashboard/parent/worksheets', icon: FileText },
     { label: 'Progress', href: '/dashboard/parent/progress', icon: BarChart3 },
+    { label: 'Messages', href: '/chat', icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Profile', href: '/profile', icon: UserCircle },
   ],
   SUPPORT: [
     { label: 'Overview', href: '/dashboard/support', icon: LayoutDashboard },
-    { label: 'Tickets', href: '/dashboard/support/tickets', icon: Headphones },
+    { label: 'Tickets', href: '/dashboard/support/tickets', icon: Headphones, badgeKey: 'tickets' },
     { label: 'Accounts', href: '/dashboard/support/accounts', icon: UserCheck },
+    { label: 'Messages', href: '/chat', icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Profile', href: '/profile', icon: UserCircle },
   ],
 };
@@ -91,10 +106,34 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const { user, clearAuth } = useAuthStore();
+  const badges = useSidebarBadges();
+  const scheduleAlertCount = useScheduleAlertsStore((s) => s.count);
+  const clearScheduleAlerts = useScheduleAlertsStore((s) => s.clear);
+  const isTutor = user?.role === 'TUTOR';
+  const { data: demoRequestData } = useDemoRequestsAsTutor(
+    { status: 'PENDING', limit: '1' },
+    isTutor,
+  );
+  const demoRequestCount = isTutor ? (demoRequestData?.total ?? 0) : 0;
 
   if (!user) return null;
 
   const items = NAV_ITEMS[user.role] ?? [];
+
+  const getBadgeCount = (badgeKey: string | undefined, href: string): number => {
+    if (!badgeKey) return 0;
+    if (badgeKey === 'scheduleAlert') {
+      if (location.pathname === href) {
+        if (scheduleAlertCount > 0) setTimeout(clearScheduleAlerts, 0);
+        return 0;
+      }
+      return scheduleAlertCount;
+    }
+    if (badgeKey === 'demoRequests') {
+      return location.pathname === href ? 0 : demoRequestCount;
+    }
+    return badges[badgeKey] ?? 0;
+  };
 
   const handleLogout = async () => {
     try {
@@ -131,6 +170,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {items.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
+              const badgeCount = getBadgeCount(item.badgeKey, item.href);
 
               return (
                 <li key={item.href}>
@@ -144,8 +184,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white',
                     )}
                   >
-                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <div className="relative flex-shrink-0">
+                      <Icon className="h-4 w-4" />
+                      {badgeCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                        </span>
+                      )}
+                    </div>
                     {item.label}
+                    {badgeCount > 0 && !isActive && (
+                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
                     {isActive && <ChevronRight className="ml-auto h-4 w-4" />}
                   </Link>
                 </li>

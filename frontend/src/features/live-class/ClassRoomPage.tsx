@@ -1,21 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { MessageSquare, Send, Users, ChevronRight } from 'lucide-react';
 import { useSocket } from '../../sockets/use-socket';
 import { useClassSocket } from '../../sockets/class.socket';
-import { useWebRTC } from '../../hooks/use-webrtc';
+import { useAgora } from '../../hooks/use-agora';
 import { useWhiteboardSync } from '../../hooks/use-whiteboard-sync';
 import { useAuthStore } from '../../stores/auth.store';
+import { classesService } from '../../services/classes.service';
 import { SocketEvent } from '../../sockets/socket.events';
 import { VideoGrid } from './VideoGrid';
 import { ControlBar } from './ControlBar';
 import { WhiteboardPanel } from './WhiteboardPanel';
 import type { ClassChatMessage } from '../../sockets/socket.events';
-import type { RtcParticipant } from '../../hooks/use-webrtc';
 
 export function ClassRoomPage() {
   const { classPublicId } = useParams<{ classPublicId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const { socket } = useSocket();
 
@@ -23,52 +25,108 @@ export function ClassRoomPage() {
   const [input, setInput] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
-  const [mediaError, setMediaError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  // uid (string) → display name  e.g. "3645669908" → "Ravi Kumar (Tutor)"
+  const [participantNames, setParticipantNames] = useState<Map<string, string>>(new Map());
+  const [isHandRaised, setIsHandRaised] = useState(false);
+  const [handRaisedNotice, setHandRaisedNotice] = useState<string | null>(null);
+  const [screenSharerUid, setScreenSharerUid] = useState<string | null>(null);
+  const handTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isTutor = user?.role === 'TUTOR';
+  const myFullName = user ? `${user.firstName} ${user.lastName}`.trim() : 'You';
 
   const { sendChatMessage, raiseHand, onChatMessage, onStatusChanged } = useClassSocket(
     classPublicId ?? null,
+    myFullName,
   );
 
-  const webrtc = useWebRTC(classPublicId ?? null, socket ?? null);
+  const agora = useAgora(classPublicId ?? null);
   const { remoteElements, broadcastUpdate } = useWhiteboardSync(classPublicId ?? null, socket ?? null);
 
-  // Initialize media then signal readiness
+  // Auto-join: transitions SCHEDULED → LIVE, no-op if already LIVE
   useEffect(() => {
-    if (!socket || !classPublicId || isInitialized) return;
+    if (!classPublicId) return;
+    classesService.join(classPublicId).catch((err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? 'Failed to join class';
+      setJoinError(msg);
+    });
+  }, [classPublicId]);
 
-    async function init() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        webrtc.setLocalStream(stream);
-        socket!.emit(SocketEvent.RTC_READY, { classPublicId });
-        setIsInitialized(true);
-      } catch {
-        setMediaError('Camera or microphone permission denied. You can still chat.');
-        socket!.emit(SocketEvent.RTC_READY, { classPublicId });
-        setIsInitialized(true);
-      }
-    }
-
-    init();
-    return () => { webrtc.cleanup(); };
+  // When we get our own Agora UID, broadcast our name to others in the room
+  useEffect(() => {
+    if (!socket || !classPublicId || !agora.localUid) return;
+    socket.emit(SocketEvent.CLASS_ANNOUNCE, {
+      classPublicId,
+      agoraUid: agora.localUid,
+      name: myFullName,
+      role: user?.role ?? '',
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, classPublicId]);
+  }, [agora.localUid, socket, classPublicId]);
 
-  // Chat + status listeners
+  // Listen for other participants' name announcements
+  useEffect(() => {
+    if (!socket) return;
+    const handler = ({ agoraUid, name, role }: { agoraUid: number; name: string; role: string }) => {
+      setParticipantNames((prev) => {
+        const next = new Map(prev);
+        next.set(String(agoraUid), `${name} (${role.charAt(0) + role.slice(1).toLowerCase()})`);
+        return next;
+      });
+    };
+    socket.on(SocketEvent.CLASS_ANNOUNCE, handler);
+    return () => { socket.off(SocketEvent.CLASS_ANNOUNCE, handler); };
+  }, [socket]);
+
+  // Re-announce ourselves whenever a new Agora participant joins so late-joiners get our name
+  useEffect(() => {
+    if (!socket || !classPublicId || !agora.localUid || agora.participants.size === 0) return;
+    socket.emit(SocketEvent.CLASS_ANNOUNCE, {
+      classPublicId,
+      agoraUid: agora.localUid,
+      name: myFullName,
+      role: user?.role ?? '',
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agora.participants.size]);
+
+  // Listen for hand-raise events from other participants
+  useEffect(() => {
+    if (!socket) return;
+    const handler = ({ userPublicId }: { userPublicId: string }) => {
+      const name = participantNames.get(userPublicId) ?? 'A participant';
+      setHandRaisedNotice(`${name} raised their hand ✋`);
+      if (handTimerRef.current) clearTimeout(handTimerRef.current);
+      handTimerRef.current = setTimeout(() => setHandRaisedNotice(null), 4000);
+    };
+    socket.on(SocketEvent.CLASS_HAND_RAISED, handler);
+    return () => { socket.off(SocketEvent.CLASS_HAND_RAISED, handler); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, participantNames]);
+
+  // Listen for remote screen share start/stop → update spotlight
+  useEffect(() => {
+    if (!socket) return;
+    const handler = ({ agoraUid, active }: { agoraUid: number; active: boolean }) => {
+      setScreenSharerUid(active ? String(agoraUid) : null);
+    };
+    socket.on(SocketEvent.CLASS_SCREEN_SHARE, handler);
+    return () => { socket.off(SocketEvent.CLASS_SCREEN_SHARE, handler); };
+  }, [socket]);
+
   useEffect(() => {
     const unsubChat = onChatMessage((msg) => {
       setMessages((prev) => [...prev, msg]);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     });
     const unsubStatus = onStatusChanged(({ status }) => {
-      if (status === 'COMPLETED' || status === 'CANCELLED') navigate(-1);
+      if (status === 'COMPLETED' || status === 'CANCELLED') handleLeave();
     });
     return () => { unsubChat(); unsubStatus(); };
-  }, [onChatMessage, onStatusChanged, navigate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onChatMessage, onStatusChanged]);
 
   function handleSend() {
     if (!input.trim()) return;
@@ -76,20 +134,40 @@ export function ClassRoomPage() {
     setInput('');
   }
 
-  function handleLeave() {
-    webrtc.cleanup();
-    navigate(-1);
+  async function handleStartScreenShare() {
+    await agora.startScreenShare();
+    setScreenSharerUid('local');
+    socket?.emit(SocketEvent.CLASS_SCREEN_SHARE, { classPublicId, agoraUid: agora.localUid, active: true });
   }
 
-  function getParticipantLabel(p: RtcParticipant): string {
-    return p.role === 'TUTOR' ? 'Tutor' : p.role === 'STUDENT' ? 'Student' : p.userPublicId.slice(0, 8);
+  async function handleStopScreenShare() {
+    await agora.stopScreenShare();
+    setScreenSharerUid(null);
+    socket?.emit(SocketEvent.CLASS_SCREEN_SHARE, { classPublicId, agoraUid: agora.localUid, active: false });
   }
 
-  const remoteStreams = Array.from(webrtc.participants.values())
-    .map((p) => p.stream)
-    .filter((s): s is MediaStream => s !== null);
+  function handleRaiseHand() {
+    if (isHandRaised) {
+      setIsHandRaised(false);
+    } else {
+      raiseHand();
+      setIsHandRaised(true);
+      if (handTimerRef.current) clearTimeout(handTimerRef.current);
+      handTimerRef.current = setTimeout(() => setIsHandRaised(false), 12000);
+    }
+  }
 
-  const participantCount = 1 + webrtc.participants.size;
+  async function handleLeave() {
+    await agora.cleanup();
+    queryClient.invalidateQueries({ queryKey: ['classes'] });
+    const dashPath =
+      user?.role === 'TUTOR' ? '/dashboard/tutor' :
+      user?.role === 'STUDENT' ? '/dashboard/student' :
+      '/dashboard';
+    navigate(dashPath, { replace: true });
+  }
+
+  const participantCount = 1 + agora.participants.size;
 
   return (
     <div className="flex h-screen flex-col bg-gray-950 text-white overflow-hidden">
@@ -102,10 +180,18 @@ export function ClassRoomPage() {
             LIVE
           </span>
           <span className="text-sm font-medium text-gray-200">Live Class</span>
+          {!agora.isJoined && !agora.error && (
+            <span className="text-xs text-amber-400 animate-pulse">Connecting…</span>
+          )}
+          {handRaisedNotice && (
+            <span className="flex items-center gap-1.5 rounded-full bg-yellow-500/20 px-2.5 py-1 text-xs font-medium text-yellow-400 animate-pulse">
+              {handRaisedNotice}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
-          {mediaError && (
-            <span className="text-xs text-amber-400">{mediaError}</span>
+          {(agora.error || joinError) && (
+            <span className="text-xs text-amber-400">{agora.error ?? joinError}</span>
           )}
           <div className="flex items-center gap-1.5 text-xs text-gray-400">
             <Users className="h-3.5 w-3.5" />
@@ -123,24 +209,27 @@ export function ClassRoomPage() {
       </div>
 
       {/* Main area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
 
         {/* Video area */}
-        <div className="flex-1 bg-gray-950 overflow-hidden">
+        <div className="flex-1 bg-gray-950 overflow-hidden min-h-0">
           <VideoGrid
-            localStream={webrtc.localStream}
-            localLabel={user ? `${user.firstName} ${user.lastName}`.trim() : 'You'}
-            participants={webrtc.participants}
-            isMuted={webrtc.isMuted}
-            isCameraOff={webrtc.isCameraOff}
-            getParticipantLabel={getParticipantLabel}
+            localVideoTrack={agora.localVideoTrack}
+            localScreenTrack={agora.localScreenTrack}
+            localLabel={myFullName}
+            participants={agora.participants}
+            participantNames={participantNames}
+            isMuted={agora.isMuted}
+            isCameraOff={agora.isCameraOff}
+            isScreenSharing={agora.isScreenSharing}
+            screenSharerUid={screenSharerUid}
           />
         </div>
 
         {/* Chat panel */}
         {isChatOpen && (
-          <div className="flex w-72 shrink-0 flex-col bg-gray-900 border-l border-gray-800">
-            <div className="px-4 py-2.5 border-b border-gray-800 text-xs font-semibold text-gray-400 flex items-center gap-1.5">
+          <div className="flex w-72 shrink-0 flex-col bg-gray-900 border-l border-gray-800 min-h-0">
+            <div className="px-4 py-2.5 border-b border-gray-800 text-xs font-semibold text-gray-400 flex items-center gap-1.5 shrink-0">
               <MessageSquare className="h-3.5 w-3.5" />
               Chat
             </div>
@@ -154,7 +243,7 @@ export function ClassRoomPage() {
                   key={i}
                   className={`flex flex-col ${m.from === user?.publicId ? 'items-end' : 'items-start'}`}
                 >
-                  <span className="text-[10px] text-gray-500 mb-0.5 capitalize">{m.role.toLowerCase()}</span>
+                  <span className="text-[10px] text-gray-500 mb-0.5">{m.name || m.role}</span>
                   <div
                     className={`max-w-[200px] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
                       m.from === user?.publicId
@@ -172,7 +261,7 @@ export function ClassRoomPage() {
               <div ref={bottomRef} />
             </div>
 
-            <div className="flex gap-2 border-t border-gray-800 p-3">
+            <div className="flex gap-2 border-t border-gray-800 p-3 shrink-0">
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -194,24 +283,23 @@ export function ClassRoomPage() {
       {/* Control bar */}
       <ControlBar
         classPublicId={classPublicId ?? ''}
-        isMuted={webrtc.isMuted}
-        isCameraOff={webrtc.isCameraOff}
-        isScreenSharing={webrtc.isScreenSharing}
+        isMuted={agora.isMuted}
+        isCameraOff={agora.isCameraOff}
+        isScreenSharing={agora.isScreenSharing}
         isWhiteboardOpen={isWhiteboardOpen}
         isTutor={isTutor}
-        localStream={webrtc.localStream}
-        remoteStreams={remoteStreams}
-        socket={socket ?? null}
-        onToggleMute={webrtc.toggleMute}
-        onToggleCamera={webrtc.toggleCamera}
-        onStartScreenShare={webrtc.startScreenShare}
-        onStopScreenShare={webrtc.stopScreenShare}
+        localVideoTrack={agora.localVideoTrack}
+        localAudioTrack={agora.localAudioTrack}
+        onToggleMute={agora.toggleMute}
+        onToggleCamera={agora.toggleCamera}
+        onStartScreenShare={handleStartScreenShare}
+        onStopScreenShare={handleStopScreenShare}
         onToggleWhiteboard={() => setIsWhiteboardOpen((v) => !v)}
-        onRaiseHand={raiseHand}
+        onRaiseHand={handleRaiseHand}
+        isHandRaised={isHandRaised}
         onLeave={handleLeave}
       />
 
-      {/* Whiteboard overlay */}
       {isWhiteboardOpen && (
         <WhiteboardPanel
           remoteElements={remoteElements}

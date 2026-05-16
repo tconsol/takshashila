@@ -20,6 +20,7 @@ export const DomainEvent = {
 
   // ─── Classes ──────────────────────────────────────────
   CLASS_BOOKED: 'CLASS_BOOKED',
+  CLASS_CREATED_BY_TUTOR: 'CLASS_CREATED_BY_TUTOR',
   CLASS_STARTED: 'CLASS_STARTED',
   CLASS_COMPLETED: 'CLASS_COMPLETED',
   CLASS_CANCELLED: 'CLASS_CANCELLED',
@@ -29,6 +30,9 @@ export const DomainEvent = {
   // ─── Demo ─────────────────────────────────────────────
   DEMO_USED: 'DEMO_USED',
   DEMO_EXPIRED: 'DEMO_EXPIRED',
+  DEMO_REQUEST_CREATED: 'DEMO_REQUEST_CREATED',
+  DEMO_REQUEST_ACCEPTED: 'DEMO_REQUEST_ACCEPTED',
+  DEMO_REQUEST_REJECTED: 'DEMO_REQUEST_REJECTED',
 
   // ─── Attendance ───────────────────────────────────────
   ATTENDANCE_MARKED: 'ATTENDANCE_MARKED',
@@ -64,6 +68,17 @@ export const DomainEvent = {
   // ─── Principal ────────────────────────────────────────
   PRINCIPAL_APPROVED: 'PRINCIPAL_APPROVED',
   PRINCIPAL_SUSPENDED: 'PRINCIPAL_SUSPENDED',
+
+  // ─── Slots ────────────────────────────────────────────
+  SLOT_CREATED: 'SLOT_CREATED',
+  SLOT_CANCELLED: 'SLOT_CANCELLED',
+  SLOT_RESCHEDULED: 'SLOT_RESCHEDULED',
+  SLOT_EXPIRED: 'SLOT_EXPIRED',
+
+  // ─── Join Requests ─────────────────────────────────────
+  JOIN_REQUEST_SENT: 'JOIN_REQUEST_SENT',
+  JOIN_REQUEST_APPROVED: 'JOIN_REQUEST_APPROVED',
+  JOIN_REQUEST_REJECTED: 'JOIN_REQUEST_REJECTED',
 
   // ─── Support ──────────────────────────────────────────
   TICKET_CREATED: 'TICKET_CREATED',

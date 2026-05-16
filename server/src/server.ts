@@ -8,6 +8,7 @@ import { initSocketServer } from './sockets/socket.handler';
 import { scheduleCleanupJobs } from './queues/cleanup.queue';
 import { auditService } from './modules/audit/audit.service';
 import { notificationService } from './modules/notifications/notification.service';
+import { startSlotExpiryJob } from './jobs/slot-expiry.job';
 
 async function bootstrap() {
   await connectDatabase();
@@ -20,6 +21,7 @@ async function bootstrap() {
   initSocketServer(httpServer);
 
   await scheduleCleanupJobs();
+  startSlotExpiryJob();
 
   httpServer.listen(env.PORT, () => {
     logger.info(`Takshashila API running on port ${env.PORT} [${env.NODE_ENV}]`);
