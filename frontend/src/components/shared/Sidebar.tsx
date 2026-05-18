@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BookOpen, Calendar, Wallet, Settings,
   BarChart3, Shield, Headphones, GraduationCap, LogOut, ChevronRight,
   UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText, Building2,
-  Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen,
+  Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../stores/auth.store';
@@ -74,6 +74,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Classes', href: '/dashboard/student/classes', icon: Video, badgeKey: 'scheduleAlert' },
     { label: 'Assignments', href: '/dashboard/student/assignments', icon: BookOpen },
     { label: 'Worksheets', href: '/dashboard/student/worksheets', icon: FileText, badgeKey: 'worksheets' },
+    { label: 'Games', href: '/dashboard/student/games', icon: Gamepad2 },
     { label: 'Resources', href: '/dashboard/student/resources', icon: FolderOpen },
     { label: 'Attendance', href: '/dashboard/student/attendance', icon: UserCheck },
     { label: 'Progress', href: '/dashboard/student/progress', icon: BarChart3 },
@@ -144,8 +145,16 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
 
   if (!user) return null;
 
-  const isOnPage = (href: string): boolean =>
-    location.pathname === href || location.pathname.startsWith(href + '/');
+  const isOnPage = (href: string): boolean => {
+    if (location.pathname === href) return true;
+    // Only use prefix match if no sibling nav item lives under this path
+    // (prevents /dashboard/student matching /dashboard/student/tutors etc.)
+    const hasChildItem = allItems.some(
+      (item) => item.href !== href && item.href.startsWith(href + '/'),
+    );
+    if (hasChildItem) return false;
+    return location.pathname.startsWith(href + '/');
+  };
 
   const getBadgeCount = (badgeKey: string | undefined, href: string): number => {
     if (!badgeKey) return 0;
