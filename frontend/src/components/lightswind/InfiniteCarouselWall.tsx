@@ -187,9 +187,9 @@ function MarqueeRow({
 }
 
 export function InfiniteCarouselWall() {
-  const row1 = TESTIMONIALS.slice(0, 3);
-  const row2 = TESTIMONIALS.slice(3, 6);
-  const row3 = TESTIMONIALS.slice(6, 9);
+  // Split 9 across 2 rows (5 + 4) — enough cards per row to fill viewport, no gaps
+  const row1 = [...TESTIMONIALS.slice(0, 5), TESTIMONIALS[8]];
+  const row2 = [TESTIMONIALS[7], ...TESTIMONIALS.slice(5, 8)];
 
   return (
     <div className="relative overflow-hidden py-4">
@@ -204,9 +204,8 @@ export function InfiniteCarouselWall() {
       />
 
       <div className="space-y-4">
-        <MarqueeRow items={row1} direction="left" speed={40} />
-        <MarqueeRow items={row2} direction="right" speed={50} />
-        <MarqueeRow items={row3} direction="left" speed={35} />
+        <MarqueeRow items={row1} direction="left" speed={50} />
+        <MarqueeRow items={row2} direction="right" speed={55} />
       </div>
     </div>
   );
