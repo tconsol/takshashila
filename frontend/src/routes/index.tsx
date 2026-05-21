@@ -56,6 +56,7 @@ import { TutorWalletPage } from '../pages/tutor/TutorWalletPage';
 import { TutorDemoRequestsPage } from '../pages/tutor/TutorDemoRequestsPage';
 import { TutorResourcesPage } from '../pages/tutor/TutorResourcesPage';
 import { TutorWorksheetResultsPage } from '../pages/tutor/TutorWorksheetResultsPage';
+import { TutorCreateClassPage } from '../pages/tutor/TutorCreateClassPage';
 
 // Student pages
 import { StudentMyTutorPage } from '../pages/student/StudentMyTutorPage';
@@ -67,6 +68,7 @@ import { StudentWalletPage } from '../pages/student/StudentWalletPage';
 import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
 import { StudentWorksheetTestPage } from '../pages/student/StudentWorksheetTestPage';
 import { StudentResourcesPage } from '../pages/student/StudentResourcesPage';
+import { StudentGamesPage } from '../pages/student/StudentGamesPage';
 
 // Parent pages
 import { ParentChildrenPage } from '../pages/parent/ParentChildrenPage';
@@ -170,6 +172,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/tutor/demo-requests', element: <TutorDemoRequestsPage /> },
         { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
+        { path: '/dashboard/tutor/classes/create', element: <TutorCreateClassPage /> },
         { path: '/dashboard/tutor/schedule', element: <TutorSchedulePage /> },
         { path: '/dashboard/tutor/students', element: <TutorStudentsPage /> },
         { path: '/dashboard/tutor/assignments', element: <TutorAssignmentsPage /> },
@@ -197,6 +200,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/worksheets', element: <StudentWorksheetsPage /> },
         { path: '/dashboard/student/worksheets/:worksheetId/test', element: <StudentWorksheetTestPage /> },
         { path: '/dashboard/student/resources', element: <StudentResourcesPage /> },
+        { path: '/dashboard/student/games', element: <StudentGamesPage /> },
         { path: '/dashboard/student/attendance', element: <StudentAttendancePage /> },
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },
         { path: '/dashboard/student/wallet', element: <StudentWalletPage /> },

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Mail, Lock, CheckCircle2, GraduationCap, BookOpen, Building2, Heart } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, CheckCircle2, GraduationCap, BookOpen, Building2, Heart, ArrowLeft } from 'lucide-react';
 import { loginSchema, type LoginFormData } from '../../validators/auth.validators';
 import { useLogin } from '../../hooks/use-auth';
 import { Button } from '../../components/ui/Button';
@@ -27,6 +27,15 @@ export function LoginPage() {
 
   return (
     <div className="space-y-8">
+      {/* Back to home */}
+      <Link
+        to="/"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to home
+      </Link>
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome back</h1>

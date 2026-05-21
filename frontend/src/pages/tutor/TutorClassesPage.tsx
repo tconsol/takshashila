@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BookOpen, ClipboardList, Plus, Calendar } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { ClassCard } from '../../components/shared/ClassCard';
@@ -8,7 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { useMyClassesAsTutor, useCompleteClass, useCancelClass } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
 import { WorksheetUploadModal } from '../../features/worksheets/WorksheetUploadModal';
-import { TutorCreateClassModal, TutorRescheduleModal } from '../../features/classes/TutorCreateClassModal';
+import { TutorRescheduleModal } from '../../features/classes/TutorCreateClassModal';
 import type { ClassRecord } from '../../services/classes.service';
 
 const EMPTY_LABELS: Record<string, string> = {
@@ -19,12 +20,12 @@ const EMPTY_LABELS: Record<string, string> = {
 };
 
 export function TutorClassesPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('SCHEDULED');
   const [cancelTarget, setCancelTarget] = useState<ClassRecord | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [uploadTarget, setUploadTarget] = useState<ClassRecord | null>(null);
   const [uploadType, setUploadType] = useState<'WORKSHEET' | 'ASSIGNMENT'>('WORKSHEET');
-  const [showCreate, setShowCreate] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<ClassRecord | null>(null);
 
   const { data, isLoading } = useMyClassesAsTutor({ status: activeTab });
@@ -69,7 +70,7 @@ export function TutorClassesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <PageHeader title="My Classes" subtitle="Manage your scheduled and completed sessions" />
-        <Button variant="gradient" onClick={() => setShowCreate(true)} className="shrink-0">
+        <Button variant="gradient" onClick={() => navigate('/dashboard/tutor/classes/create')} className="shrink-0">
           <Plus className="h-4 w-4" /> Create Class
         </Button>
       </div>
@@ -152,9 +153,6 @@ export function TutorClassesPage() {
           />
         </div>
       </Modal>
-
-      {/* Create class modal */}
-      <TutorCreateClassModal open={showCreate} onClose={() => setShowCreate(false)} />
 
       {/* Reschedule modal */}
       <TutorRescheduleModal

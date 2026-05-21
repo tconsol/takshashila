@@ -5,7 +5,20 @@ import { useSocket } from '../sockets/use-socket';
 import { SocketEvent } from '../sockets/socket.events';
 import { useToast } from '../components/ui/Toast';
 import { useAuthStore } from '../stores/auth.store';
+import { useDismissedBadgesStore } from '../stores/dismissed-badges.store';
 import notificationSound from '../assets/aayein-meme.mp3';
+
+// Maps a socket module name → badge keys that should be restored when new data arrives
+const MODULE_TO_BADGE_KEYS: Record<string, string[]> = {
+  worksheets:      ['worksheets'],
+  students:        ['students'],
+  tutors:          ['tutors', 'principals'],
+  principals:      ['principals'],
+  tickets:         ['tickets', 'support'],
+  'join-requests': ['join-requests', 'principals'],
+  'demo-requests': ['demo-requests'],
+  badges:          [],
+};
 
 const MODULE_KEYS: Record<string, readonly (readonly string[])[]> = {
   principals:      [['principals'], ['admin-overview'], ['badges']],
@@ -31,17 +44,36 @@ export function useDataInvalidation() {
   const toast = useToast();
   const location = useLocation();
   const { user } = useAuthStore();
+  const restore = useDismissedBadgesStore((s) => s.restore);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    audioRef.current = new Audio(notificationSound);
-    audioRef.current.volume = 0.6;
+    const audio = new Audio(notificationSound);
+    audio.volume = 0.6;
+    audioRef.current = audio;
+
+    // Unlock autoplay on first user interaction (browsers block audio until then)
+    const unlock = () => {
+      audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
+    document.addEventListener('click', unlock, true);
+    document.addEventListener('keydown', unlock, true);
+
+    return () => {
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+    };
   }, []);
 
   useEffect(() => {
     if (!socket) return;
 
     const handleInvalidate = ({ module }: { module: string }) => {
+      // Real new data arrived — restore any badge the user had dismissed for this module
+      (MODULE_TO_BADGE_KEYS[module] ?? []).forEach(restore);
+
       const keys = MODULE_KEYS[module];
       if (!keys) return;
       keys.forEach((key) => qc.invalidateQueries({ queryKey: key as string[] }));

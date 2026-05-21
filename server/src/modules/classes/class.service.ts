@@ -200,6 +200,10 @@ export class ClassService {
       { userPublicId: 1 },
     ).lean();
 
+    if (scheduled.classType === ClassType.DEMO && scheduled.studentPublicId) {
+      await studentService.recordDemoClassUsed(scheduled.studentPublicId, scheduled.tutorPublicId).catch(() => {});
+    }
+
     domainEvents.emit(DomainEvent.CLASS_COMPLETED, {
       classPublicId,
       tutorPublicId: scheduled.tutorPublicId,

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, Heart, Users } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, Heart, Users, Info } from 'lucide-react';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { authService } from '../../services/auth.service';
@@ -178,9 +178,9 @@ export function RegisterParentPage() {
         />
 
         {/* Info note */}
-        <div className="flex gap-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 p-4">
-          <Heart className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-rose-700 dark:text-rose-400">
+        <div className="flex gap-3 rounded-xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 p-4">
+          <Info className="h-4 w-4 text-sky-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-sky-700 dark:text-sky-400">
             After registering, go to <strong>My Children</strong> in your dashboard and enter your child's
             Student ID to link their account and start monitoring their progress.
           </p>

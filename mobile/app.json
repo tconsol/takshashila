@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Takshashila Student",
+    "slug": "takshashila-student",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "takshashila",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.takshashila.student"
+    },
+    "android": {
+      "package": "com.takshashila.student"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
