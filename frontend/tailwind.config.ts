@@ -33,6 +33,29 @@ const config: Config = {
           800: '#923418',
           900: '#762d16',
         },
+        // Claymorphism design tokens — pillowy playful UI
+        clay: {
+          bg:     '#FAF1E4',  // cream background
+          ink:    '#1F2937',  // dark outline + text
+          green:  '#22C55E',  // primary CTA
+          'green-dark': '#16A34A',
+          coral:  '#FECACA',
+          'coral-strong': '#FCA5A5',
+          sky:    '#BAE6FD',
+          mint:   '#BBF7D0',
+          yellow: '#FDE68A',
+          purple: '#DDD6FE',
+          pink:   '#FBCFE8',
+        },
+      },
+      boxShadow: {
+        'clay':         '6px 6px 0 0 #1F2937',
+        'clay-lg':      '8px 8px 0 0 #1F2937',
+        'clay-sm':      '3px 3px 0 0 #1F2937',
+        'clay-pressed': '2px 2px 0 0 #1F2937',
+      },
+      borderWidth: {
+        '2.5': '2.5px',
       },
       fontFamily: {
         sans: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],

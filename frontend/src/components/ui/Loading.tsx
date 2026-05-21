@@ -10,7 +10,7 @@ const sizes = { sm: 'h-4 w-4', md: 'h-6 w-6', lg: 'h-10 w-10' };
 export function Spinner({ size = 'md', className }: SpinnerProps) {
   return (
     <svg
-      className={cn('animate-spin text-brand-600', sizes[size], className)}
+      className={cn('animate-spin text-clay-green-dark', sizes[size], className)}
       viewBox="0 0 24 24"
       fill="none"
     >
@@ -22,7 +22,7 @@ export function Spinner({ size = 'md', className }: SpinnerProps) {
 
 export function PageLoader() {
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-screen items-center justify-center bg-clay-bg dark:bg-gray-950">
       <Spinner size="lg" />
     </div>
   );

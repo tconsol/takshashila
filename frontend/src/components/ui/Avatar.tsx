@@ -21,11 +21,10 @@ function getInitials(name: string): string {
 }
 
 function getColorClass(name: string): string {
+  // Claymorphism pastel palette — pairs with clay-ink text
   const colors = [
-    'bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-500',
-    'bg-lime-500', 'bg-emerald-500', 'bg-teal-500', 'bg-cyan-500',
-    'bg-sky-500', 'bg-blue-500', 'bg-indigo-500', 'bg-violet-500',
-    'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
+    'bg-clay-mint', 'bg-clay-coral', 'bg-clay-sky', 'bg-clay-yellow',
+    'bg-clay-purple', 'bg-clay-pink',
   ];
   if (!name) return colors[0];
   let hash = 0;
@@ -42,14 +41,14 @@ export function Avatar({ name, src, size = 'md', className = '' }: AvatarProps) 
       <img
         src={src}
         alt={name}
-        className={`${sizeClass} rounded-full object-cover flex-shrink-0 ${className}`}
+        className={`${sizeClass} rounded-full border-2 border-clay-ink object-cover flex-shrink-0 ${className}`}
       />
     );
   }
 
   return (
     <div
-      className={`${sizeClass} ${colorClass} rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 ${className}`}
+      className={`${sizeClass} ${colorClass} rounded-full border-2 border-clay-ink flex items-center justify-center text-clay-ink font-extrabold flex-shrink-0 ${className}`}
       title={name}
     >
       {getInitials(name)}

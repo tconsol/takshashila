@@ -175,7 +175,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="mb-2 block text-sm font-extrabold text-clay-ink dark:text-gray-300"
           >
             {label}
           </label>
@@ -210,23 +210,21 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           aria-expanded={isOpen}
           aria-labelledby={label ? inputId : undefined}
           className={cn(
-            'relative flex w-full items-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm text-left transition-colors',
+            'relative flex w-full items-center gap-2 rounded-2xl border-2.5 border-clay-ink bg-white px-4 py-3 text-sm font-semibold text-left transition-all shadow-clay-sm',
             'dark:bg-gray-900 dark:text-white',
-            'focus:outline-none focus:ring-2',
-            isOpen
-              ? 'border-brand-500 ring-2 ring-brand-500/20 dark:border-brand-400 dark:ring-brand-400/20'
-              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500',
-            error && 'border-red-500 focus:ring-red-500/20',
+            'focus:outline-none',
+            isOpen ? 'translate-x-[2px] translate-y-[2px] shadow-clay-pressed' : '',
+            error && 'border-rose-500',
             disabled && 'cursor-not-allowed bg-gray-50 opacity-60 dark:bg-gray-800',
           )}
         >
           {leftIcon && (
-            <span className="shrink-0 text-gray-400">{leftIcon}</span>
+            <span className="shrink-0 text-clay-ink">{leftIcon}</span>
           )}
           <span
             className={cn(
-              'flex-1 truncate',
-              !selectedOption && 'text-gray-400 dark:text-gray-500',
+              'flex-1 truncate text-clay-ink',
+              !selectedOption && 'text-gray-400 dark:text-gray-500 font-normal',
             )}
           >
             {selectedOption ? selectedOption.label : placeholder}
@@ -243,8 +241,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         {isOpen && (
           <div
             className={cn(
-              'absolute z-50 mt-1 w-full min-w-[12rem] overflow-hidden rounded-xl border border-gray-200',
-              'bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900',
+              'absolute z-50 mt-2 w-full min-w-[12rem] overflow-hidden rounded-2xl border-2.5 border-clay-ink',
+              'bg-white shadow-clay dark:bg-gray-900',
             )}
             style={{ maxWidth: containerRef.current?.offsetWidth }}
             role="listbox"
@@ -290,18 +288,17 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                       onClick={() => handleSelect(opt.value)}
                       onMouseEnter={() => setFocusedIdx(idx)}
                       className={cn(
-                        'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors',
+                        'flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm font-semibold transition-colors',
                         isFocused
-                          ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
-                          : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800',
-                        isSelected &&
-                          !isFocused &&
-                          'bg-brand-50/50 font-medium text-brand-700 dark:bg-brand-900/20 dark:text-brand-400',
+                          ? 'bg-clay-mint text-clay-ink'
+                          : 'text-clay-ink hover:bg-clay-bg dark:text-gray-300 dark:hover:bg-gray-800',
+                        isSelected && !isFocused &&
+                          'bg-clay-mint/50 font-extrabold text-clay-ink',
                       )}
                     >
                       <span className="flex-1 truncate">{opt.label}</span>
                       {isSelected && (
-                        <Check className="h-3.5 w-3.5 shrink-0 text-brand-600 dark:text-brand-400" />
+                        <Check className="h-4 w-4 shrink-0 text-clay-green-dark" strokeWidth={3} />
                       )}
                     </li>
                   );
@@ -312,7 +309,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         )}
 
         {error && (
-          <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{error}</p>
+          <p className="mt-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">{error}</p>
         )}
       </div>
     );

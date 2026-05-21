@@ -137,14 +137,14 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
         <Card padding="md" tone="soft" className="mb-6">
           <div className="grid gap-3 lg:grid-cols-12">
             <div className="lg:col-span-5">
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Search</label>
+              <label className="mb-2 block text-sm font-extrabold text-clay-ink dark:text-gray-300">Search</label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-clay-ink" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Subject, name, or qualification…"
-                  className="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  className="w-full rounded-2xl border-2.5 border-clay-ink bg-white pl-10 pr-3 py-3 text-sm font-semibold text-clay-ink placeholder:text-gray-400 shadow-clay-sm transition-all focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -371,18 +371,18 @@ function TutorCard({ tutor, onBook }: { tutor: TutorListing; onBook: () => void 
 function PublicNav() {
   const { isAuthenticated, user } = useAuthStore();
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/85 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/85">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-600 to-violet-600 text-white">
-            <GraduationCap className="h-5 w-5" />
+    <header className="sticky top-4 z-40 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <nav className="flex h-16 items-center justify-between rounded-[28px] border-2.5 border-clay-ink bg-white px-4 shadow-clay sm:px-6 dark:bg-gray-950">
+        <Link to="/" className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-coral">
+            <GraduationCap className="h-5 w-5 text-clay-ink" />
           </div>
-          <span className="text-lg font-bold text-gray-900 dark:text-white">Takshashila</span>
+          <span className="text-lg font-extrabold text-clay-ink dark:text-white">Takshashila</span>
         </Link>
         <div className="hidden gap-7 md:flex">
-          <Link to="/" className="text-sm font-medium text-gray-600 hover:text-brand-600">Home</Link>
-          <Link to="/tutors" className="text-sm font-semibold text-brand-600">Find Tutors</Link>
-          <Link to="/#features" className="text-sm font-medium text-gray-600 hover:text-brand-600">Features</Link>
+          <Link to="/" className="text-sm font-bold text-clay-ink hover:text-clay-green-dark">Home</Link>
+          <Link to="/tutors" className="text-sm font-extrabold text-clay-green-dark">Find Tutors</Link>
+          <Link to="/#features" className="text-sm font-bold text-clay-ink hover:text-clay-green-dark">Features</Link>
         </div>
         <div className="flex items-center gap-3">
           {isAuthenticated && user ? (
@@ -391,9 +391,9 @@ function PublicNav() {
             </Link>
           ) : (
             <>
-              <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-brand-600">Sign in</Link>
+              <Link to="/login" className="hidden sm:block text-sm font-bold text-clay-ink hover:text-clay-green-dark">Sign in</Link>
               <Link to="/register/student">
-                <Button size="sm" variant="gradient">Get started</Button>
+                <Button size="sm">Get started</Button>
               </Link>
             </>
           )}

@@ -20,14 +20,15 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   dot?: boolean;
 }
 
+// Claymorphism — vibrant pastel fills + dark outline
 const soft: Record<BadgeVariant, string> = {
-  default: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  success: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  warning: 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  danger:  'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
-  info:    'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-  purple:  'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
-  brand:   'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400',
+  default: 'bg-gray-100 text-clay-ink border-2 border-clay-ink dark:bg-gray-800 dark:text-gray-300',
+  success: 'bg-clay-mint text-clay-ink border-2 border-clay-ink dark:bg-emerald-900/30 dark:text-emerald-400',
+  warning: 'bg-clay-yellow text-clay-ink border-2 border-clay-ink dark:bg-amber-900/30 dark:text-amber-400',
+  danger:  'bg-clay-coral text-clay-ink border-2 border-clay-ink dark:bg-rose-900/30 dark:text-rose-400',
+  info:    'bg-clay-sky text-clay-ink border-2 border-clay-ink dark:bg-sky-900/30 dark:text-sky-400',
+  purple:  'bg-clay-purple text-clay-ink border-2 border-clay-ink dark:bg-violet-900/30 dark:text-violet-400',
+  brand:   'bg-clay-pink text-clay-ink border-2 border-clay-ink dark:bg-brand-900/30 dark:text-brand-400',
 };
 
 const solid: Record<BadgeVariant, string> = {
@@ -61,8 +62,8 @@ const dotColors: Record<BadgeVariant, string> = {
 };
 
 const sizes: Record<BadgeSize, string> = {
-  sm: 'px-2 py-0.5 text-[10px]',
-  md: 'px-2.5 py-0.5 text-xs',
+  sm: 'px-2.5 py-0.5 text-[10px]',
+  md: 'px-3 py-1 text-xs',
 };
 
 export function Badge({
@@ -78,7 +79,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full font-medium tracking-wide',
+        'inline-flex items-center gap-1.5 rounded-full font-extrabold tracking-wide',
         toneMap[variant],
         sizes[size],
         className,

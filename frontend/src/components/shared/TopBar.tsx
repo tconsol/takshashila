@@ -20,11 +20,11 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const toggleTheme = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-900 lg:px-6 gap-3">
+    <header className="flex h-16 items-center justify-between border-b-2.5 border-clay-ink bg-white px-4 dark:bg-gray-900 lg:px-6 gap-3">
       {/* Mobile menu button */}
       <button
         onClick={onMenuClick}
-        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden shrink-0"
+        className="rounded-xl border-2 border-clay-ink bg-clay-yellow p-2 text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] transition-all lg:hidden shrink-0"
         aria-label="Toggle sidebar"
       >
         <Menu className="h-5 w-5" />
@@ -33,19 +33,19 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       {/* Search */}
       <div className="flex-1 max-w-xs">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-clay-ink pointer-events-none" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && clear()}
             placeholder="Search pages…"
-            className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white placeholder-gray-400 pl-9 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
+            className="w-full rounded-2xl border-2 border-clay-ink bg-clay-bg text-sm font-semibold text-clay-ink placeholder-clay-ink/40 pl-9 pr-8 py-2 focus:outline-none focus:bg-white transition-colors"
           />
           {query && (
             <button
               onClick={() => { clear(); inputRef.current?.focus(); }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-clay-ink hover:text-clay-green-dark"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -57,7 +57,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={toggleTheme}
-          className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+          className="rounded-xl border-2 border-clay-ink bg-clay-sky p-2 text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
           aria-label="Toggle theme"
         >
           {resolvedTheme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -66,14 +66,14 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         <NotificationBell />
 
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-brand-600 flex items-center justify-center text-xs font-semibold text-white shrink-0">
+          <div className="h-10 w-10 rounded-full border-2 border-clay-ink bg-clay-coral flex items-center justify-center text-xs font-extrabold text-clay-ink shrink-0">
             {user ? getInitials(user.firstName, user.lastName) : '?'}
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-medium text-gray-900 dark:text-white">
+            <p className="text-sm font-extrabold text-clay-ink dark:text-white">
               {user ? `${user.firstName} ${user.lastName}` : ''}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs font-semibold text-clay-ink/60 dark:text-gray-400">
               {user ? ROLE_LABELS[user.role] : ''}
             </p>
           </div>

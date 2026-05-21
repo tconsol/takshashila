@@ -27,21 +27,21 @@ export function PageHeader({
     <div className={cn('mb-7 flex flex-wrap items-start justify-between gap-4', className)}>
       <div className="flex items-start gap-4 min-w-0">
         {icon && (
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 text-brand-600 ring-1 ring-brand-100/70 dark:from-brand-900/30 dark:to-violet-900/30 dark:text-brand-300 dark:ring-brand-900/40">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-mint text-clay-ink shadow-clay-sm">
             {icon}
           </div>
         )}
         <div className="min-w-0">
           {eyebrow && (
-            <p className="text-xs font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+            <p className="text-xs font-extrabold uppercase tracking-wider text-clay-green-dark">
               {eyebrow}
             </p>
           )}
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
+          <h1 className="text-2xl font-extrabold tracking-tight text-clay-ink dark:text-white sm:text-3xl">
             {title}
           </h1>
           {sub && (
-            <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
+            <p className="mt-1.5 text-sm font-semibold text-clay-ink/60 dark:text-gray-400 max-w-2xl">
               {sub}
             </p>
           )}
