@@ -22,7 +22,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative">
           {leftIcon && (
-            <div className="absolute inset-y-0 left-3.5 flex items-center text-clay-ink">
+            <div className="pointer-events-none absolute inset-y-0 left-3.5 z-10 flex items-center text-clay-ink">
               {leftIcon}
             </div>
           )}
@@ -30,8 +30,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              'w-full rounded-2xl border-2.5 border-clay-ink bg-white px-4 py-3 text-sm font-semibold text-clay-ink placeholder:text-gray-400 transition-all shadow-clay-sm',
-              'focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed',
+              'w-full rounded-2xl border-2.5 border-clay-ink bg-white px-4 py-3 text-sm font-semibold text-clay-ink placeholder:text-gray-400 transition-colors shadow-clay-sm',
+              'focus:outline-none focus:bg-clay-bg/50 focus:shadow-clay',
               'disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500',
               'dark:bg-gray-900 dark:text-white dark:placeholder:text-gray-500',
               error && 'border-rose-500',
@@ -42,7 +42,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <div className="absolute inset-y-0 right-3.5 flex items-center text-clay-ink">
+            <div className="absolute inset-y-0 right-3.5 z-10 flex items-center text-clay-ink">
               {rightIcon}
             </div>
           )}

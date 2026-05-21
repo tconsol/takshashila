@@ -171,21 +171,21 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <div className="h-9 w-9 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-sm font-semibold text-brand-700 dark:text-brand-300 flex-shrink-0">
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b-2.5 border-clay-ink bg-clay-mint">
+        <div className="h-11 w-11 rounded-full border-2 border-clay-ink bg-clay-purple flex items-center justify-center text-sm font-extrabold text-clay-ink flex-shrink-0">
           {initials}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+          <p className="text-sm font-extrabold text-clay-ink truncate">
             {otherName || <span className="capitalize">{otherRole.toLowerCase().replace('_', ' ')}</span>}
           </p>
           {otherRole && otherName && (
-            <p className="text-[11px] text-brand-500 capitalize leading-none">
+            <p className="text-[11px] font-extrabold text-clay-green-dark capitalize leading-none mt-0.5">
               {otherRole.toLowerCase().replace('_', ' ')}
             </p>
           )}
           {typingName && (
-            <p className="text-xs text-green-500 animate-pulse leading-none mt-0.5">
+            <p className="text-xs font-bold text-clay-green-dark animate-pulse leading-none mt-0.5">
               {typingName} is typing…
             </p>
           )}
@@ -193,10 +193,10 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
       </div>
 
       {/* Messages */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-4 bg-gray-50 dark:bg-gray-950 min-h-0">
+      <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-4 bg-clay-bg min-h-0">
         {hasNextPage && (
           <div className="text-center mb-3">
-            <button onClick={() => fetchNextPage()} className="text-xs text-brand-600 hover:underline">
+            <button onClick={() => fetchNextPage()} className="text-xs font-extrabold text-clay-green-dark hover:text-clay-green">
               Load older messages
             </button>
           </div>
@@ -233,30 +233,30 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
       </div>
 
       {/* Input area */}
-      <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex-shrink-0 bg-white border-t-2.5 border-clay-ink">
 
         {/* Pending file preview */}
         {pendingFile && (
           <div className="flex items-center gap-2 px-4 pt-2.5 pb-1">
-            <div className="flex items-center gap-2 flex-1 min-w-0 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-xl px-3 py-2">
-              <span className="text-brand-600 dark:text-brand-400 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0 border-2 border-clay-ink bg-clay-mint rounded-xl px-3 py-2">
+              <span className="text-clay-ink flex-shrink-0">
                 {fileIcon(pendingFile.type)}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{pendingFile.name}</p>
-                <p className="text-[10px] text-gray-400">{(pendingFile.size / 1024).toFixed(0)} KB</p>
+                <p className="text-xs font-extrabold text-clay-ink truncate">{pendingFile.name}</p>
+                <p className="text-[10px] font-bold text-clay-ink/60">{(pendingFile.size / 1024).toFixed(0)} KB</p>
               </div>
               {uploading && (
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <div className="w-16 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-brand-500 transition-all" style={{ width: `${uploadProgress}%` }} />
+                  <div className="w-16 h-2 border border-clay-ink bg-white rounded-full overflow-hidden">
+                    <div className="h-full bg-clay-green transition-all" style={{ width: `${uploadProgress}%` }} />
                   </div>
-                  <span className="text-[10px] text-gray-400">{uploadProgress}%</span>
+                  <span className="text-[10px] font-bold text-clay-ink">{uploadProgress}%</span>
                 </div>
               )}
             </div>
             {!uploading && (
-              <button onClick={clearPendingFile} className="flex-shrink-0 text-gray-400 hover:text-red-500">
+              <button onClick={clearPendingFile} className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border-2 border-clay-ink bg-clay-coral text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
                 <X className="h-4 w-4" />
               </button>
             )}
@@ -265,7 +265,7 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
 
         {/* File error */}
         {fileError && (
-          <p className="px-4 pt-1.5 text-xs text-red-500">{fileError}</p>
+          <p className="px-4 pt-1.5 text-xs font-bold text-rose-600">{fileError}</p>
         )}
 
         {/* Text input row */}
@@ -284,7 +284,7 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
             type="button"
             onClick={() => { setFileError(null); fileInputRef.current?.click(); }}
             disabled={uploading}
-            className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-xl text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors disabled:opacity-40"
+            className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-2xl border-2 border-clay-ink bg-clay-yellow text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-40"
           >
             <Paperclip className="h-5 w-5" />
           </button>
@@ -297,13 +297,13 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
             }}
             placeholder="Type a message…"
             rows={1}
-            className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 max-h-32 overflow-y-auto"
+            className="flex-1 resize-none rounded-2xl border-2 border-clay-ink bg-white px-4 py-2.5 text-sm font-semibold text-clay-ink placeholder-clay-ink/40 outline-none transition-all focus:translate-x-[1px] focus:translate-y-[1px] focus:shadow-clay-pressed max-h-32 overflow-y-auto"
           />
 
           <button
             onClick={handleSend}
             disabled={!canSend}
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border-2 border-clay-ink bg-clay-green text-white shadow-clay-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-clay-pressed disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             {sending || uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>

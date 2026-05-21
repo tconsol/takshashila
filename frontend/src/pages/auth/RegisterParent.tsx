@@ -73,36 +73,39 @@ export function RegisterParentPage() {
       <div>
         <Link
           to="/register"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 dark:text-gray-400 mb-4 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-white px-3 py-1.5 text-xs font-extrabold text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-clay-pressed shadow-clay-sm transition-all mb-4"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to role selection
         </Link>
         <div className="flex items-center gap-3 mb-2">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 shadow-md">
-            <Heart className="h-5 w-5 text-white" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-pink shadow-clay-sm">
+            <Heart className="h-5 w-5 text-clay-ink" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Join as Parent</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Monitor your child's learning journey</p>
+            <h1 className="text-2xl font-extrabold text-clay-ink dark:text-white">Join as Parent</h1>
+            <p className="text-sm font-semibold text-clay-ink/60 dark:text-gray-400">Monitor your child's learning journey</p>
           </div>
         </div>
       </div>
 
       {/* What you get */}
       <div className="grid grid-cols-2 gap-2">
-        {PARENT_BENEFITS.map((b) => (
-          <div
-            key={b.text}
-            className="flex items-center gap-2 rounded-xl bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 px-3 py-2"
-          >
-            <span className="text-base">{b.icon}</span>
-            <span className="text-xs font-medium text-rose-800 dark:text-rose-300">{b.text}</span>
-          </div>
-        ))}
+        {PARENT_BENEFITS.map((b, i) => {
+          const tints = ['bg-clay-mint', 'bg-clay-sky', 'bg-clay-yellow', 'bg-clay-purple'];
+          return (
+            <div
+              key={b.text}
+              className={`flex items-center gap-2 rounded-2xl border-2 border-clay-ink ${tints[i % 4]} px-3 py-2.5`}
+            >
+              <span className="text-base">{b.icon}</span>
+              <span className="text-xs font-extrabold text-clay-ink">{b.text}</span>
+            </div>
+          );
+        })}
       </div>
 
       {serverError && (
-        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-2xl border-2.5 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-extrabold text-clay-ink shadow-clay-sm">
           {serverError}
         </div>
       )}

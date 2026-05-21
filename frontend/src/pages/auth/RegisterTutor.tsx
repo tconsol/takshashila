@@ -67,22 +67,22 @@ export function RegisterTutorPage() {
   return (
     <div className="space-y-7">
       <div>
-        <Link to="/register" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 dark:text-gray-400 mb-4 transition-colors">
+        <Link to="/register" className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-white px-3 py-1.5 text-xs font-extrabold text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-clay-pressed shadow-clay-sm transition-all mb-4">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to role selection
         </Link>
         <div className="flex items-center gap-3 mb-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md">
-            <GraduationCap className="h-5 w-5 text-white" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-purple shadow-clay-sm">
+            <GraduationCap className="h-5 w-5 text-clay-ink" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Join as Tutor</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Share your expertise and grow your teaching career</p>
+            <h1 className="text-2xl font-extrabold text-clay-ink dark:text-white">Join as Tutor</h1>
+            <p className="text-sm font-semibold text-clay-ink/60 dark:text-gray-400">Share your expertise and grow your teaching career</p>
           </div>
         </div>
       </div>
 
       {serverError && (
-        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-2xl border-2.5 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-extrabold text-clay-ink shadow-clay-sm">
           {serverError}
         </div>
       )}

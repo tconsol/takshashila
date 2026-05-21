@@ -187,16 +187,16 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
           </div>
 
           {(subject || priceIdx > 0 || minRating > 0 || search) && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-200/70 pt-3 dark:border-gray-800">
-              <Filter className="h-3.5 w-3.5 text-gray-400" />
-              <span className="text-xs text-gray-500">Active filters:</span>
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t-2 border-dashed border-clay-ink/20 pt-3">
+              <Filter className="h-3.5 w-3.5 text-clay-ink" />
+              <span className="text-xs font-extrabold text-clay-ink/70">Active filters:</span>
               {search && <Chip onClear={() => setSearch('')}>"{search}"</Chip>}
               {subject && <Chip onClear={() => setSubject('')}>{subject}</Chip>}
               {priceIdx > 0 && <Chip onClear={() => setPriceIdx(0)}>{PRICE_BUCKETS[priceIdx].label}</Chip>}
               {minRating > 0 && <Chip onClear={() => setMinRating(0)}>★ {minRating}+</Chip>}
               <button
                 onClick={() => { setSearch(''); setSubject(''); setPriceIdx(0); setMinRating(0); }}
-                className="ml-auto text-xs font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+                className="ml-auto rounded-full border-2 border-clay-ink bg-white px-3 py-1 text-xs font-extrabold text-clay-ink hover:bg-clay-coral transition-colors"
               >
                 Reset all
               </button>
@@ -274,11 +274,11 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
 
 function Chip({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100/60 px-2.5 py-1 text-xs font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+    <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-clay-mint px-2.5 py-1 text-xs font-extrabold text-clay-ink">
       {children}
       <button
         onClick={onClear}
-        className="text-brand-500 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-200"
+        className="text-clay-ink hover:text-rose-600"
         aria-label="Remove filter"
       >
         ×

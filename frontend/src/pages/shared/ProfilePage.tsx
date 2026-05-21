@@ -29,22 +29,22 @@ const ROLE_LABELS: Record<string, string> = {
   TUTOR: 'Tutor', STUDENT: 'Student', SUPPORT: 'Support',
 };
 
-const ROLE_GRADIENTS: Record<string, string> = {
-  SUPER_ADMIN: 'from-red-500 to-orange-500',
-  ADMIN: 'from-orange-500 to-amber-500',
-  PRINCIPAL: 'from-blue-500 to-sky-400',
-  TUTOR: 'from-violet-600 to-indigo-500',
-  STUDENT: 'from-emerald-500 to-teal-400',
-  SUPPORT: 'from-sky-500 to-cyan-400',
+const ROLE_TINT: Record<string, string> = {
+  SUPER_ADMIN: 'bg-clay-coral',
+  ADMIN:       'bg-clay-yellow',
+  PRINCIPAL:   'bg-clay-sky',
+  TUTOR:       'bg-clay-purple',
+  STUDENT:     'bg-clay-mint',
+  SUPPORT:     'bg-clay-pink',
 };
 
 const ROLE_BADGE: Record<string, string> = {
-  SUPER_ADMIN: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  ADMIN: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  PRINCIPAL: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  TUTOR: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
-  STUDENT: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  SUPPORT: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  SUPER_ADMIN: 'bg-clay-coral  text-clay-ink border-2 border-clay-ink',
+  ADMIN:       'bg-clay-yellow text-clay-ink border-2 border-clay-ink',
+  PRINCIPAL:   'bg-clay-sky    text-clay-ink border-2 border-clay-ink',
+  TUTOR:       'bg-clay-purple text-clay-ink border-2 border-clay-ink',
+  STUDENT:     'bg-clay-mint   text-clay-ink border-2 border-clay-ink',
+  SUPPORT:     'bg-clay-pink   text-clay-ink border-2 border-clay-ink',
 };
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -77,10 +77,8 @@ type PasswordForm = z.infer<typeof passwordSchema>;
 // ─── Small helpers ────────────────────────────────────────────────────────────
 function Toast({ type, message }: { type: 'success' | 'error'; message: string }) {
   return (
-    <div className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium ${
-      type === 'success'
-        ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:ring-emerald-800/40'
-        : 'bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-900/20 dark:text-red-400 dark:ring-red-800/40'
+    <div className={`flex items-center gap-2.5 rounded-2xl border-2.5 border-clay-ink px-4 py-3 text-sm font-extrabold text-clay-ink shadow-clay-sm ${
+      type === 'success' ? 'bg-clay-mint' : 'bg-clay-coral'
     }`}>
       {type === 'success'
         ? <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -95,12 +93,12 @@ function Field({ label, error, children, hint }: {
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      <label className="mb-2 block text-xs font-extrabold uppercase tracking-wider text-clay-ink/70 dark:text-gray-400">
         {label}
       </label>
       {children}
-      {hint && !error && <p className="mt-1 text-[11px] text-gray-400">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {hint && !error && <p className="mt-1 text-[11px] font-semibold text-clay-ink/50">{hint}</p>}
+      {error && <p className="mt-1 text-xs font-bold text-rose-600">{error}</p>}
     </div>
   );
 }
@@ -110,16 +108,16 @@ function TextInput({ icon: Icon, readOnly, ...props }: {
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="relative">
-      {Icon && <Icon className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />}
+      {Icon && <Icon className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-clay-ink" />}
       <input
         {...props}
         readOnly={readOnly}
-        className={`w-full rounded-xl border py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 ${
-          Icon ? 'pl-10' : 'pl-3.5'
-        } pr-3.5 ${
+        className={`w-full rounded-2xl border-2.5 py-3 text-sm font-semibold transition-all ${
+          Icon ? 'pl-10' : 'pl-4'
+        } pr-4 ${
           readOnly
-            ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'
-            : 'border-gray-200 bg-gray-50 text-gray-900 focus:border-brand-500 focus:bg-white focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800'
+            ? 'cursor-not-allowed border-clay-ink/40 bg-clay-bg text-clay-ink/50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'
+            : 'border-clay-ink bg-white text-clay-ink shadow-clay-sm focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white'
         }`}
       />
     </div>
@@ -131,17 +129,17 @@ const PasswordInput = forwardRef<HTMLInputElement, {
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>>(
   ({ show, onToggle, ...rest }, ref) => (
     <div className="relative">
-      <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-clay-ink" />
       <input
         {...rest}
         ref={ref}
         type={show ? 'text' : 'password'}
-        className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-10 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800"
+        className="w-full rounded-2xl border-2.5 border-clay-ink bg-white py-3 pl-10 pr-10 text-sm font-semibold text-clay-ink shadow-clay-sm transition-all focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white"
       />
       <button
         type="button"
         onClick={onToggle}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-clay-ink hover:text-clay-green-dark"
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>
@@ -155,7 +153,7 @@ function SaveButton({ pending, label = 'Save changes' }: { pending: boolean; lab
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-500/30 transition-all hover:from-brand-700 hover:to-violet-700 hover:shadow-brand-500/40 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex items-center gap-2 rounded-2xl border-2.5 border-clay-ink bg-clay-green px-6 py-3 text-sm font-extrabold text-white shadow-clay transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-clay-pressed disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending
         ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -277,7 +275,7 @@ export function ProfilePage() {
 
   const displayUser = activeUser ?? user;
   const initials = `${(displayUser.firstName ?? '?')[0]}${(displayUser.lastName ?? '?')[0]}`.toUpperCase();
-  const gradient = ROLE_GRADIENTS[user.role] ?? 'from-brand-600 to-violet-600';
+  const roleTint = ROLE_TINT[user.role] ?? 'bg-clay-mint';
   const roleLabel = ROLE_LABELS[user.role] ?? user.role;
 
   // Tutor profile completion
@@ -302,54 +300,57 @@ export function ProfilePage() {
     <div className="mx-auto max-w-2xl space-y-6">
 
       {/* ── Hero card ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
-        {/* gradient strip */}
-        <div className={`h-28 w-full bg-gradient-to-br ${gradient} opacity-90`} />
+      <div className="relative overflow-hidden rounded-[28px] border-2.5 border-clay-ink bg-white shadow-clay dark:bg-gray-900">
+        {/* color strip */}
+        <div className={`relative h-24 w-full ${roleTint} border-b-2.5 border-clay-ink overflow-hidden`}>
+          <div className="absolute -right-4 -top-4 h-16 w-16 rounded-2xl border-2.5 border-clay-ink bg-white/30 rotate-12" />
+          <div className="absolute right-12 -bottom-3 h-10 w-10 rounded-full border-2.5 border-clay-ink bg-white/30" />
+        </div>
 
         <div className="px-6 pb-6">
           {/* avatar pulled up over the strip */}
           <div className="relative -mt-12 mb-4 flex items-end justify-between">
             <div className="relative">
-              <div className={`flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} text-3xl font-bold text-white shadow-lg ring-4 ring-white dark:ring-gray-900`}>
+              <div className={`flex h-24 w-24 items-center justify-center rounded-2xl border-2.5 border-clay-ink ${roleTint} text-3xl font-black text-clay-ink shadow-clay`}>
                 {displayUser.avatarUrl
                   ? <img src={displayUser.avatarUrl} alt={initials} className="h-full w-full rounded-2xl object-cover" />
                   : initials}
               </div>
               <button
                 type="button"
-                className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-gray-200 transition-colors hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-gray-700"
+                className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-clay-ink bg-clay-yellow hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
               >
-                <Camera className="h-3.5 w-3.5 text-gray-600 dark:text-gray-300" />
+                <Camera className="h-3.5 w-3.5 text-clay-ink" />
               </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${ROLE_BADGE[user.role] ?? ''}`}>
+              <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${ROLE_BADGE[user.role] ?? ''}`}>
                 {roleLabel}
               </span>
               {displayUser.emailVerified
-                ? <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                ? <span className="flex items-center gap-1 rounded-full border-2 border-clay-ink bg-clay-mint px-3 py-1 text-xs font-extrabold text-clay-ink">
                     <CheckCircle2 className="h-3 w-3" /> Verified
                   </span>
-                : <span className="flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                : <span className="flex items-center gap-1 rounded-full border-2 border-clay-ink bg-clay-yellow px-3 py-1 text-xs font-extrabold text-clay-ink">
                     <AlertCircle className="h-3 w-3" /> Unverified
                   </span>}
             </div>
           </div>
 
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-extrabold text-clay-ink dark:text-white">
             {displayUser.firstName} {displayUser.lastName}
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{displayUser.email}</p>
+          <p className="text-sm font-semibold text-clay-ink/60 dark:text-gray-400">{displayUser.email}</p>
 
-          <div className="mt-4 flex flex-wrap gap-5 text-xs text-gray-400">
-            <span className="flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5" />
+          <div className="mt-4 flex flex-wrap gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-clay-bg px-3 py-1 text-xs font-extrabold text-clay-ink">
+              <Calendar className="h-3 w-3" />
               Member since {new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
             </span>
             {user.lastLoginAt && (
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-clay-bg px-3 py-1 text-xs font-extrabold text-clay-ink">
+                <CheckCircle2 className="h-3 w-3" />
                 Last login {new Date(user.lastLoginAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             )}
@@ -357,25 +358,25 @@ export function ProfilePage() {
 
           {/* Tutor profile completion bar */}
           {isTutor && tutorCompletion !== null && (
-            <div className="mt-4">
-              <div className="mb-1.5 flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 font-medium text-gray-600 dark:text-gray-300">
-                  <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-extrabold text-clay-ink dark:text-gray-300">
+                  <Sparkles className="h-3.5 w-3.5 text-clay-green-dark" />
                   Teaching profile {tutorCompletion}% complete
                 </span>
                 {tutorCompletion < 100 && (
                   <button
                     type="button"
                     onClick={() => setTab('teaching')}
-                    className="text-brand-600 hover:underline dark:text-brand-400"
+                    className="font-extrabold text-clay-green-dark hover:text-clay-green"
                   >
                     Complete now →
                   </button>
                 )}
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+              <div className="h-3 w-full overflow-hidden rounded-full border-2 border-clay-ink bg-white">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-brand-500 to-violet-500 transition-all duration-500"
+                  className="h-full bg-clay-green transition-all duration-500"
                   style={{ width: `${tutorCompletion}%` }}
                 />
               </div>
@@ -385,16 +386,16 @@ export function ProfilePage() {
       </div>
 
       {/* ── Tab navigation ── */}
-      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
+      <div className="flex gap-1.5 p-1.5 bg-white border-2.5 border-clay-ink rounded-2xl w-fit shadow-clay-sm">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-extrabold transition-all ${
               tab === key
-                ? 'bg-brand-600 text-white shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                ? 'bg-clay-green text-white border-2 border-clay-ink'
+                : 'text-clay-ink/60 hover:text-clay-ink hover:bg-clay-bg'
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -405,7 +406,7 @@ export function ProfilePage() {
 
       {/* ── Account tab ── */}
       {tab === 'account' && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
+        <div className="rounded-[28px] border-2.5 border-clay-ink bg-white p-6 shadow-clay dark:bg-gray-900">
           {profileFeedback && <div className="mb-5"><Toast {...profileFeedback} /></div>}
           <form onSubmit={profileForm.handleSubmit((d) => updateProfile(d))} className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -442,14 +443,14 @@ export function ProfilePage() {
             </div>
 
             {/* Timezone — read-only, auto-detected */}
-            <div className="flex items-center gap-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 px-4 py-3">
-              <Globe className="h-4 w-4 text-indigo-500 shrink-0" />
+            <div className="flex items-center gap-2.5 rounded-2xl border-2.5 border-clay-ink bg-clay-sky px-4 py-3">
+              <Globe className="h-4 w-4 text-clay-ink shrink-0" />
               <div className="text-sm">
-                <span className="font-medium text-indigo-700 dark:text-indigo-300">{userTimezone}</span>
-                <span className="ml-1.5 text-indigo-500">
+                <span className="font-extrabold text-clay-ink">{userTimezone}</span>
+                <span className="ml-1.5 font-bold text-clay-ink/70">
                   (UTC{formatInTimeZone(new Date(), userTimezone, 'xxx')})
                 </span>
-                <p className="text-xs text-indigo-400 dark:text-indigo-500 mt-0.5">
+                <p className="text-xs font-semibold text-clay-ink/60 mt-0.5">
                   Auto-detected from your device — class times display in this timezone
                 </p>
               </div>
@@ -464,7 +465,7 @@ export function ProfilePage() {
 
       {/* ── Teaching profile tab (tutor only) ── */}
       {tab === 'teaching' && isTutor && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
+        <div className="rounded-[28px] border-2.5 border-clay-ink bg-white p-6 shadow-clay dark:bg-gray-900">
           {tutorFeedback && <div className="mb-5"><Toast {...tutorFeedback} /></div>}
           <form onSubmit={tutorForm.handleSubmit((d) => updateTutorProfile(d))} className="space-y-6">
 
@@ -474,7 +475,7 @@ export function ProfilePage() {
                 {...tutorForm.register('bio')}
                 rows={3}
                 placeholder="Tell students about your teaching style, experience and background…"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800"
+                className="w-full rounded-2xl border-2.5 border-clay-ink bg-white px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm transition-all focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white"
               />
             </Field>
 
@@ -497,10 +498,10 @@ export function ProfilePage() {
                           onClick={() => field.onChange(
                             active ? field.value.filter((v) => v !== s) : [...field.value, s],
                           )}
-                          className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                          className={`rounded-full border-2 border-clay-ink px-3.5 py-1.5 text-xs font-extrabold transition-all ${
                             active
-                              ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/30'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                              ? 'bg-clay-green text-white'
+                              : 'bg-white text-clay-ink hover:bg-clay-bg'
                           }`}
                         >
                           {active && <span className="mr-1">✓</span>}{s}
@@ -531,10 +532,10 @@ export function ProfilePage() {
                           onClick={() => field.onChange(
                             active ? field.value.filter((v) => v !== l) : [...field.value, l],
                           )}
-                          className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                          className={`rounded-full border-2 border-clay-ink px-3.5 py-1.5 text-xs font-extrabold transition-all ${
                             active
-                              ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/30'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                              ? 'bg-clay-purple text-clay-ink'
+                              : 'bg-white text-clay-ink hover:bg-clay-bg'
                           }`}
                         >
                           {active && <span className="mr-1">✓</span>}{l}
@@ -555,7 +556,7 @@ export function ProfilePage() {
                     type="number"
                     min={0}
                     placeholder="e.g. 50"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-3.5 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800"
+                    className="w-full rounded-2xl border-2.5 border-clay-ink bg-white py-3 pl-10 pr-4 text-sm font-semibold text-clay-ink shadow-clay-sm transition-all focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white"
                   />
                 </div>
               </Field>
@@ -585,14 +586,14 @@ export function ProfilePage() {
       {/* ── Security tab ── */}
       {tab === 'security' && (
         <div className="space-y-4">
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
+          <div className="rounded-[28px] border-2.5 border-clay-ink bg-white p-6 shadow-clay dark:bg-gray-900">
             <div className="mb-5 flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-900/20">
-                <Lock className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl border-2.5 border-clay-ink bg-clay-coral">
+                <Lock className="h-4 w-4 text-clay-ink" />
               </span>
               <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Change Password</h3>
-                <p className="text-xs text-gray-500">All active sessions will be signed out after change</p>
+                <h3 className="text-base font-extrabold text-clay-ink dark:text-white">Change Password</h3>
+                <p className="text-xs font-semibold text-clay-ink/60">All active sessions will be signed out after change</p>
               </div>
             </div>
 
@@ -631,23 +632,23 @@ export function ProfilePage() {
           </div>
 
           {/* Account details */}
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
+          <div className="rounded-[28px] border-2.5 border-clay-ink bg-white p-6 shadow-clay dark:bg-gray-900">
             <div className="mb-4 flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-900/20">
-                <ShieldCheck className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl border-2.5 border-clay-ink bg-clay-mint">
+                <ShieldCheck className="h-4 w-4 text-clay-ink" />
               </span>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Account Details</h3>
+              <h3 className="text-base font-extrabold text-clay-ink dark:text-white">Account Details</h3>
             </div>
             <dl className="grid gap-3 sm:grid-cols-2">
               {[
-                { label: 'Account ID', value: user.publicId },
-                { label: 'Status', value: user.status.replace(/_/g, ' ') },
-                { label: 'Role', value: roleLabel },
-                { label: 'Created', value: new Date(user.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' }) },
-              ].map(({ label, value }) => (
-                <div key={label} className="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-800/50">
-                  <dt className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</dt>
-                  <dd className="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{value}</dd>
+                { label: 'Account ID', value: user.publicId, tint: 'bg-clay-bg' },
+                { label: 'Status',     value: user.status.replace(/_/g, ' '), tint: 'bg-clay-mint' },
+                { label: 'Role',       value: roleLabel, tint: 'bg-clay-sky' },
+                { label: 'Created',    value: new Date(user.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' }), tint: 'bg-clay-yellow' },
+              ].map(({ label, value, tint }) => (
+                <div key={label} className={`rounded-2xl border-2 border-clay-ink ${tint} px-4 py-3`}>
+                  <dt className="mb-0.5 text-[11px] font-extrabold uppercase tracking-wide text-clay-ink/60">{label}</dt>
+                  <dd className="truncate text-sm font-extrabold text-clay-ink">{value}</dd>
                 </div>
               ))}
             </dl>

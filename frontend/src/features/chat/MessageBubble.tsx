@@ -130,15 +130,15 @@ export function MessageBubble({ message, isMine, senderName, showName }: Props) 
     <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} mb-1.5`}>
       <div className={`max-w-[72%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
         {!isMine && showName && senderName && (
-          <span className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 px-1 mb-0.5">
+          <span className="text-[11px] font-extrabold text-clay-green-dark px-1 mb-0.5">
             {senderName}
           </span>
         )}
         <div
-          className={`rounded-2xl px-3.5 py-2 shadow-sm ${
+          className={`rounded-2xl border-2 border-clay-ink px-3.5 py-2 ${
             isMine
-              ? 'bg-brand-600 text-white rounded-br-sm'
-              : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-100 dark:border-gray-600 rounded-bl-sm'
+              ? 'bg-clay-green text-white rounded-br-md'
+              : 'bg-white text-clay-ink rounded-bl-md'
           }`}
         >
           {/* Media */}
@@ -150,14 +150,14 @@ export function MessageBubble({ message, isMine, senderName, showName }: Props) 
           )}
 
           {/* Time + ticks */}
-          <div className="flex items-center justify-end gap-1 mt-0.5">
-            <span className={`text-[10px] leading-none ${isMine ? 'text-white/60' : 'text-gray-400'}`}>
+          <div className="flex items-center justify-end gap-1 mt-1">
+            <span className={`text-[10px] font-bold leading-none ${isMine ? 'text-white/80' : 'text-clay-ink/50'}`}>
               {formatTime(message.createdAt)}
             </span>
             {isMine && (
               <span className="flex flex-col items-end">
                 <DoubleTick isRead={message.isRead} />
-                <span className={`text-[9px] leading-none ${message.isRead ? 'text-blue-300' : 'text-white/50'}`}>
+                <span className={`text-[9px] font-bold leading-none ${message.isRead ? 'text-clay-yellow' : 'text-white/60'}`}>
                   {message.isRead ? 'Seen' : 'Delivered'}
                 </span>
               </span>

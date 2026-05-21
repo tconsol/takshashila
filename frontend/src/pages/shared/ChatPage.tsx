@@ -27,12 +27,14 @@ export function ChatPage() {
   const otherRole = (otherIdx >= 0 ? selected?.participantRoles?.[otherIdx] : '') ?? '';
 
   return (
-    <div className="flex h-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
+    <div className="flex h-full overflow-hidden rounded-[28px] border-2.5 border-clay-ink bg-white dark:bg-gray-900 shadow-clay">
       {/* Conversation list sidebar */}
-      <div className="w-80 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
-        <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-brand-600" />
+      <div className="w-80 flex-shrink-0 border-r-2.5 border-clay-ink flex flex-col overflow-hidden">
+        <div className="flex-shrink-0 px-4 py-3 border-b-2.5 border-clay-ink bg-clay-mint">
+          <h2 className="font-extrabold text-clay-ink flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl border-2 border-clay-ink bg-white">
+              <MessageSquare className="h-4 w-4 text-clay-ink" />
+            </div>
             Messages
           </h2>
         </div>
@@ -40,7 +42,7 @@ export function ChatPage() {
       </div>
 
       {/* Chat window */}
-      <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden bg-clay-bg">
         {activeId ? (
           <ChatWindow
             conversationPublicId={activeId}
@@ -48,9 +50,12 @@ export function ChatPage() {
             otherRole={otherRole}
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-gray-400">
-            <MessageSquare className="h-14 w-14 opacity-20" />
-            <p className="text-sm">Select a conversation to start chatting</p>
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-clay-ink">
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl border-2.5 border-clay-ink bg-clay-mint shadow-clay">
+              <MessageSquare className="h-9 w-9 text-clay-ink" />
+            </div>
+            <p className="text-sm font-extrabold text-clay-ink">Select a conversation to start chatting</p>
+            <p className="text-xs font-semibold text-clay-ink/50">Your messages will appear here</p>
           </div>
         )}
       </div>
