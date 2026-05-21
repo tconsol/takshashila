@@ -1095,7 +1095,7 @@ export function LandingPage() {
               <p className="mb-4 text-xs font-extrabold uppercase tracking-widest text-clay-ink/50">Who it's for</p>
               <ul className="space-y-2.5 text-sm">
                 {['Students', 'Tutors', 'School Principals', 'Parents'].map((r) => (
-                  <li key={r} className="font-semibold text-clay-ink/70 transition-colors hover:text-clay-green-dark cursor-default">{r}</li>
+                  <li key={r} className="font-semibold text-clay-ink/70 transition-colors hover:text-clay-green-dark cursor-pointer">{r}</li>
                 ))}
               </ul>
             </div>

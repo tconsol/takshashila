@@ -20,7 +20,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const toggleTheme = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
 
   return (
-    <header className="flex h-16 items-center justify-between border-b-2.5 border-clay-ink bg-white px-4 dark:bg-gray-900 lg:px-6 gap-3">
+    <header className="flex h-16 items-center justify-between border-b-2.5 border-clay-ink bg-clay-surface px-4 lg:px-6 gap-3">
       {/* Mobile menu button */}
       <button
         onClick={onMenuClick}
@@ -70,10 +70,10 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             {user ? getInitials(user.firstName, user.lastName) : '?'}
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-extrabold text-clay-ink dark:text-white">
+            <p className="text-sm font-extrabold text-clay-ink">
               {user ? `${user.firstName} ${user.lastName}` : ''}
             </p>
-            <p className="text-xs font-semibold text-clay-ink/60 dark:text-gray-400">
+            <p className="text-xs font-semibold text-clay-muted">
               {user ? ROLE_LABELS[user.role] : ''}
             </p>
           </div>

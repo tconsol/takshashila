@@ -59,20 +59,20 @@ export function StatsCard({
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-[28px] border-2.5 border-clay-ink bg-white p-5 shadow-clay transition-all hover:-translate-y-1 dark:bg-gray-900',
+        'group relative overflow-hidden rounded-[28px] border-2.5 border-clay-ink bg-clay-surface p-5 shadow-clay transition-all hover:-translate-y-1',
         className,
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-extrabold uppercase tracking-wider text-clay-ink/60 dark:text-gray-400">
+          <p className="text-xs font-extrabold uppercase tracking-wider text-clay-muted">
             {title}
           </p>
-          <p className="mt-2 text-3xl font-black tracking-tight text-clay-ink dark:text-white">
+          <p className="mt-2 text-3xl font-black tracking-tight text-clay-ink">
             {value}
           </p>
           {hint && !change && (
-            <p className="mt-1.5 text-xs font-semibold text-clay-ink/60 dark:text-gray-400">{hint}</p>
+            <p className="mt-1.5 text-xs font-semibold text-clay-muted">{hint}</p>
           )}
           {change && (
             <div

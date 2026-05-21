@@ -5,6 +5,42 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 @layer base {
+  :root {
+    color-scheme: light;
+    /* Claymorphism design tokens — light mode */
+    --clay-bg:           250 241 228;  /* #FAF1E4 cream */
+    --clay-surface:      255 255 255;  /* card surface */
+    --clay-ink:          31 41 55;     /* #1F2937 dark navy */
+    --clay-muted:        100 116 139;  /* slate-500 — body muted */
+    --clay-green:        34 197 94;
+    --clay-green-dark:   22 163 74;
+    --clay-coral:        254 202 202;
+    --clay-coral-strong: 252 165 165;
+    --clay-sky:          186 230 253;
+    --clay-mint:         187 247 208;
+    --clay-yellow:       253 230 138;
+    --clay-purple:       221 214 254;
+    --clay-pink:         251 207 232;
+  }
+
+  .dark {
+    color-scheme: dark;
+    /* Dark mode — flip ink↔bg, brighten pastels */
+    --clay-bg:           15 23 42;     /* slate-900 */
+    --clay-surface:      30 41 59;     /* slate-800 card */
+    --clay-ink:          250 241 228;  /* cream as outline + text */
+    --clay-muted:        148 163 184;  /* slate-400 */
+    --clay-green:        74 222 128;
+    --clay-green-dark:   34 197 94;
+    --clay-coral:        159 18 57;
+    --clay-coral-strong: 190 18 60;
+    --clay-sky:          12 74 110;
+    --clay-mint:         20 83 45;
+    --clay-yellow:       146 64 14;
+    --clay-purple:       76 29 149;
+    --clay-pink:         131 24 67;
+  }
+
   * {
     @apply box-border;
   }
@@ -15,7 +51,7 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white;
+    @apply bg-clay-bg text-clay-ink;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -24,7 +60,7 @@
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-2;
+    @apply outline-none ring-2 ring-clay-ink ring-offset-2 ring-offset-clay-bg;
   }
 
   ::-webkit-scrollbar {

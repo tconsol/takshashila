@@ -210,12 +210,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           aria-expanded={isOpen}
           aria-labelledby={label ? inputId : undefined}
           className={cn(
-            'relative flex w-full items-center gap-2 rounded-2xl border-2.5 border-clay-ink bg-white px-4 py-3 text-sm font-semibold text-left transition-all shadow-clay-sm',
-            'dark:bg-gray-900 dark:text-white',
-            'focus:outline-none',
-            isOpen ? 'translate-x-[2px] translate-y-[2px] shadow-clay-pressed' : '',
+            'relative flex w-full items-center gap-2 rounded-2xl border-2.5 border-clay-ink bg-clay-surface px-4 py-3 text-sm font-semibold text-left transition-colors shadow-clay-sm text-clay-ink',
+            'focus:outline-none focus:bg-clay-bg/60 focus:shadow-clay',
+            isOpen && 'bg-clay-bg/60 shadow-clay',
             error && 'border-rose-500',
-            disabled && 'cursor-not-allowed bg-gray-50 opacity-60 dark:bg-gray-800',
+            disabled && 'cursor-not-allowed bg-clay-bg opacity-60',
           )}
         >
           {leftIcon && (
@@ -242,7 +241,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <div
             className={cn(
               'absolute z-50 mt-2 w-full min-w-[12rem] overflow-hidden rounded-2xl border-2.5 border-clay-ink',
-              'bg-white shadow-clay dark:bg-gray-900',
+              'bg-clay-surface shadow-clay',
             )}
             style={{ maxWidth: containerRef.current?.offsetWidth }}
             role="listbox"

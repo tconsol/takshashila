@@ -40,10 +40,10 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className={`relative w-full ${sizeClasses[size]} bg-white dark:bg-gray-800 rounded-[28px] border-2.5 border-clay-ink shadow-clay-lg flex flex-col max-h-[90vh]`}>
+      <div className={`relative w-full ${sizeClasses[size]} bg-clay-surface rounded-[28px] border-2.5 border-clay-ink shadow-clay-lg flex flex-col max-h-[90vh]`}>
         {title && (
           <div className="flex items-center justify-between px-6 py-4 border-b-2 border-dashed border-clay-ink/20">
-            <h2 className="text-lg font-extrabold text-clay-ink dark:text-white">{title}</h2>
+            <h2 className="text-lg font-extrabold text-clay-ink">{title}</h2>
             <button
               onClick={onClose}
               className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-clay-ink bg-clay-coral text-clay-ink transition-all hover:translate-x-[1px] hover:translate-y-[1px]"

@@ -108,16 +108,16 @@ function TextInput({ icon: Icon, readOnly, ...props }: {
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="relative">
-      {Icon && <Icon className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-clay-ink" />}
+      {Icon && <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 z-10 text-clay-ink" />}
       <input
         {...props}
         readOnly={readOnly}
-        className={`w-full rounded-2xl border-2.5 py-3 text-sm font-semibold transition-all ${
+        className={`w-full rounded-2xl border-2.5 py-3 text-sm font-semibold transition-colors ${
           Icon ? 'pl-10' : 'pl-4'
         } pr-4 ${
           readOnly
-            ? 'cursor-not-allowed border-clay-ink/40 bg-clay-bg text-clay-ink/50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'
-            : 'border-clay-ink bg-white text-clay-ink shadow-clay-sm focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white'
+            ? 'cursor-not-allowed border-clay-ink/40 bg-clay-bg text-clay-ink/50'
+            : 'border-clay-ink bg-clay-surface text-clay-ink shadow-clay-sm focus:outline-none focus:bg-clay-bg/60 focus:shadow-clay'
         }`}
       />
     </div>
@@ -129,12 +129,12 @@ const PasswordInput = forwardRef<HTMLInputElement, {
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>>(
   ({ show, onToggle, ...rest }, ref) => (
     <div className="relative">
-      <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-clay-ink" />
+      <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 z-10 text-clay-ink" />
       <input
         {...rest}
         ref={ref}
         type={show ? 'text' : 'password'}
-        className="w-full rounded-2xl border-2.5 border-clay-ink bg-white py-3 pl-10 pr-10 text-sm font-semibold text-clay-ink shadow-clay-sm transition-all focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white"
+        className="w-full rounded-2xl border-2.5 border-clay-ink bg-clay-surface py-3 pl-10 pr-10 text-sm font-semibold text-clay-ink shadow-clay-sm transition-colors focus:outline-none focus:bg-clay-bg/60 focus:shadow-clay"
       />
       <button
         type="button"
@@ -300,7 +300,7 @@ export function ProfilePage() {
     <div className="mx-auto max-w-2xl space-y-6">
 
       {/* ── Hero card ── */}
-      <div className="relative overflow-hidden rounded-[28px] border-2.5 border-clay-ink bg-white shadow-clay dark:bg-gray-900">
+      <div className="relative overflow-hidden rounded-[28px] border-2.5 border-clay-ink bg-clay-surface shadow-clay">
         {/* color strip */}
         <div className={`relative h-24 w-full ${roleTint} border-b-2.5 border-clay-ink overflow-hidden`}>
           <div className="absolute -right-4 -top-4 h-16 w-16 rounded-2xl border-2.5 border-clay-ink bg-white/30 rotate-12" />
@@ -374,7 +374,7 @@ export function ProfilePage() {
                   </button>
                 )}
               </div>
-              <div className="h-3 w-full overflow-hidden rounded-full border-2 border-clay-ink bg-white">
+              <div className="h-3 w-full overflow-hidden rounded-full border-2 border-clay-ink bg-clay-bg">
                 <div
                   className="h-full bg-clay-green transition-all duration-500"
                   style={{ width: `${tutorCompletion}%` }}
@@ -386,7 +386,7 @@ export function ProfilePage() {
       </div>
 
       {/* ── Tab navigation ── */}
-      <div className="flex gap-1.5 p-1.5 bg-white border-2.5 border-clay-ink rounded-2xl w-fit shadow-clay-sm">
+      <div className="flex gap-1.5 p-1.5 bg-clay-surface border-2.5 border-clay-ink rounded-2xl w-fit shadow-clay-sm">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -395,7 +395,7 @@ export function ProfilePage() {
             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-extrabold transition-all ${
               tab === key
                 ? 'bg-clay-green text-white border-2 border-clay-ink'
-                : 'text-clay-ink/60 hover:text-clay-ink hover:bg-clay-bg'
+                : 'text-clay-muted hover:text-clay-ink hover:bg-clay-bg'
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -406,7 +406,7 @@ export function ProfilePage() {
 
       {/* ── Account tab ── */}
       {tab === 'account' && (
-        <div className="rounded-[28px] border-2.5 border-clay-ink bg-white p-6 shadow-clay dark:bg-gray-900">
+        <div className="rounded-[28px] border-2.5 border-clay-ink bg-clay-surface p-6 shadow-clay">
           {profileFeedback && <div className="mb-5"><Toast {...profileFeedback} /></div>}
           <form onSubmit={profileForm.handleSubmit((d) => updateProfile(d))} className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -465,7 +465,7 @@ export function ProfilePage() {
 
       {/* ── Teaching profile tab (tutor only) ── */}
       {tab === 'teaching' && isTutor && (
-        <div className="rounded-[28px] border-2.5 border-clay-ink bg-white p-6 shadow-clay dark:bg-gray-900">
+        <div className="rounded-[28px] border-2.5 border-clay-ink bg-clay-surface p-6 shadow-clay">
           {tutorFeedback && <div className="mb-5"><Toast {...tutorFeedback} /></div>}
           <form onSubmit={tutorForm.handleSubmit((d) => updateTutorProfile(d))} className="space-y-6">
 
@@ -475,7 +475,7 @@ export function ProfilePage() {
                 {...tutorForm.register('bio')}
                 rows={3}
                 placeholder="Tell students about your teaching style, experience and background…"
-                className="w-full rounded-2xl border-2.5 border-clay-ink bg-white px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm transition-all focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white"
+                className="w-full rounded-2xl border-2.5 border-clay-ink bg-clay-surface px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm transition-colors focus:outline-none focus:bg-clay-bg/60 focus:shadow-clay"
               />
             </Field>
 
@@ -501,7 +501,7 @@ export function ProfilePage() {
                           className={`rounded-full border-2 border-clay-ink px-3.5 py-1.5 text-xs font-extrabold transition-all ${
                             active
                               ? 'bg-clay-green text-white'
-                              : 'bg-white text-clay-ink hover:bg-clay-bg'
+                              : 'bg-clay-surface text-clay-ink hover:bg-clay-bg'
                           }`}
                         >
                           {active && <span className="mr-1">✓</span>}{s}
@@ -535,7 +535,7 @@ export function ProfilePage() {
                           className={`rounded-full border-2 border-clay-ink px-3.5 py-1.5 text-xs font-extrabold transition-all ${
                             active
                               ? 'bg-clay-purple text-clay-ink'
-                              : 'bg-white text-clay-ink hover:bg-clay-bg'
+                              : 'bg-clay-surface text-clay-ink hover:bg-clay-bg'
                           }`}
                         >
                           {active && <span className="mr-1">✓</span>}{l}
@@ -556,7 +556,7 @@ export function ProfilePage() {
                     type="number"
                     min={0}
                     placeholder="e.g. 50"
-                    className="w-full rounded-2xl border-2.5 border-clay-ink bg-white py-3 pl-10 pr-4 text-sm font-semibold text-clay-ink shadow-clay-sm transition-all focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white"
+                    className="w-full rounded-2xl border-2.5 border-clay-ink bg-clay-surface py-3 pl-10 pr-4 text-sm font-semibold text-clay-ink shadow-clay-sm transition-colors focus:outline-none focus:bg-clay-bg/60 focus:shadow-clay"
                   />
                 </div>
               </Field>
@@ -586,7 +586,7 @@ export function ProfilePage() {
       {/* ── Security tab ── */}
       {tab === 'security' && (
         <div className="space-y-4">
-          <div className="rounded-[28px] border-2.5 border-clay-ink bg-white p-6 shadow-clay dark:bg-gray-900">
+          <div className="rounded-[28px] border-2.5 border-clay-ink bg-clay-surface p-6 shadow-clay">
             <div className="mb-5 flex items-center gap-2.5">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl border-2.5 border-clay-ink bg-clay-coral">
                 <Lock className="h-4 w-4 text-clay-ink" />
@@ -632,7 +632,7 @@ export function ProfilePage() {
           </div>
 
           {/* Account details */}
-          <div className="rounded-[28px] border-2.5 border-clay-ink bg-white p-6 shadow-clay dark:bg-gray-900">
+          <div className="rounded-[28px] border-2.5 border-clay-ink bg-clay-surface p-6 shadow-clay">
             <div className="mb-4 flex items-center gap-2.5">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl border-2.5 border-clay-ink bg-clay-mint">
                 <ShieldCheck className="h-4 w-4 text-clay-ink" />

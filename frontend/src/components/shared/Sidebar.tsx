@@ -187,7 +187,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex flex-col bg-white border-r-2.5 border-clay-ink transition-all duration-300 dark:bg-gray-900',
+          'fixed inset-y-0 left-0 z-30 flex flex-col bg-clay-surface border-r-2.5 border-clay-ink transition-all duration-300',
           'lg:static lg:translate-x-0',
           collapsed ? 'w-16' : 'w-64',
           isOpen ? 'translate-x-0' : '-translate-x-full',

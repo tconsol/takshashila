@@ -20,11 +20,11 @@ const paddings: Record<Pad, string> = {
 // Claymorphism — dark outline + hard offset shadow + pillowy rounded corners
 const tones: Record<Tone, string> = {
   default:
-    'bg-white border-2.5 border-clay-ink shadow-clay dark:bg-gray-900',
+    'bg-clay-surface border-2.5 border-clay-ink shadow-clay',
   soft:
-    'bg-clay-bg border-2.5 border-clay-ink shadow-clay dark:bg-gray-900',
+    'bg-clay-bg border-2.5 border-clay-ink shadow-clay',
   gradient:
-    'bg-gradient-to-br from-clay-mint via-white to-clay-sky border-2.5 border-clay-ink shadow-clay dark:from-brand-900/30 dark:via-gray-900 dark:to-violet-900/30',
+    'bg-clay-surface border-2.5 border-clay-ink shadow-clay',
 };
 
 export function Card({
@@ -66,7 +66,7 @@ export function CardTitle({ className, children, ...props }: HTMLAttributes<HTML
   return (
     <h3
       className={cn(
-        'text-base font-extrabold tracking-tight text-clay-ink dark:text-white',
+        'text-base font-extrabold tracking-tight text-clay-ink',
         className,
       )}
       {...props}
