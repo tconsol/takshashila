@@ -60,6 +60,7 @@ import { TutorCreateClassPage } from '../pages/tutor/TutorCreateClassPage';
 
 // Student pages
 import { StudentMyTutorPage } from '../pages/student/StudentMyTutorPage';
+import { StudentPrincipalPage } from '../pages/student/StudentPrincipalPage';
 import { StudentClassesPage } from '../pages/student/StudentClassesPage';
 import { StudentAssignmentsPage } from '../pages/student/StudentAssignmentsPage';
 import { StudentAttendancePage } from '../pages/student/StudentAttendancePage';
@@ -78,6 +79,8 @@ import { ParentAttendancePage } from '../pages/parent/ParentAttendancePage';
 import { ParentAssignmentsPage } from '../pages/parent/ParentAssignmentsPage';
 import { ParentWorksheetsPage } from '../pages/parent/ParentWorksheetsPage';
 import { ParentProgressPage } from '../pages/parent/ParentProgressPage';
+import { ParentTutorsPage } from '../pages/parent/ParentTutorsPage';
+import { ParentPrincipalsPage } from '../pages/parent/ParentPrincipalsPage';
 
 // Support pages
 import { SupportTicketsPage } from '../pages/support/SupportTicketsPage';
@@ -194,6 +197,7 @@ export const router = createBrowserRouter([
       children: [
         { path: '/dashboard/student', element: <StudentDashboard /> },
         { path: '/dashboard/student/my-tutor', element: <StudentMyTutorPage /> },
+        { path: '/dashboard/student/my-organization', element: <StudentPrincipalPage /> },
         { path: '/dashboard/student/tutors', element: <TutorsBrowsePage variant="student" /> },
         { path: '/dashboard/student/classes', element: <StudentClassesPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
@@ -217,6 +221,8 @@ export const router = createBrowserRouter([
         { path: '/dashboard/parent', element: <ParentDashboard /> },
         { path: '/dashboard/parent/children', element: <ParentChildrenPage /> },
         { path: '/dashboard/parent/children/:studentPublicId', element: <ParentChildDetailPage /> },
+        { path: '/dashboard/parent/tutors', element: <ParentTutorsPage /> },
+        { path: '/dashboard/parent/principals', element: <ParentPrincipalsPage /> },
         { path: '/dashboard/parent/classes', element: <ParentClassesPage /> },
         { path: '/dashboard/parent/attendance', element: <ParentAttendancePage /> },
         { path: '/dashboard/parent/assignments', element: <ParentAssignmentsPage /> },
@@ -261,4 +267,8 @@ export const router = createBrowserRouter([
   },
 
   { path: '*', element: <Navigate to="/" replace /> },
-]);
+], {
+  future: {
+    v7_startTransition: true,
+  },
+});

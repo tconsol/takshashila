@@ -32,9 +32,10 @@ export interface StudentLookupResult {
 export interface CreateStudentDto {
   firstName: string;
   lastName: string;
-  email: string;
+  contactEmail?: string;
   phone?: string;
   password: string;
+  customStudentId?: string;
   grade?: string;
   notes?: string;
 }
@@ -42,18 +43,45 @@ export interface CreateStudentDto {
 export interface CreateStudentByPrincipalDto {
   firstName: string;
   lastName: string;
-  email: string;
+  contactEmail?: string;
   phone?: string;
   password: string;
   tutorPublicId: string;
+  customStudentId?: string;
   grade?: string;
   notes?: string;
 }
 
 export interface InviteStudentByPrincipalDto {
+  studentId?: string;
+  studentPublicId?: string;
   email?: string;
   phone?: string;
   tutorPublicId: string;
+}
+
+export interface ParentChildResult {
+  publicId: string;
+  firstName: string;
+  lastName: string;
+  grade?: string;
+  status: string;
+  studentId?: string;
+  alreadyLinked: boolean;
+}
+
+export interface ParentSearchResult {
+  parentName: string;
+  children: ParentChildResult[];
+}
+
+export interface CreateStudentByParentDto {
+  firstName: string;
+  lastName: string;
+  password: string;
+  customStudentId?: string;
+  grade?: string;
+  notes?: string;
 }
 
 export const studentsService = {
@@ -110,6 +138,9 @@ export const studentsService = {
   inviteExistingByPrincipal: (dto: InviteStudentByPrincipalDto) =>
     api.post<{ data: StudentProfile }>('/students/principal/invite', dto).then((r) => r.data.data),
 
+  searchParentByEmail: (email: string) =>
+    api.get<{ data: ParentSearchResult }>('/students/principal/search-parent', { params: { email } }).then((r) => r.data.data),
+
   getMyStudentsAsPrincipal: (params?: Record<string, string>) =>
     api
       .get<{ data: { items: StudentProfile[]; total: number; page: number; limit: number; totalPages: number } }>(
@@ -122,5 +153,12 @@ export const studentsService = {
     api
       .post<{ data: StudentProfile }>(`/students/${studentPublicId}/transfer`, { newTutorPublicId })
       .then((r) => r.data.data),
+
+  unlinkStudent: (studentPublicId: string) =>
+    api.delete(`/students/${studentPublicId}/unlink`).then(() => null),
+
+  getMyPrincipal: () =>
+    api.get<{ data: { publicId: string; organizationName?: string; firstName: string; lastName: string } | null }>('/students/me/principal')
+      .then((r) => r.data.data ?? null),
 };
 

@@ -17,7 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { Avatar } from '../../components/ui/Avatar';
 import { LiveClassBanner } from '../../features/live-class/LiveClassBanner';
-import { useMyTutor } from '../../hooks/use-students';
+import { useMyTutor, useStudentPrincipal } from '../../hooks/use-students';
 import { api } from '../../lib/axios';
 
 interface ClassItem {
@@ -57,6 +57,7 @@ function useStudentClasses() {
     },
   });
 }
+
 
 function useWalletBalance() {
   return useQuery({
@@ -180,6 +181,7 @@ export function StudentDashboard() {
   const { data: classes = [], isLoading: classesLoading } = useStudentClasses();
   const { data: balanceCents = 0 } = useWalletBalance();
   const { data: myTutor } = useMyTutor();
+  const { data: myPrincipal } = useStudentPrincipal();
 
   const upcoming   = useCountUp(stats?.upcoming ?? 0);
   const submissions = useCountUp(stats?.submissions ?? 0);
@@ -355,8 +357,24 @@ export function StudentDashboard() {
           </Card>
         </motion.div>
 
-        {/* Tutor card / demo card */}
-        <motion.div variants={popIn} initial="hidden" animate="show">
+        {/* Tutor card / demo card + principal card */}
+        <motion.div variants={popIn} initial="hidden" animate="show" className="flex flex-col gap-4">
+          {myPrincipal && (
+            <Card className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-50 to-indigo-50 text-violet-600 ring-1 ring-violet-100 dark:from-violet-900/30 dark:to-indigo-900/30 dark:text-violet-300">
+                  <GraduationCap className="h-4 w-4" />
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">My Organization</p>
+              </div>
+              {myPrincipal.organizationName && (
+                <p className="text-base font-bold text-gray-900 dark:text-white truncate">{myPrincipal.organizationName}</p>
+              )}
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Principal: {`${myPrincipal.firstName} ${myPrincipal.lastName}`.trim()}
+              </p>
+            </Card>
+          )}
           {myTutor ? (
             <Card className="flex flex-col gap-4">
               <div className="flex items-center gap-3">

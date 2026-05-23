@@ -75,6 +75,13 @@ export function useMyTutor() {
   });
 }
 
+export function useStudentPrincipal() {
+  return useQuery({
+    queryKey: ['students', 'me', 'principal'],
+    queryFn: studentsService.getMyPrincipal,
+  });
+}
+
 export function useCreateStudent() {
   const qc = useQueryClient();
   return useMutation({
@@ -138,6 +145,14 @@ export function useTransferStudent() {
   return useMutation({
     mutationFn: ({ studentPublicId, newTutorPublicId }: { studentPublicId: string; newTutorPublicId: string }) =>
       studentsService.transferStudent(studentPublicId, newTutorPublicId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.all }),
+  });
+}
+
+export function useUnlinkStudent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (studentPublicId: string) => studentsService.unlinkStudent(studentPublicId),
     onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.all }),
   });
 }
