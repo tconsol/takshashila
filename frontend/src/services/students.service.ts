@@ -39,6 +39,23 @@ export interface CreateStudentDto {
   notes?: string;
 }
 
+export interface CreateStudentByPrincipalDto {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  tutorPublicId: string;
+  grade?: string;
+  notes?: string;
+}
+
+export interface InviteStudentByPrincipalDto {
+  email?: string;
+  phone?: string;
+  tutorPublicId: string;
+}
+
 export const studentsService = {
   createStudent: (dto: CreateStudentDto) =>
     api.post<{ data: StudentProfile }>('/students', dto).then((r) => r.data.data),
@@ -86,5 +103,24 @@ export const studentsService = {
 
   declineInvite: () =>
     api.post('/students/me/decline-invite').then(() => null),
+
+  createStudentByPrincipal: (dto: CreateStudentByPrincipalDto) =>
+    api.post<{ data: StudentProfile }>('/students/principal/create', dto).then((r) => r.data.data),
+
+  inviteExistingByPrincipal: (dto: InviteStudentByPrincipalDto) =>
+    api.post<{ data: StudentProfile }>('/students/principal/invite', dto).then((r) => r.data.data),
+
+  getMyStudentsAsPrincipal: (params?: Record<string, string>) =>
+    api
+      .get<{ data: { items: StudentProfile[]; total: number; page: number; limit: number; totalPages: number } }>(
+        '/students/principal/my-students',
+        { params },
+      )
+      .then((r) => r.data.data),
+
+  transferStudent: (studentPublicId: string, newTutorPublicId: string) =>
+    api
+      .post<{ data: StudentProfile }>(`/students/${studentPublicId}/transfer`, { newTutorPublicId })
+      .then((r) => r.data.data),
 };
 

@@ -26,3 +26,24 @@ export const inviteExistingStudentSchema = z.object({
 }).refine((d) => d.email || d.phone, { message: 'Provide email or phone' });
 
 export type InviteExistingStudentDto = z.infer<typeof inviteExistingStudentSchema>;
+
+export const createStudentByPrincipalSchema = z.object({
+  firstName:      z.string().min(1, 'First name is required').max(50),
+  lastName:       z.string().min(1, 'Last name is required').max(50),
+  email:          z.string().email('Invalid email address'),
+  phone:          z.string().optional(),
+  password:       z.string().min(8, 'Password must be at least 8 characters'),
+  tutorPublicId:  z.string().min(1, 'Tutor is required'),
+  grade:          z.enum(GRADE_LIST).optional(),
+  notes:          z.string().max(2000).optional(),
+});
+
+export type CreateStudentByPrincipalDto = z.infer<typeof createStudentByPrincipalSchema>;
+
+export const inviteStudentByPrincipalSchema = z.object({
+  email:         z.string().email().optional(),
+  phone:         z.string().min(5).optional(),
+  tutorPublicId: z.string().min(1, 'Tutor is required'),
+}).refine((d) => d.email || d.phone, { message: 'Provide email or phone' });
+
+export type InviteStudentByPrincipalDto = z.infer<typeof inviteStudentByPrincipalSchema>;

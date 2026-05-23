@@ -5,12 +5,15 @@ import { requireRole, requirePermission } from '../../middlewares/permission.mid
 import { validate } from '../../middlewares/validation.middleware';
 import { Permission } from '../../constants/permissions';
 import { Role } from '../../constants/roles';
-import { createStudentByTutorSchema, inviteExistingStudentSchema } from './student.validators';
+import { createStudentByTutorSchema, inviteExistingStudentSchema, createStudentByPrincipalSchema, inviteStudentByPrincipalSchema } from './student.validators';
 
 const router = Router();
 router.use(authMiddleware);
 
 router.post('/', requireRole(Role.TUTOR), validate(createStudentByTutorSchema), studentController.createStudent.bind(studentController));
+router.post('/principal/create', requireRole(Role.PRINCIPAL), validate(createStudentByPrincipalSchema), studentController.createStudentByPrincipal.bind(studentController));
+router.post('/principal/invite', requireRole(Role.PRINCIPAL), validate(inviteStudentByPrincipalSchema), studentController.inviteExistingByPrincipal.bind(studentController));
+router.get('/principal/my-students', requireRole(Role.PRINCIPAL), studentController.getMyStudentsAsPrincipal.bind(studentController));
 router.get('/lookup', requireRole(Role.TUTOR), validate(inviteExistingStudentSchema, 'query'), studentController.lookupStudent.bind(studentController));
 router.post('/invite-existing', requireRole(Role.TUTOR), validate(inviteExistingStudentSchema), studentController.inviteExistingStudent.bind(studentController));
 router.get('/me', requireRole(Role.STUDENT), studentController.getMyProfile.bind(studentController));

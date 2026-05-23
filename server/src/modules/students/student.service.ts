@@ -13,7 +13,8 @@ import { CreditType } from '../wallets/wallet.types';
 import { userRepository } from '../users/user.repository';
 import { UserStatus } from '../users/user.types';
 import { tutorRepository } from '../tutors/tutor.repository';
-import type { CreateStudentByTutorDto, InviteExistingStudentDto } from './student.validators';
+import type { CreateStudentByTutorDto, InviteExistingStudentDto, CreateStudentByPrincipalDto, InviteStudentByPrincipalDto } from './student.validators';
+import { PrincipalProfileModel } from '../principals/principal.model';
 
 const MAX_DEMO_CLASSES = 3;
 const DEMO_CREDITS_PER_CLASS_CENTS = 100_00;
@@ -366,6 +367,146 @@ export class StudentService {
       return { ...s, firstName, lastName, displayName: `${firstName} ${lastName}`.trim() || 'Student', email: u?.email ?? '' };
     });
     return { ...result, items: hydrated };
+  }
+
+  async createByPrincipal(
+    principalUserPublicId: string,
+    dto: CreateStudentByPrincipalDto,
+  ): Promise<IStudentProfile & { firstName: string; lastName: string; email: string }> {
+    const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: principalUserPublicId, isDeleted: false }).lean();
+    if (!principalProfile) throw new AppError('Principal profile not found', 404);
+
+    const tutor = await tutorRepository.findByPublicId(dto.tutorPublicId);
+    if (!tutor) throw new NotFoundError('Tutor profile');
+    if (tutor.principalPublicId !== principalProfile.publicId) {
+      throw new AppError('This tutor does not belong to your organization', 403);
+    }
+
+    const emailExists = await userRepository.existsByEmail(dto.email);
+    if (emailExists) throw new ConflictError('An account with this email already exists');
+
+    const passwordHash = await argon2.hash(dto.password, {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 1,
+    });
+
+    const user = await userRepository.create({
+      publicId: uuidv4(),
+      email: dto.email.toLowerCase(),
+      passwordHash,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      role: 'STUDENT',
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+      phone: dto.phone,
+      timezone: 'UTC',
+      twoFAEnabled: false,
+      loginCount: 0,
+      isDeleted: false,
+    });
+
+    await walletService.createWallet(user.publicId).catch(() => {});
+
+    const profile = await studentRepository.create({
+      publicId: uuidv4(),
+      userPublicId: user.publicId,
+      tutorPublicId: dto.tutorPublicId,
+      previousTutorPublicIds: [],
+      status: StudentStatus.ACTIVE,
+      demoClassesUsed: 0,
+      demoClassTakenWith: [],
+      totalClassesAttended: 0,
+      totalClassesMissed: 0,
+      totalClassesBooked: 0,
+      attendanceRate: 0,
+      grade: dto.grade,
+      notes: dto.notes,
+      invitedBy: principalUserPublicId,
+      approvedBy: principalUserPublicId,
+      approvedAt: new Date(),
+      isDeleted: false,
+    });
+
+    await tutorRepository.incrementStats(dto.tutorPublicId, { totalStudents: 1 });
+    await PrincipalProfileModel.updateOne({ publicId: principalProfile.publicId }, { $inc: { totalStudents: 1 } });
+
+    domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
+      studentPublicId: profile.publicId,
+      studentUserPublicId: user.publicId,
+      tutorUserPublicId: principalUserPublicId,
+      approvedBy: principalUserPublicId,
+    });
+
+    return { ...profile, firstName: user.firstName, lastName: user.lastName, email: user.email };
+  }
+
+  async inviteExistingByPrincipal(
+    principalUserPublicId: string,
+    dto: InviteStudentByPrincipalDto,
+  ): Promise<IStudentProfile> {
+    const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: principalUserPublicId, isDeleted: false }).lean();
+    if (!principalProfile) throw new AppError('Principal profile not found', 404);
+
+    const tutor = await tutorRepository.findByPublicId(dto.tutorPublicId);
+    if (!tutor) throw new NotFoundError('Tutor profile');
+    if (tutor.principalPublicId !== principalProfile.publicId) {
+      throw new AppError('This tutor does not belong to your organization', 403);
+    }
+
+    const user = dto.email
+      ? await userRepository.findByEmail(dto.email)
+      : await userRepository.findByPhone(dto.phone!);
+
+    if (!user) throw new NotFoundError('No account found with that email/phone');
+    if (user.role !== 'STUDENT') throw new AppError('This account is not a student', 400);
+
+    const existing = await studentRepository.findByUserAndTutor(user.publicId, dto.tutorPublicId);
+    if (existing) throw new ConflictError('This student is already linked to this tutor');
+
+    const profile = await studentRepository.create({
+      publicId: uuidv4(),
+      userPublicId: user.publicId,
+      tutorPublicId: dto.tutorPublicId,
+      previousTutorPublicIds: [],
+      status: StudentStatus.PENDING_APPROVAL,
+      demoClassesUsed: 0,
+      demoClassTakenWith: [],
+      totalClassesAttended: 0,
+      totalClassesMissed: 0,
+      totalClassesBooked: 0,
+      attendanceRate: 0,
+      invitedBy: principalUserPublicId,
+      isDeleted: false,
+    });
+
+    domainEvents.emit(DomainEvent.STUDENT_INVITED, {
+      studentPublicId: profile.publicId,
+      userPublicId: user.publicId,
+      tutorPublicId: dto.tutorPublicId,
+    });
+
+    return profile;
+  }
+
+  async getByPrincipal(
+    principalUserPublicId: string,
+    query: PaginationQuery & { status?: string },
+  ): Promise<PaginatedResult<IStudentProfile & { firstName: string; lastName: string; displayName: string; email: string }>> {
+    const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: principalUserPublicId, isDeleted: false }).lean();
+    if (!principalProfile) throw new AppError('Principal profile not found', 404);
+
+    const tutorsResult = await tutorRepository.findByPrincipal(principalProfile.publicId, { page: 1, limit: 500 } as PaginationQuery);
+    const tutorPublicIds = tutorsResult.items.map((t) => t.publicId);
+
+    if (tutorPublicIds.length === 0) {
+      return { items: [], pagination: { total: 0, page: 1, limit: 20, totalPages: 0 } };
+    }
+
+    const result = await studentRepository.findByTutorIds(tutorPublicIds, query);
+    return this._hydrateList(result);
   }
 
   async canUseDemoCredit(userPublicId: string, tutorPublicId: string): Promise<boolean> {
