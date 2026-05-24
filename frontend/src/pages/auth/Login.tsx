@@ -67,12 +67,12 @@ export function LoginPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
-          label="Email address"
-          type="email"
-          placeholder="you@example.com"
+          label="Email or Student ID"
+          type="text"
+          placeholder="you@example.com or stujs1234"
           leftIcon={<Mail className="h-4 w-4" />}
-          error={errors.email?.message}
-          {...register('email')}
+          error={errors.identifier?.message}
+          {...register('identifier')}
         />
 
         <div>

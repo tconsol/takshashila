@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   User, Mail, Phone, Globe, ShieldCheck, Camera,
   CheckCircle2, AlertCircle, Lock, Eye, EyeOff,
-  BookOpen, DollarSign, Sparkles, GraduationCap, Calendar,
+  BookOpen, DollarSign, Sparkles, GraduationCap, Calendar, Copy, Check,
 } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { api } from '../../lib/axios';
@@ -163,6 +163,34 @@ function SaveButton({ pending, label = 'Save changes' }: { pending: boolean; lab
   );
 }
 
+function CopyChip({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <div className="flex items-center gap-2 rounded-2xl border-2 border-clay-ink/20 bg-clay-bg px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted">{label}</p>
+        <p className={`truncate text-xs font-bold text-clay-ink ${mono ? 'font-mono' : ''}`}>{value}</p>
+      </div>
+      <button
+        type="button"
+        onClick={handleCopy}
+        title="Copy to clipboard"
+        className="shrink-0 rounded-lg p-1 transition-colors hover:bg-clay-mint/30"
+      >
+        {copied
+          ? <Check className="h-3.5 w-3.5 text-clay-green-dark" />
+          : <Copy className="h-3.5 w-3.5 text-clay-muted" />}
+      </button>
+    </div>
+  );
+}
+
 // ─── Tab types ────────────────────────────────────────────────────────────────
 type Tab = 'account' | 'teaching' | 'security';
 
@@ -180,11 +208,19 @@ export function ProfilePage() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const isTutor = user?.role === 'TUTOR';
+  const isStudent = user?.role === 'STUDENT';
 
   // Fetch fresh user data from server — used for hero card and timezone display
   const { data: freshUser } = useQuery({
     queryKey: ['users', 'me'],
     queryFn: () => api.get('/users/me').then((r) => r.data.data),
+  });
+
+  // Fetch student profile for studentId + profile publicId
+  const { data: studentProfile } = useQuery({
+    queryKey: ['students', 'me'],
+    queryFn: () => api.get('/students/me').then((r) => r.data.data),
+    enabled: isStudent,
   });
 
   // Sync fresh user into auth store so other parts of the app stay current
@@ -341,7 +377,22 @@ export function ProfilePage() {
           <h1 className="text-2xl font-extrabold text-clay-ink dark:text-white">
             {displayUser.firstName} {displayUser.lastName}
           </h1>
-          <p className="text-sm font-semibold text-clay-ink/60 dark:text-gray-400">{displayUser.email}</p>
+          <p className="text-sm font-semibold text-clay-ink/60 dark:text-gray-400">
+            {isStudent ? (displayUser.studentId ?? displayUser.email) : displayUser.email}
+          </p>
+
+          {/* ID chips */}
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {isStudent && displayUser.studentId && (
+              <CopyChip label="Student ID (login)" value={displayUser.studentId} />
+            )}
+            {isStudent && studentProfile?.publicId && (
+              <CopyChip label="Profile ID (share with parent)" value={studentProfile.publicId} />
+            )}
+            {!isStudent && (
+              <CopyChip label="Account ID" value={displayUser.publicId} />
+            )}
+          </div>
 
           <div className="mt-4 flex flex-wrap gap-3">
             <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-clay-bg px-3 py-1 text-xs font-extrabold text-clay-ink">
@@ -641,10 +692,9 @@ export function ProfilePage() {
             </div>
             <dl className="grid gap-3 sm:grid-cols-2">
               {[
-                { label: 'Account ID', value: user.publicId, tint: 'bg-clay-bg' },
-                { label: 'Status',     value: user.status.replace(/_/g, ' '), tint: 'bg-clay-mint' },
-                { label: 'Role',       value: roleLabel, tint: 'bg-clay-sky' },
-                { label: 'Created',    value: new Date(user.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' }), tint: 'bg-clay-yellow' },
+                { label: 'Status',  value: user.status.replace(/_/g, ' '), tint: 'bg-clay-mint' },
+                { label: 'Role',    value: roleLabel, tint: 'bg-clay-sky' },
+                { label: 'Created', value: new Date(user.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' }), tint: 'bg-clay-yellow' },
               ].map(({ label, value, tint }) => (
                 <div key={label} className={`rounded-2xl border-2 border-clay-ink ${tint} px-4 py-3`}>
                   <dt className="mb-0.5 text-[11px] font-extrabold uppercase tracking-wide text-clay-ink/60">{label}</dt>
@@ -652,6 +702,16 @@ export function ProfilePage() {
                 </div>
               ))}
             </dl>
+            {/* Copyable IDs */}
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <CopyChip label="Account ID" value={user.publicId} />
+              {isStudent && displayUser?.studentId && (
+                <CopyChip label="Student ID" value={displayUser.studentId} />
+              )}
+              {isStudent && studentProfile?.publicId && (
+                <CopyChip label="Profile ID" value={studentProfile.publicId} />
+              )}
+            </div>
           </div>
         </div>
       )}

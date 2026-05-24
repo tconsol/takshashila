@@ -70,6 +70,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   STUDENT: [
     { label: 'Overview', href: '/dashboard/student', icon: LayoutDashboard },
     { label: 'My Tutor', href: '/dashboard/student/my-tutor', icon: GraduationCap },
+    { label: 'My Organization', href: '/dashboard/student/my-organization', icon: Building2 },
     { label: 'Find Tutors', href: '/dashboard/student/tutors', icon: Search },
     { label: 'Classes', href: '/dashboard/student/classes', icon: Video, badgeKey: 'scheduleAlert' },
     { label: 'Assignments', href: '/dashboard/student/assignments', icon: BookOpen },
@@ -85,6 +86,8 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   PARENT: [
     { label: 'Overview', href: '/dashboard/parent', icon: LayoutDashboard },
     { label: 'My Children', href: '/dashboard/parent/children', icon: Heart },
+    { label: 'Find Tutors', href: '/dashboard/parent/tutors', icon: GraduationCap },
+    { label: 'Find Principals', href: '/dashboard/parent/principals', icon: Building2 },
     { label: 'Classes', href: '/dashboard/parent/classes', icon: Video },
     { label: 'Attendance', href: '/dashboard/parent/attendance', icon: UserCheck },
     { label: 'Assignments', href: '/dashboard/parent/assignments', icon: BookOpen },

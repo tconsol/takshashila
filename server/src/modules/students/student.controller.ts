@@ -3,7 +3,7 @@ import type { AuthRequest } from '../../shared/types';
 import { studentService } from './student.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 import { NotFoundError } from '../../utils/error';
-import type { CreateStudentByTutorDto, InviteExistingStudentDto } from './student.validators';
+import type { CreateStudentByTutorDto, InviteExistingStudentDto, CreateStudentByPrincipalDto, InviteStudentByPrincipalDto } from './student.validators';
 
 export class StudentController {
   async createStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -116,6 +116,53 @@ export class StudentController {
         req.user!.publicId,
       );
       sendSuccess(res, updated, 'Student transferred');
+    } catch (error) { next(error); }
+  }
+
+  async createStudentByPrincipal(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const dto = req.body as CreateStudentByPrincipalDto;
+      const student = await studentService.createByPrincipal(req.user!.publicId, dto);
+      sendCreated(res, student, 'Student created and linked to tutor');
+    } catch (error) { next(error); }
+  }
+
+  async inviteExistingByPrincipal(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const dto = req.body as InviteStudentByPrincipalDto;
+      const profile = await studentService.inviteExistingByPrincipal(req.user!.publicId, dto);
+      sendCreated(res, profile, 'Student invite sent');
+    } catch (error) { next(error); }
+  }
+
+  async getMyStudentsAsPrincipal(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await studentService.getByPrincipal(req.user!.publicId, req.query);
+      sendPaginated(res, result, 'Students fetched');
+    } catch (error) { next(error); }
+  }
+
+  async unlinkStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const role = req.user!.role as 'TUTOR' | 'PRINCIPAL';
+      await studentService.unlinkStudent(req.params.studentId, req.user!.publicId, role);
+      sendSuccess(res, null, 'Student unlinked');
+    } catch (error) { next(error); }
+  }
+
+  async searchParentByEmail(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const email = req.query.email as string;
+      if (!email) { res.status(400).json({ message: 'email query param required' }); return; }
+      const result = await studentService.searchParentByEmail(email);
+      sendSuccess(res, result, 'Parent children fetched');
+    } catch (error) { next(error); }
+  }
+
+  async getMyPrincipal(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await studentService.getMyPrincipal(req.user!.publicId);
+      sendSuccess(res, result, 'Principal info fetched');
     } catch (error) { next(error); }
   }
 }

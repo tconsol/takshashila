@@ -21,6 +21,7 @@ const studentProfileSchema = new Schema<IStudentProfile>(
     totalClassesMissed: { type: Number, default: 0, min: 0 },
     totalClassesBooked: { type: Number, default: 0, min: 0 },
     attendanceRate: { type: Number, default: 0, min: 0, max: 100 },
+    contactEmail: { type: String, lowercase: true, trim: true },
     grade: { type: String },
     notes: { type: String, maxlength: 2000 },
     invitedBy: { type: String, required: true },
@@ -37,5 +38,6 @@ const studentProfileSchema = new Schema<IStudentProfile>(
 
 studentProfileSchema.index({ tutorPublicId: 1, status: 1 });
 studentProfileSchema.index({ userPublicId: 1, tutorPublicId: 1 }, { unique: true, sparse: true });
+studentProfileSchema.index({ contactEmail: 1 });
 
 export const StudentProfileModel = mongoose.model<IStudentProfile>('StudentProfile', studentProfileSchema);
