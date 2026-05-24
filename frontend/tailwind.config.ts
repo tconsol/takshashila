@@ -33,6 +33,31 @@ const config: Config = {
           800: '#923418',
           900: '#762d16',
         },
+        // Claymorphism design tokens — CSS vars from globals.css (light/dark aware)
+        clay: {
+          bg:      'rgb(var(--clay-bg) / <alpha-value>)',
+          surface: 'rgb(var(--clay-surface) / <alpha-value>)',
+          muted:   'rgb(var(--clay-muted) / <alpha-value>)',
+          ink:     'rgb(var(--clay-ink) / <alpha-value>)',
+          green:  'rgb(var(--clay-green) / <alpha-value>)',
+          'green-dark':   'rgb(var(--clay-green-dark) / <alpha-value>)',
+          coral:  'rgb(var(--clay-coral) / <alpha-value>)',
+          'coral-strong': 'rgb(var(--clay-coral-strong) / <alpha-value>)',
+          sky:    'rgb(var(--clay-sky) / <alpha-value>)',
+          mint:   'rgb(var(--clay-mint) / <alpha-value>)',
+          yellow: 'rgb(var(--clay-yellow) / <alpha-value>)',
+          purple: 'rgb(var(--clay-purple) / <alpha-value>)',
+          pink:   'rgb(var(--clay-pink) / <alpha-value>)',
+        },
+      },
+      boxShadow: {
+        'clay':         '6px 6px 0 0 rgb(var(--clay-ink))',
+        'clay-lg':      '8px 8px 0 0 rgb(var(--clay-ink))',
+        'clay-sm':      '3px 3px 0 0 rgb(var(--clay-ink))',
+        'clay-pressed': '2px 2px 0 0 rgb(var(--clay-ink))',
+      },
+      borderWidth: {
+        '2.5': '2.5px',
       },
       fontFamily: {
         sans: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],

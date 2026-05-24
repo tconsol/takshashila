@@ -4,6 +4,8 @@ export const MediaType = {
   VIDEO: 'VIDEO',
   ASSIGNMENT_SUBMISSION: 'ASSIGNMENT_SUBMISSION',
   CLASS_RECORDING: 'CLASS_RECORDING',
+  CHAT: 'CHAT',
+  VOICE: 'VOICE',
 } as const;
 export type MediaType = (typeof MediaType)[keyof typeof MediaType];
 

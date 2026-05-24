@@ -5,7 +5,9 @@ import { authMiddleware } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/permission.middleware';
 import { Role } from '../../constants/roles';
 import { parentService } from './parent.service';
-import { sendSuccess, sendPaginated } from '../../utils/response';
+import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
+import { validate } from '../../middlewares/validation.middleware';
+import { createStudentByParentSchema } from '../students/student.validators';
 
 const router = Router();
 router.use(authMiddleware);
@@ -25,11 +27,25 @@ router.get('/me/children', async (req: AuthRequest, res: Response, next: NextFun
   } catch (e) { next(e); }
 });
 
+router.post('/me/children/create', validate(createStudentByParentSchema), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const child = await parentService.createChild(req.user!.publicId, req.body);
+    sendCreated(res, child, 'Child account created');
+  } catch (e) { next(e); }
+});
+
 router.post('/me/children/link', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { studentPublicId } = req.body;
     const profile = await parentService.linkChild(req.user!.publicId, studentPublicId);
     sendSuccess(res, profile, 'Child linked successfully');
+  } catch (e) { next(e); }
+});
+
+router.patch('/me/children/:studentPublicId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await parentService.updateChild(req.user!.publicId, req.params.studentPublicId, req.body);
+    sendSuccess(res, null, 'Child updated');
   } catch (e) { next(e); }
 });
 
@@ -80,6 +96,14 @@ router.get('/me/children/:studentPublicId/worksheets', async (req: AuthRequest, 
       req.query as Record<string, string>,
     );
     sendPaginated(res, result, 'Worksheets fetched');
+  } catch (e) { next(e); }
+});
+
+router.post('/me/children/:studentPublicId/request-tutor', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { tutorPublicId } = req.body as { tutorPublicId: string };
+    await parentService.requestTutorForChild(req.user!.publicId, req.params.studentPublicId, tutorPublicId);
+    sendSuccess(res, null, 'Tutor request sent');
   } catch (e) { next(e); }
 });
 

@@ -35,9 +35,9 @@ export function Table<T>({
   const cellPad = dense ? 'px-4 py-2.5' : 'px-5 py-3.5';
   const headPad = dense ? 'px-4 py-2.5' : 'px-5 py-3';
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-gray-200/70 bg-white shadow-sm shadow-gray-200/40 dark:border-gray-800 dark:bg-gray-900 dark:shadow-black/20">
+    <div className="w-full overflow-x-auto rounded-[28px] border-2.5 border-clay-ink bg-white shadow-clay dark:bg-gray-900">
       <table className="w-full text-sm text-left">
-        <thead className="border-b border-gray-200/70 bg-gray-50/60 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-400">
+        <thead className="border-b-2 border-clay-ink bg-clay-bg text-xs font-extrabold uppercase tracking-wider text-clay-ink dark:bg-gray-800/40 dark:text-gray-400">
           <tr>
             {columns.map((col) => (
               <th
@@ -50,7 +50,7 @@ export function Table<T>({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+        <tbody className="divide-y-2 divide-dashed divide-clay-ink/15 dark:divide-gray-800">
           {loading ? (
             <tr>
               <td colSpan={columns.length} className="px-5 py-12 text-center">
@@ -72,14 +72,14 @@ export function Table<T>({
                 onClick={() => onRowClick?.(row)}
                 className={`transition-colors ${
                   onRowClick
-                    ? 'cursor-pointer hover:bg-brand-50/40 dark:hover:bg-brand-900/10'
+                    ? 'cursor-pointer hover:bg-clay-mint/30 dark:hover:bg-brand-900/10'
                     : ''
                 }`}
               >
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`${cellPad} text-sm text-gray-700 dark:text-gray-200 ${col.className ?? ''}`}
+                    className={`${cellPad} text-sm font-semibold text-clay-ink dark:text-gray-200 ${col.className ?? ''}`}
                   >
                     {col.render
                       ? col.render(row)

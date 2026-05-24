@@ -20,16 +20,16 @@ interface StatsCardProps {
 
 const accents: Record<
   Accent,
-  { iconBg: string; iconText: string; strip: string; ring: string }
+  { iconBg: string; iconText: string }
 > = {
-  brand:  { iconBg: 'bg-brand-50',  iconText: 'text-brand-600',  strip: 'from-brand-400/70 via-brand-500/40 to-transparent',   ring: 'ring-brand-100/70 dark:ring-brand-900/40' },
-  green:  { iconBg: 'bg-emerald-50',iconText: 'text-emerald-600',strip: 'from-emerald-400/70 via-emerald-500/40 to-transparent',ring: 'ring-emerald-100/70 dark:ring-emerald-900/40' },
-  violet: { iconBg: 'bg-violet-50', iconText: 'text-violet-600', strip: 'from-violet-400/70 via-violet-500/40 to-transparent',  ring: 'ring-violet-100/70 dark:ring-violet-900/40' },
-  amber:  { iconBg: 'bg-amber-50',  iconText: 'text-amber-600',  strip: 'from-amber-400/70 via-amber-500/40 to-transparent',   ring: 'ring-amber-100/70 dark:ring-amber-900/40' },
-  rose:   { iconBg: 'bg-rose-50',   iconText: 'text-rose-600',   strip: 'from-rose-400/70 via-rose-500/40 to-transparent',     ring: 'ring-rose-100/70 dark:ring-rose-900/40' },
-  sky:    { iconBg: 'bg-sky-50',    iconText: 'text-sky-600',    strip: 'from-sky-400/70 via-sky-500/40 to-transparent',       ring: 'ring-sky-100/70 dark:ring-sky-900/40' },
-  pink:   { iconBg: 'bg-pink-50',   iconText: 'text-pink-600',   strip: 'from-pink-400/70 via-pink-500/40 to-transparent',     ring: 'ring-pink-100/70 dark:ring-pink-900/40' },
-  orange: { iconBg: 'bg-orange-50', iconText: 'text-orange-600', strip: 'from-orange-400/70 via-orange-500/40 to-transparent', ring: 'ring-orange-100/70 dark:ring-orange-900/40' },
+  brand:  { iconBg: 'bg-clay-purple', iconText: 'text-clay-ink' },
+  green:  { iconBg: 'bg-clay-mint',   iconText: 'text-clay-ink' },
+  violet: { iconBg: 'bg-clay-purple', iconText: 'text-clay-ink' },
+  amber:  { iconBg: 'bg-clay-yellow', iconText: 'text-clay-ink' },
+  rose:   { iconBg: 'bg-clay-coral',  iconText: 'text-clay-ink' },
+  sky:    { iconBg: 'bg-clay-sky',    iconText: 'text-clay-ink' },
+  pink:   { iconBg: 'bg-clay-pink',   iconText: 'text-clay-ink' },
+  orange: { iconBg: 'bg-clay-yellow', iconText: 'text-clay-ink' },
 };
 
 function inferAccent(iconBg?: string): Accent {
@@ -59,31 +59,26 @@ export function StatsCard({
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm shadow-gray-200/40 transition-all hover:shadow-md hover:shadow-brand-200/30 hover:-translate-y-0.5 dark:border-gray-800 dark:bg-gray-900 dark:shadow-black/20',
+        'group relative overflow-hidden rounded-[28px] border-2.5 border-clay-ink bg-clay-surface p-5 shadow-clay transition-all hover:-translate-y-1',
         className,
       )}
     >
-      {/* Top accent strip */}
-      <div className={cn('absolute inset-x-0 top-0 h-1 bg-gradient-to-r', a.strip)} />
-
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <p className="text-xs font-extrabold uppercase tracking-wider text-clay-muted">
             {title}
           </p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+          <p className="mt-2 text-3xl font-black tracking-tight text-clay-ink">
             {value}
           </p>
           {hint && !change && (
-            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">{hint}</p>
+            <p className="mt-1.5 text-xs font-semibold text-clay-muted">{hint}</p>
           )}
           {change && (
             <div
               className={cn(
-                'mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                change.positive
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                  : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+                'mt-2 inline-flex items-center gap-1 rounded-full border-2 border-clay-ink px-2 py-0.5 text-xs font-extrabold',
+                change.positive ? 'bg-clay-mint text-clay-ink' : 'bg-clay-coral text-clay-ink',
               )}
             >
               {change.positive ? (
@@ -97,10 +92,9 @@ export function StatsCard({
         </div>
         <div
           className={cn(
-            'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ring-4 transition-transform group-hover:scale-105',
+            'flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border-2.5 border-clay-ink transition-transform group-hover:rotate-3',
             a.iconBg,
             a.iconText,
-            a.ring,
           )}
         >
           {icon}

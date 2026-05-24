@@ -21,6 +21,7 @@ router.put('/me', requireRole(Role.TUTOR), validate(updateTutorProfileSchema), t
 router.post('/me/submit-verification', requireRole(Role.TUTOR), tutorController.submitForVerification.bind(tutorController));
 router.get('/my-principal', requireRole(Role.TUTOR), tutorController.getMyPrincipal.bind(tutorController));
 router.get('/by-principal/:principalId', requirePermission(Permission.VIEW_TUTOR_ANALYTICS), tutorController.getByPrincipal.bind(tutorController));
+router.get('/parent/by-principal/:profilePublicId', requireRole(Role.PARENT, Role.STUDENT), tutorController.getByPrincipalForParent.bind(tutorController));
 router.get('/my-tutors', requireRole(Role.PRINCIPAL), tutorController.getByPrincipal.bind(tutorController));
 router.get('/:tutorId', tutorController.getByPublicId.bind(tutorController));
 router.post('/:tutorId/approve', requirePermission(Permission.MANAGE_TUTORS), tutorController.approveTutor.bind(tutorController));

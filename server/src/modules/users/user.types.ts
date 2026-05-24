@@ -12,6 +12,7 @@ export interface IUser {
   _id: string;
   publicId: string;
   email: string;
+  studentId?: string;
   passwordHash: string;
   firstName: string;
   lastName: string;

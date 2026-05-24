@@ -141,6 +141,30 @@ export class StudentController {
       sendPaginated(res, result, 'Students fetched');
     } catch (error) { next(error); }
   }
+
+  async unlinkStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const role = req.user!.role as 'TUTOR' | 'PRINCIPAL';
+      await studentService.unlinkStudent(req.params.studentId, req.user!.publicId, role);
+      sendSuccess(res, null, 'Student unlinked');
+    } catch (error) { next(error); }
+  }
+
+  async searchParentByEmail(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const email = req.query.email as string;
+      if (!email) { res.status(400).json({ message: 'email query param required' }); return; }
+      const result = await studentService.searchParentByEmail(email);
+      sendSuccess(res, result, 'Parent children fetched');
+    } catch (error) { next(error); }
+  }
+
+  async getMyPrincipal(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await studentService.getMyPrincipal(req.user!.publicId);
+      sendSuccess(res, result, 'Principal info fetched');
+    } catch (error) { next(error); }
+  }
 }
 
 export const studentController = new StudentController();

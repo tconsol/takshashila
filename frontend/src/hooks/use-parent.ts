@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth.store';
 import { parentService } from '../services/parent.service';
+import type { CreateChildDto } from '../services/parent.service';
 
 export const parentKeys = {
   profile: () => ['parent', 'profile'] as const,
@@ -9,6 +10,9 @@ export const parentKeys = {
   childAttendance: (id: string, p?: Record<string, string>) => ['parent', 'child', id, 'attendance', p] as const,
   childAssignments: (id: string) => ['parent', 'child', id, 'assignments'] as const,
   childWorksheets: (id: string, p?: Record<string, string>) => ['parent', 'child', id, 'worksheets', p] as const,
+  activePrincipals: (p?: Record<string, string>) => ['parent', 'activePrincipals', p] as const,
+  tutorsByPrincipal: (id: string, p?: Record<string, string>) => ['parent', 'tutorsByPrincipal', id, p] as const,
+  tutorsSearch: (p?: Record<string, string>) => ['parent', 'tutorsSearch', p] as const,
 };
 
 export function useParentProfile() {
@@ -27,6 +31,17 @@ export function useParentChildren() {
     queryKey: parentKeys.children(),
     queryFn: parentService.getChildren,
     enabled: isAuthenticated,
+  });
+}
+
+export function useCreateChild() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateChildDto) => parentService.createChild(dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: parentKeys.children() });
+      qc.invalidateQueries({ queryKey: parentKeys.profile() });
+    },
   });
 }
 
@@ -49,6 +64,15 @@ export function useUnlinkChild() {
       qc.invalidateQueries({ queryKey: parentKeys.children() });
       qc.invalidateQueries({ queryKey: parentKeys.profile() });
     },
+  });
+}
+
+export function useUpdateChild() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ studentPublicId, ...dto }: { studentPublicId: string; firstName?: string; lastName?: string; grade?: string }) =>
+      parentService.updateChild(studentPublicId, dto),
+    onSuccess: () => qc.invalidateQueries({ queryKey: parentKeys.children() }),
   });
 }
 
@@ -81,5 +105,36 @@ export function useChildWorksheets(studentPublicId: string, params?: Record<stri
     queryKey: parentKeys.childWorksheets(studentPublicId, params),
     queryFn: () => parentService.getChildWorksheets(studentPublicId, params),
     enabled: !!studentPublicId,
+  });
+}
+
+export function useActivePrincipals(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: parentKeys.activePrincipals(params),
+    queryFn: () => parentService.listActivePrincipals(params),
+  });
+}
+
+export function useTutorsByPrincipal(profilePublicId: string, params?: Record<string, string>) {
+  return useQuery({
+    queryKey: parentKeys.tutorsByPrincipal(profilePublicId, params),
+    queryFn: () => parentService.getTutorsByPrincipal(profilePublicId, params),
+    enabled: !!profilePublicId,
+  });
+}
+
+export function useSearchTutors(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: parentKeys.tutorsSearch(params),
+    queryFn: () => parentService.searchTutors(params),
+  });
+}
+
+export function useRequestTutor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ studentPublicId, tutorPublicId }: { studentPublicId: string; tutorPublicId: string }) =>
+      parentService.requestTutor(studentPublicId, tutorPublicId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: parentKeys.children() }),
   });
 }

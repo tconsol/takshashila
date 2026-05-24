@@ -71,6 +71,42 @@ export interface PaginatedResult<T> {
   };
 }
 
+export interface CreateChildDto {
+  firstName: string;
+  lastName: string;
+  password: string;
+  customStudentId?: string;
+  grade?: string;
+  notes?: string;
+}
+
+export interface CreatedChild extends ChildStudent {
+  studentId: string;
+}
+
+export interface ActivePrincipal {
+  publicId: string;
+  userPublicId: string;
+  organizationName: string;
+  firstName: string;
+  lastName: string;
+  totalTutors: number;
+  totalStudents: number;
+}
+
+export interface TutorForParent {
+  publicId: string;
+  userPublicId: string;
+  displayName: string;
+  email: string;
+  subjects: string[];
+  languages: string[];
+  hourlyRateCents: number;
+  rating: number;
+  isVerified: boolean;
+  status: string;
+}
+
 export const parentService = {
   getProfile: () =>
     api.get('/parents/me').then((r) => r.data.data as ParentProfile),
@@ -78,8 +114,14 @@ export const parentService = {
   getChildren: () =>
     api.get('/parents/me/children').then((r) => (r.data.data ?? []) as ChildStudent[]),
 
+  createChild: (dto: CreateChildDto) =>
+    api.post('/parents/me/children/create', dto).then((r) => r.data.data as CreatedChild),
+
   linkChild: (studentPublicId: string) =>
     api.post('/parents/me/children/link', { studentPublicId }).then((r) => r.data.data as ParentProfile),
+
+  updateChild: (studentPublicId: string, dto: { firstName?: string; lastName?: string; grade?: string }) =>
+    api.patch(`/parents/me/children/${studentPublicId}`, dto).then(() => null),
 
   unlinkChild: (studentPublicId: string) =>
     api.delete(`/parents/me/children/${studentPublicId}`).then((r) => r.data.data as ParentProfile),
@@ -99,4 +141,17 @@ export const parentService = {
   getChildWorksheets: (studentPublicId: string, params?: Record<string, string>) =>
     api.get(`/parents/me/children/${studentPublicId}/worksheets`, { params })
       .then((r) => r.data.data as PaginatedResult<import('./worksheets.service').Worksheet>),
+
+  requestTutor: (studentPublicId: string, tutorPublicId: string) =>
+    api.post(`/parents/me/children/${studentPublicId}/request-tutor`, { tutorPublicId }).then(() => null),
+
+  listActivePrincipals: (params?: Record<string, string>) =>
+    api.get('/principals/active', { params }).then((r) => r.data.data as PaginatedResult<ActivePrincipal>),
+
+  getTutorsByPrincipal: (profilePublicId: string, params?: Record<string, string>) =>
+    api.get(`/tutors/parent/by-principal/${profilePublicId}`, { params })
+      .then((r) => r.data.data as PaginatedResult<TutorForParent>),
+
+  searchTutors: (params?: Record<string, string>) =>
+    api.get('/tutors/search', { params }).then((r) => r.data.data as PaginatedResult<TutorForParent>),
 };

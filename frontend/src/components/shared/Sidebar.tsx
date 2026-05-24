@@ -70,6 +70,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   STUDENT: [
     { label: 'Overview', href: '/dashboard/student', icon: LayoutDashboard },
     { label: 'My Tutor', href: '/dashboard/student/my-tutor', icon: GraduationCap },
+    { label: 'My Organization', href: '/dashboard/student/my-organization', icon: Building2 },
     { label: 'Find Tutors', href: '/dashboard/student/tutors', icon: Search },
     { label: 'Classes', href: '/dashboard/student/classes', icon: Video, badgeKey: 'scheduleAlert' },
     { label: 'Assignments', href: '/dashboard/student/assignments', icon: BookOpen },
@@ -85,6 +86,8 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   PARENT: [
     { label: 'Overview', href: '/dashboard/parent', icon: LayoutDashboard },
     { label: 'My Children', href: '/dashboard/parent/children', icon: Heart },
+    { label: 'Find Tutors', href: '/dashboard/parent/tutors', icon: GraduationCap },
+    { label: 'Find Principals', href: '/dashboard/parent/principals', icon: Building2 },
     { label: 'Classes', href: '/dashboard/parent/classes', icon: Video },
     { label: 'Attendance', href: '/dashboard/parent/attendance', icon: UserCheck },
     { label: 'Assignments', href: '/dashboard/parent/assignments', icon: BookOpen },
@@ -187,7 +190,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex flex-col bg-white border-r border-gray-200 transition-all duration-300 dark:bg-gray-900 dark:border-gray-700',
+          'fixed inset-y-0 left-0 z-30 flex flex-col bg-clay-surface border-r-2.5 border-clay-ink transition-all duration-300',
           'lg:static lg:translate-x-0',
           collapsed ? 'w-16' : 'w-64',
           isOpen ? 'translate-x-0' : '-translate-x-full',
@@ -195,16 +198,21 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
       >
         {/* Header */}
         <div className={cn(
-          'flex h-16 items-center border-b border-gray-200 dark:border-gray-700 shrink-0',
+          'flex h-16 items-center border-b-2.5 border-clay-ink shrink-0',
           collapsed ? 'justify-center px-0' : 'justify-between px-4',
         )}>
           {!collapsed && (
-            <span className="text-xl font-bold text-brand-600 truncate">Takshashila</span>
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl border-2 border-clay-ink bg-clay-coral shrink-0">
+                <GraduationCap className="h-4 w-4 text-clay-ink" />
+              </div>
+              <span className="text-lg font-extrabold text-clay-ink truncate">Takshashila</span>
+            </div>
           )}
           {/* Collapse toggle — desktop only */}
           <button
             onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center h-8 w-8 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-colors shrink-0"
+            className="hidden lg:flex items-center justify-center h-8 w-8 rounded-xl border-2 border-clay-ink bg-clay-yellow text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] transition-all shrink-0"
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
@@ -225,20 +233,20 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                     onClick={() => { onClose(); clearSearch(); }}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      'flex items-center rounded-lg transition-colors',
+                      'flex items-center rounded-xl transition-all',
                       collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5',
-                      'text-sm font-medium',
+                      'text-sm font-extrabold',
                       isActive
-                        ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white',
+                        ? 'bg-clay-green text-white border-2 border-clay-ink shadow-clay-sm'
+                        : 'text-clay-ink/70 hover:bg-clay-bg hover:text-clay-ink dark:text-gray-400 dark:hover:bg-gray-800',
                     )}
                   >
                     <div className="relative shrink-0">
                       <Icon className="h-4 w-4" />
                       {badgeCount > 0 && (
                         <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 border border-clay-ink" />
                         </span>
                       )}
                     </div>
@@ -247,7 +255,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                       <>
                         <span className="truncate">{item.label}</span>
                         {badgeCount > 0 && !isActive && (
-                          <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                          <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full border-2 border-clay-ink bg-rose-500 px-1.5 text-[10px] font-extrabold text-white">
                             {badgeCount > 99 ? '99+' : badgeCount}
                           </span>
                         )}
@@ -262,12 +270,12 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-2 dark:border-gray-700 shrink-0">
+        <div className="border-t-2.5 border-clay-ink p-2 shrink-0">
           <button
             onClick={handleLogout}
             title={collapsed ? 'Sign out' : undefined}
             className={cn(
-              'flex w-full items-center rounded-lg text-sm font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-700 dark:text-gray-400 dark:hover:bg-red-900/20 dark:hover:text-red-400',
+              'flex w-full items-center rounded-xl text-sm font-extrabold text-clay-ink transition-all hover:bg-clay-coral border-2 border-transparent hover:border-clay-ink',
               collapsed ? 'justify-center py-2.5 px-0' : 'gap-3 px-3 py-2.5',
             )}
           >

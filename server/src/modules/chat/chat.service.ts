@@ -151,13 +151,14 @@ export class ChatService {
     }
 
     const { page, limit, skip } = parsePaginationQuery(query);
+    const filter = { conversationPublicId, isDeleted: false, deletedFor: { $nin: [userPublicId] } };
     const [items, total] = await Promise.all([
-      MessageModel.find({ conversationPublicId, isDeleted: false })
+      MessageModel.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      MessageModel.countDocuments({ conversationPublicId, isDeleted: false }),
+      MessageModel.countDocuments(filter),
     ]);
 
     return buildPaginatedResult(items.reverse(), total, page, limit);
@@ -193,6 +194,11 @@ export class ChatService {
         mediaName: dto.mediaName,
         mediaSizeBytes: dto.mediaSizeBytes,
       }),
+      ...(dto.replyToPublicId && {
+        replyToPublicId: dto.replyToPublicId,
+        replyToBody: dto.replyToBody,
+        replyToSender: dto.replyToSender,
+      }),
     });
 
     const recipientPublicId = conversation.participantPublicIds.find((id) => id !== senderPublicId)!;
@@ -227,6 +233,75 @@ export class ChatService {
       { publicId: conversationPublicId },
       { $set: { [`unreadCounts.${userPublicId}`]: 0 } },
     );
+  }
+
+  async reactToMessage(
+    messagePublicId: string,
+    userPublicId: string,
+    emoji: string,
+  ): Promise<IMessage> {
+    const message = await MessageModel.findOne({ publicId: messagePublicId, isDeleted: false });
+    if (!message) throw Object.assign(new Error('Message not found'), { statusCode: 404 });
+
+    const reactions = (message.reactions as unknown as Map<string, string[]>) ?? new Map();
+
+    // Remove user from ANY existing reaction first (single reaction per user)
+    let wasSameEmoji = false;
+    for (const [key, users] of reactions.entries()) {
+      if (users.includes(userPublicId)) {
+        if (key === emoji) wasSameEmoji = true;
+        const updated = users.filter((id) => id !== userPublicId);
+        if (updated.length === 0) reactions.delete(key);
+        else reactions.set(key, updated);
+        break;
+      }
+    }
+
+    // Add new reaction unless toggling off the same emoji
+    if (!wasSameEmoji) {
+      const existing = reactions.get(emoji) ?? [];
+      reactions.set(emoji, [...existing, userPublicId]);
+    }
+
+    message.reactions = Object.fromEntries(reactions) as unknown as Record<string, string[]>;
+    await message.save();
+    return message.toObject();
+  }
+
+  async pinMessage(messagePublicId: string, userPublicId: string, durationHours: number): Promise<IMessage> {
+    const message = await MessageModel.findOne({ publicId: messagePublicId, isDeleted: false });
+    if (!message) throw Object.assign(new Error('Message not found'), { statusCode: 404 });
+
+    const pinnedUntil = new Date(Date.now() + durationHours * 60 * 60 * 1000);
+    await MessageModel.updateOne({ publicId: messagePublicId }, { $set: { pinnedUntil, pinnedBy: userPublicId } });
+    return { ...message.toObject(), pinnedUntil, pinnedBy: userPublicId };
+  }
+
+  async unpinMessage(messagePublicId: string): Promise<void> {
+    await MessageModel.updateOne({ publicId: messagePublicId }, { $unset: { pinnedUntil: 1, pinnedBy: 1 } });
+  }
+
+  async deleteMessage(
+    messagePublicId: string,
+    userPublicId: string,
+    forEveryone: boolean,
+  ): Promise<void> {
+    const message = await MessageModel.findOne({ publicId: messagePublicId, isDeleted: false });
+    if (!message) throw Object.assign(new Error('Message not found'), { statusCode: 404 });
+
+    if (forEveryone) {
+      if (message.senderPublicId !== userPublicId) {
+        throw Object.assign(new Error('Only the sender can delete for everyone'), { statusCode: 403 });
+      }
+      await MessageModel.updateOne({ publicId: messagePublicId }, { $set: { isDeleted: true } });
+    } else {
+      if (!message.deletedFor.includes(userPublicId)) {
+        await MessageModel.updateOne(
+          { publicId: messagePublicId },
+          { $push: { deletedFor: userPublicId } },
+        );
+      }
+    }
   }
 
   async getTotalUnread(userPublicId: string): Promise<number> {

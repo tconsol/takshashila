@@ -1,13 +1,13 @@
 import { Outlet, Navigate, Link } from 'react-router-dom';
-import { GraduationCap, CheckCircle2, Users, Video, BarChart3 } from 'lucide-react';
+import { GraduationCap, CheckCircle2, Users, Video, BarChart3, Star } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
 import { ROLE_DASHBOARD_PATHS } from '../constants/roles';
 
 const HIGHLIGHTS = [
-  { icon: Video, text: 'Live & recorded classes with HD video' },
-  { icon: Users, text: 'Connect students, tutors & principals' },
-  { icon: BarChart3, text: 'Deep analytics & progress tracking' },
-  { icon: CheckCircle2, text: 'Automated payments & wallet system' },
+  { icon: Video,        text: 'Live HD classes',          tint: 'bg-clay-mint' },
+  { icon: Users,        text: 'Connect tutors & students', tint: 'bg-clay-sky' },
+  { icon: BarChart3,    text: 'Progress tracking',         tint: 'bg-clay-purple' },
+  { icon: CheckCircle2, text: 'Automated payments',        tint: 'bg-clay-yellow' },
 ];
 
 export function AuthLayout() {
@@ -18,99 +18,101 @@ export function AuthLayout() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* ── Left brand panel ──────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[58%] relative bg-gradient-to-br from-brand-950 via-brand-900 to-brand-700 flex-col overflow-hidden">
-        {/* Background pattern */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22none%22 fill-rule=%22evenodd%22%3E%3Cg fill=%22%23ffffff%22 fill-opacity=%220.04%22%3E%3Cpath d=%22M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]" />
-        {/* Decorative circles */}
-        <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-brand-500/10 blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
+    <div className="flex h-screen bg-clay-bg dark:bg-gray-950 overflow-hidden">
+      {/* ── Left brand panel — fixed 100vh, no scroll ─────────── */}
+      <aside className="hidden lg:flex lg:w-[48%] h-screen p-6">
+        <div className="relative flex-1 flex flex-col rounded-[36px] border-2.5 border-clay-ink bg-clay-green p-8 xl:p-10 shadow-clay-lg overflow-hidden">
+          {/* Decorative clay shapes */}
+          <div className="absolute -right-8 -top-8 h-28 w-28 rotate-12 rounded-3xl border-2.5 border-clay-ink bg-clay-yellow" />
+          <div className="absolute -left-5 top-1/2 h-16 w-16 rounded-full border-2.5 border-clay-ink bg-clay-coral" />
+          <div className="absolute -right-5 -bottom-8 h-24 w-24 -rotate-6 rounded-3xl border-2.5 border-clay-ink bg-clay-sky" />
 
-        {/* Scrollable content wrapper */}
-        <div className="relative flex flex-col flex-1 overflow-y-auto px-12 py-10 gap-10">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group w-fit">
-            <div className="h-10 w-10 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center group-hover:bg-white/20 transition-colors">
-              <GraduationCap className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-xl font-bold text-white group-hover:text-blue-200 transition-colors">Takshashila</span>
-          </Link>
-
-          {/* Hero text */}
-          <div className="space-y-4">
-            <span className="inline-block rounded-full bg-blue-400/10 px-4 py-1.5 text-xs font-semibold text-blue-300 ring-1 ring-blue-400/20 uppercase tracking-wider">
-              Enterprise Learning Platform
-            </span>
-            <h1 className="text-4xl font-bold leading-tight text-white">
-              The smarter way<br />to learn and teach
-            </h1>
-            <p className="text-blue-200 text-base leading-relaxed max-w-md">
-              Takshashila connects students with expert tutors, empowers principals with full oversight, and automates everything in between.
-            </p>
-          </div>
-
-          {/* Feature highlights */}
-          <ul className="space-y-3.5">
-            {HIGHLIGHTS.map((h) => {
-              const Icon = h.icon;
-              return (
-                <li key={h.text} className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/10">
-                    <Icon className="h-4 w-4 text-blue-300" />
-                  </div>
-                  <span className="text-sm text-blue-100">{h.text}</span>
-                </li>
-              );
-            })}
-          </ul>
-
-          {/* Stats row */}
-          <div className="flex gap-10 border-t border-white/10 pt-6">
-            {[
-              { value: '2,000+', label: 'Students' },
-              { value: '500+', label: 'Tutors' },
-              { value: '50k+', label: 'Classes' },
-            ].map((s) => (
-              <div key={s.label}>
-                <p className="text-2xl font-bold text-white">{s.value}</p>
-                <p className="text-xs text-blue-300 mt-0.5">{s.label}</p>
+          {/* Content — column flex, gap-based vertical fit */}
+          <div className="relative flex flex-col h-full gap-5">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2.5 w-fit group">
+              <div className="h-11 w-11 rounded-2xl border-2.5 border-clay-ink bg-white flex items-center justify-center group-hover:rotate-3 transition-transform">
+                <GraduationCap className="h-5 w-5 text-clay-ink" />
               </div>
-            ))}
-          </div>
+              <span className="text-xl font-extrabold text-white">Takshashila</span>
+            </Link>
 
-          {/* Testimonial quote */}
-          <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 backdrop-blur-sm">
-            <p className="text-sm text-blue-100 leading-relaxed italic">
-              &ldquo;Takshashila helped me manage 60+ tutors effortlessly. The analytics and scheduling tools are exactly what an institution needs.&rdquo;
-            </p>
-            <div className="mt-4 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-brand-400/30 flex items-center justify-center text-sm font-semibold text-white flex-shrink-0">A</div>
-              <div>
-                <p className="text-xs font-semibold text-white">Dr. Anita Rao</p>
-                <p className="text-[11px] text-blue-300 mt-0.5">Principal, Greenfield Academy</p>
+            {/* Hero */}
+            <div className="space-y-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full border-2.5 border-clay-ink bg-clay-yellow px-3 py-1 text-[10px] font-extrabold text-clay-ink uppercase tracking-wider">
+                <Star className="h-3 w-3 fill-clay-ink" />
+                Enterprise Learning
+              </span>
+              <h1 className="text-3xl xl:text-4xl font-extrabold leading-[1.05] text-white tracking-tight">
+                The smarter way<br />to learn and teach
+              </h1>
+              <p className="text-white/90 text-sm font-semibold leading-relaxed max-w-md">
+                Takshashila connects students with expert tutors, empowers principals with full oversight, and automates everything in between.
+              </p>
+            </div>
+
+            {/* Features */}
+            <ul className="grid grid-cols-2 gap-2">
+              {HIGHLIGHTS.map((h) => {
+                const Icon = h.icon;
+                return (
+                  <li key={h.text} className="flex items-center gap-2 rounded-xl border-2 border-clay-ink bg-white px-2.5 py-2">
+                    <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border-2 border-clay-ink ${h.tint}`}>
+                      <Icon className="h-3.5 w-3.5 text-clay-ink" />
+                    </div>
+                    <span className="text-[11px] font-extrabold text-clay-ink leading-tight">{h.text}</span>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: '2K+',  label: 'Students', tint: 'bg-clay-mint' },
+                { value: '500+', label: 'Tutors',   tint: 'bg-clay-coral' },
+                { value: '50k+', label: 'Classes',  tint: 'bg-clay-yellow' },
+              ].map((s) => (
+                <div key={s.label} className={`rounded-xl border-2.5 border-clay-ink ${s.tint} p-2.5 text-center`}>
+                  <p className="text-lg font-black text-clay-ink leading-none">{s.value}</p>
+                  <p className="text-[10px] font-bold text-clay-ink/70 mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Testimonial — fills remaining */}
+            <div className="rounded-2xl border-2.5 border-clay-ink bg-white p-4 mt-auto">
+              <p className="text-xs font-semibold text-clay-ink leading-relaxed line-clamp-3">
+                &ldquo;Takshashila helped me manage 60+ tutors effortlessly. Analytics and scheduling are exactly what an institution needs.&rdquo;
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full border-2 border-clay-ink bg-clay-purple flex items-center justify-center text-[11px] font-extrabold text-clay-ink flex-shrink-0">AR</div>
+                <div>
+                  <p className="text-[11px] font-extrabold text-clay-ink leading-none">Dr. Anita Rao</p>
+                  <p className="text-[10px] font-semibold text-clay-ink/60 mt-0.5">Principal, Greenfield Academy</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* ── Right form panel ──────────────────────────────────── */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-gray-950">
-        {/* Mobile logo (shown only on mobile) */}
-        <Link to="/" className="lg:hidden flex items-center gap-2 p-6 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
-          <div className="h-8 w-8 rounded-lg bg-brand-600 flex items-center justify-center">
-            <GraduationCap className="h-5 w-5 text-white" />
+      {/* ── Right form panel — scrollable ─────────────────────── */}
+      <main className="flex-1 h-screen overflow-y-auto bg-clay-bg dark:bg-gray-950">
+        {/* Mobile logo */}
+        <Link to="/" className="lg:hidden flex items-center gap-2 p-6 hover:opacity-80 transition-opacity">
+          <div className="h-10 w-10 rounded-2xl border-2.5 border-clay-ink bg-clay-coral flex items-center justify-center">
+            <GraduationCap className="h-5 w-5 text-clay-ink" />
           </div>
-          <span className="text-lg font-bold text-gray-900 dark:text-white">Takshashila</span>
+          <span className="text-lg font-extrabold text-clay-ink dark:text-white">Takshashila</span>
         </Link>
 
-        <div className="flex-1 flex items-center justify-center px-6 py-10">
+        <div className="flex min-h-full items-center justify-center px-6 py-8 lg:py-10">
           <div className="w-full max-w-md">
             <Outlet />
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

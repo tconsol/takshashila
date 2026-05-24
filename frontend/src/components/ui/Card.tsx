@@ -17,13 +17,14 @@ const paddings: Record<Pad, string> = {
   lg: 'p-8',
 };
 
+// Claymorphism — dark outline + hard offset shadow + pillowy rounded corners
 const tones: Record<Tone, string> = {
   default:
-    'bg-white border border-gray-200/70 dark:bg-gray-900 dark:border-gray-800',
+    'bg-clay-surface border-2.5 border-clay-ink shadow-clay',
   soft:
-    'bg-gradient-to-br from-gray-50 via-white to-gray-50 border border-gray-200/70 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800/60 dark:border-gray-800',
+    'bg-clay-bg border-2.5 border-clay-ink shadow-clay',
   gradient:
-    'bg-gradient-to-br from-brand-50 via-white to-violet-50 border border-brand-100/60 dark:from-brand-900/20 dark:via-gray-900 dark:to-violet-900/20 dark:border-brand-900/40',
+    'bg-clay-surface border-2.5 border-clay-ink shadow-clay',
 };
 
 export function Card({
@@ -37,10 +38,10 @@ export function Card({
   return (
     <div
       className={cn(
-        'rounded-2xl shadow-sm shadow-gray-200/40 dark:shadow-black/20 transition-all',
+        'rounded-[28px] transition-all',
         tones[tone],
         paddings[padding],
-        hoverable && 'hover:shadow-md hover:shadow-brand-200/30 hover:-translate-y-0.5 dark:hover:shadow-brand-900/20',
+        hoverable && 'hover:-translate-y-1 hover:translate-x-[-1px] hover:shadow-clay-lg',
         className,
       )}
       {...props}
@@ -65,7 +66,7 @@ export function CardTitle({ className, children, ...props }: HTMLAttributes<HTML
   return (
     <h3
       className={cn(
-        'text-base font-semibold tracking-tight text-gray-900 dark:text-white',
+        'text-base font-extrabold tracking-tight text-clay-ink',
         className,
       )}
       {...props}
@@ -82,7 +83,7 @@ export function CardDescription({
 }: HTMLAttributes<HTMLParagraphElement>) {
   return (
     <p
-      className={cn('mt-1 text-sm text-gray-500 dark:text-gray-400', className)}
+      className={cn('mt-1 text-sm text-gray-600 dark:text-gray-400', className)}
       {...props}
     >
       {children}
@@ -102,7 +103,7 @@ export function CardFooter({ className, children, ...props }: HTMLAttributes<HTM
   return (
     <div
       className={cn(
-        'mt-5 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800',
+        'mt-5 flex items-center justify-between border-t-2 border-dashed border-gray-200 pt-4 dark:border-gray-800',
         className,
       )}
       {...props}

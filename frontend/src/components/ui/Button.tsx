@@ -11,27 +11,37 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
 }
 
+// Claymorphism — pillowy buttons with dark outline + hard offset shadow.
+// Hover translates 2px toward shadow (shadow shrinks). Active fully presses in.
+const CLAY_PRESS =
+  'hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-clay-pressed ' +
+  'active:translate-x-[6px] active:translate-y-[6px] active:shadow-none';
+
 const variants: Record<Variant, string> = {
   primary:
-    'bg-brand-600 text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700 active:bg-brand-800 focus-visible:ring-brand-500 disabled:bg-brand-300 disabled:shadow-none',
+    `bg-clay-green text-white hover:bg-clay-green-dark border-2.5 border-clay-ink shadow-clay ${CLAY_PRESS} ` +
+    'focus-visible:ring-clay-ink disabled:bg-clay-green/60',
   gradient:
-    'bg-gradient-to-r from-brand-600 via-brand-500 to-violet-600 text-white shadow-md shadow-brand-500/30 hover:shadow-lg hover:shadow-violet-500/30 hover:brightness-105 focus-visible:ring-brand-500',
+    `bg-gradient-to-r from-clay-green via-emerald-500 to-teal-500 text-white border-2.5 border-clay-ink shadow-clay ${CLAY_PRESS} ` +
+    'focus-visible:ring-clay-ink',
   secondary:
-    'bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 focus-visible:ring-gray-400',
+    `bg-clay-coral text-clay-ink hover:bg-clay-coral-strong border-2.5 border-clay-ink shadow-clay ${CLAY_PRESS} ` +
+    'focus-visible:ring-clay-ink',
   ghost:
     'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800 focus-visible:ring-gray-300',
   danger:
-    'bg-rose-600 text-white shadow-sm shadow-rose-500/20 hover:bg-rose-700 focus-visible:ring-rose-500',
+    `bg-rose-500 text-white hover:bg-rose-600 border-2.5 border-clay-ink shadow-clay ${CLAY_PRESS} focus-visible:ring-clay-ink`,
   success:
-    'bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 hover:bg-emerald-700 focus-visible:ring-emerald-500',
+    `bg-clay-green text-white hover:bg-clay-green-dark border-2.5 border-clay-ink shadow-clay ${CLAY_PRESS} focus-visible:ring-clay-ink`,
   outline:
-    'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 focus-visible:ring-gray-300',
+    `bg-white text-clay-ink hover:bg-gray-50 border-2.5 border-clay-ink shadow-clay ${CLAY_PRESS} focus-visible:ring-clay-ink ` +
+    'dark:bg-gray-900 dark:text-gray-200',
 };
 
 const sizes: Record<Size, string> = {
-  sm: 'h-8 px-3 text-xs',
-  md: 'h-10 px-4 text-sm',
-  lg: 'h-12 px-6 text-base',
+  sm: 'h-9 px-4 text-xs rounded-2xl',
+  md: 'h-11 px-5 text-sm rounded-2xl',
+  lg: 'h-13 px-7 text-base rounded-[20px] py-3',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -43,7 +53,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+        'inline-flex items-center justify-center gap-2 font-extrabold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
         variants[variant],
         sizes[size],
         fullWidth && 'w-full',

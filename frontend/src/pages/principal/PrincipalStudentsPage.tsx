@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Mail, BookOpen, Users, BarChart3, MessageSquare,
-  UserPlus, Send, ArrowRightLeft, Search, X, Eye,
+  UserPlus, Send, ArrowRightLeft, Search, Eye, EyeOff, Trash2, Copy, Check, CheckCircle2,
 } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { EmptyState } from '../../components/shared/EmptyState';
@@ -12,7 +12,7 @@ import { Tabs } from '../../components/ui/Tabs';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Card, CardContent } from '../../components/ui/Card';
+import { Select } from '../../components/ui/Select';
 import {
   usePendingStudents,
   useStudentList,
@@ -22,9 +22,11 @@ import {
   useCreateStudentByPrincipal,
   useInviteExistingByPrincipal,
   useTransferStudent,
+  useUnlinkStudent,
 } from '../../hooks/use-students';
 import { useMyTutors } from '../../hooks/use-tutors';
-import type { StudentProfile } from '../../services/students.service';
+import type { StudentProfile, ParentChildResult } from '../../services/students.service';
+import { studentsService } from '../../services/students.service';
 import { useStartConversation } from '../../features/chat/use-chat';
 
 const TABS = [
@@ -58,6 +60,8 @@ export function PrincipalStudentsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [assignTarget, setAssignTarget] = useState<StudentProfile | null>(null);
+  const [unlinkTarget, setUnlinkTarget] = useState<StudentProfile | null>(null);
+  const [createdInfo, setCreatedInfo] = useState<{ studentId: string; firstName: string; contactEmail?: string } | null>(null);
 
   const { data: principalStudents, isLoading: myLoading } = useMyStudentsAsPrincipal();
   const { data: pending = [], isLoading: pendingLoading } = usePendingStudents();
@@ -70,6 +74,7 @@ export function PrincipalStudentsPage() {
   const { mutateAsync: createStudent, isPending: creating } = useCreateStudentByPrincipal();
   const { mutateAsync: inviteStudent, isPending: inviting } = useInviteExistingByPrincipal();
   const { mutateAsync: transferStudent, isPending: transferring } = useTransferStudent();
+  const { mutateAsync: unlinkStudent, isPending: unlinking } = useUnlinkStudent();
   const { mutateAsync: startConversation } = useStartConversation();
 
   const displayList =
@@ -83,8 +88,12 @@ export function PrincipalStudentsPage() {
     activeTab === 'pending' ? pendingLoading : activeTab === 'my' ? myLoading : allLoading;
 
   const handleMessage = async (student: StudentProfile) => {
-    const conv = await startConversation({ recipientPublicId: student.userPublicId, recipientRole: 'STUDENT' });
-    navigate(`/chat/${conv.publicId}`);
+    try {
+      const conv = await startConversation({ recipientPublicId: student.userPublicId, recipientRole: 'STUDENT' });
+      navigate(`/chat/${conv.publicId}`);
+    } catch (e) {
+      console.error('Failed to start conversation', e);
+    }
   };
 
   const handleApprove = async (student: StudentProfile) => {
@@ -242,6 +251,13 @@ export function PrincipalStudentsPage() {
                             Suspend
                           </button>
                         )}
+                        <button
+                          onClick={() => setUnlinkTarget(student)}
+                          className="rounded-lg border border-clay-ink/20 p-1.5 text-clay-muted hover:border-red-400 hover:bg-clay-coral/20 hover:text-red-500 transition-colors"
+                          title="Unlink student"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -252,17 +268,46 @@ export function PrincipalStudentsPage() {
         </div>
       )}
 
+      {/* Create Student — success screen */}
+      {createdInfo && (
+        <Modal open={showCreate} onClose={() => { setCreatedInfo(null); setShowCreate(false); }} title="Student Account Created!" size="sm"
+          footer={<Button onClick={() => { setCreatedInfo(null); setShowCreate(false); }}>Done</Button>}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-clay-green-dark">
+              <CheckCircle2 className="h-5 w-5" /> Account created for {createdInfo.firstName}
+            </div>
+            <div className="rounded-2xl border-2.5 border-clay-ink bg-clay-mint p-4 space-y-3">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted mb-1">Student ID (login)</p>
+                <StudentIdCopy value={createdInfo.studentId} />
+              </div>
+              <p className="text-xs font-semibold text-clay-ink/70">
+                Student uses this ID + their password to log in.
+                {createdInfo.contactEmail && ` Credentials sent to ${createdInfo.contactEmail}.`}
+              </p>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* Create Student Modal */}
-      <CreateStudentModal
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        tutors={myTutors}
-        onCreate={async (data) => {
-          await createStudent(data);
-          setShowCreate(false);
-        }}
-        loading={creating}
-      />
+      {!createdInfo && (
+        <CreateStudentModal
+          open={showCreate}
+          onClose={() => setShowCreate(false)}
+          tutors={myTutors}
+          onCreate={async (data) => {
+            const result = await createStudent(data) as unknown as { studentId?: string; firstName?: string };
+            setCreatedInfo({
+              studentId: result?.studentId ?? '—',
+              firstName: data.firstName,
+              contactEmail: data.contactEmail,
+            });
+          }}
+          loading={creating}
+        />
+      )}
 
       {/* Invite Existing Student Modal */}
       <InviteStudentModal
@@ -270,7 +315,7 @@ export function PrincipalStudentsPage() {
         onClose={() => setShowInvite(false)}
         tutors={myTutors}
         onInvite={async (data) => {
-          await inviteStudent(data);
+          await inviteStudent(data as Parameters<typeof inviteStudent>[0]);
           setShowInvite(false);
         }}
         loading={inviting}
@@ -335,6 +380,27 @@ export function PrincipalStudentsPage() {
         {selectedStudent && <StudentDetailView student={selectedStudent} tutors={myTutors} />}
       </Modal>
 
+      {/* Unlink Confirm */}
+      <Modal
+        open={!!unlinkTarget}
+        onClose={() => setUnlinkTarget(null)}
+        title="Unlink Student"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setUnlinkTarget(null)}>Cancel</Button>
+            <Button variant="danger" loading={unlinking} onClick={async () => { await unlinkStudent(unlinkTarget!.publicId); setUnlinkTarget(null); }}>
+              Unlink
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-clay-muted">
+          Unlink <strong className="text-clay-ink">{unlinkTarget?.displayName}</strong> from your organization?
+          Their account won't be deleted — they can be re-linked later.
+        </p>
+      </Modal>
+
       {/* Suspend Modal */}
       <Modal
         open={!!suspendTarget}
@@ -371,6 +437,21 @@ export function PrincipalStudentsPage() {
   );
 }
 
+// ─── StudentId copy chip ──────────────────────────────────────────────────────
+function StudentIdCopy({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => { navigator.clipboard.writeText(value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}
+      className="inline-flex items-center gap-1.5 rounded-xl border-2 border-clay-ink/20 bg-clay-bg px-2.5 py-1.5 font-mono text-sm font-bold text-clay-ink hover:bg-clay-mint/20 transition-colors"
+    >
+      {value}
+      {copied ? <Check className="h-3.5 w-3.5 text-clay-green-dark" /> : <Copy className="h-3.5 w-3.5 text-clay-muted" />}
+    </button>
+  );
+}
+
 // ─── Create Student Modal ─────────────────────────────────────────────────────
 
 interface TutorOption {
@@ -390,16 +471,16 @@ function CreateStudentModal({
   open: boolean;
   onClose: () => void;
   tutors: TutorOption[];
-  onCreate: (data: { firstName: string; lastName: string; email: string; password: string; tutorPublicId: string; grade?: string; notes?: string }) => Promise<void>;
+  onCreate: (data: { firstName: string; lastName: string; contactEmail?: string; password: string; tutorPublicId: string; customStudentId?: string; grade?: string; notes?: string }) => Promise<void>;
   loading: boolean;
 }) {
   const [form, setForm] = useState({
-    firstName: '', lastName: '', email: '', password: '', tutorPublicId: '', grade: '', notes: '',
+    firstName: '', lastName: '', contactEmail: '', password: '', tutorPublicId: '', customStudentId: '', grade: '', notes: '',
   });
   const [error, setError] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
 
   const activeTutors = tutors.filter((t) => t.status === 'ACTIVE');
-
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -411,13 +492,14 @@ function CreateStudentModal({
       await onCreate({
         firstName: form.firstName,
         lastName: form.lastName,
-        email: form.email,
+        contactEmail: form.contactEmail || undefined,
         password: form.password,
         tutorPublicId: form.tutorPublicId,
+        customStudentId: form.customStudentId || undefined,
         grade: form.grade || undefined,
         notes: form.notes || undefined,
       });
-      setForm({ firstName: '', lastName: '', email: '', password: '', tutorPublicId: '', grade: '', notes: '' });
+      setForm({ firstName: '', lastName: '', contactEmail: '', password: '', tutorPublicId: '', customStudentId: '', grade: '', notes: '' });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create student');
     }
@@ -436,9 +518,7 @@ function CreateStudentModal({
     >
       <form id="create-student-form" onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm">
-            {error}
-          </div>
+          <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm">{error}</div>
         )}
 
         <div className="grid grid-cols-2 gap-3">
@@ -446,52 +526,58 @@ function CreateStudentModal({
           <Input label="Last Name" value={form.lastName} onChange={set('lastName')} required />
         </div>
 
-        <Input label="Email" type="email" value={form.email} onChange={set('email')} required />
-        <Input label="Password" type="password" value={form.password} onChange={set('password')} required />
+        <Input
+          label="Contact Email (optional — login credentials will be sent here)"
+          type="email"
+          placeholder="parent@example.com"
+          value={form.contactEmail}
+          onChange={set('contactEmail')}
+        />
 
-        {/* Tutor selector */}
-        <div>
-          <label className="block text-xs font-extrabold uppercase tracking-wider text-clay-muted mb-1.5">
-            Assign to Tutor <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={form.tutorPublicId}
-            onChange={set('tutorPublicId')}
-            required
-            className="w-full rounded-2xl border-2.5 border-clay-ink bg-clay-surface px-4 py-2.5 text-sm font-semibold text-clay-ink shadow-clay-sm focus:outline-none focus:bg-clay-bg/60 focus:shadow-clay"
-          >
-            <option value="">Select a tutor…</option>
-            {activeTutors.map((t) => (
-              <option key={t.publicId} value={t.publicId}>
-                {t.displayName} ({t.totalStudents} students)
-              </option>
-            ))}
-          </select>
-          {activeTutors.length === 0 && (
-            <p className="mt-1 text-xs text-clay-muted">No active tutors. Invite tutors first.</p>
-          )}
-        </div>
+        <Input
+          label="Password"
+          type={showPwd ? 'text' : 'password'}
+          value={form.password}
+          onChange={set('password')}
+          required
+          rightIcon={
+            <button type="button" onClick={() => setShowPwd((p) => !p)} className="text-clay-muted hover:text-clay-ink">
+              {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          }
+        />
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-clay-muted mb-1.5">Grade</label>
-            <select
-              value={form.grade}
-              onChange={set('grade')}
-              className="w-full rounded-2xl border-2.5 border-clay-ink bg-clay-surface px-4 py-2.5 text-sm font-semibold text-clay-ink shadow-clay-sm focus:outline-none focus:bg-clay-bg/60"
-            >
-              <option value="">Select grade…</option>
-              {GRADE_LIST.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>
-          <Input label="Notes (optional)" value={form.notes} onChange={set('notes')} />
-        </div>
+        <Select
+          label="Assign to Tutor *"
+          options={activeTutors.map((t) => ({ value: t.publicId, label: `${t.displayName} (${t.totalStudents} students)` }))}
+          placeholder="Select a tutor…"
+          value={form.tutorPublicId}
+          onChange={set('tutorPublicId')}
+        />
+        {activeTutors.length === 0 && <p className="text-xs text-clay-muted">No active tutors. Invite tutors first.</p>}
+
+        <Select
+          label="Grade (optional)"
+          options={GRADE_LIST.map((g) => ({ value: g, label: g }))}
+          placeholder="Select grade…"
+          value={form.grade}
+          onChange={set('grade')}
+        />
+
+        <Input
+          label="Custom Student ID (optional)"
+          placeholder="e.g. stujs1234 — leave blank to auto-generate"
+          value={form.customStudentId}
+          onChange={set('customStudentId')}
+        />
       </form>
     </Modal>
   );
 }
 
 // ─── Invite Existing Student Modal ───────────────────────────────────────────
+
+type SearchMode = 'email' | 'phone' | 'studentId' | 'parentEmail';
 
 function InviteStudentModal({
   open,
@@ -503,37 +589,94 @@ function InviteStudentModal({
   open: boolean;
   onClose: () => void;
   tutors: TutorOption[];
-  onInvite: (data: { email?: string; phone?: string; tutorPublicId: string }) => Promise<void>;
+  onInvite: (data: { email?: string; phone?: string; studentId?: string; studentPublicId?: string; tutorPublicId: string }) => Promise<void>;
   loading: boolean;
 }) {
-  const [searchBy, setSearchBy] = useState<'email' | 'phone'>('email');
+  const [searchBy, setSearchBy] = useState<SearchMode>('email');
   const [value, setValue] = useState('');
   const [tutorPublicId, setTutorPublicId] = useState('');
   const [error, setError] = useState('');
 
+  // Parent email search state
+  const [parentSearchResult, setParentSearchResult] = useState<{ parentName: string; children: ParentChildResult[] } | null>(null);
+  const [parentSearchLoading, setParentSearchLoading] = useState(false);
+  const [selectedChild, setSelectedChild] = useState<ParentChildResult | null>(null);
+
   const activeTutors = tutors.filter((t) => t.status === 'ACTIVE');
+
+  const reset = () => {
+    setValue(''); setTutorPublicId(''); setError('');
+    setParentSearchResult(null); setSelectedChild(null); setParentSearchLoading(false);
+  };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleParentSearch = async () => {
+    if (!value.trim()) return;
+    setParentSearchLoading(true); setError(''); setParentSearchResult(null); setSelectedChild(null);
+    try {
+      const result = await studentsService.searchParentByEmail(value.trim());
+      setParentSearchResult(result);
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e.response?.data?.message ?? e.message ?? 'Parent not found');
+    } finally { setParentSearchLoading(false); }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!tutorPublicId) { setError('Select a tutor'); return; }
+
+    if (searchBy === 'parentEmail') {
+      if (!selectedChild) { setError('Select a student from the list'); return; }
+      try {
+        await onInvite({ studentPublicId: selectedChild.publicId, tutorPublicId });
+        reset();
+      } catch (err: unknown) {
+        const e = err as { response?: { data?: { message?: string } }; message?: string };
+        setError(e.response?.data?.message ?? e.message ?? 'Failed to send invite');
+      }
+      return;
+    }
+
+    if (searchBy === 'studentId') {
+      if (!value.trim()) { setError('Enter a Student ID or UUID'); return; }
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+      try {
+        await onInvite({
+          ...(isUUID ? { studentPublicId: value.trim() } : { studentId: value.trim() }),
+          tutorPublicId,
+        });
+        reset();
+      } catch (err: unknown) {
+        const e = err as { response?: { data?: { message?: string } }; message?: string };
+        setError(e.response?.data?.message ?? e.message ?? 'Failed to send invite');
+      }
+      return;
+    }
+
     try {
-      await onInvite({
-        [searchBy]: value,
-        tutorPublicId,
-      });
-      setValue('');
-      setTutorPublicId('');
+      await onInvite({ [searchBy]: value.trim(), tutorPublicId } as Parameters<typeof onInvite>[0]);
+      reset();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to send invite');
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e.response?.data?.message ?? e.message ?? 'Failed to send invite');
     }
   };
 
+  const MODES: { key: SearchMode; label: string }[] = [
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'studentId', label: 'Student ID' },
+    { key: 'parentEmail', label: 'Parent Email' },
+  ];
+
   return (
-    <Modal open={open} onClose={onClose} title="Invite Existing Student" size="sm"
+    <Modal open={open} onClose={handleClose} title="Invite Existing Student" size="md"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={handleClose}>Cancel</Button>
           <Button form="invite-student-form" type="submit" loading={loading}>
             <Send className="h-4 w-4 mr-1.5" /> Send Invite
           </Button>
@@ -542,61 +685,116 @@ function InviteStudentModal({
     >
       <form id="invite-student-form" onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm">
-            {error}
-          </div>
+          <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm">{error}</div>
         )}
 
-        <p className="text-sm text-clay-muted">
-          Invite an existing student account to be assigned to one of your tutors.
-        </p>
-
-        {/* Search by toggle */}
-        <div className="flex gap-2">
-          {(['email', 'phone'] as const).map((opt) => (
+        {/* Mode tabs */}
+        <div className="grid grid-cols-4 gap-1.5 p-1.5 bg-clay-surface border-2.5 border-clay-ink rounded-2xl shadow-clay-sm">
+          {MODES.map(({ key, label }) => (
             <button
-              key={opt}
+              key={key}
               type="button"
-              onClick={() => { setSearchBy(opt); setValue(''); }}
-              className={`flex-1 rounded-xl border-2 py-2 text-xs font-extrabold uppercase tracking-wider transition-colors ${
-                searchBy === opt
-                  ? 'border-clay-ink bg-clay-mint text-clay-ink shadow-clay-sm'
-                  : 'border-clay-ink/20 bg-clay-surface text-clay-muted hover:bg-clay-bg'
+              onClick={() => { setSearchBy(key); setValue(''); setParentSearchResult(null); setSelectedChild(null); setError(''); }}
+              className={`py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+                searchBy === key
+                  ? 'bg-clay-green text-white border-2 border-clay-ink'
+                  : 'text-clay-muted hover:text-clay-ink hover:bg-clay-bg'
               }`}
             >
-              {opt === 'email' ? 'By Email' : 'By Phone'}
+              {label}
             </button>
           ))}
         </div>
 
-        <Input
-          label={searchBy === 'email' ? 'Student Email' : 'Student Phone'}
-          type={searchBy === 'email' ? 'email' : 'tel'}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={searchBy === 'email' ? 'student@example.com' : '+1234567890'}
-          leftIcon={searchBy === 'email' ? <Mail className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-          required
-        />
-
-        <div>
-          <label className="block text-xs font-extrabold uppercase tracking-wider text-clay-muted mb-1.5">
-            Assign to Tutor <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={tutorPublicId}
-            onChange={(e) => setTutorPublicId(e.target.value)}
+        {/* Search input */}
+        {searchBy === 'email' && (
+          <Input label="Student Email" type="email" value={value} onChange={(e) => setValue(e.target.value)}
+            placeholder="student@example.com" leftIcon={<Mail className="h-4 w-4" />} required />
+        )}
+        {searchBy === 'phone' && (
+          <Input label="Student Phone" type="tel" value={value} onChange={(e) => setValue(e.target.value)}
+            placeholder="+1234567890" leftIcon={<Search className="h-4 w-4" />} required />
+        )}
+        {searchBy === 'studentId' && (
+          <Input
+            label="Student ID or Profile UUID"
+            placeholder="stujs4821  or  3f9a2b1c-…"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            hint="Enter the student's login ID (e.g. stujs4821) or their Profile UUID"
             required
-            className="w-full rounded-2xl border-2.5 border-clay-ink bg-clay-surface px-4 py-2.5 text-sm font-semibold text-clay-ink shadow-clay-sm focus:outline-none focus:bg-clay-bg/60 focus:shadow-clay"
-          >
-            <option value="">Select a tutor…</option>
-            {activeTutors.map((t) => (
-              <option key={t.publicId} value={t.publicId}>
-                {t.displayName} ({t.totalStudents} students)
-              </option>
-            ))}
-          </select>
-        </div>
+          />
+        )}
+        {searchBy === 'parentEmail' && (
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                label="Parent Email"
+                type="email"
+                value={value}
+                onChange={(e) => { setValue(e.target.value); setParentSearchResult(null); setSelectedChild(null); }}
+                placeholder="parent@example.com"
+                leftIcon={<Mail className="h-4 w-4" />}
+              />
+              <div className="mt-7">
+                <Button type="button" variant="outline" size="sm" onClick={handleParentSearch} loading={parentSearchLoading}>
+                  Search
+                </Button>
+              </div>
+            </div>
+
+            {parentSearchResult && (
+              <div className="space-y-2">
+                <p className="text-xs font-extrabold uppercase tracking-wider text-clay-muted">
+                  Children under {parentSearchResult.parentName}
+                </p>
+                {parentSearchResult.children.length === 0 ? (
+                  <p className="text-sm text-clay-muted">No children linked to this parent.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {parentSearchResult.children.map((child) => {
+                      const name = `${child.firstName} ${child.lastName}`.trim();
+                      const isSelected = selectedChild?.publicId === child.publicId;
+                      return (
+                        <button
+                          key={child.publicId}
+                          type="button"
+                          onClick={() => setSelectedChild(isSelected ? null : child)}
+                          className={`w-full flex items-center gap-3 rounded-2xl border-2.5 p-3 text-left transition-all ${
+                            isSelected
+                              ? 'border-clay-ink bg-clay-mint shadow-clay-sm'
+                              : 'border-clay-ink/20 bg-clay-surface hover:bg-clay-bg'
+                          }`}
+                        >
+                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border-2 border-clay-ink bg-clay-purple text-sm font-black text-clay-ink">
+                            {name[0]?.toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-clay-ink">{name}</p>
+                            <p className="text-xs text-clay-muted">{child.grade ?? 'No grade'} · {child.status.replace(/_/g, ' ')}</p>
+                            {child.studentId && <p className="text-xs font-mono text-clay-muted">{child.studentId}</p>}
+                          </div>
+                          {child.alreadyLinked && <span className="text-[10px] font-extrabold text-clay-muted uppercase">Linked</span>}
+                          {isSelected && <Check className="h-4 w-4 text-clay-green-dark flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tutor selector */}
+        <Select
+          label="Assign to Tutor *"
+          options={activeTutors.map((t) => ({ value: t.publicId, label: `${t.displayName} (${t.totalStudents} students)` }))}
+          placeholder="Select a tutor…"
+          value={tutorPublicId}
+          onChange={(e) => setTutorPublicId(e.target.value)}
+        />
+        {activeTutors.length === 0 && <p className="text-xs text-clay-muted">No active tutors. Invite tutors first.</p>}
       </form>
     </Modal>
   );
@@ -696,24 +894,32 @@ function StudentDetailView({ student, tutors }: { student: StudentProfile; tutor
   const name = student.displayName || `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim() || 'Student';
   const attendancePct = Math.round(student.attendanceRate ?? 0);
   const assignedTutor = tutors.find((t) => t.publicId === student.tutorPublicId);
+  const showEmail = student.email && !student.email.endsWith('@student.internal');
+
+  const stats = [
+    { icon: BookOpen, label: 'Classes Attended', value: student.totalClassesAttended, color: 'bg-clay-sky/30' },
+    { icon: BarChart3, label: 'Attendance Rate', value: student.totalClassesAttended > 0 ? `${attendancePct}%` : 'N/A', color: 'bg-clay-mint/30' },
+    { icon: Users, label: 'Demos Used', value: `${student.demoClassesUsed}/3`, color: 'bg-clay-yellow/30' },
+    { icon: GraduationCap, label: 'Grade', value: student.grade ?? '—', color: 'bg-clay-purple/30' },
+  ];
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 rounded-2xl border-2 border-clay-ink/10 bg-clay-bg px-4 py-3">
         <Avatar name={name} size="lg" />
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="text-lg font-black text-clay-ink">{name}</h3>
-          {student.email && (
-            <p className="mt-0.5 flex items-center gap-1 text-sm text-clay-muted">
-              <Mail className="h-3.5 w-3.5" /> {student.email}
+          {showEmail && (
+            <p className="mt-0.5 flex items-center gap-1 text-sm text-clay-muted truncate">
+              <Mail className="h-3.5 w-3.5 flex-shrink-0" /> {student.email}
             </p>
           )}
           {assignedTutor && (
-            <p className="mt-0.5 text-xs font-semibold text-clay-green-dark">
+            <p className="mt-0.5 text-xs font-bold text-clay-green-dark">
               Tutor: {assignedTutor.displayName}
             </p>
           )}
-          <div className="mt-1.5">
+          <div className="mt-2">
             <Badge variant={STATUS_VARIANT[student.status] ?? 'default'}>
               {student.status.replace(/_/g, ' ')}
             </Badge>
@@ -722,23 +928,16 @@ function StudentDetailView({ student, tutors }: { student: StudentProfile; tutor
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {[
-          { icon: BookOpen, label: 'Classes Attended', value: student.totalClassesAttended, color: 'bg-clay-sky' },
-          { icon: BarChart3, label: 'Attendance Rate', value: student.totalClassesAttended > 0 ? `${attendancePct}%` : 'N/A', color: 'bg-clay-mint' },
-          { icon: Users, label: 'Demos Used', value: `${student.demoClassesUsed}/3`, color: 'bg-clay-yellow' },
-          { icon: GraduationCap, label: 'Grade', value: student.grade ?? '—', color: 'bg-clay-purple' },
-        ].map(({ icon: Icon, label, value, color }) => (
-          <Card key={label}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border-2 border-clay-ink ${color}`}>
-                <Icon className="h-4 w-4 text-clay-ink" />
-              </div>
-              <div>
-                <p className="text-xs font-extrabold uppercase tracking-wider text-clay-muted">{label}</p>
-                <p className="text-sm font-black text-clay-ink">{value}</p>
-              </div>
-            </CardContent>
-          </Card>
+        {stats.map(({ icon: Icon, label, value, color }) => (
+          <div key={label} className={`flex items-center gap-3 rounded-2xl border-2 border-clay-ink/20 ${color} p-3`}>
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border-2 border-clay-ink/30 bg-white/50">
+              <Icon className="h-4 w-4 text-clay-ink" />
+            </div>
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted">{label}</p>
+              <p className="text-sm font-black text-clay-ink">{value}</p>
+            </div>
+          </div>
         ))}
       </div>
 

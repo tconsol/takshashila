@@ -17,6 +17,13 @@ export interface IMessage {
   body: string;
   isRead: boolean;
   readAt?: string;
+  deletedFor?: string[];
+  reactions?: Record<string, string[]>;
+  pinnedUntil?: string;
+  pinnedBy?: string;
+  replyToPublicId?: string;
+  replyToBody?: string;
+  replyToSender?: string;
   mediaPublicId?: string;
   mediaMimeType?: string;
   mediaName?: string;
@@ -30,4 +37,7 @@ export interface SendMessagePayload {
   mediaMimeType?: string;
   mediaName?: string;
   mediaSizeBytes?: number;
+  replyToPublicId?: string;
+  replyToBody?: string;
+  replyToSender?: string;
 }

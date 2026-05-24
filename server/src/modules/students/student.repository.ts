@@ -77,6 +77,10 @@ export class StudentRepository {
     return this.findAll({ ...query, status: 'PENDING_APPROVAL' });
   }
 
+  async findManyByContactEmail(email: string): Promise<IStudentProfile[]> {
+    return StudentProfileModel.find({ contactEmail: email.toLowerCase(), isDeleted: false }).lean();
+  }
+
   async findByTutorIds(
     tutorPublicIds: string[],
     query: PaginationQuery & { status?: string },
