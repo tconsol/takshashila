@@ -35,15 +35,15 @@ function ChildSummaryCard({ student }: {
   const fullName = `${student.firstName} ${student.lastName}`.trim() || 'Student';
 
   return (
-    <div className="flex flex-col gap-4 rounded-[28px] border-2.5 border-clay-ink bg-clay-surface p-5 shadow-clay">
+    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Avatar name={fullName} size="md" />
           <div>
-            <p className="text-sm font-black text-clay-ink">{fullName}</p>
+            <p className="text-sm font-semibold text-slate-900">{fullName}</p>
             {student.grade && (
-              <p className="text-xs text-clay-muted">{student.grade}</p>
+              <p className="text-xs text-slate-500">{student.grade}</p>
             )}
           </div>
         </div>
@@ -56,28 +56,28 @@ function ChildSummaryCard({ student }: {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-2 text-center">
-        <div className="rounded-2xl border-2 border-clay-ink/10 bg-clay-mint/40 py-2">
-          <p className="text-lg font-black text-clay-ink">{student.attendanceRate}%</p>
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted">Attendance</p>
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50 py-2">
+          <p className="text-lg font-bold text-slate-900">{student.attendanceRate}%</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Attendance</p>
         </div>
-        <div className="rounded-2xl border-2 border-clay-ink/10 bg-clay-sky/40 py-2">
-          <p className="text-lg font-black text-clay-ink">{student.totalClassesAttended}</p>
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted">Classes</p>
+        <div className="rounded-xl border border-sky-100 bg-sky-50 py-2">
+          <p className="text-lg font-bold text-slate-900">{student.totalClassesAttended}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Classes</p>
         </div>
       </div>
 
       {/* Upcoming classes */}
       {(classes?.items?.length ?? 0) > 0 && (
         <div>
-          <p className="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-clay-muted">Upcoming Classes</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Upcoming Classes</p>
           <div className="space-y-1.5">
             {classes!.items.slice(0, 3).map((cls) => (
               <div
                 key={cls.publicId}
-                className="flex items-center justify-between rounded-xl border-2 border-clay-ink/10 bg-clay-bg px-3 py-2"
+                className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
               >
-                <span className="truncate text-xs font-bold text-clay-ink">{cls.title}</span>
-                <span className="ml-2 shrink-0 text-[11px] font-semibold text-clay-muted">
+                <span className="truncate text-xs font-medium text-slate-700">{cls.title}</span>
+                <span className="ml-2 shrink-0 text-[11px] text-slate-400">
                   {cls.startUTC ? format(new Date(cls.startUTC), 'MMM d') : '—'}
                 </span>
               </div>
@@ -89,7 +89,7 @@ function ChildSummaryCard({ student }: {
       {/* Recent attendance */}
       {(attendance?.items?.length ?? 0) > 0 && (
         <div>
-          <p className="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-clay-muted">Recent Attendance</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Recent Attendance</p>
           <div className="flex flex-wrap gap-1.5">
             {attendance!.items.slice(0, 5).map((a) => (
               <Badge key={a.publicId} variant={attendanceColors[a.status] ?? 'default'}>
@@ -104,10 +104,10 @@ function ChildSummaryCard({ student }: {
 }
 
 const QUICK_LINKS = [
-  { label: 'My Children',  href: '/dashboard/parent/children',    Icon: Users,       bg: 'bg-clay-purple', },
-  { label: 'Classes',      href: '/dashboard/parent/classes',     Icon: CalendarDays, bg: 'bg-clay-mint',  },
-  { label: 'Assignments',  href: '/dashboard/parent/assignments', Icon: BookOpen,    bg: 'bg-clay-sky',   },
-  { label: 'Progress',     href: '/dashboard/parent/progress',    Icon: BarChart3,   bg: 'bg-clay-yellow',},
+  { label: 'My Children',  href: '/dashboard/parent/children',    Icon: Users,        gradient: 'from-violet-400 to-purple-500' },
+  { label: 'Classes',      href: '/dashboard/parent/classes',     Icon: CalendarDays, gradient: 'from-emerald-400 to-teal-500'  },
+  { label: 'Assignments',  href: '/dashboard/parent/assignments', Icon: BookOpen,     gradient: 'from-sky-400 to-blue-500'      },
+  { label: 'Progress',     href: '/dashboard/parent/progress',    Icon: BarChart3,    gradient: 'from-amber-400 to-orange-500'  },
 ];
 
 export function ParentDashboard() {
@@ -187,16 +187,16 @@ export function ParentDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {QUICK_LINKS.map(({ label, href, Icon, bg }) => (
+            {QUICK_LINKS.map(({ label, href, Icon, gradient }) => (
               <Link
                 key={href}
                 to={href}
-                className="flex flex-col items-center gap-3 rounded-[28px] border-2.5 border-clay-ink bg-clay-surface p-5 shadow-clay transition-all hover:-translate-y-0.5 hover:shadow-clay-lg text-center"
+                className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-center"
               >
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-ink ${bg} shadow-clay-sm`}>
-                  <Icon className="h-5 w-5 text-clay-ink" />
+                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} text-white`}>
+                  <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-xs font-extrabold text-clay-ink">{label}</span>
+                <span className="text-xs font-semibold text-slate-700">{label}</span>
               </Link>
             ))}
           </div>

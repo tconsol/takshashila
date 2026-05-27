@@ -123,19 +123,19 @@ function MediaContent({ message, isMine }: { message: IMessage; isMine: boolean 
     <button
       onClick={() => downloadBlob(url, name)}
       className={`flex items-center gap-2.5 mt-1 mb-0.5 px-3 py-2.5 rounded-xl border w-full text-left hover:opacity-80 transition-opacity ${
-        isMine ? 'border-white/20 bg-white/10' : 'border-clay-ink/20 bg-clay-bg'
+        isMine ? 'border-white/20 bg-white/10' : 'border-slate-200 bg-slate-50'
       }`}
     >
-      <div className={`flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-lg ${isMine ? 'bg-white/20' : 'bg-clay-mint'}`}>
-        {isDoc ? <FileText className={`h-5 w-5 ${isMine ? 'text-white' : 'text-clay-ink'}`} />
+      <div className={`flex-shrink-0 flex h-9 w-9 items-center justify-center rounded-lg ${isMine ? 'bg-white/20' : 'bg-indigo-50'}`}>
+        {isDoc ? <FileText className={`h-5 w-5 ${isMine ? 'text-white' : 'text-indigo-600'}`} />
           : mime === 'application/pdf' ? <FileText className={`h-5 w-5 ${isMine ? 'text-white' : 'text-rose-500'}`} />
-          : <Film className={`h-5 w-5 ${isMine ? 'text-white' : 'text-clay-ink'}`} />}
+          : <Film className={`h-5 w-5 ${isMine ? 'text-white' : 'text-slate-600'}`} />}
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-xs font-bold truncate ${isMine ? 'text-white' : 'text-clay-ink'}`}>{name}</p>
-        {sizeLabel && <p className={`text-[10px] ${isMine ? 'text-white/60' : 'text-clay-ink/50'}`}>{sizeLabel}</p>}
+        <p className={`text-xs font-medium truncate ${isMine ? 'text-white' : 'text-slate-800'}`}>{name}</p>
+        {sizeLabel && <p className={`text-[10px] ${isMine ? 'text-white/60' : 'text-slate-400'}`}>{sizeLabel}</p>}
       </div>
-      <Download className={`h-4 w-4 flex-shrink-0 ${isMine ? 'text-white/70' : 'text-clay-ink/50'}`} />
+      <Download className={`h-4 w-4 flex-shrink-0 ${isMine ? 'text-white/70' : 'text-slate-400'}`} />
     </button>
   );
 }
@@ -146,7 +146,7 @@ function MenuItem({ icon, label, onClick, danger = false }: {
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className={`flex items-center gap-3 w-full px-4 py-2.5 text-xs font-extrabold transition-colors hover:bg-white/10 ${danger ? 'text-rose-400' : 'text-white'}`}
+      className={`flex items-center gap-3 w-full px-4 py-2.5 text-xs font-medium transition-colors hover:bg-white/10 ${danger ? 'text-rose-400' : 'text-white'}`}
     >
       {icon}
       {label}
@@ -188,13 +188,13 @@ export function MessageBubble({
 
   const meta = (
     <span className="inline-flex items-center gap-0.5 whitespace-nowrap align-bottom">
-      <span className={`text-[10px] font-bold leading-none ${isMine ? 'text-white/75' : 'text-clay-ink/50'}`}>
+      <span className={`text-[10px] font-medium leading-none ${isMine ? 'text-white/75' : 'text-slate-400'}`}>
         {formatTime(message.createdAt)}
       </span>
       {isMine && (
         <>
           <DoubleTick isRead={message.isRead} />
-          <span className={`text-[9px] font-bold leading-none ${message.isRead ? 'text-blue-300' : 'text-white/55'}`}>
+          <span className={`text-[9px] font-medium leading-none ${message.isRead ? 'text-blue-300' : 'text-white/55'}`}>
             {message.isRead ? 'Seen' : 'Sent'}
           </span>
         </>
@@ -211,7 +211,7 @@ export function MessageBubble({
         onClick={(e) => { e.stopPropagation(); onToggleSelect(message.publicId); }}
       >
         <div className={`h-5 w-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
-          isSelected ? 'bg-clay-green border-clay-green' : 'border-clay-ink/40 bg-white'
+          isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'
         }`}>
           {isSelected && (
             <svg viewBox="0 0 12 10" fill="none" className="h-3 w-3">
@@ -224,7 +224,7 @@ export function MessageBubble({
       {/* Bubble column */}
       <div className={`max-w-[72%] flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
         {!isMine && showName && senderName && (
-          <span className="text-[11px] font-extrabold text-clay-green-dark px-1 mb-0.5">{senderName}</span>
+          <span className="text-[11px] font-semibold text-indigo-500 px-1 mb-0.5">{senderName}</span>
         )}
 
         {/* Reply preview */}
@@ -232,14 +232,14 @@ export function MessageBubble({
           <div className={`mb-1 max-w-full px-3 py-1.5 rounded-xl border-l-4 text-xs ${
             isMine
               ? 'bg-black/25 border-white/80 text-white/95'
-              : 'bg-clay-green/15 border-clay-green text-clay-ink'
+              : 'bg-indigo-50 border-indigo-500 text-slate-700'
           }`}>
-            <p className={`font-extrabold text-[10px] mb-0.5 ${isMine ? 'text-white' : 'text-clay-green-dark'}`}>{message.replyToSender}</p>
-            <p className={`truncate ${isMine ? 'text-white/85' : 'text-clay-ink/80'}`}>{message.replyToBody || '📎 Attachment'}</p>
+            <p className={`font-semibold text-[10px] mb-0.5 ${isMine ? 'text-white' : 'text-indigo-600'}`}>{message.replyToSender}</p>
+            <p className={`truncate ${isMine ? 'text-white/85' : 'text-slate-600'}`}>{message.replyToBody || '📎 Attachment'}</p>
           </div>
         )}
 
-        {/* Hover action buttons — hidden in selection mode */}
+        {/* Hover action buttons */}
         {!isSelectionMode && (
           <div className={`flex items-center gap-1 mb-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
 
@@ -247,13 +247,13 @@ export function MessageBubble({
             <div ref={emojiRef} className="relative">
               <button
                 onClick={(e) => { e.stopPropagation(); setShowEmojiPanel((p) => p ? null : 'quick'); setMenuView(null); }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full bg-clay-bg border border-clay-ink/20 text-clay-ink/60 hover:text-clay-ink hover:border-clay-ink"
+                className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 shadow-sm"
               >
                 <Smile className="h-3.5 w-3.5" />
               </button>
 
               {showEmojiPanel === 'quick' && (
-                <div className={`absolute bottom-8 ${isMine ? 'right-0' : 'left-0'} z-30 flex items-center gap-1 bg-clay-ink rounded-2xl px-2 py-1.5 border border-white/10`}>
+                <div className={`absolute bottom-8 ${isMine ? 'right-0' : 'left-0'} z-30 flex items-center gap-1 bg-slate-900 rounded-2xl px-2 py-1.5 border border-white/10 shadow-xl`}>
                   {QUICK_EMOJIS.map((emoji) => (
                     <button
                       key={emoji}
@@ -265,7 +265,7 @@ export function MessageBubble({
                   ))}
                   <button
                     onClick={(e) => { e.stopPropagation(); setShowEmojiPanel('full'); }}
-                    className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-white text-xs font-extrabold hover:bg-white/25 transition-colors ml-1"
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-white text-xs font-semibold hover:bg-white/25 transition-colors ml-1"
                   >
                     +
                   </button>
@@ -289,13 +289,13 @@ export function MessageBubble({
             <div ref={menuRef} className="relative">
               <button
                 onClick={(e) => { e.stopPropagation(); setMenuView((v) => v ? null : 'main'); setShowEmojiPanel(null); }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full bg-clay-bg border border-clay-ink/20 text-clay-ink/60 hover:text-clay-ink hover:border-clay-ink"
+                className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 shadow-sm"
               >
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
 
               {menuView && (
-                <div className={`absolute bottom-8 ${isMine ? 'right-0' : 'left-0'} z-30 bg-clay-ink text-white rounded-2xl border border-white/10 py-1.5 min-w-[170px]`}>
+                <div className={`absolute bottom-8 ${isMine ? 'right-0' : 'left-0'} z-30 bg-slate-900 text-white rounded-2xl border border-white/10 py-1.5 min-w-[170px] shadow-xl`}>
                   {menuView === 'main' && (
                     <>
                       <MenuItem icon={<Reply className="h-4 w-4" />} label="Reply" onClick={() => { setMenuView(null); onReply(message); }} />
@@ -310,7 +310,7 @@ export function MessageBubble({
                     <>
                       <button
                         onClick={() => setMenuView('main')}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-xs font-extrabold text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                        className="flex items-center gap-2 w-full px-4 py-2 text-xs font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                       >
                         <ChevronLeft className="h-3.5 w-3.5" /> Back
                       </button>
@@ -329,9 +329,9 @@ export function MessageBubble({
 
         {/* Bubble */}
         <div
-          className={`rounded-2xl border-2 overflow-hidden ${isSelectionMode ? 'cursor-pointer' : ''} ${
-            isSelected ? 'border-clay-green ring-2 ring-clay-green/40' : 'border-clay-ink'
-          } ${isMine ? 'bg-clay-green text-white rounded-br-md' : 'bg-white text-clay-ink rounded-bl-md'} px-3.5 py-2`}
+          className={`rounded-2xl overflow-hidden ${isSelectionMode ? 'cursor-pointer' : ''} ${
+            isSelected ? 'ring-2 ring-indigo-500 ring-offset-1' : ''
+          } ${isMine ? 'bg-indigo-600 text-white rounded-br-md' : 'bg-white border border-slate-200 text-slate-900 rounded-bl-md shadow-sm'} px-3.5 py-2`}
         >
           {hasMedia && <MediaContent message={message} isMine={isMine} />}
           {hasText && (
@@ -352,10 +352,10 @@ export function MessageBubble({
                 <button
                   key={emoji}
                   onClick={(e) => { e.stopPropagation(); onReact(message.publicId, emoji); }}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-bold transition-colors ${
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium transition-colors ${
                     reacted
-                      ? 'bg-clay-green/20 border-clay-green text-clay-ink'
-                      : 'bg-white border-clay-ink/20 text-clay-ink hover:border-clay-ink'
+                      ? 'bg-indigo-50 border-indigo-400 text-indigo-700'
+                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                   }`}
                 >
                   <span>{emoji}</span>

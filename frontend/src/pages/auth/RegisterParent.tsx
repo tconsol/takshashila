@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, Heart, Users, Info } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, Heart, Users, Info, BookOpen, ClipboardList, Calendar, FileText } from 'lucide-react';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { authService } from '../../services/auth.service';
@@ -42,10 +42,10 @@ const RELATIONSHIP_OPTIONS = [
 ];
 
 const PARENT_BENEFITS = [
-  { icon: '📊', text: 'Live attendance tracking' },
-  { icon: '📝', text: 'Assignment updates & grades' },
-  { icon: '🎓', text: 'Class schedules & recordings' },
-  { icon: '📄', text: 'Worksheet access & downloads' },
+  { Icon: Calendar, text: 'Live attendance tracking', color: 'bg-indigo-50 text-indigo-600' },
+  { Icon: ClipboardList, text: 'Assignment updates & grades', color: 'bg-violet-50 text-violet-600' },
+  { Icon: BookOpen, text: 'Class schedules & recordings', color: 'bg-teal-50 text-teal-600' },
+  { Icon: FileText, text: 'Worksheet access & downloads', color: 'bg-pink-50 text-pink-600' },
 ];
 
 export function RegisterParentPage() {
@@ -69,88 +69,49 @@ export function RegisterParentPage() {
 
   return (
     <div className="space-y-7">
-      {/* Header */}
       <div>
-        <Link
-          to="/register"
-          className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-white px-3 py-1.5 text-xs font-extrabold text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-clay-pressed shadow-clay-sm transition-all mb-4"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to role selection
+        <Link to="/register" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors mb-4">
+          <ArrowLeft className="h-4 w-4" /> Back to role selection
         </Link>
         <div className="flex items-center gap-3 mb-2">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-pink shadow-clay-sm">
-            <Heart className="h-5 w-5 text-clay-ink" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
+            <Heart className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-clay-ink dark:text-white">Join as Parent</h1>
-            <p className="text-sm font-semibold text-clay-ink/60 dark:text-gray-400">Monitor your child's learning journey</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Join as Parent</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Monitor your child's learning journey</p>
           </div>
         </div>
       </div>
 
-      {/* What you get */}
       <div className="grid grid-cols-2 gap-2">
-        {PARENT_BENEFITS.map((b, i) => {
-          const tints = ['bg-clay-mint', 'bg-clay-sky', 'bg-clay-yellow', 'bg-clay-purple'];
-          return (
-            <div
-              key={b.text}
-              className={`flex items-center gap-2 rounded-2xl border-2 border-clay-ink ${tints[i % 4]} px-3 py-2.5`}
-            >
-              <span className="text-base">{b.icon}</span>
-              <span className="text-xs font-extrabold text-clay-ink">{b.text}</span>
+        {PARENT_BENEFITS.map(({ Icon, text, color }) => (
+          <div key={text} className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+            <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${color}`}>
+              <Icon className="h-3.5 w-3.5" />
             </div>
-          );
-        })}
+            <span className="text-xs font-medium text-slate-600">{text}</span>
+          </div>
+        ))}
       </div>
 
       {serverError && (
-        <div className="rounded-2xl border-2.5 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-extrabold text-clay-ink shadow-clay-sm">
+        <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm font-medium text-rose-700">
           {serverError}
         </div>
       )}
 
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="First name"
-            placeholder="Sunita"
-            leftIcon={<User className="h-4 w-4" />}
-            error={errors.firstName?.message}
-            {...register('firstName')}
-          />
-          <Input
-            label="Last name"
-            placeholder="Sharma"
-            error={errors.lastName?.message}
-            {...register('lastName')}
-          />
+          <Input label="First name" placeholder="Sunita" leftIcon={<User className="h-4 w-4" />} error={errors.firstName?.message} {...register('firstName')} />
+          <Input label="Last name" placeholder="Sharma" error={errors.lastName?.message} {...register('lastName')} />
         </div>
 
-        <Input
-          label="Email address"
-          type="email"
-          placeholder="parent@example.com"
-          leftIcon={<Mail className="h-4 w-4" />}
-          error={errors.email?.message}
-          {...register('email')}
-        />
+        <Input label="Email address" type="email" placeholder="parent@example.com" leftIcon={<Mail className="h-4 w-4" />} error={errors.email?.message} {...register('email')} />
 
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Phone (optional)"
-            placeholder="+91 98765 43210"
-            leftIcon={<Phone className="h-4 w-4" />}
-            error={errors.phone?.message}
-            {...register('phone')}
-          />
-          <Select
-            label="Relationship to child"
-            options={RELATIONSHIP_OPTIONS}
-            placeholder="Select…"
-            leftIcon={<Users className="h-4 w-4" />}
-            {...register('relationship')}
-          />
+          <Input label="Phone (optional)" placeholder="+91 98765 43210" leftIcon={<Phone className="h-4 w-4" />} error={errors.phone?.message} {...register('phone')} />
+          <Select label="Relationship to child" options={RELATIONSHIP_OPTIONS} placeholder="Select…" leftIcon={<Users className="h-4 w-4" />} {...register('relationship')} />
         </div>
 
         <Input
@@ -159,11 +120,7 @@ export function RegisterParentPage() {
           placeholder="Min 8 chars, upper, number, symbol"
           leftIcon={<Lock className="h-4 w-4" />}
           rightIcon={
-            <button
-              type="button"
-              onClick={() => setShowPassword((p) => !p)}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
+            <button type="button" onClick={() => setShowPassword((p) => !p)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           }
@@ -180,12 +137,10 @@ export function RegisterParentPage() {
           {...register('confirmPassword')}
         />
 
-        {/* Info note */}
-        <div className="flex gap-3 rounded-xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 p-4">
+        <div className="flex gap-3 rounded-xl bg-sky-50 border border-sky-200 p-3.5">
           <Info className="h-4 w-4 text-sky-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-sky-700 dark:text-sky-400">
-            After registering, go to <strong>My Children</strong> in your dashboard and enter your child's
-            Student ID to link their account and start monitoring their progress.
+          <p className="text-sm text-sky-700">
+            After registering, go to <strong>My Children</strong> in your dashboard and enter your child's Student ID to link their account.
           </p>
         </div>
 
@@ -196,9 +151,7 @@ export function RegisterParentPage() {
 
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
         Already have an account?{' '}
-        <Link to="/login" className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">
-          Sign in
-        </Link>
+        <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700">Sign in</Link>
       </p>
     </div>
   );

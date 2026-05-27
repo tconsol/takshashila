@@ -137,14 +137,14 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
         <Card padding="md" tone="soft" className="mb-6">
           <div className="grid gap-3 lg:grid-cols-12">
             <div className="lg:col-span-5">
-              <label className="mb-2 block text-sm font-extrabold text-clay-ink dark:text-gray-300">Search</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-gray-300">Search</label>
               <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-clay-ink" />
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Subject, name, or qualification…"
-                  className="w-full rounded-2xl border-2.5 border-clay-ink bg-white pl-10 pr-3 py-3 text-sm font-semibold text-clay-ink placeholder:text-gray-400 shadow-clay-sm transition-all focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-clay-pressed dark:bg-gray-900 dark:text-white"
+                  className="w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition-all focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:bg-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -187,16 +187,16 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
           </div>
 
           {(subject || priceIdx > 0 || minRating > 0 || search) && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t-2 border-dashed border-clay-ink/20 pt-3">
-              <Filter className="h-3.5 w-3.5 text-clay-ink" />
-              <span className="text-xs font-extrabold text-clay-ink/70">Active filters:</span>
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dashed border-slate-200 pt-3">
+              <Filter className="h-3.5 w-3.5 text-slate-500" />
+              <span className="text-xs font-medium text-slate-500">Active filters:</span>
               {search && <Chip onClear={() => setSearch('')}>"{search}"</Chip>}
               {subject && <Chip onClear={() => setSubject('')}>{subject}</Chip>}
               {priceIdx > 0 && <Chip onClear={() => setPriceIdx(0)}>{PRICE_BUCKETS[priceIdx].label}</Chip>}
               {minRating > 0 && <Chip onClear={() => setMinRating(0)}>★ {minRating}+</Chip>}
               <button
                 onClick={() => { setSearch(''); setSubject(''); setPriceIdx(0); setMinRating(0); }}
-                className="ml-auto rounded-full border-2 border-clay-ink bg-white px-3 py-1 text-xs font-extrabold text-clay-ink hover:bg-clay-coral transition-colors"
+                className="ml-auto rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors"
               >
                 Reset all
               </button>
@@ -274,11 +274,11 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
 
 function Chip({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-clay-mint px-2.5 py-1 text-xs font-extrabold text-clay-ink">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
       {children}
       <button
         onClick={onClear}
-        className="text-clay-ink hover:text-rose-600"
+        className="text-indigo-400 hover:text-rose-600 transition-colors"
         aria-label="Remove filter"
       >
         ×
@@ -372,17 +372,17 @@ function PublicNav() {
   const { isAuthenticated, user } = useAuthStore();
   return (
     <header className="sticky top-4 z-40 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <nav className="flex h-16 items-center justify-between rounded-[28px] border-2.5 border-clay-ink bg-white px-4 shadow-clay sm:px-6 dark:bg-gray-950">
+      <nav className="flex h-16 items-center justify-between rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-sm px-4 shadow-sm sm:px-6 dark:bg-gray-950">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-coral">
-            <GraduationCap className="h-5 w-5 text-clay-ink" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600">
+            <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="text-lg font-extrabold text-clay-ink dark:text-white">Takshashila</span>
+          <span className="text-lg font-bold text-slate-900 dark:text-white">Takshashila</span>
         </Link>
         <div className="hidden gap-7 md:flex">
-          <Link to="/" className="text-sm font-bold text-clay-ink hover:text-clay-green-dark">Home</Link>
-          <Link to="/tutors" className="text-sm font-extrabold text-clay-green-dark">Find Tutors</Link>
-          <Link to="/#features" className="text-sm font-bold text-clay-ink hover:text-clay-green-dark">Features</Link>
+          <Link to="/" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Home</Link>
+          <Link to="/tutors" className="text-sm font-semibold text-indigo-600">Find Tutors</Link>
+          <Link to="/#features" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Features</Link>
         </div>
         <div className="flex items-center gap-3">
           {isAuthenticated && user ? (
@@ -391,7 +391,7 @@ function PublicNav() {
             </Link>
           ) : (
             <>
-              <Link to="/login" className="hidden sm:block text-sm font-bold text-clay-ink hover:text-clay-green-dark">Sign in</Link>
+              <Link to="/login" className="hidden sm:block text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Sign in</Link>
               <Link to="/register/student">
                 <Button size="sm">Get started</Button>
               </Link>

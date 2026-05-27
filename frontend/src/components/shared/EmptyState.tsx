@@ -7,18 +7,10 @@ interface EmptyStateProps {
   description?: string;
   action?: ReactNode;
   className?: string;
-  /** Compact spacing for in-card empty states */
   compact?: boolean;
 }
 
-export function EmptyState({
-  icon,
-  title,
-  description,
-  action,
-  className,
-  compact,
-}: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action, className, compact }: EmptyStateProps) {
   return (
     <div
       className={cn(
@@ -28,15 +20,13 @@ export function EmptyState({
       )}
     >
       {icon && (
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-mint text-clay-ink shadow-clay-sm">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
           {icon}
         </div>
       )}
-      <h3 className="text-base font-extrabold text-clay-ink">{title}</h3>
+      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
       {description && (
-        <p className="mt-1 max-w-sm text-sm font-semibold text-clay-muted">
-          {description}
-        </p>
+        <p className="mt-1.5 max-w-sm text-sm text-slate-400 dark:text-slate-500">{description}</p>
       )}
       {action && <div className="mt-5">{action}</div>}
     </div>

@@ -13,8 +13,6 @@ import { ROLE_DASHBOARD_PATHS } from '../constants/roles';
 import { InfiniteCarouselWall } from '../components/lightswind/InfiniteCarouselWall';
 import { CtaBanner } from '../components/shared/CtaBanner';
 
-/* ─── constants ─────────────────────────────────────────────────── */
-
 const ROTATING_SUBJECTS = ['Mathematics', 'Physics', 'English', 'Coding', 'Chemistry', 'Biology'];
 
 const SUBJECTS_MARQUEE = [
@@ -23,10 +21,10 @@ const SUBJECTS_MARQUEE = [
 ];
 
 const STATS = [
-  { label: 'Active students', num: 50000, display: '50K+', tint: 'bg-clay-mint',   ink: 'text-clay-green-dark' },
-  { label: 'Expert tutors',   num: 5000,  display: '5K+',  tint: 'bg-clay-coral',  ink: 'text-rose-700' },
-  { label: 'Subjects',        num: 100,   display: '100+', tint: 'bg-clay-yellow', ink: 'text-amber-700' },
-  { label: 'Avg. rating',     num: 49,    display: '4.9★', tint: 'bg-clay-pink',   ink: 'text-pink-700' },
+  { label: 'Active students', display: '50K+', bg: 'bg-indigo-50', text: 'text-indigo-600',  icon: Users },
+  { label: 'Expert tutors',   display: '5K+',  bg: 'bg-violet-50', text: 'text-violet-600', icon: GraduationCap },
+  { label: 'Subjects',        display: '100+', bg: 'bg-teal-50',   text: 'text-teal-600',   icon: BookOpen },
+  { label: 'Avg. rating',     display: '4.9★', bg: 'bg-amber-50',  text: 'text-amber-600',  icon: Star },
 ];
 
 const SKILL_TABS = [
@@ -73,27 +71,10 @@ const SKILL_TABS = [
 ];
 
 const STEPS = [
-  {
-    step: '01',
-    title: 'Begin at your level',
-    desc: 'Quick assessment so your tutor knows exactly where to start.',
-    tint: 'bg-clay-mint',
-  },
-  {
-    step: '02',
-    title: 'Progress fast',
-    desc: 'Live classes, real-time feedback and targeted practice.',
-    tint: 'bg-clay-sky',
-  },
-  {
-    step: '03',
-    title: 'Ace exams & shine',
-    desc: 'Confidence to tackle any exam, debate or presentation.',
-    tint: 'bg-clay-purple',
-  },
+  { step: '01', title: 'Begin at your level', desc: 'Quick assessment so your tutor knows exactly where to start.', color: 'bg-indigo-500' },
+  { step: '02', title: 'Progress fast',       desc: 'Live classes, real-time feedback and targeted practice.',     color: 'bg-violet-500' },
+  { step: '03', title: 'Ace exams & shine',   desc: 'Confidence to tackle any exam, debate or presentation.',     color: 'bg-teal-500' },
 ];
-
-/* ─── animation variants ─────────────────────────────────────────── */
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -105,47 +86,40 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.1 } },
 };
 
-/* ─── shared classes (claymorphism) ───────────────────────────────── */
-
-const CLAY_CARD = 'rounded-[28px] border-2.5 border-clay-ink bg-white shadow-clay dark:bg-gray-900';
-const CLAY_CARD_LG = 'rounded-[32px] border-2.5 border-clay-ink shadow-clay-lg';
-const CLAY_PRESS = 'transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-clay-pressed';
-
-/* ─── helpers ────────────────────────────────────────────────────── */
-
-function SectionLabel({ children, tint = 'bg-clay-mint' }: { children: React.ReactNode; tint?: string }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`mb-5 inline-flex items-center gap-2 rounded-full border-2.5 border-clay-ink ${tint} px-4 py-1.5 text-sm font-extrabold text-clay-ink shadow-clay-sm`}>
+    <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-indigo-50 border border-indigo-100 px-4 py-1.5 text-sm font-semibold text-indigo-600">
       <Sparkles className="h-3.5 w-3.5" />
       {children}
     </div>
   );
 }
 
-function AnimatedStat({ display, label, tint, ink }: (typeof STATS)[0]) {
+function AnimatedStat({ display, label, bg, text, icon: Icon }: (typeof STATS)[0]) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-60px' });
   return (
     <motion.div
       ref={ref}
       variants={fadeUp}
-      className={`relative overflow-hidden ${CLAY_CARD} p-6 ${CLAY_PRESS}`}
+      className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all"
     >
-      <div className={`absolute -right-6 -top-6 h-20 w-20 rounded-full ${tint} border-2.5 border-clay-ink opacity-60`} />
+      <div className={`absolute -right-4 -top-4 h-16 w-16 rounded-full ${bg} opacity-60`} />
+      <div className={`mb-2 flex h-10 w-10 items-center justify-center rounded-xl ${bg}`}>
+        <Icon className={`h-5 w-5 ${text}`} />
+      </div>
       <motion.p
-        className={`relative text-4xl font-black md:text-5xl ${ink}`}
+        className={`text-3xl font-bold md:text-4xl ${text}`}
         initial={{ opacity: 0, scale: 0.8 }}
         animate={inView ? { opacity: 1, scale: 1 } : {}}
         transition={{ duration: 0.5, ease: 'backOut' }}
       >
         {display}
       </motion.p>
-      <p className="relative mt-1.5 text-sm font-bold text-clay-ink/70 dark:text-gray-400">{label}</p>
+      <p className="mt-1 text-sm text-slate-500">{label}</p>
     </motion.div>
   );
 }
-
-/* ─── main component ─────────────────────────────────────────────── */
 
 export function LandingPage() {
   const { isAuthenticated, user } = useAuthStore();
@@ -159,22 +133,20 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-clay-bg text-clay-ink antialiased selection:bg-clay-green selection:text-white dark:bg-gray-950 dark:text-white">
+    <div className="min-h-screen bg-[#FAFBFF] text-slate-900 antialiased selection:bg-indigo-600 selection:text-white dark:bg-slate-950 dark:text-white">
 
-      {/* ══════════════════════════════════════════════════════════════
-          NAVBAR
-      ══════════════════════════════════════════════════════════════ */}
+      {/* NAVBAR */}
       <header className="sticky top-4 z-50 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <nav className="flex h-16 items-center justify-between rounded-[28px] border-2.5 border-clay-ink bg-white px-4 shadow-clay sm:px-6 dark:bg-gray-950">
+        <nav className="flex h-16 items-center justify-between rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-sm px-4 shadow-sm sm:px-6 dark:bg-slate-900/95 dark:border-slate-800">
           <Link
             to="/"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center gap-2.5"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-coral">
-              <GraduationCap className="h-5 w-5 text-clay-ink" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
+              <GraduationCap className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-extrabold tracking-tight">Takshashila</span>
+            <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Takshashila</span>
           </Link>
 
           <div className="hidden items-center gap-7 md:flex">
@@ -185,11 +157,11 @@ export function LandingPage() {
               { label: 'Reviews',    href: '#testimonials' },
             ].map(({ label, href, icon: Icon }) => (
               href.startsWith('#') ? (
-                <a key={label} href={href} className="text-sm font-bold text-clay-ink transition-colors hover:text-clay-green-dark dark:text-gray-300">
+                <a key={label} href={href} className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors dark:text-slate-300">
                   {label}
                 </a>
               ) : (
-                <Link key={label} to={href} className="flex items-center gap-1.5 text-sm font-bold text-clay-ink transition-colors hover:text-clay-green-dark dark:text-gray-300">
+                <Link key={label} to={href} className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors dark:text-slate-300">
                   {Icon && <Icon className="h-3.5 w-3.5" />} {label}
                 </Link>
               )
@@ -200,18 +172,18 @@ export function LandingPage() {
             {isAuthenticated && user ? (
               <Link
                 to={ROLE_DASHBOARD_PATHS[user.role]}
-                className={`inline-flex items-center gap-1.5 rounded-2xl border-2.5 border-clay-ink bg-clay-green px-5 py-2.5 text-sm font-extrabold text-white shadow-clay ${CLAY_PRESS}`}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
               >
                 Dashboard <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             ) : (
               <>
-                <Link to="/login" className="hidden text-sm font-bold text-clay-ink transition-colors hover:text-clay-green-dark dark:text-gray-300 sm:block">
+                <Link to="/login" className="hidden text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors dark:text-slate-300 sm:block">
                   Sign in
                 </Link>
                 <Link
                   to="/register/student"
-                  className={`inline-flex items-center gap-1.5 rounded-2xl border-2.5 border-clay-ink bg-clay-green px-5 py-2.5 text-sm font-extrabold text-white shadow-clay ${CLAY_PRESS}`}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
                 >
                   Get started free
                 </Link>
@@ -221,51 +193,26 @@ export function LandingPage() {
         </nav>
       </header>
 
-      {/* ══════════════════════════════════════════════════════════════
-          HERO
-      ══════════════════════════════════════════════════════════════ */}
+      {/* HERO */}
       <section className="relative overflow-hidden pb-20 pt-12 lg:pt-20 lg:pb-28">
-        {/* Floating clay shapes */}
-        <motion.div
-          aria-hidden
-          className="absolute right-[6%] top-[8%] h-16 w-16 rounded-3xl border-2.5 border-clay-ink bg-clay-yellow"
-          animate={{ y: [0, -14, 0], rotate: [0, 8, 0] }}
-          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        <motion.div
-          aria-hidden
-          className="absolute left-[3%] top-[42%] h-12 w-12 rounded-full border-2.5 border-clay-ink bg-clay-pink"
-          animate={{ y: [0, 14, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        <motion.div
-          aria-hidden
-          className="absolute right-[12%] bottom-[10%] h-10 w-10 rounded-2xl border-2.5 border-clay-ink bg-clay-sky rotate-12"
-          animate={{ rotate: [12, -8, 12] }}
-          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
-        />
+        {/* Subtle background orbs */}
+        <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-indigo-100/60 blur-3xl" aria-hidden />
+        <div className="absolute -left-32 top-1/3 h-80 w-80 rounded-full bg-violet-100/50 blur-3xl" aria-hidden />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid items-center gap-14 lg:grid-cols-2">
 
             {/* LEFT */}
-            <motion.div
-              className="space-y-7"
-              variants={stagger}
-              initial="hidden"
-              animate="visible"
-            >
-              {/* Badge */}
+            <motion.div className="space-y-7" variants={stagger} initial="hidden" animate="visible">
               <motion.div variants={fadeUp}>
-                <div className="inline-flex items-center gap-2 rounded-full border-2.5 border-clay-ink bg-clay-mint px-4 py-1.5 text-sm font-extrabold text-clay-ink shadow-clay-sm">
-                  <span className="flex h-2 w-2 animate-pulse rounded-full bg-clay-green-dark" />
+                <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 border border-indigo-100 px-4 py-1.5 text-sm font-semibold text-indigo-700">
+                  <span className="flex h-2 w-2 animate-pulse rounded-full bg-indigo-500" />
                   Trusted online tutoring marketplace
                 </div>
               </motion.div>
 
-              {/* Headline with rotating word */}
               <motion.div variants={fadeUp}>
-                <h1 className="text-4xl font-extrabold leading-[1.06] tracking-tight sm:text-5xl lg:text-[4.25rem]">
+                <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl lg:text-[4.25rem] dark:text-white">
                   Find expert tutors for{' '}
                   <span className="relative inline-block overflow-hidden align-bottom" style={{ height: '1.15em' }}>
                     <AnimatePresence mode="wait">
@@ -275,7 +222,7 @@ export function LandingPage() {
                         animate={{ y: 0, opacity: 1 }}
                         exit={{ y: -48, opacity: 0 }}
                         transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-                        className="absolute left-0 top-0 text-clay-green-dark"
+                        className="absolute left-0 top-0 text-indigo-600"
                       >
                         {ROTATING_SUBJECTS[wordIdx]}
                       </motion.span>
@@ -285,15 +232,14 @@ export function LandingPage() {
                 </h1>
               </motion.div>
 
-              <motion.p variants={fadeUp} className="max-w-xl text-lg leading-relaxed text-clay-ink/70 dark:text-gray-300 md:text-xl">
+              <motion.p variants={fadeUp} className="max-w-xl text-lg leading-relaxed text-slate-600 dark:text-slate-300 md:text-xl">
                 Search by grade, subject and schedule. Compare profiles, ratings and teaching style then book a live demo in one click.
               </motion.p>
 
-              {/* CTAs */}
               <motion.div variants={fadeUp} className="flex flex-wrap gap-3">
                 <Link
                   to="/tutors"
-                  className={`group inline-flex items-center gap-2 rounded-2xl border-2.5 border-clay-ink bg-clay-green px-7 py-3.5 text-base font-extrabold text-white shadow-clay ${CLAY_PRESS}`}
+                  className="group inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-7 py-3.5 text-base font-semibold text-white shadow-sm hover:shadow-md transition-all"
                 >
                   <Rocket className="h-5 w-5" />
                   Find tutors
@@ -301,46 +247,45 @@ export function LandingPage() {
                 </Link>
                 <Link
                   to="/register/student"
-                  className={`inline-flex items-center gap-2 rounded-2xl border-2.5 border-clay-ink bg-white px-7 py-3.5 text-base font-extrabold text-clay-ink shadow-clay ${CLAY_PRESS}`}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-7 py-3.5 text-base font-semibold text-slate-700 shadow-sm transition-all"
                 >
                   <Play className="h-4 w-4 fill-current" /> Book a free demo
                 </Link>
               </motion.div>
 
-              {/* Social proof */}
               <motion.div variants={fadeUp} className="flex items-center gap-4">
                 <div className="flex -space-x-2.5">
                   {[
-                    { i: 'PS', t: 'bg-clay-coral' },
-                    { i: 'RM', t: 'bg-clay-mint' },
-                    { i: 'AV', t: 'bg-clay-sky' },
-                    { i: 'KN', t: 'bg-clay-purple' },
-                    { i: 'DK', t: 'bg-clay-yellow' },
-                  ].map(({ i, t }, idx) => (
+                    { i: 'PS', g: 'from-rose-400 to-pink-500' },
+                    { i: 'RM', g: 'from-indigo-400 to-violet-500' },
+                    { i: 'AV', g: 'from-teal-400 to-emerald-500' },
+                    { i: 'KN', g: 'from-amber-400 to-orange-500' },
+                    { i: 'DK', g: 'from-sky-400 to-blue-500' },
+                  ].map(({ i, g }, idx) => (
                     <div
                       key={i}
-                      className={`flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-clay-ink ${t} text-[10px] font-extrabold text-clay-ink`}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${g} text-[10px] font-bold text-white ring-2 ring-white`}
                       style={{ zIndex: 5 - idx }}
                     >
                       {i}
                     </div>
                   ))}
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full border-2.5 border-clay-ink bg-white text-[10px] font-extrabold text-clay-ink">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 ring-2 ring-white">
                     +99
                   </div>
                 </div>
-                <div className="text-sm text-clay-ink/70 dark:text-gray-400">
-                  <span className="font-extrabold text-clay-ink dark:text-white">50,000+ students</span> joined this month
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold text-slate-900 dark:text-white">50,000+ students</span> joined this month
                   <div className="flex items-center gap-0.5 mt-0.5">
                     {[...Array(5)].map((_, k) => <Star key={k} className="h-3 w-3 fill-amber-400 text-amber-400" />)}
-                    <span className="ml-1 font-extrabold text-clay-ink dark:text-gray-300">4.9</span>
-                    <span className="text-clay-ink/50"> · 12K reviews</span>
+                    <span className="ml-1 font-semibold text-slate-700 dark:text-slate-300">4.9</span>
+                    <span className="text-slate-400"> · 12K reviews</span>
                   </div>
                 </div>
               </motion.div>
             </motion.div>
 
-            {/* RIGHT — clay dashboard mock */}
+            {/* RIGHT — dashboard mock */}
             <motion.div
               className="relative flex items-center justify-center lg:justify-end"
               initial={{ opacity: 0, x: 40 }}
@@ -348,51 +293,50 @@ export function LandingPage() {
               transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="relative w-full max-w-sm">
-                {/* Main card */}
-                <div className={`overflow-hidden ${CLAY_CARD_LG} bg-white dark:bg-gray-900`}>
-                  <div className="bg-clay-green border-b-2.5 border-clay-ink px-5 py-4 text-white">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:bg-slate-900">
+                  <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-4 text-white">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-clay-ink bg-white">
-                          <BookOpen className="h-4 w-4 text-clay-ink" />
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+                          <BookOpen className="h-4 w-4 text-white" />
                         </div>
                         <div>
-                          <p className="text-sm font-extrabold">Today's Classes</p>
-                          <p className="text-[11px] font-bold text-white/80">3 sessions scheduled</p>
+                          <p className="text-sm font-semibold">Today's Classes</p>
+                          <p className="text-[11px] text-white/80">3 sessions scheduled</p>
                         </div>
                       </div>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-white px-2.5 py-1 text-[10px] font-extrabold text-clay-green-dark">
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-clay-green-dark" />
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-sm px-2.5 py-1 text-[10px] font-semibold text-white">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
                         Live now
                       </span>
                     </div>
                   </div>
                   <div className="space-y-2 p-4">
                     {[
-                      { subj: 'Advanced Mathematics', tutor: 'Dr. Mehta',  time: '10:00 AM', live: false, tint: 'bg-clay-sky' },
-                      { subj: 'Physics Mechanics',    tutor: 'Ms. Sharma', time: '12:30 PM', live: true,  tint: 'bg-clay-mint' },
-                      { subj: 'English Literature',   tutor: 'Mr. Rao',    time: '3:00 PM',  live: false, tint: 'bg-clay-purple' },
+                      { subj: 'Advanced Mathematics', tutor: 'Dr. Mehta',  time: '10:00 AM', live: false, bg: 'bg-sky-50 border-sky-100' },
+                      { subj: 'Physics Mechanics',    tutor: 'Ms. Sharma', time: '12:30 PM', live: true,  bg: 'bg-indigo-50 border-indigo-100' },
+                      { subj: 'English Literature',   tutor: 'Mr. Rao',    time: '3:00 PM',  live: false, bg: 'bg-violet-50 border-violet-100' },
                     ].map((c) => (
-                      <div key={c.subj} className={`flex items-center gap-3 rounded-2xl border-2 border-clay-ink ${c.tint} px-3 py-2.5`}>
+                      <div key={c.subj} className={`flex items-center gap-3 rounded-xl border ${c.bg} px-3 py-2.5`}>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-extrabold text-clay-ink">{c.subj}</p>
-                          <p className="truncate text-[10px] font-semibold text-clay-ink/70">{c.time} · {c.tutor}</p>
+                          <p className="truncate text-xs font-semibold text-slate-800">{c.subj}</p>
+                          <p className="truncate text-[10px] text-slate-500">{c.time} · {c.tutor}</p>
                         </div>
-                        <span className={`rounded-full border-2 border-clay-ink px-2 py-0.5 text-[10px] font-extrabold ${c.live ? 'bg-clay-green text-white' : 'bg-white text-clay-ink'}`}>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.live ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
                           {c.live ? 'Live' : 'Soon'}
                         </span>
                       </div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-3 gap-2 border-t-2 border-dashed border-clay-ink/20 p-4">
+                  <div className="grid grid-cols-3 gap-2 border-t border-slate-100 p-4">
                     {[
-                      { label: 'Attendance', value: '94%',  tint: 'bg-clay-mint' },
-                      { label: 'Balance',    value: '$4.8K', tint: 'bg-clay-yellow' },
-                      { label: 'Rating',     value: '4.9★', tint: 'bg-clay-coral' },
+                      { label: 'Attendance', value: '94%',  bg: 'bg-emerald-50 text-emerald-700' },
+                      { label: 'Balance',    value: '$4.8K', bg: 'bg-amber-50 text-amber-700' },
+                      { label: 'Rating',     value: '4.9★', bg: 'bg-rose-50 text-rose-600' },
                     ].map((s) => (
-                      <div key={s.label} className={`rounded-2xl border-2 border-clay-ink ${s.tint} px-2 py-2 text-center`}>
-                        <p className="text-sm font-black text-clay-ink">{s.value}</p>
-                        <p className="text-[10px] font-bold text-clay-ink/70">{s.label}</p>
+                      <div key={s.label} className={`rounded-xl ${s.bg} px-2 py-2 text-center`}>
+                        <p className="text-sm font-bold">{s.value}</p>
+                        <p className="text-[10px] font-medium opacity-70">{s.label}</p>
                       </div>
                     ))}
                   </div>
@@ -400,45 +344,45 @@ export function LandingPage() {
 
                 {/* Floating chips */}
                 <motion.div
-                  className={`absolute -left-12 top-8 hidden ${CLAY_CARD} p-3 lg:block`}
+                  className="absolute -left-12 top-8 hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-lg lg:block"
                   animate={{ y: [0, -6, 0] }}
                   transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-clay-ink bg-clay-purple">
-                      <Video className="h-4 w-4 text-clay-ink" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50">
+                      <Video className="h-4 w-4 text-violet-600" />
                     </div>
                     <div>
-                      <p className="text-xs font-extrabold">Live math class</p>
-                      <p className="text-[10px] font-semibold text-clay-ink/70">Grade 6 · 5 min left</p>
+                      <p className="text-xs font-semibold text-slate-800">Live math class</p>
+                      <p className="text-[10px] text-slate-400">Grade 6 · 5 min left</p>
                     </div>
                   </div>
                 </motion.div>
 
                 <motion.div
-                  className={`absolute -right-10 top-16 hidden ${CLAY_CARD} px-3.5 py-2.5 lg:block`}
+                  className="absolute -right-10 top-16 hidden rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-lg lg:block"
                   animate={{ y: [0, -8, 0] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
                 >
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg border-2 border-clay-ink bg-clay-yellow">
-                      <Bell className="h-3.5 w-3.5 text-clay-ink" />
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50">
+                      <Bell className="h-3.5 w-3.5 text-amber-600" />
                     </div>
                     <div>
-                      <p className="text-xs font-extrabold">New assignment</p>
-                      <p className="text-[10px] font-semibold text-clay-ink/70">Physics · due today</p>
+                      <p className="text-xs font-semibold text-slate-800">New assignment</p>
+                      <p className="text-[10px] text-slate-400">Physics · due today</p>
                     </div>
                   </div>
                 </motion.div>
 
                 <motion.div
-                  className={`absolute -left-10 bottom-12 hidden ${CLAY_CARD} p-3 lg:block`}
+                  className="absolute -left-10 bottom-12 hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-lg lg:block"
                   animate={{ y: [0, -5, 0] }}
                   transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
                 >
                   <div className="flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-amber-500 fill-amber-400" />
-                    <span className="text-xs font-extrabold">Top rated</span>
+                    <span className="text-xs font-semibold text-slate-800">Top rated</span>
                     <div className="flex gap-0.5">
                       {[...Array(5)].map((_, i) => <Star key={i} className="h-3 w-3 fill-amber-400 text-amber-400" />)}
                     </div>
@@ -446,13 +390,13 @@ export function LandingPage() {
                 </motion.div>
 
                 <motion.div
-                  className={`absolute -right-8 bottom-20 hidden ${CLAY_CARD} px-3.5 py-2.5 lg:block`}
+                  className="absolute -right-8 bottom-20 hidden rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-lg lg:block"
                   animate={{ y: [0, -7, 0] }}
                   transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-clay-green-dark" />
-                    <span className="text-xs font-extrabold">248 students online</span>
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                    <span className="text-xs font-semibold text-slate-800">248 students online</span>
                   </div>
                 </motion.div>
               </div>
@@ -461,26 +405,22 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════
-          MARQUEE
-      ══════════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden border-y-2.5 border-clay-ink bg-clay-yellow py-7">
-        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-20 bg-gradient-to-r from-clay-yellow to-transparent" />
-        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-20 bg-gradient-to-l from-clay-yellow to-transparent" />
+      {/* MARQUEE */}
+      <section className="relative overflow-hidden border-y border-indigo-100 bg-indigo-50 py-7">
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-20 bg-gradient-to-r from-indigo-50 to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-20 bg-gradient-to-l from-indigo-50 to-transparent" />
         <div className="flex animate-[marquee_40s_linear_infinite] gap-10 whitespace-nowrap">
           {[...SUBJECTS_MARQUEE, ...SUBJECTS_MARQUEE].map((s, i) => (
-            <div key={i} className="flex shrink-0 items-center gap-3 text-xl font-extrabold text-clay-ink md:text-2xl">
+            <div key={i} className="flex shrink-0 items-center gap-3 text-lg font-semibold text-indigo-700 md:text-xl">
               <Sparkles className="h-4 w-4" />
               <span>{s}</span>
-              <span className="text-clay-ink/40">·</span>
+              <span className="text-indigo-300">·</span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════
-          STATS
-      ══════════════════════════════════════════════════════════════ */}
+      {/* STATS */}
       <section className="py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -497,9 +437,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════
-          FEATURES BENTO GRID
-      ══════════════════════════════════════════════════════════════ */}
+      {/* FEATURES */}
       <section id="features" className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -509,14 +447,12 @@ export function LandingPage() {
             viewport={{ once: true }}
             transition={{ duration: 0.55 }}
           >
-            <SectionLabel tint="bg-clay-mint">Platform features</SectionLabel>
-            <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl text-clay-ink">
+            <SectionLabel>Platform features</SectionLabel>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-5xl">
               Everything you need to{' '}
-              <span className="bg-clay-green text-white px-3 -mx-1 inline-block rounded-2xl border-2.5 border-clay-ink">
-                teach &amp; learn
-              </span>
+              <span className="text-indigo-600">teach &amp; learn</span>
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-clay-ink/70 dark:text-gray-300">
+            <p className="mx-auto mt-4 max-w-xl text-lg text-slate-500 dark:text-slate-300">
               One platform for scheduling, live classes, payments and growth.
             </p>
           </motion.div>
@@ -528,58 +464,57 @@ export function LandingPage() {
             whileInView="visible"
             viewport={{ once: true, margin: '-40px' }}
           >
-            {/* LARGE Live Classes */}
+            {/* Live Classes — large card */}
             <motion.div
               variants={fadeUp}
-              className="group relative overflow-hidden rounded-[32px] border-2.5 border-clay-ink bg-clay-green p-7 text-white shadow-clay-lg md:col-span-2 md:row-span-2"
+              className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 p-7 text-white shadow-xl md:col-span-2 md:row-span-2"
             >
-              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-3xl border-2.5 border-clay-ink bg-clay-yellow rotate-12" />
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-xl" />
 
               <div className="relative z-10">
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-white text-clay-ink shadow-clay">
-                  <Video className="h-6 w-6" />
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                  <Video className="h-6 w-6 text-white" />
                 </div>
-                <p className="text-xs font-extrabold uppercase tracking-widest text-white/80">Feature highlight</p>
-                <h3 className="mt-2 text-2xl font-extrabold md:text-3xl">Live HD Classes</h3>
-                <p className="mt-2 max-w-md text-sm leading-relaxed text-white/90 md:text-base">
+                <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Feature highlight</p>
+                <h3 className="mt-2 text-2xl font-bold md:text-3xl">Live HD Classes</h3>
+                <p className="mt-2 max-w-md text-sm leading-relaxed text-white/85 md:text-base">
                   Real-time teaching via Agora, Zoom & Meet. Record every session students can replay at any time.
                 </p>
 
-                {/* Mini video call mockup */}
-                <div className="mt-6 overflow-hidden rounded-2xl border-2.5 border-clay-ink bg-white text-clay-ink">
-                  <div className="flex items-center justify-between border-b-2 border-clay-ink/20 bg-clay-mint px-4 py-2.5">
+                <div className="mt-6 overflow-hidden rounded-xl border border-white/20 bg-white text-slate-800">
+                  <div className="flex items-center justify-between border-b border-slate-100 bg-indigo-50 px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
-                      <span className="text-xs font-extrabold">Physics Mechanics · Live</span>
+                      <span className="text-xs font-semibold text-indigo-800">Physics Mechanics · Live</span>
                     </div>
-                    <span className="rounded-full border-2 border-clay-ink bg-rose-500 px-2 py-0.5 text-[10px] font-extrabold text-white">REC</span>
+                    <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold text-white">REC</span>
                   </div>
                   <div className="grid grid-cols-4 gap-2 p-3">
                     {[
-                      { init: 'MS', label: 'Ms. Sharma', tint: 'bg-clay-mint', host: true },
-                      { init: 'AV', label: 'Arjun V.',   tint: 'bg-clay-sky', host: false },
-                      { init: 'KN', label: 'Kavya N.',   tint: 'bg-clay-pink', host: false },
-                      { init: 'RM', label: 'Rahul M.',   tint: 'bg-clay-yellow', host: false },
+                      { init: 'MS', g: 'from-teal-400 to-emerald-500', host: true },
+                      { init: 'AV', g: 'from-sky-400 to-blue-500',     host: false },
+                      { init: 'KN', g: 'from-pink-400 to-rose-500',    host: false },
+                      { init: 'RM', g: 'from-amber-400 to-orange-500', host: false },
                     ].map((p) => (
                       <div key={p.init} className="flex flex-col items-center gap-1">
-                        <div className={`relative flex h-12 w-full items-center justify-center rounded-xl border-2 border-clay-ink ${p.tint} text-sm font-extrabold text-clay-ink`}>
+                        <div className={`relative flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-br ${p.g} text-sm font-bold text-white`}>
                           {p.init}
                           {p.host && (
-                            <span className="absolute -top-1 -right-1 rounded-full border-2 border-clay-ink bg-clay-green px-1 text-[8px] font-black text-white">HOST</span>
+                            <span className="absolute -top-1 -right-1 rounded-full bg-indigo-600 px-1 text-[8px] font-bold text-white">HOST</span>
                           )}
                         </div>
-                        <p className="truncate text-center text-[9px] font-semibold text-clay-ink/70 w-full">{p.label}</p>
+                        <p className="truncate text-center text-[9px] text-slate-400 w-full">{p.init}</p>
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center justify-center gap-3 border-t-2 border-clay-ink/20 px-4 py-2.5">
+                  <div className="flex items-center justify-center gap-3 border-t border-slate-100 px-4 py-2.5">
                     {[
-                      { icon: Mic,      tint: 'bg-white' },
-                      { icon: Monitor,  tint: 'bg-white' },
-                      { icon: MicOff,   tint: 'bg-white' },
-                      { icon: PhoneOff, tint: 'bg-rose-500 text-white' },
-                    ].map(({ icon: Icon, tint }, i) => (
-                      <button key={i} className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-clay-ink ${tint} transition-transform hover:scale-110`}>
+                      { icon: Mic,      bg: 'bg-slate-100 text-slate-600' },
+                      { icon: Monitor,  bg: 'bg-slate-100 text-slate-600' },
+                      { icon: MicOff,   bg: 'bg-slate-100 text-slate-600' },
+                      { icon: PhoneOff, bg: 'bg-rose-500 text-white' },
+                    ].map(({ icon: Icon, bg }, i) => (
+                      <button key={i} className={`flex h-8 w-8 items-center justify-center rounded-full ${bg} transition-transform hover:scale-110`}>
                         <Icon className="h-3.5 w-3.5" />
                       </button>
                     ))}
@@ -588,7 +523,7 @@ export function LandingPage() {
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {['HD video', 'Screen share', 'Auto-record', 'Replay anytime'].map((tag) => (
-                    <span key={tag} className="rounded-full border-2 border-white/40 bg-white/15 px-3 py-1 text-[11px] font-bold">
+                    <span key={tag} className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[11px] font-medium">
                       {tag}
                     </span>
                   ))}
@@ -597,38 +532,38 @@ export function LandingPage() {
             </motion.div>
 
             {/* Smart Scheduling */}
-            <motion.div variants={fadeUp} className={`group ${CLAY_CARD} p-6 ${CLAY_PRESS}`}>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-sky text-clay-ink shadow-clay-sm">
-                <Calendar className="h-5 w-5" />
+            <motion.div variants={fadeUp} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50">
+                <Calendar className="h-5 w-5 text-sky-600" />
               </div>
-              <h3 className="text-base font-extrabold">Smart Scheduling</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-clay-ink/70 dark:text-gray-400">
+              <h3 className="text-base font-semibold text-slate-900">Smart Scheduling</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
                 Flexible slots, real-time calendar sync and automated reminders.
               </p>
               <div className="mt-4 space-y-1.5">
                 {['Tue 10:00 AM · Math', 'Wed 2:30 PM · Physics', 'Fri 4:00 PM · English'].map((slot, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-xl border-2 border-clay-ink bg-clay-sky/40 px-3 py-2 text-xs">
-                    <div className="h-1.5 w-1.5 rounded-full bg-sky-600" />
-                    <span className="font-extrabold text-clay-ink">{slot}</span>
+                  <div key={i} className="flex items-center gap-2 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs">
+                    <div className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+                    <span className="font-medium text-slate-700">{slot}</span>
                   </div>
                 ))}
               </div>
             </motion.div>
 
             {/* Analytics */}
-            <motion.div variants={fadeUp} className={`group ${CLAY_CARD} p-6 ${CLAY_PRESS}`}>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-purple text-clay-ink shadow-clay-sm">
-                <BarChart3 className="h-5 w-5" />
+            <motion.div variants={fadeUp} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50">
+                <BarChart3 className="h-5 w-5 text-violet-600" />
               </div>
-              <h3 className="text-base font-extrabold">Deep Analytics</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-clay-ink/70 dark:text-gray-400">
+              <h3 className="text-base font-semibold text-slate-900">Deep Analytics</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
                 Attendance, progress reports and platform-wide insights.
               </p>
               <div className="mt-4 flex items-end gap-1.5 h-12">
                 {[40, 65, 55, 80, 72, 90, 85].map((h, i) => (
                   <motion.div
                     key={i}
-                    className="flex-1 rounded-t-md border-2 border-clay-ink bg-clay-purple"
+                    className="flex-1 rounded-t-md bg-violet-400"
                     style={{ height: `${h}%` }}
                     initial={{ scaleY: 0 }}
                     whileInView={{ scaleY: 1 }}
@@ -638,28 +573,28 @@ export function LandingPage() {
                 ))}
               </div>
               <div className="mt-2 flex items-center gap-1.5 text-xs">
-                <TrendingUp className="h-3.5 w-3.5 text-clay-green-dark" />
-                <span className="font-extrabold text-clay-green-dark">+18%</span>
-                <span className="text-clay-ink/60">attendance this month</span>
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="font-semibold text-emerald-600">+18%</span>
+                <span className="text-slate-400">attendance this month</span>
               </div>
             </motion.div>
 
             {/* Chat */}
-            <motion.div variants={fadeUp} className={`group ${CLAY_CARD} p-6 ${CLAY_PRESS}`}>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-mint text-clay-ink shadow-clay-sm">
-                <MessageSquare className="h-5 w-5" />
+            <motion.div variants={fadeUp} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
+                <MessageSquare className="h-5 w-5 text-teal-600" />
               </div>
-              <h3 className="text-base font-extrabold">Chat & Doubt-solving</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-clay-ink/70 dark:text-gray-400">
+              <h3 className="text-base font-semibold text-slate-900">Chat & Doubt-solving</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
                 Private messaging between students, tutors and principals all in one place.
               </p>
               <div className="mt-3 space-y-1.5 text-xs">
                 {[
-                  { from: 'Arjun', msg: "Sir, I don't get Q3 🤔", me: false },
-                  { from: 'You',   msg: 'Let me explain step by step!', me: true },
+                  { msg: "Sir, I don't get Q3 🤔", me: false },
+                  { msg: 'Let me explain step by step!', me: true },
                 ].map((m, i) => (
                   <div key={i} className={`flex ${m.me ? 'justify-end' : ''}`}>
-                    <span className={`max-w-[80%] rounded-2xl border-2 border-clay-ink px-3 py-1.5 font-extrabold ${m.me ? 'bg-clay-green text-white' : 'bg-white text-clay-ink'}`}>
+                    <span className={`max-w-[80%] rounded-2xl px-3 py-1.5 font-medium ${m.me ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
                       {m.msg}
                     </span>
                   </div>
@@ -668,40 +603,40 @@ export function LandingPage() {
             </motion.div>
 
             {/* Payments */}
-            <motion.div variants={fadeUp} className={`group ${CLAY_CARD} p-6 ${CLAY_PRESS}`}>
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-yellow text-clay-ink shadow-clay-sm">
-                <Wallet className="h-5 w-5" />
+            <motion.div variants={fadeUp} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50">
+                <Wallet className="h-5 w-5 text-amber-600" />
               </div>
-              <h3 className="text-base font-extrabold">Secure Payments</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-clay-ink/70 dark:text-gray-400">
+              <h3 className="text-base font-semibold text-slate-900">Secure Payments</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
                 Stripe & Razorpay. Wallet credits, auto-refunds and tutor payouts.
               </p>
-              <div className="mt-3 flex items-baseline gap-1">
-                <p className="text-2xl font-black text-amber-600">$4.8K</p>
-                <p className="text-xs font-bold text-clay-ink/60">wallet balance</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <p className="text-2xl font-bold text-amber-600">$4.8K</p>
+                <p className="text-xs text-slate-400">wallet balance</p>
               </div>
-              <div className="mt-2 h-3 w-full rounded-full border-2 border-clay-ink bg-white overflow-hidden">
-                <div className="h-full w-3/4 rounded-full bg-clay-yellow" />
+              <div className="mt-2 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-full w-3/4 rounded-full bg-amber-400" />
               </div>
             </motion.div>
 
             {/* RBAC */}
             <motion.div
               variants={fadeUp}
-              className={`group relative overflow-hidden ${CLAY_CARD_LG} bg-clay-ink p-6 ${CLAY_PRESS} md:col-span-2`}
+              className="relative overflow-hidden rounded-2xl bg-slate-900 p-6 shadow-xl md:col-span-2"
             >
-              <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full border-2.5 border-clay-bg bg-clay-coral/20" />
+              <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-rose-500/10" />
               <div className="relative z-10">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-bg bg-clay-coral text-clay-ink shadow-clay">
-                  <Shield className="h-5 w-5" />
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/20">
+                  <Shield className="h-5 w-5 text-rose-400" />
                 </div>
-                <h3 className="text-base font-extrabold text-white">Role-based Access</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-white/80">
+                <h3 className="text-base font-semibold text-white">Role-based Access</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
                   7 secure tiers: Admin, Principal, Tutor, Student, Parent & Support.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {['Super Admin', 'Admin', 'Principal', 'Tutor', 'Student', 'Parent', 'Support'].map((r) => (
-                    <span key={r} className="rounded-full border-2 border-clay-bg/60 bg-white/10 px-2.5 py-0.5 text-[10px] font-extrabold text-white">
+                    <span key={r} className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[10px] font-medium text-slate-300">
                       {r}
                     </span>
                   ))}
@@ -712,10 +647,8 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════
-          HOW IT WORKS
-      ══════════════════════════════════════════════════════════════ */}
-      <section id="how-it-works" className="py-24">
+      {/* HOW IT WORKS */}
+      <section id="how-it-works" className="py-24 bg-slate-50/80 dark:bg-slate-900/50">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             className="mb-16 text-center"
@@ -724,10 +657,9 @@ export function LandingPage() {
             viewport={{ once: true }}
             transition={{ duration: 0.55 }}
           >
-            <SectionLabel tint="bg-clay-sky">The journey</SectionLabel>
-            <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl text-clay-ink">
-              How your child will{' '}
-              <span className="bg-clay-mint px-3 -mx-1 inline-block rounded-2xl border-2.5 border-clay-ink">progress</span>
+            <SectionLabel>The journey</SectionLabel>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-5xl">
+              How your child will <span className="text-indigo-600">progress</span>
             </h2>
           </motion.div>
 
@@ -739,20 +671,17 @@ export function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-40px' }}
                 transition={{ duration: 0.55, delay: i * 0.15 }}
-                className={`group relative overflow-hidden rounded-[32px] border-2.5 border-clay-ink ${step.tint} p-8 shadow-clay ${CLAY_PRESS}`}
+                className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all"
               >
-                <div className="absolute -right-5 -top-5 flex h-20 w-20 items-center justify-center rounded-3xl border-2.5 border-clay-ink bg-white shadow-clay-sm">
-                  <span className="text-2xl font-black text-clay-ink">{step.step}</span>
+                <div className={`absolute top-0 left-0 right-0 h-1 ${step.color} rounded-t-2xl`} />
+                <div className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${step.color.replace('bg-', 'from-')} to-${step.color.split('-')[1]}-600`}>
+                  <span className="text-xl font-bold text-white">{step.step}</span>
                 </div>
-
-                <div className="relative z-10 mb-5 mt-8 flex h-14 w-14 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-white shadow-clay-sm">
-                  <span className="text-xl font-black text-clay-ink">{step.step}</span>
-                </div>
-                <h3 className="relative z-10 text-xl font-extrabold text-clay-ink">{step.title}</h3>
-                <p className="relative z-10 mt-2 text-sm leading-relaxed font-semibold text-clay-ink/80">{step.desc}</p>
+                <h3 className="text-xl font-semibold text-slate-900">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">{step.desc}</p>
 
                 {i < STEPS.length - 1 && (
-                  <ChevronRight className="absolute right-4 top-1/2 hidden -translate-y-1/2 h-5 w-5 text-clay-ink md:block" />
+                  <ChevronRight className="absolute right-4 top-1/2 hidden -translate-y-1/2 h-5 w-5 text-slate-300 md:block" />
                 )}
               </motion.div>
             ))}
@@ -760,9 +689,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════
-          SKILLS TABS
-      ══════════════════════════════════════════════════════════════ */}
+      {/* SKILLS TABS */}
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -772,12 +699,11 @@ export function LandingPage() {
             viewport={{ once: true }}
             transition={{ duration: 0.55 }}
           >
-            <SectionLabel tint="bg-clay-purple">Skills focus</SectionLabel>
-            <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl text-clay-ink">
-              What your child will{' '}
-              <span className="bg-clay-yellow px-3 -mx-1 inline-block rounded-2xl border-2.5 border-clay-ink">learn</span>
+            <SectionLabel>Skills focus</SectionLabel>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-5xl">
+              What your child will <span className="text-indigo-600">learn</span>
             </h2>
-            <p className="mt-4 text-lg text-clay-ink/70 dark:text-gray-300">
+            <p className="mt-4 text-lg text-slate-500 dark:text-slate-300">
               Switch between skill areas to see how our tutors turn concepts into superpowers.
             </p>
           </motion.div>
@@ -790,17 +716,17 @@ export function LandingPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveSkill(tab.id)}
-                    className={`w-full rounded-2xl border-2.5 border-clay-ink px-5 py-4 text-left transition-all ${
+                    className={`w-full rounded-xl px-5 py-4 text-left transition-all ${
                       active
-                        ? 'bg-clay-green text-white shadow-clay'
-                        : 'bg-white text-clay-ink shadow-clay-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-clay-pressed'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'border border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/50'
                     }`}
                   >
-                    <p className="flex items-center gap-2 text-sm font-extrabold">
-                      <span className={`inline-block h-2.5 w-2.5 rounded-full border-2 border-clay-ink ${active ? 'bg-white' : 'bg-clay-green'}`} />
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      <span className={`inline-block h-2 w-2 rounded-full ${active ? 'bg-white' : 'bg-indigo-500'}`} />
                       {tab.title}
                     </p>
-                    <p className={`mt-1 text-xs font-semibold ${active ? 'text-white/85' : 'text-clay-ink/70'}`}>{tab.subtitle}</p>
+                    <p className={`mt-1 text-xs ${active ? 'text-white/80' : 'text-slate-400'}`}>{tab.subtitle}</p>
                   </button>
                 );
               })}
@@ -813,32 +739,32 @@ export function LandingPage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }}
                 transition={{ duration: 0.3 }}
-                className={`grid items-center gap-6 ${CLAY_CARD_LG} bg-white p-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:p-8`}
+                className="grid items-center gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-card md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:p-8"
               >
                 <div className="space-y-3">
-                  <p className="text-[11px] font-extrabold uppercase tracking-widest text-clay-green-dark">Skills focus</p>
-                  <h3 className="text-2xl font-extrabold md:text-3xl text-clay-ink">{currentSkill.title}</h3>
-                  <p className="text-sm font-semibold text-clay-ink/70 md:text-base">{currentSkill.subtitle}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-500">Skills focus</p>
+                  <h3 className="text-2xl font-bold text-slate-900 dark:text-white md:text-3xl">{currentSkill.title}</h3>
+                  <p className="text-sm text-slate-500 md:text-base">{currentSkill.subtitle}</p>
                   <ul className="space-y-2 pt-1">
                     {currentSkill.points.map((p) => (
-                      <li key={p} className="flex items-start gap-2 text-sm font-semibold text-clay-ink/80">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-clay-green-dark fill-clay-mint" />
+                      <li key={p} className="flex items-start gap-2 text-sm text-slate-600">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500 fill-indigo-50" />
                         <span>{p}</span>
                       </li>
                     ))}
                   </ul>
-                  <div className="flex items-center gap-2 pt-2 text-xs font-semibold text-clay-ink/60">
-                    <Users className="h-4 w-4 text-clay-green-dark" />
+                  <div className="flex items-center gap-2 pt-2 text-xs text-slate-400">
+                    <Users className="h-4 w-4 text-indigo-400" />
                     <span>Thousands of kids on Takshashila are building this skill right now.</span>
                   </div>
                 </div>
-                <div className="relative h-48 overflow-hidden rounded-2xl border-2.5 border-clay-ink bg-clay-mint md:h-64">
+                <div className="relative h-48 overflow-hidden rounded-2xl bg-indigo-50 border border-indigo-100 md:h-64">
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <GraduationCap className="h-32 w-32 text-clay-ink/30" />
+                    <GraduationCap className="h-32 w-32 text-indigo-200" />
                   </div>
-                  <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full border-2 border-clay-ink bg-white px-3 py-1">
-                    <GraduationCap className="h-4 w-4 text-clay-green-dark" />
-                    <span className="text-[11px] font-extrabold text-clay-ink">Fun, kid-friendly activities</span>
+                  <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-3 py-1">
+                    <GraduationCap className="h-4 w-4 text-indigo-500" />
+                    <span className="text-[11px] font-semibold text-slate-700">Fun, kid-friendly activities</span>
                   </div>
                 </div>
               </motion.div>
@@ -847,10 +773,8 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════
-          LEARNING FLOW
-      ══════════════════════════════════════════════════════════════ */}
-      <section className="py-20">
+      {/* LEARNING FLOW */}
+      <section className="py-20 bg-slate-50/80 dark:bg-slate-900/50">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             className="mx-auto mb-12 max-w-2xl text-center"
@@ -859,11 +783,9 @@ export function LandingPage() {
             viewport={{ once: true }}
             transition={{ duration: 0.55 }}
           >
-            <SectionLabel tint="bg-clay-coral">Learning loop</SectionLabel>
-            <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl text-clay-ink">
-              How learning{' '}
-              <span className="bg-clay-pink px-3 -mx-1 inline-block rounded-2xl border-2.5 border-clay-ink">feels</span>{' '}
-              on Takshashila
+            <SectionLabel>Learning loop</SectionLabel>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-5xl">
+              How learning <span className="text-indigo-600">feels</span> on Takshashila
             </h2>
           </motion.div>
           <motion.div
@@ -874,21 +796,21 @@ export function LandingPage() {
             viewport={{ once: true }}
           >
             {[
-              { icon: Video,         title: 'Join a class',   desc: 'Jump into live sessions.', tint: 'bg-clay-mint' },
-              { icon: BookOpen,      title: 'Assignments',    desc: 'Reinforce what you learnt.', tint: 'bg-clay-sky' },
-              { icon: Layout,        title: 'Worksheets',     desc: 'Extra practice at all levels.', tint: 'bg-clay-yellow' },
-              { icon: MessageSquare, title: 'Chat doubts',    desc: 'Ask anything, anytime.', tint: 'bg-clay-coral' },
-              { icon: Play,          title: 'Recordings',     desc: 'Rewatch for revision.', tint: 'bg-clay-purple' },
+              { icon: Video,         title: 'Join a class',  desc: 'Jump into live sessions.',      bg: 'bg-indigo-50',  text: 'text-indigo-600' },
+              { icon: BookOpen,      title: 'Assignments',   desc: 'Reinforce what you learnt.',    bg: 'bg-sky-50',     text: 'text-sky-600' },
+              { icon: Layout,        title: 'Worksheets',    desc: 'Extra practice at all levels.', bg: 'bg-teal-50',    text: 'text-teal-600' },
+              { icon: MessageSquare, title: 'Chat doubts',   desc: 'Ask anything, anytime.',        bg: 'bg-violet-50',  text: 'text-violet-600' },
+              { icon: Play,          title: 'Recordings',    desc: 'Rewatch for revision.',         bg: 'bg-rose-50',    text: 'text-rose-600' },
             ].map((it) => {
               const Icon = it.icon;
               return (
                 <motion.div key={it.title} variants={fadeUp} className="flex flex-col items-center gap-3">
-                  <div className={`flex h-28 w-28 items-center justify-center rounded-full border-2.5 border-clay-ink ${it.tint} shadow-clay transition-transform hover:rotate-3 hover:scale-110`}>
-                    <Icon className="h-11 w-11 text-clay-ink" />
+                  <div className={`flex h-24 w-24 items-center justify-center rounded-full ${it.bg} border border-slate-200 shadow-sm transition-transform hover:scale-110 hover:shadow-md`}>
+                    <Icon className={`h-10 w-10 ${it.text}`} />
                   </div>
                   <div className="max-w-[160px] space-y-1">
-                    <p className="text-sm font-extrabold text-clay-ink">{it.title}</p>
-                    <p className="text-xs font-semibold text-clay-ink/60">{it.desc}</p>
+                    <p className="text-sm font-semibold text-slate-800">{it.title}</p>
+                    <p className="text-xs text-slate-400">{it.desc}</p>
                   </div>
                 </motion.div>
               );
@@ -897,10 +819,8 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════
-          TESTIMONIALS
-      ══════════════════════════════════════════════════════════════ */}
-      <section id="testimonials" className="border-y-2.5 border-clay-ink bg-clay-pink/40 py-24">
+      {/* TESTIMONIALS */}
+      <section id="testimonials" className="border-y border-slate-100 bg-white py-24 dark:bg-slate-950 dark:border-slate-800">
         <motion.div
           className="mx-auto mb-14 max-w-3xl px-4 text-center sm:px-6 lg:px-8"
           initial={{ opacity: 0, y: 24 }}
@@ -908,17 +828,15 @@ export function LandingPage() {
           viewport={{ once: true }}
           transition={{ duration: 0.55 }}
         >
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border-2.5 border-clay-ink bg-white px-4 py-1.5 text-sm font-extrabold text-clay-ink shadow-clay-sm">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-100 px-4 py-1.5 text-sm font-semibold text-amber-700">
             <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
             Rated 4.9 / 5 by our community
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl text-clay-ink">
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-5xl">
             Loved by{' '}
-            <span className="bg-clay-green text-white px-3 -mx-1 inline-block rounded-2xl border-2.5 border-clay-ink">
-              parents, students &amp; tutors
-            </span>
+            <span className="text-indigo-600">parents, students &amp; tutors</span>
           </h2>
-          <p className="mt-4 text-lg text-clay-ink/70 dark:text-gray-300">
+          <p className="mt-4 text-lg text-slate-500 dark:text-slate-300">
             Real stories from families, students and tutors on Takshashila.
           </p>
         </motion.div>
@@ -926,49 +844,43 @@ export function LandingPage() {
         <InfiniteCarouselWall />
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════
-          PARENTS SECTION
-      ══════════════════════════════════════════════════════════════ */}
+      {/* PARENTS SECTION */}
       <section className="relative overflow-hidden py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
-            className="relative overflow-hidden rounded-[36px] border-2.5 border-clay-ink bg-clay-ink p-8 shadow-clay-lg md:p-14"
+            className="relative overflow-hidden rounded-3xl bg-slate-900 p-8 shadow-xl md:p-14"
             initial={{ opacity: 0, y: 32 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ duration: 0.65 }}
           >
-            {/* Decorative clay shapes */}
-            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-3xl border-2.5 border-clay-bg bg-clay-coral rotate-12" />
-            <div className="absolute -bottom-8 left-1/3 h-24 w-24 rounded-full border-2.5 border-clay-bg bg-clay-yellow" />
-            <div className="absolute -left-8 top-1/2 h-20 w-20 rounded-2xl border-2.5 border-clay-bg bg-clay-pink -rotate-6" />
+            <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-indigo-600/20 blur-3xl" />
+            <div className="absolute -left-16 bottom-0 h-48 w-48 rounded-full bg-violet-600/15 blur-3xl" />
 
             <div className="relative z-10 grid gap-12 lg:grid-cols-[1fr_420px] lg:items-center">
               <div className="space-y-8">
-                <div className="inline-flex items-center gap-2 rounded-full border-2.5 border-clay-bg bg-clay-pink px-4 py-1.5 text-sm font-extrabold text-clay-ink">
-                  <Heart className="h-3.5 w-3.5 fill-clay-ink" />
+                <div className="inline-flex items-center gap-2 rounded-full bg-pink-500/20 border border-pink-500/30 px-4 py-1.5 text-sm font-semibold text-pink-300">
+                  <Heart className="h-3.5 w-3.5 fill-current" />
                   Built for families
                 </div>
-                <h2 className="text-3xl font-extrabold leading-[1.1] tracking-tight text-white md:text-5xl lg:text-6xl">
-                  <span className="bg-clay-yellow px-3 -mx-1 inline-block rounded-2xl border-2.5 border-clay-bg text-clay-ink">
-                    Parents,
-                  </span>{' '}
+                <h2 className="text-3xl font-bold leading-[1.1] tracking-tight text-white md:text-5xl lg:text-6xl">
+                  <span className="text-amber-400">Parents,</span>{' '}
                   we know exactly what you need
                 </h2>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {[
-                    { icon: Calendar,   label: 'Monthly parent-tutor meetings',  desc: 'Stay in the loop every month', tint: 'bg-clay-mint' },
-                    { icon: Sparkles,   label: 'Positive learning environment',  desc: 'Safe, encouraging and fun', tint: 'bg-clay-sky' },
-                    { icon: Wallet,     label: 'Flexible payment options',        desc: 'Pay as you go or subscribe', tint: 'bg-clay-yellow' },
-                    { icon: BarChart3,  label: 'Weekly performance reports',      desc: 'Know exactly how they improve', tint: 'bg-clay-purple' },
-                  ].map(({ icon: Icon, label, desc, tint }) => (
-                    <div key={label} className="flex items-start gap-3 rounded-2xl border-2 border-clay-bg/30 bg-white/5 p-4">
-                      <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-clay-bg ${tint}`}>
-                        <Icon className="h-4 w-4 text-clay-ink" />
+                    { icon: Calendar,   label: 'Monthly parent-tutor meetings', desc: 'Stay in the loop every month', bg: 'bg-teal-500/20',   text: 'text-teal-300' },
+                    { icon: Sparkles,   label: 'Positive learning environment', desc: 'Safe, encouraging and fun',    bg: 'bg-sky-500/20',    text: 'text-sky-300' },
+                    { icon: Wallet,     label: 'Flexible payment options',      desc: 'Pay as you go or subscribe',  bg: 'bg-amber-500/20',  text: 'text-amber-300' },
+                    { icon: BarChart3,  label: 'Weekly performance reports',    desc: 'Know exactly how they improve', bg: 'bg-violet-500/20', text: 'text-violet-300' },
+                  ].map(({ icon: Icon, label, desc, bg, text }) => (
+                    <div key={label} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${bg}`}>
+                        <Icon className={`h-4 w-4 ${text}`} />
                       </div>
                       <div>
-                        <p className="text-sm font-extrabold text-white">{label}</p>
-                        <p className="text-xs font-semibold text-white/70">{desc}</p>
+                        <p className="text-sm font-semibold text-white">{label}</p>
+                        <p className="text-xs text-white/60">{desc}</p>
                       </div>
                     </div>
                   ))}
@@ -976,7 +888,7 @@ export function LandingPage() {
                 <div className="flex flex-wrap gap-3">
                   <Link
                     to="/tutors"
-                    className={`group inline-flex items-center gap-2 rounded-2xl border-2.5 border-clay-bg bg-clay-green px-7 py-3.5 text-base font-extrabold text-white shadow-[6px_6px_0_0_#FAF1E4] ${CLAY_PRESS}`}
+                    className="group inline-flex items-center gap-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 px-7 py-3.5 text-base font-semibold text-white shadow-sm transition-all"
                   >
                     <Heart className="h-5 w-5 fill-white/80" />
                     Browse tutors
@@ -984,7 +896,7 @@ export function LandingPage() {
                   </Link>
                   <Link
                     to="/register/parent"
-                    className={`group inline-flex items-center gap-2 rounded-2xl border-2.5 border-clay-bg bg-white px-7 py-3.5 text-base font-extrabold text-clay-ink shadow-[6px_6px_0_0_#FAF1E4] ${CLAY_PRESS}`}
+                    className="group inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm hover:bg-white/20 px-7 py-3.5 text-base font-semibold text-white transition-all"
                   >
                     Join as Parent
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -993,46 +905,46 @@ export function LandingPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 flex items-center gap-5 rounded-2xl border-2 border-clay-bg/30 bg-white/5 p-5">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2.5 border-clay-bg bg-clay-mint">
-                    <ShieldCheck className="h-7 w-7 text-clay-ink" />
+                <div className="col-span-2 flex items-center gap-5 rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-500/20">
+                    <ShieldCheck className="h-7 w-7 text-teal-300" />
                   </div>
                   <div>
-                    <p className="text-lg font-extrabold text-white">NIOS-valid curriculum</p>
-                    <p className="text-sm font-semibold text-white/70">Equal to CBSE · Government recognized</p>
+                    <p className="text-lg font-semibold text-white">NIOS-valid curriculum</p>
+                    <p className="text-sm text-white/60">Equal to CBSE · Government recognized</p>
                     <div className="mt-2 flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-clay-green" />
-                      <span className="text-xs font-extrabold text-clay-green">Fully accredited</span>
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                      <span className="text-xs font-semibold text-emerald-400">Fully accredited</span>
                     </div>
                   </div>
                 </div>
-                <div className="rounded-2xl border-2 border-clay-bg/30 bg-white/5 p-5">
-                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border-2.5 border-clay-bg bg-clay-sky">
-                    <TrendingUp className="h-5 w-5 text-clay-ink" />
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20">
+                    <TrendingUp className="h-5 w-5 text-sky-300" />
                   </div>
-                  <p className="text-2xl font-black text-white">87%</p>
-                  <p className="mt-0.5 text-xs font-semibold text-white/70">improve in 30 days</p>
+                  <p className="text-2xl font-bold text-white">87%</p>
+                  <p className="mt-0.5 text-xs text-white/60">improve in 30 days</p>
                 </div>
-                <div className="rounded-2xl border-2 border-clay-bg/30 bg-white/5 p-5">
-                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border-2.5 border-clay-bg bg-clay-yellow">
-                    <Zap className="h-5 w-5 text-clay-ink" />
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20">
+                    <Zap className="h-5 w-5 text-amber-300" />
                   </div>
-                  <p className="text-2xl font-black text-white">1-click</p>
-                  <p className="mt-0.5 text-xs font-semibold text-white/70">book a free demo</p>
+                  <p className="text-2xl font-bold text-white">1-click</p>
+                  <p className="mt-0.5 text-xs text-white/60">book a free demo</p>
                 </div>
-                <div className="col-span-2 flex items-center justify-between rounded-2xl border-2 border-clay-bg/30 bg-white/5 p-5">
+                <div className="col-span-2 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-5">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl border-2.5 border-clay-bg bg-clay-pink">
-                      <Headphones className="h-5 w-5 text-clay-ink" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-500/20">
+                      <Headphones className="h-5 w-5 text-pink-300" />
                     </div>
                     <div>
-                      <p className="text-sm font-extrabold text-white">24 / 7 Parent Support</p>
-                      <p className="text-xs font-semibold text-white/70">Chat, call or email always reachable</p>
+                      <p className="text-sm font-semibold text-white">24 / 7 Parent Support</p>
+                      <p className="text-xs text-white/60">Chat, call or email always reachable</p>
                     </div>
                   </div>
                   <div className="hidden items-center gap-1.5 sm:flex">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-clay-green" />
-                    <span className="text-xs font-extrabold text-clay-green">Online now</span>
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                    <span className="text-xs font-semibold text-emerald-400">Online now</span>
                   </div>
                 </div>
               </div>
@@ -1041,37 +953,31 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════
-          CTA BANNER
-      ══════════════════════════════════════════════════════════════ */}
+      {/* CTA BANNER */}
       <CtaBanner />
 
-      {/* ══════════════════════════════════════════════════════════════
-          FOOTER
-      ══════════════════════════════════════════════════════════════ */}
+      {/* FOOTER */}
       <footer className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className={`bg-white p-8 ${CLAY_CARD_LG}`}>
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-card">
           <div className="grid gap-10 md:grid-cols-[200px_1fr_1fr_1fr]">
-            {/* Brand */}
             <div className="space-y-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-coral">
-                  <GraduationCap className="h-5 w-5 text-clay-ink" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
+                  <GraduationCap className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-lg font-extrabold text-clay-ink">Takshashila</span>
+                <span className="text-lg font-bold text-slate-900">Takshashila</span>
               </div>
-              <p className="text-sm font-semibold text-clay-ink/70 leading-relaxed">
+              <p className="text-sm text-slate-500 leading-relaxed">
                 India's modern tutoring marketplace connecting students with expert tutors.
               </p>
-              <div className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-clay-yellow px-3 py-1">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-3 py-1">
                 <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-                <span className="text-xs font-extrabold text-clay-ink">4.9 · 12K reviews</span>
+                <span className="text-xs font-semibold text-amber-700">4.9 · 12K reviews</span>
               </div>
             </div>
 
-            {/* Platform */}
             <div>
-              <p className="mb-4 text-xs font-extrabold uppercase tracking-widest text-clay-ink/50">Platform</p>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-400">Platform</p>
               <ul className="space-y-2.5 text-sm">
                 {[
                   { label: 'Find Tutors', to: '/tutors' },
@@ -1081,39 +987,37 @@ export function LandingPage() {
                 ].map(({ label, to, href }) => (
                   <li key={label}>
                     {to ? (
-                      <Link to={to} className="font-semibold text-clay-ink/70 transition-colors hover:text-clay-green-dark">{label}</Link>
+                      <Link to={to} className="text-slate-500 hover:text-indigo-600 transition-colors">{label}</Link>
                     ) : (
-                      <a href={href} className="font-semibold text-clay-ink/70 transition-colors hover:text-clay-green-dark">{label}</a>
+                      <a href={href} className="text-slate-500 hover:text-indigo-600 transition-colors">{label}</a>
                     )}
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* Roles */}
             <div>
-              <p className="mb-4 text-xs font-extrabold uppercase tracking-widest text-clay-ink/50">Who it's for</p>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-400">Who it's for</p>
               <ul className="space-y-2.5 text-sm">
                 {['Students', 'Tutors', 'School Principals', 'Parents'].map((r) => (
-                  <li key={r} className="font-semibold text-clay-ink/70 transition-colors hover:text-clay-green-dark cursor-pointer">{r}</li>
+                  <li key={r} className="text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer">{r}</li>
                 ))}
               </ul>
             </div>
 
-            {/* Legal */}
             <div>
-              <p className="mb-4 text-xs font-extrabold uppercase tracking-widest text-clay-ink/50">Legal</p>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-400">Legal</p>
               <ul className="space-y-2.5 text-sm">
                 {['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'Contact Us'].map((l) => (
-                  <li key={l} className="font-semibold text-clay-ink/70 cursor-pointer transition-colors hover:text-clay-green-dark">{l}</li>
+                  <li key={l} className="text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors">{l}</li>
                 ))}
               </ul>
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t-2 border-dashed border-clay-ink/20 pt-6 text-sm md:flex-row">
-            <p className="font-semibold text-clay-ink/70">© 2026 Takshashila. All rights reserved.</p>
-            <p className="font-semibold text-clay-ink/60">Made with <Heart className="inline h-3.5 w-3.5 fill-rose-500 text-rose-500" /> for learners everywhere.</p>
+          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-slate-100 pt-6 text-sm md:flex-row">
+            <p className="text-slate-400">© 2026 Takshashila. All rights reserved.</p>
+            <p className="text-slate-400">Made with <Heart className="inline h-3.5 w-3.5 fill-rose-500 text-rose-500" /> for learners everywhere.</p>
           </div>
         </div>
       </footer>

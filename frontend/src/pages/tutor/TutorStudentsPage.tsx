@@ -39,10 +39,10 @@ function CopyValue({ value }: { value: string }) {
     <button
       type="button"
       onClick={() => { navigator.clipboard.writeText(value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}
-      className="inline-flex items-center gap-1.5 rounded-xl border-2 border-clay-ink/20 bg-clay-bg px-2.5 py-1.5 font-mono text-sm font-bold text-clay-ink hover:bg-clay-mint/20 transition-colors"
+      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
     >
       {value}
-      {copied ? <Check className="h-3.5 w-3.5 text-clay-green-dark" /> : <Copy className="h-3.5 w-3.5 text-clay-muted" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-400" />}
     </button>
   );
 }
@@ -67,7 +67,6 @@ export function TutorStudentsPage() {
   const [unlinkTarget, setUnlinkTarget]   = useState<string | null>(null);
   const [createdInfo, setCreatedInfo]     = useState<{ studentId: string; firstName: string; contactEmail?: string } | null>(null);
 
-  // form state
   const [form, setForm] = useState({
     firstName: '', lastName: '', contactEmail: '', phone: '',
     password: '', grade: '', customStudentId: '', notes: '',
@@ -77,7 +76,6 @@ export function TutorStudentsPage() {
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  // ── data ──
   const { data: studentsPage, isLoading: studentsLoading } = useMyStudentsAsTutor({ limit: '200' });
   const students = studentsPage?.items ?? [];
 
@@ -180,15 +178,15 @@ export function TutorStudentsPage() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="flex gap-1.5 p-1.5 bg-clay-surface border-2.5 border-clay-ink rounded-2xl w-fit shadow-clay-sm">
+      <div className="flex gap-1 p-1 bg-slate-100 border border-slate-200 rounded-xl w-fit">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-extrabold transition-all ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === key
-                ? 'bg-clay-green text-white border-2 border-clay-ink'
-                : 'text-clay-muted hover:text-clay-ink hover:bg-clay-bg'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white'
             }`}
           >
             <Icon size={15} /> {label}
@@ -198,52 +196,52 @@ export function TutorStudentsPage() {
 
       {/* ── Students tab ── */}
       {tab === 'students' && (
-        <div className="rounded-[28px] border-2.5 border-clay-ink bg-clay-surface shadow-clay overflow-hidden">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           {studentsLoading ? (
             <div className="flex justify-center py-16">
-              <div className="w-7 h-7 border-2 border-clay-green border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : students.length === 0 ? (
             <div className="py-16 flex flex-col items-center gap-3 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-purple">
-                <GraduationCap size={28} className="text-clay-ink" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-50">
+                <GraduationCap size={28} className="text-violet-500" />
               </div>
-              <p className="text-sm font-bold text-clay-muted">No students yet</p>
+              <p className="text-sm font-medium text-slate-500">No students yet</p>
               <Button size="sm" onClick={() => setShowCreate(true)}>Add your first student</Button>
             </div>
           ) : (
             <table className="w-full border-collapse">
               <thead>
-                <tr className="border-b-2 border-dashed border-clay-ink/20 bg-clay-bg">
+                <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="px-5 py-3 w-10" />
-                  <th className="text-left text-[11px] font-extrabold uppercase tracking-wider text-clay-muted px-3 py-3">Student</th>
-                  <th className="text-center text-[11px] font-extrabold uppercase tracking-wider text-clay-muted px-3 py-3 w-24">Grade</th>
-                  <th className="text-center text-[11px] font-extrabold uppercase tracking-wider text-clay-muted px-3 py-3 w-28">Attendance</th>
-                  <th className="text-center text-[11px] font-extrabold uppercase tracking-wider text-clay-muted px-3 py-3 w-32">Status</th>
-                  <th className="text-right text-[11px] font-extrabold uppercase tracking-wider text-clay-muted px-5 py-3 w-32">Actions</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-3 py-3">Student</th>
+                  <th className="text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-3 py-3 w-24">Grade</th>
+                  <th className="text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-3 py-3 w-28">Attendance</th>
+                  <th className="text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-3 py-3 w-32">Status</th>
+                  <th className="text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-5 py-3 w-32">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-clay-ink/10">
+              <tbody className="divide-y divide-slate-100">
                 {students.map((student) => {
                   const name = student.displayName || `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim() || 'Student';
                   const attendancePct = Math.round(student.attendanceRate ?? 0);
                   return (
-                    <tr key={student.publicId} className="hover:bg-clay-bg/50 transition-colors">
+                    <tr key={student.publicId} className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-3.5"><Avatar name={name} size="sm" /></td>
                       <td className="px-3 py-3.5 min-w-0">
-                        <p className="text-sm font-bold text-clay-ink">{name}</p>
+                        <p className="text-sm font-medium text-slate-800">{name}</p>
                         {student.notes && (
-                          <p className="text-xs text-clay-muted truncate max-w-xs mt-0.5 italic">{student.notes}</p>
+                          <p className="text-xs text-slate-400 truncate max-w-xs mt-0.5 italic">{student.notes}</p>
                         )}
                       </td>
                       <td className="px-3 py-3.5 text-center">
-                        <span className="text-sm font-semibold text-clay-muted">{student.grade ?? '—'}</span>
+                        <span className="text-sm text-slate-500">{student.grade ?? '—'}</span>
                       </td>
                       <td className="px-3 py-3.5 text-center">
-                        <span className={`text-sm font-extrabold ${
-                          attendancePct >= 75 ? 'text-clay-green-dark'
-                          : attendancePct >= 50 ? 'text-clay-yellow'
-                          : attendancePct === 0 ? 'text-clay-muted' : 'text-clay-coral'
+                        <span className={`text-sm font-semibold ${
+                          attendancePct >= 75 ? 'text-emerald-600'
+                          : attendancePct >= 50 ? 'text-amber-500'
+                          : attendancePct === 0 ? 'text-slate-400' : 'text-rose-500'
                         }`}>
                           {student.totalClassesAttended > 0 ? `${attendancePct}%` : '—'}
                         </span>
@@ -257,13 +255,13 @@ export function TutorStudentsPage() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleMessage(student.userPublicId)}
-                            className="text-xs font-extrabold text-clay-green-dark hover:underline whitespace-nowrap"
+                            className="text-xs font-medium text-indigo-600 hover:underline whitespace-nowrap"
                           >
                             Message
                           </button>
                           <button
                             onClick={() => setUnlinkTarget(student.publicId)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border-2 border-clay-ink/20 bg-clay-bg text-clay-muted hover:border-red-400 hover:bg-clay-coral/20 hover:text-red-500 transition-colors"
+                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500 transition-colors"
                             title="Remove student"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -281,35 +279,35 @@ export function TutorStudentsPage() {
 
       {/* ── Completed Classes tab ── */}
       {tab === 'classes' && (
-        <div className="rounded-[28px] border-2.5 border-clay-ink bg-clay-surface shadow-clay overflow-hidden">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           {classesLoading ? (
             <div className="flex justify-center py-16">
-              <div className="w-7 h-7 border-2 border-clay-green border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : completedClasses.length === 0 ? (
-            <div className="py-16 text-center text-sm font-bold text-clay-muted">No completed classes yet</div>
+            <div className="py-16 text-center text-sm font-medium text-slate-400">No completed classes yet</div>
           ) : (
-            <div className="divide-y divide-clay-ink/10">
+            <div className="divide-y divide-slate-100">
               {completedClasses.map((cls) => {
                 const studentName = studentNameMap.get(cls.studentPublicId) ?? cls.studentPublicId.slice(0, 8);
                 return (
                   <button
                     key={cls.publicId}
                     onClick={() => setSelectedClass(cls)}
-                    className="w-full px-5 py-3.5 flex items-center gap-4 hover:bg-clay-bg/50 transition-colors text-left"
+                    className="w-full px-5 py-3.5 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left"
                   >
                     <Avatar name={studentName} size="sm" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-clay-ink truncate">{cls.subject}</p>
-                      <p className="text-xs font-semibold text-clay-muted">{studentName}</p>
+                      <p className="text-sm font-medium text-slate-800 truncate">{cls.subject}</p>
+                      <p className="text-xs text-slate-500">{studentName}</p>
                       {cls.scheduledStartUTC && (
-                        <p className="text-xs text-clay-muted">
+                        <p className="text-xs text-slate-400">
                           {formatInTimeZone(new Date(cls.scheduledStartUTC), userTimezone, 'MMM d, yyyy · h:mm a zzz')}
                         </p>
                       )}
                     </div>
                     <Badge variant="success">Completed</Badge>
-                    <span className="text-xs font-extrabold text-clay-green-dark whitespace-nowrap">View →</span>
+                    <span className="text-xs font-medium text-indigo-600 whitespace-nowrap">View →</span>
                   </button>
                 );
               })}
@@ -328,7 +326,7 @@ export function TutorStudentsPage() {
         {selectedClass && (
           <div className="space-y-3">
             {selectedClass.scheduledStartUTC && (
-              <p className="text-sm font-semibold text-clay-muted">
+              <p className="text-sm text-slate-500">
                 {formatInTimeZone(new Date(selectedClass.scheduledStartUTC), userTimezone, 'EEE, MMM d yyyy · h:mm a zzz')}
               </p>
             )}
@@ -358,18 +356,18 @@ export function TutorStudentsPage() {
         }
       >
         <div className="space-y-4">
-          <div className="rounded-2xl border-2 border-clay-ink/20 bg-clay-sky/20 px-4 py-3 text-sm font-semibold text-clay-ink/70">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
             Search by email or phone. Student must accept the invite to appear in your list.
           </div>
 
-          <div className="flex gap-1.5 p-1.5 bg-clay-surface border-2.5 border-clay-ink rounded-2xl w-fit shadow-clay-sm">
+          <div className="flex gap-1 p-1 bg-slate-100 border border-slate-200 rounded-xl w-fit">
             {(['email', 'phone'] as const).map((mode) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => { setInviteMode(mode); setInviteQuery(''); setLookupResult(null); setLookupError(null); }}
-                className={`px-4 py-1.5 rounded-xl text-sm font-extrabold transition-all ${
-                  inviteMode === mode ? 'bg-clay-green text-white border-2 border-clay-ink' : 'text-clay-muted hover:text-clay-ink'
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  inviteMode === mode ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 {mode === 'email' ? 'Email' : 'Phone'}
@@ -389,19 +387,19 @@ export function TutorStudentsPage() {
           </div>
 
           {lookupError && (
-            <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink">{lookupError}</div>
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{lookupError}</div>
           )}
 
           {lookupResult && (
-            <div className={`rounded-2xl border-2.5 border-clay-ink p-4 flex items-center gap-3 ${
-              lookupResult.alreadyLinked ? 'bg-clay-yellow/30' : 'bg-clay-mint/30'
+            <div className={`rounded-xl border p-4 flex items-center gap-3 ${
+              lookupResult.alreadyLinked ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'
             }`}>
               <Avatar name={`${lookupResult.firstName} ${lookupResult.lastName}`} size="sm" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-clay-ink">{lookupResult.firstName} {lookupResult.lastName}</p>
-                <p className="text-xs text-clay-muted truncate">{lookupResult.email}</p>
+                <p className="text-sm font-medium text-slate-800">{lookupResult.firstName} {lookupResult.lastName}</p>
+                <p className="text-xs text-slate-500 truncate">{lookupResult.email}</p>
               </div>
-              <span className={`text-xs font-extrabold ${lookupResult.alreadyLinked ? 'text-clay-muted' : 'text-clay-green-dark'}`}>
+              <span className={`text-xs font-semibold ${lookupResult.alreadyLinked ? 'text-amber-600' : 'text-emerald-600'}`}>
                 {lookupResult.alreadyLinked ? 'Already linked' : 'Found'}
               </span>
             </div>
@@ -419,16 +417,16 @@ export function TutorStudentsPage() {
           footer={<Button onClick={resetCreate}>Done</Button>}
         >
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-clay-green-dark">
+            <div className="flex items-center gap-2 text-sm font-medium text-emerald-600">
               <CheckCircle2 className="h-5 w-5" />
               Account created for {createdInfo.firstName}
             </div>
-            <div className="rounded-2xl border-2.5 border-clay-ink bg-clay-mint p-4 space-y-3">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
               <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted mb-1">Student ID (login)</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Student ID (login)</p>
                 <CopyValue value={createdInfo.studentId} />
               </div>
-              <p className="text-xs font-semibold text-clay-ink/70">
+              <p className="text-xs text-slate-500">
                 Student uses this ID + their password to log in.
                 {createdInfo.contactEmail && ` Login details sent to ${createdInfo.contactEmail}.`}
               </p>
@@ -452,7 +450,7 @@ export function TutorStudentsPage() {
         >
           <form id="tutor-create-student" onSubmit={handleCreate} className="space-y-4">
             {formError && (
-              <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink">{formError}</div>
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{formError}</div>
             )}
 
             <div className="grid grid-cols-2 gap-3">
@@ -476,7 +474,7 @@ export function TutorStudentsPage() {
               onChange={set('password')}
               required
               rightIcon={
-                <button type="button" onClick={() => setShowPassword((p) => !p)} className="text-clay-muted hover:text-clay-ink">
+                <button type="button" onClick={() => setShowPassword((p) => !p)} className="text-slate-400 hover:text-slate-600">
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               }
@@ -498,13 +496,13 @@ export function TutorStudentsPage() {
             />
 
             <div>
-              <label className="block text-sm font-extrabold text-clay-ink mb-2">Notes (optional)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Notes (optional)</label>
               <textarea
                 rows={2}
                 placeholder="Learning goals, requirements…"
                 value={form.notes}
                 onChange={set('notes')}
-                className="w-full rounded-2xl border-2.5 border-clay-ink bg-clay-surface px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm focus:outline-none focus:bg-clay-bg/60 resize-none"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 resize-none"
               />
             </div>
           </form>
@@ -530,7 +528,7 @@ export function TutorStudentsPage() {
           </>
         }
       >
-        <p className="text-sm text-clay-muted">
+        <p className="text-sm text-slate-500">
           Remove this student from your account? Their account won't be deleted — they can be re-linked later.
         </p>
       </Modal>

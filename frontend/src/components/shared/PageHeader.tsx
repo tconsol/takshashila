@@ -5,45 +5,33 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   subtitle?: string;
-  /** Tiny chip rendered above the title e.g. "OVERVIEW" */
   eyebrow?: string;
-  /** Icon shown to the left of the title in a soft tile */
   icon?: ReactNode;
   actions?: ReactNode;
   className?: string;
 }
 
-export function PageHeader({
-  title,
-  description,
-  subtitle,
-  eyebrow,
-  icon,
-  actions,
-  className,
-}: PageHeaderProps) {
+export function PageHeader({ title, description, subtitle, eyebrow, icon, actions, className }: PageHeaderProps) {
   const sub = description ?? subtitle;
   return (
-    <div className={cn('mb-7 flex flex-wrap items-start justify-between gap-4', className)}>
-      <div className="flex items-start gap-4 min-w-0">
+    <div className={cn('mb-6 flex flex-wrap items-start justify-between gap-4', className)}>
+      <div className="flex items-center gap-3.5 min-w-0">
         {icon && (
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-mint text-clay-ink shadow-clay-sm">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
             {icon}
           </div>
         )}
         <div className="min-w-0">
           {eyebrow && (
-            <p className="text-xs font-extrabold uppercase tracking-wider text-clay-green-dark">
+            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-indigo-500">
               {eyebrow}
             </p>
           )}
-          <h1 className="text-2xl font-extrabold tracking-tight text-clay-ink sm:text-3xl">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
             {title}
           </h1>
           {sub && (
-            <p className="mt-1.5 text-sm font-semibold text-clay-muted max-w-2xl">
-              {sub}
-            </p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">{sub}</p>
           )}
         </div>
       </div>

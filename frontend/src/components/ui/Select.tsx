@@ -21,7 +21,6 @@ export interface SelectProps {
   disabled?: boolean;
   className?: string;
   leftIcon?: React.ReactNode;
-  // Auto-shows search when options.length > this threshold (default: 8)
   searchThreshold?: number;
 }
 
@@ -60,12 +59,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const hiddenSelectRef = useRef<HTMLSelectElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
 
-    // Sync controlled value
     useEffect(() => {
       if (controlledValue !== undefined) setInternalValue(controlledValue);
     }, [controlledValue]);
 
-    // Close on outside click
     useEffect(() => {
       if (!isOpen) return;
       const handler = (e: MouseEvent) => {
@@ -78,7 +75,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       return () => document.removeEventListener('mousedown', handler);
     }, [isOpen]);
 
-    // Focus search when opening
     useEffect(() => {
       if (isOpen) {
         setTimeout(() => searchRef.current?.focus(), 30);
@@ -86,7 +82,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       }
     }, [isOpen]);
 
-    // Combine external ref with internal ref
     const setRef = useCallback(
       (el: HTMLSelectElement | null) => {
         (hiddenSelectRef as React.MutableRefObject<HTMLSelectElement | null>).current = el;
@@ -98,9 +93,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 
     const showSearch = options.length > searchThreshold;
     const filtered = search
-      ? options.filter((o) =>
-          o.label.toLowerCase().includes(search.toLowerCase()),
-        )
+      ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
       : options;
 
     const selectedOption = options.find((o) => o.value === internalValue);
@@ -110,18 +103,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       setIsOpen(false);
       setSearch('');
       setFocusedIdx(-1);
-
-      // Fire onChange for react-hook-form
       if (onChange) {
         const syntheticEvent = {
-          target: {
-            value: optValue,
-            name: name ?? '',
-          },
-          currentTarget: {
-            value: optValue,
-            name: name ?? '',
-          },
+          target: { value: optValue, name: name ?? '' },
+          currentTarget: { value: optValue, name: name ?? '' },
           type: 'change',
           bubbles: true,
           nativeEvent: new Event('change'),
@@ -144,11 +129,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         }
         return;
       }
-      if (e.key === 'Escape') {
-        setIsOpen(false);
-        setSearch('');
-        return;
-      }
+      if (e.key === 'Escape') { setIsOpen(false); setSearch(''); return; }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setFocusedIdx((i) => Math.min(i + 1, filtered.length - 1));
@@ -162,7 +143,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       }
     };
 
-    // Scroll focused item into view
     useEffect(() => {
       if (focusedIdx >= 0 && listRef.current) {
         const el = listRef.current.children[focusedIdx] as HTMLElement;
@@ -173,15 +153,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className={cn('relative w-full', className)} ref={containerRef}>
         {label && (
-          <label
-            htmlFor={inputId}
-            className="mb-2 block text-sm font-extrabold text-clay-ink dark:text-gray-300"
-          >
+          <label htmlFor={inputId} className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
             {label}
           </label>
         )}
 
-        {/* Hidden native select for react-hook-form */}
         <select
           ref={setRef}
           name={name}
@@ -194,12 +170,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
         >
           <option value="" />
-          {options.map((o) => (
-            <option key={o.value} value={o.value} />
-          ))}
+          {options.map((o) => <option key={o.value} value={o.value} />)}
         </select>
 
-        {/* Trigger button */}
         <button
           type="button"
           id={`${inputId}-trigger`}
@@ -210,71 +183,47 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           aria-expanded={isOpen}
           aria-labelledby={label ? inputId : undefined}
           className={cn(
-            'relative flex w-full items-center gap-2 rounded-2xl border-2.5 border-clay-ink bg-clay-surface px-4 py-3 text-sm font-semibold text-left transition-colors shadow-clay-sm text-clay-ink',
-            'focus:outline-none focus:bg-clay-bg/60 focus:shadow-clay',
-            isOpen && 'bg-clay-bg/60 shadow-clay',
-            error && 'border-rose-500',
-            disabled && 'cursor-not-allowed bg-clay-bg opacity-60',
+            'relative flex w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5',
+            'text-sm font-medium text-left transition-colors duration-150 shadow-sm',
+            'focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500',
+            'dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100',
+            isOpen && 'ring-2 ring-indigo-500/25 border-indigo-500',
+            error && 'border-rose-400 focus:ring-rose-500/25',
+            disabled && 'cursor-not-allowed bg-slate-50 opacity-60 dark:bg-slate-800',
           )}
         >
-          {leftIcon && (
-            <span className="shrink-0 text-clay-ink">{leftIcon}</span>
-          )}
-          <span
-            className={cn(
-              'flex-1 truncate text-clay-ink',
-              !selectedOption && 'text-gray-400 dark:text-gray-500 font-normal',
-            )}
-          >
+          {leftIcon && <span className="shrink-0 text-slate-400">{leftIcon}</span>}
+          <span className={cn('flex-1 truncate', !selectedOption && 'text-slate-400')}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronDown
-            className={cn(
-              'ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200',
-              isOpen && 'rotate-180',
-            )}
-          />
+          <ChevronDown className={cn('ml-auto h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200', isOpen && 'rotate-180')} />
         </button>
 
-        {/* Dropdown */}
         {isOpen && (
           <div
-            className={cn(
-              'absolute z-50 mt-2 w-full min-w-[12rem] overflow-hidden rounded-2xl border-2.5 border-clay-ink',
-              'bg-clay-surface shadow-clay',
-            )}
+            className="absolute z-50 mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:bg-slate-900 dark:border-slate-700"
             style={{ maxWidth: containerRef.current?.offsetWidth }}
             role="listbox"
             onKeyDown={handleKeyDown}
           >
             {showSearch && (
-              <div className="border-b border-gray-100 p-2 dark:border-gray-800">
+              <div className="border-b border-slate-100 p-2 dark:border-slate-800">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                   <input
                     ref={searchRef}
                     type="text"
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setFocusedIdx(0); }}
                     placeholder="Search…"
-                    className={cn(
-                      'w-full rounded-lg border-0 bg-gray-50 py-1.5 pl-8 pr-3 text-sm outline-none',
-                      'placeholder:text-gray-400 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500',
-                      'focus:ring-1 focus:ring-brand-500/40',
-                    )}
+                    className="w-full rounded-lg border-0 bg-slate-50 py-1.5 pl-8 pr-3 text-sm outline-none placeholder:text-slate-400 dark:bg-slate-800 focus:ring-1 focus:ring-indigo-500/30"
                   />
                 </div>
               </div>
             )}
-
-            <ul
-              ref={listRef}
-              className="max-h-56 overflow-y-auto py-1"
-            >
+            <ul ref={listRef} className="max-h-56 overflow-y-auto py-1">
               {filtered.length === 0 ? (
-                <li className="px-3 py-2.5 text-sm text-gray-400 dark:text-gray-500 text-center">
-                  No options found
-                </li>
+                <li className="px-3 py-2.5 text-sm text-slate-400 text-center">No options found</li>
               ) : (
                 filtered.map((opt, idx) => {
                   const isSelected = opt.value === internalValue;
@@ -287,18 +236,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                       onClick={() => handleSelect(opt.value)}
                       onMouseEnter={() => setFocusedIdx(idx)}
                       className={cn(
-                        'flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm font-semibold transition-colors',
+                        'flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors',
                         isFocused
-                          ? 'bg-clay-mint text-clay-ink'
-                          : 'text-clay-ink hover:bg-clay-bg dark:text-gray-300 dark:hover:bg-gray-800',
-                        isSelected && !isFocused &&
-                          'bg-clay-mint/50 font-extrabold text-clay-ink',
+                          ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                          : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800',
+                        isSelected && !isFocused && 'bg-indigo-50/60 font-semibold text-indigo-600 dark:bg-indigo-900/20',
                       )}
                     >
                       <span className="flex-1 truncate">{opt.label}</span>
-                      {isSelected && (
-                        <Check className="h-4 w-4 shrink-0 text-clay-green-dark" strokeWidth={3} />
-                      )}
+                      {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-indigo-600" strokeWidth={2.5} />}
                     </li>
                   );
                 })
@@ -307,9 +253,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </div>
         )}
 
-        {error && (
-          <p className="mt-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">{error}</p>
-        )}
+        {error && <p className="mt-1.5 text-xs font-medium text-rose-500">{error}</p>}
       </div>
     );
   },
