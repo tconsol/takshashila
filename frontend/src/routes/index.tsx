@@ -70,6 +70,7 @@ import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
 import { StudentWorksheetTestPage } from '../pages/student/StudentWorksheetTestPage';
 import { StudentResourcesPage } from '../pages/student/StudentResourcesPage';
 import { StudentGamesPage } from '../pages/student/StudentGamesPage';
+import { StudentParentRequestsPage } from '../pages/student/StudentParentRequestsPage';
 
 // Parent pages
 import { ParentChildrenPage } from '../pages/parent/ParentChildrenPage';
@@ -208,6 +209,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/attendance', element: <StudentAttendancePage /> },
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },
         { path: '/dashboard/student/wallet', element: <StudentWalletPage /> },
+        { path: '/dashboard/student/parent-requests', element: <StudentParentRequestsPage /> },
       ],
     }],
   },

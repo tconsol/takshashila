@@ -120,6 +120,9 @@ export const parentService = {
   linkChild: (studentPublicId: string) =>
     api.post('/parents/me/children/link', { studentPublicId }).then((r) => r.data.data as ParentProfile),
 
+  requestLinkChild: (studentPublicId: string) =>
+    api.post('/parents/me/children/request', { studentPublicId }).then(() => null),
+
   updateChild: (studentPublicId: string, dto: { firstName?: string; lastName?: string; grade?: string }) =>
     api.patch(`/parents/me/children/${studentPublicId}`, dto).then(() => null),
 

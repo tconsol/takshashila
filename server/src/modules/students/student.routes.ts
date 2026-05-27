@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import type { Response, NextFunction } from 'express';
+import type { AuthRequest } from '../../shared/types';
 import { studentController } from './student.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { requireRole, requirePermission } from '../../middlewares/permission.middleware';
@@ -6,6 +8,10 @@ import { validate } from '../../middlewares/validation.middleware';
 import { Permission } from '../../constants/permissions';
 import { Role } from '../../constants/roles';
 import { createStudentByTutorSchema, inviteExistingStudentSchema, createStudentByPrincipalSchema, inviteStudentByPrincipalSchema } from './student.validators';
+import { parentService } from '../parents/parent.service';
+import { StudentProfileModel } from './student.model';
+import { NotFoundError } from '../../utils/error';
+import { sendSuccess } from '../../utils/response';
 
 const router = Router();
 router.use(authMiddleware);
@@ -21,6 +27,33 @@ router.get('/me/principal', requireRole(Role.STUDENT), studentController.getMyPr
 router.get('/me', requireRole(Role.STUDENT), studentController.getMyProfile.bind(studentController));
 router.post('/me/accept-invite', requireRole(Role.STUDENT), studentController.acceptInvite.bind(studentController));
 router.post('/me/decline-invite', requireRole(Role.STUDENT), studentController.declineInvite.bind(studentController));
+
+router.get('/me/parent-requests', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const studentProfile = await StudentProfileModel.findOne({ userPublicId: req.user!.publicId, isDeleted: false }).lean();
+    if (!studentProfile) throw new NotFoundError('Student profile not found');
+    const requests = await parentService.getParentLinkRequests(studentProfile.publicId);
+    sendSuccess(res, requests, 'Parent link requests fetched');
+  } catch (e) { next(e); }
+});
+
+router.post('/me/parent-requests/:requestPublicId/approve', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const studentProfile = await StudentProfileModel.findOne({ userPublicId: req.user!.publicId, isDeleted: false }).lean();
+    if (!studentProfile) throw new NotFoundError('Student profile not found');
+    await parentService.approveParentLinkRequest(studentProfile.publicId, req.params.requestPublicId);
+    sendSuccess(res, null, 'Parent link request approved');
+  } catch (e) { next(e); }
+});
+
+router.post('/me/parent-requests/:requestPublicId/reject', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const studentProfile = await StudentProfileModel.findOne({ userPublicId: req.user!.publicId, isDeleted: false }).lean();
+    if (!studentProfile) throw new NotFoundError('Student profile not found');
+    await parentService.rejectParentLinkRequest(studentProfile.publicId, req.params.requestPublicId);
+    sendSuccess(res, null, 'Parent link request rejected');
+  } catch (e) { next(e); }
+});
 router.get('/pending', requirePermission(Permission.MANAGE_STUDENTS), studentController.listPending.bind(studentController));
 router.get('/', requirePermission(Permission.MANAGE_STUDENTS), studentController.listAll.bind(studentController));
 router.get('/my-students', requireRole(Role.TUTOR), studentController.getMyStudents.bind(studentController));

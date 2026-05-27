@@ -56,6 +56,12 @@ export function useLinkChild() {
   });
 }
 
+export function useRequestLinkChild() {
+  return useMutation({
+    mutationFn: (studentPublicId: string) => parentService.requestLinkChild(studentPublicId),
+  });
+}
+
 export function useUnlinkChild() {
   const qc = useQueryClient();
   return useMutation({

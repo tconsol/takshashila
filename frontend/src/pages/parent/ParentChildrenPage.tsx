@@ -10,7 +10,7 @@ import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { Spinner } from '../../components/ui/Loading';
-import { useParentChildren, useLinkChild, useUnlinkChild, useCreateChild, useUpdateChild } from '../../hooks/use-parent';
+import { useParentChildren, useRequestLinkChild, useUnlinkChild, useCreateChild, useUpdateChild } from '../../hooks/use-parent';
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'default' | 'danger'> = {
   ACTIVE: 'success',
@@ -32,7 +32,7 @@ export function ParentChildrenPage() {
 
   const { data: children = [], isLoading } = useParentChildren();
   const { mutateAsync: createChild, isPending: creating } = useCreateChild();
-  const { mutateAsync: linkChild, isPending: linking } = useLinkChild();
+  const { mutateAsync: requestLinkChild, isPending: linking } = useRequestLinkChild();
   const { mutateAsync: unlinkChild, isPending: unlinking } = useUnlinkChild();
   const { mutateAsync: updateChild, isPending: updating } = useUpdateChild();
 
@@ -153,12 +153,12 @@ export function ParentChildrenPage() {
         loading={creating}
       />
 
-      {/* Link Existing Modal */}
+      {/* Link Existing Modal — sends request to student for approval */}
       <LinkChildModal
         open={mode === 'link'}
         onClose={() => setMode(null)}
         onLink={async (id) => {
-          await linkChild(id);
+          await requestLinkChild(id);
           setMode(null);
         }}
         loading={linking}
@@ -366,47 +366,63 @@ function LinkChildModal({
 }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
 
-  const handleLink = async () => {
+  const handleSend = async () => {
     setError('');
-    if (!value.trim()) { setError('Please enter a Student Profile ID'); return; }
+    if (!value.trim()) { setError('Please enter a Student ID or Profile UUID'); return; }
     try {
       await onLink(value.trim());
-      setValue('');
+      setSent(true);
     } catch (err: unknown) {
       const e2 = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(e2.response?.data?.message ?? e2.message ?? 'Failed to link child');
+      setError(e2.response?.data?.message ?? e2.message ?? 'Failed to send request');
     }
   };
 
+  const handleClose = () => {
+    setValue('');
+    setError('');
+    setSent(false);
+    onClose();
+  };
+
   return (
-    <Modal
-      open={open}
-      onClose={() => { setValue(''); setError(''); onClose(); }}
-      title="Link Existing Child"
-      size="sm"
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleLink} loading={loading}>
-            <Link2 className="h-4 w-4 mr-1.5" /> Link Child
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <p className="text-sm text-slate-500">
-          Enter your child's <strong className="text-slate-800">Student ID</strong> (e.g. <code className="font-mono text-slate-700">stujs4821</code>)
-          or their <strong className="text-slate-800">Profile UUID</strong>. Both are shown on your child's profile page.
-        </p>
-        <Input
-          label="Student ID or Profile UUID"
-          placeholder="stujs4821 or 3f9a2b1c-…"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          error={error ?? undefined}
-        />
-      </div>
+    <Modal open={open} onClose={handleClose} title="Send Link Request" size="sm">
+      {sent ? (
+        <div className="flex flex-col items-center gap-4 py-6">
+          <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+            <Link2 className="h-7 w-7 text-emerald-500" />
+          </div>
+          <p className="font-semibold text-slate-900">Request sent!</p>
+          <p className="text-sm text-slate-500 text-center">
+            The student will see your request in their dashboard and can choose to accept or decline.
+          </p>
+          <Button onClick={handleClose}>Done</Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 p-3.5">
+            <p className="text-sm text-sky-800 font-medium">How it works</p>
+            <p className="text-xs text-sky-700 mt-1">
+              Enter your child's Student ID or Profile UUID. A request will be sent to them — they must approve before the link is created.
+            </p>
+          </div>
+          <Input
+            label="Student ID or Profile UUID"
+            placeholder="stujs4821 or 3f9a2b1c-…"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            error={error ?? undefined}
+          />
+          <div className="flex gap-2 pt-1">
+            <Button variant="ghost" className="flex-1" onClick={handleClose}>Cancel</Button>
+            <Button className="flex-1" onClick={handleSend} loading={loading}>
+              <Link2 className="h-4 w-4 mr-1.5" />Send Request
+            </Button>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }

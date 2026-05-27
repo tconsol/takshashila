@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Video, BookOpen, BarChart3, Wallet, ArrowUpRight, Plus,
-  Sparkles, Target, GraduationCap, Star, MessageSquare, Flame,
+  Sparkles, Target, GraduationCap, Star, MessageSquare, Flame, Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -18,6 +18,7 @@ import { Spinner } from '../../components/ui/Loading';
 import { Avatar } from '../../components/ui/Avatar';
 import { LiveClassBanner } from '../../features/live-class/LiveClassBanner';
 import { useMyTutor, useStudentPrincipal } from '../../hooks/use-students';
+import { useParentLinkRequests } from '../../hooks/use-student-parent-requests';
 import { api } from '../../lib/axios';
 
 interface ClassItem {
@@ -182,6 +183,7 @@ export function StudentDashboard() {
   const { data: balanceCents = 0 } = useWalletBalance();
   const { data: myTutor } = useMyTutor();
   const { data: myPrincipal } = useStudentPrincipal();
+  const { data: parentRequests = [] } = useParentLinkRequests();
 
   const upcoming   = useCountUp(stats?.upcoming ?? 0);
   const submissions = useCountUp(stats?.submissions ?? 0);
@@ -221,6 +223,35 @@ export function StudentDashboard() {
       />
 
       <LiveClassBanner />
+
+      {/* Parent link requests banner */}
+      {parentRequests.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-5 py-3.5"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 shrink-0">
+              <Users className="h-4 w-4 text-violet-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-violet-900">
+                {parentRequests.length === 1
+                  ? '1 parent wants to link to your account'
+                  : `${parentRequests.length} parents want to link to your account`}
+              </p>
+              <p className="text-xs text-violet-600 mt-0.5">Review and accept or decline their requests</p>
+            </div>
+          </div>
+          <Link to="/dashboard/student/parent-requests" className="shrink-0">
+            <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white border-violet-600">
+              Review <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </Link>
+        </motion.div>
+      )}
 
       {/* Stats cards — staggered entrance */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
