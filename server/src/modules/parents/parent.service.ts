@@ -243,7 +243,8 @@ export class ParentService {
     const studentProfile = await StudentProfileModel.findOne({ publicId: studentPublicId, isDeleted: false }).lean();
     if (!studentProfile) throw new NotFoundError('Student profile');
 
-    if ([StudentStatus.ACTIVE, StudentStatus.PENDING_APPROVAL].includes(studentProfile.status as StudentStatus) && studentProfile.tutorPublicId === tutorPublicId) {
+    const activeStatuses: string[] = [StudentStatus.ACTIVE, StudentStatus.PENDING_APPROVAL];
+    if (activeStatuses.includes(studentProfile.status) && studentProfile.tutorPublicId === tutorPublicId) {
       throw new AppError('Request already sent or student already linked to this tutor', 409);
     }
 

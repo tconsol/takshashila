@@ -269,8 +269,4 @@ export const router = createBrowserRouter([
   },
 
   { path: '*', element: <Navigate to="/" replace /> },
-], {
-  future: {
-    v7_startTransition: true,
-  },
-});
+]);
