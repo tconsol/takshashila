@@ -115,17 +115,10 @@ export function PrincipalStudentsPage() {
         eyebrow="MANAGEMENT"
         actions={
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowInvite(true)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setShowInvite(true)}>
               <Send className="h-4 w-4 mr-1.5" /> Invite Existing
             </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowCreate(true)}
-            >
+            <Button size="sm" onClick={() => setShowCreate(true)}>
               <UserPlus className="h-4 w-4 mr-1.5" /> Create Student
             </Button>
           </div>
@@ -136,7 +129,7 @@ export function PrincipalStudentsPage() {
 
       {isLoading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-clay-green border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
         </div>
       ) : displayList.length === 0 ? (
         <EmptyState
@@ -157,16 +150,16 @@ export function PrincipalStudentsPage() {
           }
         />
       ) : (
-        <div className="rounded-[28px] border-2.5 border-clay-ink bg-clay-surface shadow-clay overflow-hidden">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="border-b-2 border-dashed border-clay-ink/20 bg-clay-bg/40">
+              <tr className="border-b border-slate-100 bg-slate-50">
                 <th className="w-10 px-5 py-3" />
-                <th className="px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-clay-muted">Student</th>
-                <th className="hidden w-24 px-3 py-3 text-center text-xs font-extrabold uppercase tracking-wider text-clay-muted sm:table-cell">Grade</th>
-                <th className="hidden w-28 px-3 py-3 text-center text-xs font-extrabold uppercase tracking-wider text-clay-muted md:table-cell">Attendance</th>
-                <th className="w-32 px-3 py-3 text-center text-xs font-extrabold uppercase tracking-wider text-clay-muted">Status</th>
-                <th className="w-36 px-5 py-3 text-right text-xs font-extrabold uppercase tracking-wider text-clay-muted">Actions</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Student</th>
+                <th className="hidden w-24 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 sm:table-cell">Grade</th>
+                <th className="hidden w-28 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 md:table-cell">Attendance</th>
+                <th className="w-32 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                <th className="w-36 px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -176,33 +169,28 @@ export function PrincipalStudentsPage() {
                 return (
                   <tr
                     key={student.publicId}
-                    className="cursor-pointer border-b border-dashed border-clay-ink/10 transition-colors last:border-0 hover:bg-clay-mint/10"
+                    className="cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50"
                     onClick={() => setSelectedStudent(student)}
                   >
                     <td className="px-5 py-3.5">
                       <Avatar name={name} size="sm" />
                     </td>
                     <td className="min-w-0 px-3 py-3.5">
-                      <p className="text-sm font-bold text-clay-ink">{name}</p>
+                      <p className="text-sm font-medium text-slate-800">{name}</p>
                       {student.email && (
-                        <p className="max-w-xs truncate text-xs text-clay-muted">{student.email}</p>
+                        <p className="max-w-xs truncate text-xs text-slate-400">{student.email}</p>
                       )}
                     </td>
                     <td className="hidden px-3 py-3.5 text-center sm:table-cell">
-                      <span className="text-sm text-clay-muted">{student.grade ?? '—'}</span>
+                      <span className="text-sm text-slate-500">{student.grade ?? '—'}</span>
                     </td>
                     <td className="hidden px-3 py-3.5 text-center md:table-cell">
-                      <span
-                        className={`text-sm font-bold ${
-                          attendancePct >= 75
-                            ? 'text-clay-green-dark'
-                            : attendancePct >= 50
-                            ? 'text-amber-500'
-                            : attendancePct === 0
-                            ? 'text-clay-muted'
-                            : 'text-red-500'
-                        }`}
-                      >
+                      <span className={`text-sm font-semibold ${
+                        attendancePct >= 75 ? 'text-emerald-600'
+                        : attendancePct >= 50 ? 'text-amber-500'
+                        : attendancePct === 0 ? 'text-slate-400'
+                        : 'text-rose-500'
+                      }`}>
                         {student.totalClassesAttended > 0 ? `${attendancePct}%` : '—'}
                       </span>
                     </td>
@@ -215,7 +203,7 @@ export function PrincipalStudentsPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setSelectedStudent(student)}
-                          className="rounded-lg border border-clay-ink/20 p-1.5 text-clay-muted hover:bg-clay-bg hover:text-clay-ink transition-colors"
+                          className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-colors"
                           title="View details"
                         >
                           <Eye className="h-3.5 w-3.5" />
@@ -224,14 +212,14 @@ export function PrincipalStudentsPage() {
                           <>
                             <button
                               onClick={() => handleMessage(student)}
-                              className="rounded-lg border border-clay-ink/20 p-1.5 text-clay-muted hover:bg-clay-sky/40 hover:text-clay-ink transition-colors"
+                              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-colors"
                               title="Message"
                             >
                               <MessageSquare className="h-3.5 w-3.5" />
                             </button>
                             <button
                               onClick={() => { setAssignTarget(student); }}
-                              className="rounded-lg border border-clay-ink/20 p-1.5 text-clay-muted hover:bg-clay-purple/40 hover:text-clay-ink transition-colors"
+                              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-violet-50 hover:text-violet-600 hover:border-violet-200 transition-colors"
                               title="Assign to tutor"
                             >
                               <ArrowRightLeft className="h-3.5 w-3.5" />
@@ -246,14 +234,14 @@ export function PrincipalStudentsPage() {
                         {student.status === 'ACTIVE' && (
                           <button
                             onClick={() => { setSuspendTarget(student); setSuspendReason(''); }}
-                            className="rounded-lg border border-clay-coral-strong/40 px-2 py-1 text-xs font-bold text-red-500 hover:bg-clay-coral/30 transition-colors"
+                            className="rounded-lg border border-rose-200 px-2 py-1 text-xs font-medium text-rose-500 hover:bg-rose-50 transition-colors"
                           >
                             Suspend
                           </button>
                         )}
                         <button
                           onClick={() => setUnlinkTarget(student)}
-                          className="rounded-lg border border-clay-ink/20 p-1.5 text-clay-muted hover:border-red-400 hover:bg-clay-coral/20 hover:text-red-500 transition-colors"
+                          className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500 transition-colors"
                           title="Unlink student"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -274,15 +262,15 @@ export function PrincipalStudentsPage() {
           footer={<Button onClick={() => { setCreatedInfo(null); setShowCreate(false); }}>Done</Button>}
         >
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-clay-green-dark">
+            <div className="flex items-center gap-2 text-sm font-medium text-emerald-600">
               <CheckCircle2 className="h-5 w-5" /> Account created for {createdInfo.firstName}
             </div>
-            <div className="rounded-2xl border-2.5 border-clay-ink bg-clay-mint p-4 space-y-3">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
               <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted mb-1">Student ID (login)</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Student ID (login)</p>
                 <StudentIdCopy value={createdInfo.studentId} />
               </div>
-              <p className="text-xs font-semibold text-clay-ink/70">
+              <p className="text-xs text-slate-500">
                 Student uses this ID + their password to log in.
                 {createdInfo.contactEmail && ` Credentials sent to ${createdInfo.contactEmail}.`}
               </p>
@@ -345,31 +333,19 @@ export function PrincipalStudentsPage() {
           <div className="flex gap-2">
             {selectedStudent?.status === 'ACTIVE' && (
               <>
-                <Button
-                  variant="danger"
-                  onClick={() => { setSuspendTarget(selectedStudent); setSelectedStudent(null); setSuspendReason(''); }}
-                >
+                <Button variant="danger" onClick={() => { setSuspendTarget(selectedStudent); setSelectedStudent(null); setSuspendReason(''); }}>
                   Suspend
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => { setAssignTarget(selectedStudent); setSelectedStudent(null); }}
-                >
+                <Button variant="outline" onClick={() => { setAssignTarget(selectedStudent); setSelectedStudent(null); }}>
                   <ArrowRightLeft className="h-4 w-4 mr-1.5" /> Reassign Tutor
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => { handleMessage(selectedStudent); setSelectedStudent(null); }}
-                >
+                <Button variant="outline" onClick={() => { handleMessage(selectedStudent); setSelectedStudent(null); }}>
                   <MessageSquare className="h-4 w-4 mr-1.5" /> Message
                 </Button>
               </>
             )}
             {selectedStudent?.status === 'PENDING_APPROVAL' && (
-              <Button
-                onClick={() => { handleApprove(selectedStudent); setSelectedStudent(null); }}
-                loading={approving}
-              >
+              <Button onClick={() => { handleApprove(selectedStudent); setSelectedStudent(null); }} loading={approving}>
                 Approve
               </Button>
             )}
@@ -395,8 +371,8 @@ export function PrincipalStudentsPage() {
           </>
         }
       >
-        <p className="text-sm text-clay-muted">
-          Unlink <strong className="text-clay-ink">{unlinkTarget?.displayName}</strong> from your organization?
+        <p className="text-sm text-slate-500">
+          Unlink <strong className="text-slate-800">{unlinkTarget?.displayName}</strong> from your organization?
           Their account won't be deleted — they can be re-linked later.
         </p>
       </Modal>
@@ -410,20 +386,15 @@ export function PrincipalStudentsPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setSuspendTarget(null)}>Cancel</Button>
-            <Button
-              variant="danger"
-              onClick={handleSuspend}
-              loading={suspending}
-              disabled={!suspendReason.trim()}
-            >
+            <Button variant="danger" onClick={handleSuspend} loading={suspending} disabled={!suspendReason.trim()}>
               Suspend
             </Button>
           </>
         }
       >
         <div className="space-y-3">
-          <p className="text-sm text-clay-muted">
-            Suspending <strong className="text-clay-ink">{suspendTarget?.displayName}</strong> will block their access.
+          <p className="text-sm text-slate-500">
+            Suspending <strong className="text-slate-800">{suspendTarget?.displayName}</strong> will block their access.
           </p>
           <Input
             label="Reason"
@@ -444,10 +415,10 @@ function StudentIdCopy({ value }: { value: string }) {
     <button
       type="button"
       onClick={() => { navigator.clipboard.writeText(value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}
-      className="inline-flex items-center gap-1.5 rounded-xl border-2 border-clay-ink/20 bg-clay-bg px-2.5 py-1.5 font-mono text-sm font-bold text-clay-ink hover:bg-clay-mint/20 transition-colors"
+      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
     >
       {value}
-      {copied ? <Check className="h-3.5 w-3.5 text-clay-green-dark" /> : <Copy className="h-3.5 w-3.5 text-clay-muted" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-400" />}
     </button>
   );
 }
@@ -518,7 +489,7 @@ function CreateStudentModal({
     >
       <form id="create-student-form" onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm">{error}</div>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>
         )}
 
         <div className="grid grid-cols-2 gap-3">
@@ -541,7 +512,7 @@ function CreateStudentModal({
           onChange={set('password')}
           required
           rightIcon={
-            <button type="button" onClick={() => setShowPwd((p) => !p)} className="text-clay-muted hover:text-clay-ink">
+            <button type="button" onClick={() => setShowPwd((p) => !p)} className="text-slate-400 hover:text-slate-600">
               {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           }
@@ -554,7 +525,7 @@ function CreateStudentModal({
           value={form.tutorPublicId}
           onChange={set('tutorPublicId')}
         />
-        {activeTutors.length === 0 && <p className="text-xs text-clay-muted">No active tutors. Invite tutors first.</p>}
+        {activeTutors.length === 0 && <p className="text-xs text-slate-400">No active tutors. Invite tutors first.</p>}
 
         <Select
           label="Grade (optional)"
@@ -597,7 +568,6 @@ function InviteStudentModal({
   const [tutorPublicId, setTutorPublicId] = useState('');
   const [error, setError] = useState('');
 
-  // Parent email search state
   const [parentSearchResult, setParentSearchResult] = useState<{ parentName: string; children: ParentChildResult[] } | null>(null);
   const [parentSearchLoading, setParentSearchLoading] = useState(false);
   const [selectedChild, setSelectedChild] = useState<ParentChildResult | null>(null);
@@ -685,20 +655,20 @@ function InviteStudentModal({
     >
       <form id="invite-student-form" onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm">{error}</div>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>
         )}
 
         {/* Mode tabs */}
-        <div className="grid grid-cols-4 gap-1.5 p-1.5 bg-clay-surface border-2.5 border-clay-ink rounded-2xl shadow-clay-sm">
+        <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 border border-slate-200 rounded-xl">
           {MODES.map(({ key, label }) => (
             <button
               key={key}
               type="button"
               onClick={() => { setSearchBy(key); setValue(''); setParentSearchResult(null); setSelectedChild(null); setError(''); }}
-              className={`py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+              className={`py-1.5 rounded-lg text-xs font-medium transition-all ${
                 searchBy === key
-                  ? 'bg-clay-green text-white border-2 border-clay-ink'
-                  : 'text-clay-muted hover:text-clay-ink hover:bg-clay-bg'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-white'
               }`}
             >
               {label}
@@ -745,11 +715,11 @@ function InviteStudentModal({
 
             {parentSearchResult && (
               <div className="space-y-2">
-                <p className="text-xs font-extrabold uppercase tracking-wider text-clay-muted">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Children under {parentSearchResult.parentName}
                 </p>
                 {parentSearchResult.children.length === 0 ? (
-                  <p className="text-sm text-clay-muted">No children linked to this parent.</p>
+                  <p className="text-sm text-slate-400">No children linked to this parent.</p>
                 ) : (
                   <div className="space-y-2">
                     {parentSearchResult.children.map((child) => {
@@ -760,22 +730,22 @@ function InviteStudentModal({
                           key={child.publicId}
                           type="button"
                           onClick={() => setSelectedChild(isSelected ? null : child)}
-                          className={`w-full flex items-center gap-3 rounded-2xl border-2.5 p-3 text-left transition-all ${
+                          className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
                             isSelected
-                              ? 'border-clay-ink bg-clay-mint shadow-clay-sm'
-                              : 'border-clay-ink/20 bg-clay-surface hover:bg-clay-bg'
+                              ? 'border-indigo-400 bg-indigo-50 shadow-sm'
+                              : 'border-slate-200 bg-white hover:bg-slate-50'
                           }`}
                         >
-                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border-2 border-clay-ink bg-clay-purple text-sm font-black text-clay-ink">
+                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-indigo-500 text-sm font-semibold text-white">
                             {name[0]?.toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-clay-ink">{name}</p>
-                            <p className="text-xs text-clay-muted">{child.grade ?? 'No grade'} · {child.status.replace(/_/g, ' ')}</p>
-                            {child.studentId && <p className="text-xs font-mono text-clay-muted">{child.studentId}</p>}
+                            <p className="text-sm font-medium text-slate-800">{name}</p>
+                            <p className="text-xs text-slate-500">{child.grade ?? 'No grade'} · {child.status.replace(/_/g, ' ')}</p>
+                            {child.studentId && <p className="text-xs font-mono text-slate-400">{child.studentId}</p>}
                           </div>
-                          {child.alreadyLinked && <span className="text-[10px] font-extrabold text-clay-muted uppercase">Linked</span>}
-                          {isSelected && <Check className="h-4 w-4 text-clay-green-dark flex-shrink-0" />}
+                          {child.alreadyLinked && <span className="text-[10px] font-semibold text-slate-400 uppercase">Linked</span>}
+                          {isSelected && <Check className="h-4 w-4 text-indigo-600 flex-shrink-0" />}
                         </button>
                       );
                     })}
@@ -794,7 +764,7 @@ function InviteStudentModal({
           value={tutorPublicId}
           onChange={(e) => setTutorPublicId(e.target.value)}
         />
-        {activeTutors.length === 0 && <p className="text-xs text-clay-muted">No active tutors. Invite tutors first.</p>}
+        {activeTutors.length === 0 && <p className="text-xs text-slate-400">No active tutors. Invite tutors first.</p>}
       </form>
     </Modal>
   );
@@ -853,24 +823,24 @@ function AssignTutorModal({
     >
       <form id="assign-tutor-form" onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink shadow-clay-sm">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
             {error}
           </div>
         )}
 
-        <p className="text-sm text-clay-muted">
-          Reassigning <strong className="text-clay-ink">{name}</strong> to a new tutor will transfer their history.
+        <p className="text-sm text-slate-500">
+          Reassigning <strong className="text-slate-800">{name}</strong> to a new tutor will transfer their history.
         </p>
 
         <div>
-          <label className="block text-xs font-extrabold uppercase tracking-wider text-clay-muted mb-1.5">
-            New Tutor <span className="text-red-500">*</span>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+            New Tutor <span className="text-rose-500">*</span>
           </label>
           <select
             value={newTutorPublicId}
             onChange={(e) => setNewTutorPublicId(e.target.value)}
             required
-            className="w-full rounded-2xl border-2.5 border-clay-ink bg-clay-surface px-4 py-2.5 text-sm font-semibold text-clay-ink shadow-clay-sm focus:outline-none focus:bg-clay-bg/60 focus:shadow-clay"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20"
           >
             <option value="">Select tutor…</option>
             {activeTutors.map((t) => (
@@ -880,7 +850,7 @@ function AssignTutorModal({
             ))}
           </select>
           {activeTutors.length === 0 && (
-            <p className="mt-1 text-xs text-clay-muted">No other active tutors available.</p>
+            <p className="mt-1 text-xs text-slate-400">No other active tutors available.</p>
           )}
         </div>
       </form>
@@ -897,25 +867,25 @@ function StudentDetailView({ student, tutors }: { student: StudentProfile; tutor
   const showEmail = student.email && !student.email.endsWith('@student.internal');
 
   const stats = [
-    { icon: BookOpen, label: 'Classes Attended', value: student.totalClassesAttended, color: 'bg-clay-sky/30' },
-    { icon: BarChart3, label: 'Attendance Rate', value: student.totalClassesAttended > 0 ? `${attendancePct}%` : 'N/A', color: 'bg-clay-mint/30' },
-    { icon: Users, label: 'Demos Used', value: `${student.demoClassesUsed}/3`, color: 'bg-clay-yellow/30' },
-    { icon: GraduationCap, label: 'Grade', value: student.grade ?? '—', color: 'bg-clay-purple/30' },
+    { icon: BookOpen, label: 'Classes Attended', value: student.totalClassesAttended, color: 'bg-sky-50', iconColor: 'text-sky-600' },
+    { icon: BarChart3, label: 'Attendance Rate', value: student.totalClassesAttended > 0 ? `${attendancePct}%` : 'N/A', color: 'bg-emerald-50', iconColor: 'text-emerald-600' },
+    { icon: Users, label: 'Demos Used', value: `${student.demoClassesUsed}/3`, color: 'bg-amber-50', iconColor: 'text-amber-600' },
+    { icon: GraduationCap, label: 'Grade', value: student.grade ?? '—', color: 'bg-violet-50', iconColor: 'text-violet-600' },
   ];
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 rounded-2xl border-2 border-clay-ink/10 bg-clay-bg px-4 py-3">
+      <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
         <Avatar name={name} size="lg" />
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-black text-clay-ink">{name}</h3>
+          <h3 className="text-lg font-bold text-slate-900">{name}</h3>
           {showEmail && (
-            <p className="mt-0.5 flex items-center gap-1 text-sm text-clay-muted truncate">
+            <p className="mt-0.5 flex items-center gap-1 text-sm text-slate-500 truncate">
               <Mail className="h-3.5 w-3.5 flex-shrink-0" /> {student.email}
             </p>
           )}
           {assignedTutor && (
-            <p className="mt-0.5 text-xs font-bold text-clay-green-dark">
+            <p className="mt-0.5 text-xs font-medium text-indigo-600">
               Tutor: {assignedTutor.displayName}
             </p>
           )}
@@ -928,23 +898,23 @@ function StudentDetailView({ student, tutors }: { student: StudentProfile; tutor
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {stats.map(({ icon: Icon, label, value, color }) => (
-          <div key={label} className={`flex items-center gap-3 rounded-2xl border-2 border-clay-ink/20 ${color} p-3`}>
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border-2 border-clay-ink/30 bg-white/50">
-              <Icon className="h-4 w-4 text-clay-ink" />
+        {stats.map(({ icon: Icon, label, value, color, iconColor }) => (
+          <div key={label} className={`flex items-center gap-3 rounded-xl border border-slate-200 ${color} p-3`}>
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white/70">
+              <Icon className={`h-4 w-4 ${iconColor}`} />
             </div>
             <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted">{label}</p>
-              <p className="text-sm font-black text-clay-ink">{value}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+              <p className="text-sm font-bold text-slate-900">{value}</p>
             </div>
           </div>
         ))}
       </div>
 
       {student.notes && (
-        <div className="rounded-2xl border-2 border-dashed border-clay-ink/30 bg-clay-bg px-4 py-3">
-          <p className="mb-1 text-xs font-extrabold uppercase tracking-wider text-clay-muted">Notes</p>
-          <p className="text-sm text-clay-ink">{student.notes}</p>
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Notes</p>
+          <p className="text-sm text-slate-700">{student.notes}</p>
         </div>
       )}
     </div>

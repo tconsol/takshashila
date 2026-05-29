@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 interface ModalProps {
@@ -37,27 +38,28 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
   return createPortal(
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className={`relative w-full ${sizeClasses[size]} bg-clay-surface rounded-[28px] border-2.5 border-clay-ink shadow-clay-lg flex flex-col max-h-[90vh]`}>
+      <div
+        className={`relative w-full ${sizeClasses[size]} bg-white rounded-2xl shadow-xl flex flex-col max-h-[90vh] animate-scale-in`}
+        style={{ border: '1px solid rgb(226 232 240)' }}
+      >
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b-2 border-dashed border-clay-ink/20">
-            <h2 className="text-lg font-extrabold text-clay-ink">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <h2 className="text-base font-bold text-slate-900">{title}</h2>
             <button
               onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-clay-ink bg-clay-coral text-clay-ink transition-all hover:translate-x-[1px] hover:translate-y-[1px]"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               aria-label="Close"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-4 h-4" strokeWidth={2} />
             </button>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
         {footer && (
-          <div className="px-6 py-4 border-t-2 border-dashed border-clay-ink/20 flex justify-end gap-3">
+          <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2.5">
             {footer}
           </div>
         )}

@@ -16,14 +16,7 @@ export function DashboardLayout() {
   useSessionExpiry();
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-clay-bg dark:from-gray-950 dark:via-gray-950 dark:to-brand-950/40">
-      {/* Decorative clay shapes */}
-      <div className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
-        <div className="absolute -top-12 right-1/4 h-32 w-32 rounded-3xl border-2.5 border-clay-ink bg-clay-coral/30 rotate-12" />
-        <div className="absolute bottom-12 left-1/4 h-24 w-24 rounded-full border-2.5 border-clay-ink bg-clay-mint/30" />
-        <div className="absolute top-1/2 right-12 h-20 w-20 rounded-2xl border-2.5 border-clay-ink bg-clay-yellow/30 -rotate-6" />
-      </div>
-
+    <div className="relative flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -31,9 +24,8 @@ export function DashboardLayout() {
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
 
-      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
-
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 flex flex-col">
           <Outlet />
         </main>

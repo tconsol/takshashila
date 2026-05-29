@@ -37,17 +37,17 @@ export function useToast(): ToastContextValue {
 }
 
 const ICONS: Record<ToastVariant, ReactNode> = {
-  success: <CheckCircle2 className="h-[18px] w-[18px] text-emerald-500 shrink-0" />,
-  error: <XCircle className="h-[18px] w-[18px] text-red-500 shrink-0" />,
-  warning: <AlertTriangle className="h-[18px] w-[18px] text-amber-500 shrink-0" />,
-  info: <Info className="h-[18px] w-[18px] text-blue-500 shrink-0" />,
+  success: <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />,
+  error:   <XCircle className="h-4 w-4 text-rose-500 shrink-0" />,
+  warning: <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />,
+  info:    <Info className="h-4 w-4 text-sky-500 shrink-0" />,
 };
 
-const ACCENT: Record<ToastVariant, { bar: string; tint: string }> = {
-  success: { bar: 'bg-clay-green',  tint: 'bg-clay-mint' },
-  error:   { bar: 'bg-rose-500',    tint: 'bg-clay-coral' },
-  warning: { bar: 'bg-amber-500',   tint: 'bg-clay-yellow' },
-  info:    { bar: 'bg-sky-500',     tint: 'bg-clay-sky' },
+const ACCENT: Record<ToastVariant, { bar: string; iconBg: string }> = {
+  success: { bar: 'bg-emerald-500', iconBg: 'bg-emerald-50' },
+  error:   { bar: 'bg-rose-500',    iconBg: 'bg-rose-50' },
+  warning: { bar: 'bg-amber-500',   iconBg: 'bg-amber-50' },
+  info:    { bar: 'bg-sky-500',     iconBg: 'bg-sky-50' },
 };
 
 function ToastCard({ item, onClose }: { item: ToastItem; onClose: (id: string) => void }) {
@@ -65,7 +65,6 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: (id: string) =
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setMounted(true));
-
     const tickMs = 40;
     const step = 100 / (item.duration / tickMs);
     timerRef.current = setInterval(() => {
@@ -79,7 +78,6 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: (id: string) =
         return next;
       });
     }, tickMs);
-
     return () => {
       cancelAnimationFrame(raf);
       if (timerRef.current) clearInterval(timerRef.current);
@@ -87,44 +85,36 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: (id: string) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { bar, tint } = ACCENT[item.variant];
+  const { bar, iconBg } = ACCENT[item.variant];
 
   return (
     <div
       className={cn(
-        'pointer-events-auto w-80 overflow-hidden rounded-2xl border-2.5 border-clay-ink bg-white shadow-clay dark:bg-gray-900',
+        'pointer-events-auto w-80 overflow-hidden rounded-xl bg-white shadow-lg',
+        'border border-slate-200/80',
         'transition-all duration-300 ease-out',
-        mounted && !leaving ? 'translate-x-0 opacity-100 scale-100' : 'translate-x-12 opacity-0 scale-95',
+        mounted && !leaving ? 'translate-x-0 opacity-100 scale-100' : 'translate-x-8 opacity-0 scale-95',
       )}
     >
       <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className={cn('mt-0.5 flex h-8 w-8 items-center justify-center rounded-xl border-2 border-clay-ink', tint)}>
+        <span className={cn('mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg shrink-0', iconBg)}>
           {ICONS[item.variant]}
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-extrabold text-clay-ink dark:text-white leading-snug">
-            {item.title}
-          </p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-white leading-snug">{item.title}</p>
           {item.description && (
-            <p className="mt-0.5 text-xs font-semibold text-clay-ink/70 dark:text-gray-400 leading-relaxed">
-              {item.description}
-            </p>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{item.description}</p>
           )}
         </div>
         <button
           onClick={dismiss}
-          className="shrink-0 mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg border-2 border-clay-ink bg-white text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+          className="shrink-0 mt-0.5 flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
         >
-          <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+          <X className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
       </div>
-
-      {/* Progress bar */}
-      <div className="h-[4px] w-full border-t-2 border-clay-ink bg-clay-bg">
-        <div
-          className={cn('h-full transition-none', bar)}
-          style={{ width: `${progress}%` }}
-        />
+      <div className="h-[3px] w-full bg-slate-100">
+        <div className={cn('h-full transition-none', bar)} style={{ width: `${progress}%` }} />
       </div>
     </div>
   );
@@ -148,21 +138,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const ctx: ToastContextValue = {
     toast: add,
     success: (title, description) => add({ variant: 'success', title, description }),
-    error: (title, description) => add({ variant: 'error', title, description }),
+    error:   (title, description) => add({ variant: 'error',   title, description }),
     warning: (title, description) => add({ variant: 'warning', title, description }),
-    info: (title, description) => add({ variant: 'info', title, description }),
+    info:    (title, description) => add({ variant: 'info',    title, description }),
   };
 
   return (
     <ToastContext.Provider value={ctx}>
       {children}
-      <div
-        aria-live="polite"
-        className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"
-      >
-        {toasts.map((t) => (
-          <ToastCard key={t.id} item={t} onClose={remove} />
-        ))}
+      <div aria-live="polite" className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+        {toasts.map((t) => <ToastCard key={t.id} item={t} onClose={remove} />)}
       </div>
     </ToastContext.Provider>
   );

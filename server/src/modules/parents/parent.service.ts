@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ParentProfileModel } from './parent.model';
+import { ParentLinkRequestModel } from './parent-link-request.model';
 import { StudentProfileModel } from '../students/student.model';
 import { userRepository } from '../users/user.repository';
 import { ScheduledClassModel } from '../schedules/schedule.model';
@@ -32,6 +33,108 @@ export class ParentService {
     const profile = await ParentProfileModel.findOne({ userPublicId, isDeleted: false }).lean();
     if (!profile) throw new NotFoundError('Parent profile not found');
     return profile;
+  }
+
+  async requestLinkChild(userPublicId: string, identifier: string): Promise<void> {
+    let studentPublicId = identifier;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+    if (!isUUID) {
+      const studentUser = await userRepository.findByStudentId(identifier.trim().toLowerCase());
+      if (!studentUser) throw new NotFoundError('Student not found with that Student ID');
+      const studentProfile = await StudentProfileModel.findOne({ userPublicId: studentUser.publicId, isDeleted: false }).lean();
+      if (!studentProfile) throw new NotFoundError('Student profile not found for that Student ID');
+      studentPublicId = studentProfile.publicId;
+    } else {
+      const studentExists = await StudentProfileModel.findOne({ publicId: studentPublicId, isDeleted: false }).lean();
+      if (!studentExists) throw new NotFoundError('Student not found with that ID');
+    }
+
+    const profile = await this.getOrCreateProfile(userPublicId);
+    if (profile.childStudentPublicIds.includes(studentPublicId)) {
+      throw new AppError('Child already linked to this account', 409);
+    }
+
+    const existing = await ParentLinkRequestModel.findOne({
+      parentUserPublicId: userPublicId,
+      studentPublicId,
+      status: 'PENDING',
+      isDeleted: false,
+    }).lean();
+    if (existing) throw new AppError('A pending request already exists for this student', 409);
+
+    await ParentLinkRequestModel.create({
+      publicId: uuidv4(),
+      parentUserPublicId: userPublicId,
+      studentPublicId,
+      status: 'PENDING',
+    });
+  }
+
+  async getParentLinkRequests(studentPublicId: string) {
+    const requests = await ParentLinkRequestModel.find({
+      studentPublicId,
+      status: 'PENDING',
+      isDeleted: false,
+    }).sort({ createdAt: -1 }).lean();
+
+    if (requests.length === 0) return [];
+
+    const parentUserPublicIds = requests.map((r) => r.parentUserPublicId);
+    const users = await userRepository.findManyByPublicIds(parentUserPublicIds);
+    const userMap = new Map(users.map((u) => [u.publicId, u]));
+
+    return requests.map((r) => {
+      const u = userMap.get(r.parentUserPublicId);
+      return {
+        publicId: r.publicId,
+        status: r.status,
+        createdAt: r.createdAt,
+        parent: {
+          userPublicId: r.parentUserPublicId,
+          firstName: u?.firstName ?? '',
+          lastName: u?.lastName ?? '',
+          email: u?.email ?? '',
+        },
+      };
+    });
+  }
+
+  async approveParentLinkRequest(studentPublicId: string, requestPublicId: string): Promise<void> {
+    const request = await ParentLinkRequestModel.findOne({
+      publicId: requestPublicId,
+      studentPublicId,
+      status: 'PENDING',
+      isDeleted: false,
+    }).lean();
+    if (!request) throw new NotFoundError('Link request not found');
+
+    await ParentLinkRequestModel.updateOne({ publicId: requestPublicId }, { status: 'APPROVED' });
+
+    const existingProfile = await ParentProfileModel.findOne({ userPublicId: request.parentUserPublicId, isDeleted: false }).lean();
+    if (existingProfile) {
+      await ParentProfileModel.updateOne(
+        { userPublicId: request.parentUserPublicId, isDeleted: false },
+        { $addToSet: { childStudentPublicIds: studentPublicId } },
+      );
+    } else {
+      await ParentProfileModel.create({
+        publicId: uuidv4(),
+        userPublicId: request.parentUserPublicId,
+        childStudentPublicIds: [studentPublicId],
+      });
+    }
+  }
+
+  async rejectParentLinkRequest(studentPublicId: string, requestPublicId: string): Promise<void> {
+    const request = await ParentLinkRequestModel.findOne({
+      publicId: requestPublicId,
+      studentPublicId,
+      status: 'PENDING',
+      isDeleted: false,
+    }).lean();
+    if (!request) throw new NotFoundError('Link request not found');
+
+    await ParentLinkRequestModel.updateOne({ publicId: requestPublicId }, { status: 'REJECTED' });
   }
 
   async linkChild(userPublicId: string, identifier: string): Promise<IParentProfile> {
@@ -140,7 +243,8 @@ export class ParentService {
     const studentProfile = await StudentProfileModel.findOne({ publicId: studentPublicId, isDeleted: false }).lean();
     if (!studentProfile) throw new NotFoundError('Student profile');
 
-    if ([StudentStatus.ACTIVE, StudentStatus.PENDING_APPROVAL].includes(studentProfile.status as StudentStatus) && studentProfile.tutorPublicId === tutorPublicId) {
+    const activeStatuses: string[] = [StudentStatus.ACTIVE, StudentStatus.PENDING_APPROVAL];
+    if (activeStatuses.includes(studentProfile.status) && studentProfile.tutorPublicId === tutorPublicId) {
       throw new AppError('Request already sent or student already linked to this tutor', 409);
     }
 

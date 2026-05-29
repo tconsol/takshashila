@@ -10,7 +10,7 @@ import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { Spinner } from '../../components/ui/Loading';
-import { useParentChildren, useLinkChild, useUnlinkChild, useCreateChild, useUpdateChild } from '../../hooks/use-parent';
+import { useParentChildren, useRequestLinkChild, useUnlinkChild, useCreateChild, useUpdateChild } from '../../hooks/use-parent';
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'default' | 'danger'> = {
   ACTIVE: 'success',
@@ -32,7 +32,7 @@ export function ParentChildrenPage() {
 
   const { data: children = [], isLoading } = useParentChildren();
   const { mutateAsync: createChild, isPending: creating } = useCreateChild();
-  const { mutateAsync: linkChild, isPending: linking } = useLinkChild();
+  const { mutateAsync: requestLinkChild, isPending: linking } = useRequestLinkChild();
   const { mutateAsync: unlinkChild, isPending: unlinking } = useUnlinkChild();
   const { mutateAsync: updateChild, isPending: updating } = useUpdateChild();
 
@@ -85,14 +85,14 @@ export function ParentChildrenPage() {
             return (
               <div
                 key={child.publicId}
-                className="flex flex-col gap-4 rounded-[28px] border-2.5 border-clay-ink bg-clay-surface p-5 shadow-clay transition-all hover:-translate-y-0.5"
+                className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <Avatar name={fullName} size="md" />
                     <div>
-                      <p className="text-sm font-black text-clay-ink">{fullName}</p>
-                      <p className="text-xs text-clay-muted">{child.grade ?? 'No grade'}</p>
+                      <p className="text-sm font-semibold text-slate-900">{fullName}</p>
+                      <p className="text-xs text-slate-500">{child.grade ?? 'No grade'}</p>
                     </div>
                   </div>
                   <Badge variant={STATUS_VARIANT[child.status] ?? 'default'}>
@@ -103,17 +103,17 @@ export function ParentChildrenPage() {
                 <StudentIdChip studentPublicId={child.publicId} />
 
                 <div className="grid grid-cols-2 gap-2 text-center">
-                  <div className="rounded-2xl border-2 border-clay-ink/10 bg-clay-mint/30 py-2">
-                    <p className="text-lg font-black text-clay-ink">{child.attendanceRate}%</p>
-                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted">Attendance</p>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 py-2">
+                    <p className="text-lg font-bold text-slate-900">{child.attendanceRate}%</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Attendance</p>
                   </div>
-                  <div className="rounded-2xl border-2 border-clay-ink/10 bg-clay-sky/30 py-2">
-                    <p className="text-lg font-black text-clay-ink">{child.totalClassesAttended}</p>
-                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-clay-muted">Classes</p>
+                  <div className="rounded-xl border border-sky-100 bg-sky-50 py-2">
+                    <p className="text-lg font-bold text-slate-900">{child.totalClassesAttended}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Classes</p>
                   </div>
                 </div>
 
-                <div className="flex gap-2 border-t-2 border-dashed border-clay-ink/10 pt-3">
+                <div className="flex gap-2 border-t border-dashed border-slate-100 pt-3">
                   <Link to={`/dashboard/parent/children/${child.publicId}`} className="flex-1">
                     <Button size="sm" variant="secondary" fullWidth>
                       View <ArrowUpRight className="h-3 w-3 ml-1" />
@@ -123,7 +123,7 @@ export function ParentChildrenPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => setEditTarget({ publicId: child.publicId, firstName: child.firstName, lastName: child.lastName, grade: child.grade })}
-                    className="text-clay-muted hover:bg-clay-sky/30"
+                    className="text-slate-400 hover:bg-sky-50 hover:text-sky-600"
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -131,7 +131,7 @@ export function ParentChildrenPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => setConfirmRemove(child.publicId)}
-                    className="text-red-500 hover:bg-clay-coral/30"
+                    className="text-red-500 hover:bg-rose-50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -153,12 +153,12 @@ export function ParentChildrenPage() {
         loading={creating}
       />
 
-      {/* Link Existing Modal */}
+      {/* Link Existing Modal — sends request to student for approval */}
       <LinkChildModal
         open={mode === 'link'}
         onClose={() => setMode(null)}
         onLink={async (id) => {
-          await linkChild(id);
+          await requestLinkChild(id);
           setMode(null);
         }}
         loading={linking}
@@ -190,7 +190,7 @@ export function ParentChildrenPage() {
           </>
         }
       >
-        <p className="text-sm text-clay-muted">
+        <p className="text-sm text-slate-500">
           Remove this child from your account? You can re-link them later with their Student ID.
         </p>
       </Modal>
@@ -210,10 +210,10 @@ function StudentIdChip({ studentPublicId }: { studentPublicId: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="flex w-full items-center justify-between gap-2 rounded-xl border-2 border-clay-ink/20 bg-clay-bg px-3 py-1.5 text-xs font-bold text-clay-muted transition-colors hover:bg-clay-mint/20 hover:text-clay-ink"
+      className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200"
     >
       <span className="truncate font-mono">{studentPublicId}</span>
-      {copied ? <Check className="h-3.5 w-3.5 text-clay-green-dark flex-shrink-0" /> : <Copy className="h-3.5 w-3.5 flex-shrink-0" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" /> : <Copy className="h-3.5 w-3.5 flex-shrink-0" />}
     </button>
   );
 }
@@ -266,7 +266,6 @@ function CreateChildModal({
         customStudentId: form.customStudentId || undefined,
         grade: form.grade || undefined,
       }) as unknown as { studentId?: string };
-      // The hook resolves to the created child with studentId
       setCreated({ studentId: (result as { studentId: string }).studentId ?? form.customStudentId ?? '—', firstName: form.firstName });
       setForm({ firstName: '', lastName: '', password: '', customStudentId: '', grade: '' });
       setIdManuallyEdited(false);
@@ -284,14 +283,14 @@ function CreateChildModal({
         footer={<Button onClick={handleClose}>Done</Button>}
       >
         <div className="space-y-4">
-          <div className="rounded-2xl border-2.5 border-clay-ink bg-clay-mint p-4 shadow-clay-sm">
-            <p className="text-sm font-extrabold text-clay-ink">Share this Student ID with {created.firstName}:</p>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-sm font-semibold text-slate-800">Share this Student ID with {created.firstName}:</p>
             <div className="mt-2 flex items-center gap-2">
-              <code className="flex-1 rounded-xl bg-clay-bg px-3 py-2 text-lg font-black tracking-widest text-clay-ink">
+              <code className="flex-1 rounded-xl bg-white border border-slate-200 px-3 py-2 text-lg font-bold tracking-widest text-slate-900">
                 {created.studentId}
               </code>
             </div>
-            <p className="mt-2 text-xs font-semibold text-clay-ink/70">
+            <p className="mt-2 text-xs text-slate-500">
               Your child uses this Student ID + their password to log in. Save it somewhere safe.
             </p>
           </div>
@@ -313,7 +312,7 @@ function CreateChildModal({
     >
       <form id="create-child-form" onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
             {error}
           </div>
         )}
@@ -330,7 +329,7 @@ function CreateChildModal({
           onChange={set('password')}
           required
           rightIcon={
-            <button type="button" onClick={() => setShowPwd((p) => !p)} className="text-clay-muted hover:text-clay-ink">
+            <button type="button" onClick={() => setShowPwd((p) => !p)} className="text-slate-400 hover:text-slate-600">
               {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           }
@@ -367,47 +366,63 @@ function LinkChildModal({
 }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
 
-  const handleLink = async () => {
+  const handleSend = async () => {
     setError('');
-    if (!value.trim()) { setError('Please enter a Student Profile ID'); return; }
+    if (!value.trim()) { setError('Please enter a Student ID or Profile UUID'); return; }
     try {
       await onLink(value.trim());
-      setValue('');
+      setSent(true);
     } catch (err: unknown) {
       const e2 = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(e2.response?.data?.message ?? e2.message ?? 'Failed to link child');
+      setError(e2.response?.data?.message ?? e2.message ?? 'Failed to send request');
     }
   };
 
+  const handleClose = () => {
+    setValue('');
+    setError('');
+    setSent(false);
+    onClose();
+  };
+
   return (
-    <Modal
-      open={open}
-      onClose={() => { setValue(''); setError(''); onClose(); }}
-      title="Link Existing Child"
-      size="sm"
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleLink} loading={loading}>
-            <Link2 className="h-4 w-4 mr-1.5" /> Link Child
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <p className="text-sm text-clay-muted">
-          Enter your child's <strong className="text-clay-ink">Student ID</strong> (e.g. <code className="font-mono">stujs4821</code>)
-          or their <strong className="text-clay-ink">Profile UUID</strong>. Both are shown on your child's profile page.
-        </p>
-        <Input
-          label="Student ID or Profile UUID"
-          placeholder="stujs4821 or 3f9a2b1c-…"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          error={error ?? undefined}
-        />
-      </div>
+    <Modal open={open} onClose={handleClose} title="Send Link Request" size="sm">
+      {sent ? (
+        <div className="flex flex-col items-center gap-4 py-6">
+          <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+            <Link2 className="h-7 w-7 text-emerald-500" />
+          </div>
+          <p className="font-semibold text-slate-900">Request sent!</p>
+          <p className="text-sm text-slate-500 text-center">
+            The student will see your request in their dashboard and can choose to accept or decline.
+          </p>
+          <Button onClick={handleClose}>Done</Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 p-3.5">
+            <p className="text-sm text-sky-800 font-medium">How it works</p>
+            <p className="text-xs text-sky-700 mt-1">
+              Enter your child's Student ID or Profile UUID. A request will be sent to them — they must approve before the link is created.
+            </p>
+          </div>
+          <Input
+            label="Student ID or Profile UUID"
+            placeholder="stujs4821 or 3f9a2b1c-…"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            error={error ?? undefined}
+          />
+          <div className="flex gap-2 pt-1">
+            <Button variant="ghost" className="flex-1" onClick={handleClose}>Cancel</Button>
+            <Button className="flex-1" onClick={handleSend} loading={loading}>
+              <Link2 className="h-4 w-4 mr-1.5" />Send Request
+            </Button>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -427,7 +442,6 @@ function EditChildModal({
   const [grade, setGrade] = useState('');
   const [error, setError] = useState('');
 
-  // populate when modal opens
   if (child && open && !firstName && child.firstName) {
     setFirstName(child.firstName);
     setLastName(child.lastName);
@@ -463,7 +477,7 @@ function EditChildModal({
     >
       <form id="edit-child-form" onSubmit={handleSave} className="space-y-4">
         {error && (
-          <div className="rounded-2xl border-2 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-semibold text-clay-ink">{error}</div>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>
         )}
         <div className="grid grid-cols-2 gap-3">
           <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />

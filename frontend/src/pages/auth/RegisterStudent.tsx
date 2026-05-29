@@ -50,22 +50,22 @@ export function RegisterStudentPage() {
     <div className="space-y-7">
       {/* Header */}
       <div>
-        <Link to="/register" className="inline-flex items-center gap-1.5 rounded-full border-2 border-clay-ink bg-white px-3 py-1.5 text-xs font-extrabold text-clay-ink hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-clay-pressed shadow-clay-sm transition-all mb-4">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to role selection
+        <Link to="/register" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors mb-4">
+          <ArrowLeft className="h-4 w-4" /> Back to role selection
         </Link>
         <div className="flex items-center gap-3 mb-2">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border-2.5 border-clay-ink bg-clay-sky shadow-clay-sm">
-            <BookOpen className="h-5 w-5 text-clay-ink" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+            <BookOpen className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-clay-ink dark:text-white">Join as Student</h1>
-            <p className="text-sm font-semibold text-clay-ink/60 dark:text-gray-400">Start your learning journey today</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Join as Student</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Start your learning journey today</p>
           </div>
         </div>
       </div>
 
       {serverError && (
-        <div className="rounded-2xl border-2.5 border-clay-ink bg-clay-coral px-4 py-3 text-sm font-extrabold text-clay-ink shadow-clay-sm">
+        <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm font-medium text-rose-700">
           {serverError}
         </div>
       )}
@@ -120,7 +120,7 @@ export function RegisterStudentPage() {
 
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
         Already have an account?{' '}
-        <Link to="/login" className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">Sign in</Link>
+        <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700">Sign in</Link>
       </p>
     </div>
   );

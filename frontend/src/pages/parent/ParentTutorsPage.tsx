@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Search, GraduationCap, Star, DollarSign, BookOpen, Send, X, CheckCircle } from 'lucide-react';
+import { Search, GraduationCap, Star, BookOpen, Send, X, CheckCircle } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Avatar } from '../../components/ui/Avatar';
@@ -20,26 +19,26 @@ function TutorCard({
   onRequest: (tutor: TutorForParent) => void;
 }) {
   return (
-    <div className="rounded-[24px] border-2.5 border-clay-ink bg-white shadow-clay p-5 flex flex-col gap-3">
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5 flex flex-col gap-3">
       <div className="flex items-start gap-3">
         <Avatar name={tutor.displayName} size="lg" className="shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-extrabold text-clay-ink text-base truncate">{tutor.displayName}</span>
+            <span className="font-semibold text-slate-900 text-base truncate">{tutor.displayName}</span>
             {tutor.isVerified && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-clay-mint/40 border border-clay-ink/30 rounded-full px-2 py-0.5">
-                <CheckCircle className="h-3 w-3 text-clay-green" /> Verified
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 text-emerald-700">
+                <CheckCircle className="h-2.5 w-2.5" />Verified
               </span>
             )}
           </div>
           <div className="flex items-center gap-1 mt-0.5">
-            <Star className="h-3.5 w-3.5 text-clay-yellow fill-clay-yellow" />
-            <span className="text-xs font-bold text-clay-ink/70">{tutor.rating?.toFixed(1) ?? '—'}</span>
+            <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+            <span className="text-xs text-slate-500">{tutor.rating?.toFixed(1) ?? '—'}</span>
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-sm font-extrabold text-clay-ink">
-            ${((tutor.hourlyRateCents ?? 0) / 100).toFixed(0)}<span className="text-xs font-normal text-clay-ink/50">/hr</span>
+          <div className="text-sm font-semibold text-slate-900">
+            ${((tutor.hourlyRateCents ?? 0) / 100).toFixed(0)}<span className="text-xs font-normal text-slate-400">/hr</span>
           </div>
         </div>
       </div>
@@ -47,19 +46,19 @@ function TutorCard({
       {tutor.subjects?.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tutor.subjects.slice(0, 4).map((s) => (
-            <span key={s} className="inline-flex items-center gap-1 text-[11px] font-bold bg-clay-sky/30 border border-clay-ink/20 rounded-full px-2 py-0.5">
+            <span key={s} className="inline-flex items-center gap-1 text-[11px] font-medium bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5 text-sky-700">
               <BookOpen className="h-3 w-3" />{s}
             </span>
           ))}
           {tutor.subjects.length > 4 && (
-            <span className="text-[11px] text-clay-ink/50">+{tutor.subjects.length - 4}</span>
+            <span className="text-[11px] text-slate-400">+{tutor.subjects.length - 4}</span>
           )}
         </div>
       )}
 
       <Button
         size="sm"
-        className="w-full bg-clay-purple border-2 border-clay-ink shadow-clay-sm font-extrabold"
+        className="w-full"
         onClick={() => onRequest(tutor)}
       >
         <Send className="h-3.5 w-3.5 mr-1.5" />
@@ -89,23 +88,23 @@ function RequestModal({
   };
 
   return (
-    <Modal isOpen onClose={onClose} title="Request Tutor for Child">
+    <Modal open onClose={onClose} title="Request Tutor for Child">
       {done ? (
         <div className="flex flex-col items-center gap-4 py-6">
-          <div className="w-14 h-14 rounded-full bg-clay-mint/40 border-2 border-clay-ink flex items-center justify-center">
-            <CheckCircle className="h-7 w-7 text-clay-green" />
+          <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
+            <CheckCircle className="h-7 w-7 text-emerald-500" />
           </div>
-          <p className="font-extrabold text-clay-ink">Request sent!</p>
-          <p className="text-sm text-clay-ink/60 text-center">The tutor will be notified and can approve your child.</p>
-          <Button onClick={onClose} className="bg-clay-green border-2 border-clay-ink shadow-clay-sm font-extrabold">Done</Button>
+          <p className="font-semibold text-slate-900">Request sent!</p>
+          <p className="text-sm text-slate-500 text-center">The tutor will be notified and can approve your child.</p>
+          <Button onClick={onClose}>Done</Button>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="rounded-[18px] border-2 border-clay-ink bg-clay-sky/20 p-4 flex items-center gap-3">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 flex items-center gap-3">
             <Avatar name={tutor.displayName} size="md" />
             <div>
-              <p className="font-extrabold text-clay-ink">{tutor.displayName}</p>
-              <p className="text-xs text-clay-ink/60">{tutor.subjects?.slice(0, 3).join(', ')}</p>
+              <p className="font-medium text-slate-900">{tutor.displayName}</p>
+              <p className="text-xs text-slate-500">{tutor.subjects?.slice(0, 3).join(', ')}</p>
             </div>
           </div>
 
@@ -120,13 +119,13 @@ function RequestModal({
           />
 
           <div className="flex gap-2 pt-1">
-            <Button variant="outline" className="flex-1 border-2 border-clay-ink" onClick={onClose}>
+            <Button variant="outline" className="flex-1" onClick={onClose}>
               <X className="h-4 w-4 mr-1" />Cancel
             </Button>
             <Button
-              className="flex-1 bg-clay-purple border-2 border-clay-ink shadow-clay-sm font-extrabold"
+              className="flex-1"
               disabled={!selectedChild || isPending}
-              isLoading={isPending}
+              loading={isPending}
               onClick={handleSubmit}
             >
               <Send className="h-4 w-4 mr-1" />Send Request
@@ -161,8 +160,7 @@ export function ParentTutorsPage() {
         icon={<GraduationCap className="h-6 w-6" />}
       />
 
-      {/* Search bar */}
-      <div className="rounded-[24px] border-2.5 border-clay-ink bg-clay-surface shadow-clay p-4 flex flex-col sm:flex-row gap-3">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 flex flex-col sm:flex-row gap-3">
         <Input
           placeholder="Search by name…"
           value={search}
@@ -182,14 +180,14 @@ export function ParentTutorsPage() {
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="rounded-[24px] border-2.5 border-clay-ink bg-clay-surface shadow-clay h-44 animate-pulse" />
+            <div key={i} className="rounded-2xl border border-slate-200 bg-slate-100 h-44 animate-pulse" />
           ))}
         </div>
       ) : tutors.length === 0 ? (
-        <div className="rounded-[24px] border-2.5 border-clay-ink bg-clay-yellow/20 shadow-clay p-10 text-center">
-          <GraduationCap className="h-10 w-10 mx-auto text-clay-ink/30 mb-3" />
-          <p className="font-extrabold text-clay-ink/50">No tutors found</p>
-          <p className="text-sm text-clay-ink/40 mt-1">Try adjusting your search filters</p>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-10 text-center">
+          <GraduationCap className="h-10 w-10 mx-auto text-amber-400 mb-3" />
+          <p className="font-medium text-amber-700">No tutors found</p>
+          <p className="text-sm text-amber-600 mt-1">Try adjusting your search filters</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

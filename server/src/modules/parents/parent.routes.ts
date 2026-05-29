@@ -42,6 +42,14 @@ router.post('/me/children/link', async (req: AuthRequest, res: Response, next: N
   } catch (e) { next(e); }
 });
 
+router.post('/me/children/request', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { studentPublicId } = req.body;
+    await parentService.requestLinkChild(req.user!.publicId, studentPublicId);
+    sendSuccess(res, null, 'Link request sent to student');
+  } catch (e) { next(e); }
+});
+
 router.patch('/me/children/:studentPublicId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await parentService.updateChild(req.user!.publicId, req.params.studentPublicId, req.body);
