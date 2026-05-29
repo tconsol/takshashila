@@ -6,6 +6,7 @@ export const MediaType = {
   CLASS_RECORDING: 'CLASS_RECORDING',
   CHAT: 'CHAT',
   VOICE: 'VOICE',
+  WORKSHEET: 'WORKSHEET',
 } as const;
 export type MediaType = (typeof MediaType)[keyof typeof MediaType];
 

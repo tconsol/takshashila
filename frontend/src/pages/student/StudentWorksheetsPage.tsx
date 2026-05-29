@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { FileText, Clock, Trophy, BookOpen, ClipboardList } from 'lucide-react';
+import { FileText, Clock, Trophy, BookOpen, ClipboardList, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Badge } from '../../components/ui/Badge';
@@ -9,6 +9,7 @@ import { Spinner } from '../../components/ui/Loading';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { useMyWorksheetsAsStudent } from '../../hooks/use-worksheets';
 import type { Worksheet } from '../../services/worksheets.service';
+import { api } from '../../lib/axios';
 
 const TYPE_TABS = [
   { key: 'WORKSHEET', label: 'Worksheets' },
@@ -76,7 +77,7 @@ export function StudentWorksheetsPage() {
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white leading-snug">{w.title}</p>
                   <div className="flex gap-3 mt-1 text-xs text-gray-400">
-                    <span>{w.questions.length} questions</span>
+                    <span>{w.isFileAttachment ? (w.fileOriginalName ?? 'File attachment') : `${w.questions.length} questions`}</span>
                     {w.dueDate && (
                       <span className={`flex items-center gap-1 ${overdue && !sub ? 'text-red-400' : ''}`}>
                         <Clock className="h-3 w-3" />
@@ -90,7 +91,18 @@ export function StudentWorksheetsPage() {
                 </div>
 
                 <div className="pt-2 border-t border-gray-100 dark:border-gray-700 mt-auto">
-                  {sub ? (
+                  {w.isFileAttachment ? (
+                    <button
+                      onClick={async () => {
+                        if (!w.filePublicId) return;
+                        const { data } = await api.get(`/media/${w.filePublicId}/read-url`);
+                        window.open(data.data.url, '_blank');
+                      }}
+                      className="w-full text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg py-2 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download File
+                    </button>
+                  ) : sub ? (
                     <button
                       onClick={() => navigate(`/dashboard/student/worksheets/${w.publicId}/test`)}
                       className="w-full text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline flex items-center justify-center gap-1.5"

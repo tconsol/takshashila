@@ -15,6 +15,8 @@ import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { calculateCommission } from '../../utils/currency';
+import { attendanceService } from '../attendance/attendance.service';
+import { AttendanceStatus } from '../attendance/attendance.types';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto, SaveRecordingDto, TutorCreateClassDto, TutorRescheduleDto } from './class.validators';
@@ -130,10 +132,13 @@ export class ClassService {
     // If already LIVE (or other terminal state), return as-is
     if (cls.status !== ClassStatus.SCHEDULED) return cls;
 
-    // Transition SCHEDULED → LIVE
+    // Transition SCHEDULED → LIVE; if student joining, record their join time
+    const setFields: Record<string, unknown> = { status: ClassStatus.LIVE };
+    if (role === 'STUDENT') setFields.studentJoinedAt = new Date();
+
     const updated = await ScheduledClassModel.findOneAndUpdate(
       { publicId: classPublicId, status: ClassStatus.SCHEDULED, isDeleted: false },
-      { $set: { status: ClassStatus.LIVE } },
+      { $set: setFields },
       { new: true },
     ).lean();
 
@@ -202,6 +207,20 @@ export class ClassService {
 
     if (scheduled.classType === ClassType.DEMO && scheduled.studentPublicId) {
       await studentService.recordDemoClassUsed(scheduled.studentPublicId, scheduled.tutorPublicId).catch(() => {});
+    }
+
+    // Auto-create attendance based on whether student actually joined the class
+    if (scheduled.studentPublicId) {
+      const attended = !!scheduled.studentJoinedAt;
+      await attendanceService.markAttendance(
+        {
+          classPublicId,
+          studentPublicId: scheduled.studentPublicId,
+          status: attended ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT,
+          durationPresentMinutes: attended ? (scheduled.durationMinutes ?? 0) : 0,
+        },
+        scheduled.tutorPublicId,
+      ).catch(() => {}); // ignore if already manually marked
     }
 
     domainEvents.emit(DomainEvent.CLASS_COMPLETED, {

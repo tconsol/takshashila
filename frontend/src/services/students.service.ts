@@ -157,6 +157,9 @@ export const studentsService = {
   unlinkStudent: (studentPublicId: string) =>
     api.delete(`/students/${studentPublicId}/unlink`).then(() => null),
 
+  setStudentStatus: (studentPublicId: string, status: 'ACTIVE' | 'INACTIVE') =>
+    api.patch(`/students/${studentPublicId}/status`, { status }).then(() => null),
+
   getMyPrincipal: () =>
     api.get<{ data: { publicId: string; organizationName?: string; firstName: string; lastName: string } | null }>('/students/me/principal')
       .then((r) => r.data.data ?? null),

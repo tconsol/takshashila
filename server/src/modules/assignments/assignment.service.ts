@@ -23,6 +23,10 @@ export class AssignmentService {
       dueDate: new Date(dto.dueDate),
       maxScore: dto.maxScore ?? 100,
       attachmentPublicIds: dto.attachmentPublicIds ?? [],
+      isFileAttachment: dto.isFileAttachment ?? false,
+      filePublicId: dto.filePublicId,
+      fileMimeType: dto.fileMimeType,
+      fileOriginalName: dto.fileOriginalName,
       status: AssignmentStatus.DRAFT,
       isDeleted: false,
     });

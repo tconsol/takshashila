@@ -31,6 +31,10 @@ const worksheetSchema = new Schema<IWorksheet>(
     },
     dueDate: { type: Date },
     questions: { type: [questionSchema], default: [] },
+    isFileAttachment: { type: Boolean, default: false },
+    filePublicId: { type: String },
+    fileMimeType: { type: String },
+    fileOriginalName: { type: String },
     assignedToStudentPublicIds: [{ type: String }],
     status: {
       type: String,

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { studentController } from './student.controller';
+import { studentService } from './student.service';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { requireRole, requirePermission } from '../../middlewares/permission.middleware';
 import { validate } from '../../middlewares/validation.middleware';
@@ -63,5 +64,16 @@ router.post('/:studentId/reject', requirePermission(Permission.MANAGE_STUDENTS),
 router.post('/:studentId/suspend', requirePermission(Permission.MANAGE_STUDENTS), studentController.suspendStudent.bind(studentController));
 router.post('/:studentId/transfer', requirePermission(Permission.MANAGE_STUDENTS), studentController.transferStudent.bind(studentController));
 router.delete('/:studentId/unlink', requireRole(Role.TUTOR, Role.PRINCIPAL), studentController.unlinkStudent.bind(studentController));
+
+router.patch('/:studentId/status', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { status } = req.body as { status: 'ACTIVE' | 'INACTIVE' };
+    if (status !== 'ACTIVE' && status !== 'INACTIVE') {
+      return next(new (await import('../../utils/error')).AppError('status must be ACTIVE or INACTIVE', 400));
+    }
+    const updated = await studentService.setStudentStatus(req.params.studentId, req.user!.publicId, status);
+    sendSuccess(res, updated, `Student ${status.toLowerCase()}`);
+  } catch (e) { next(e); }
+});
 
 export default router;

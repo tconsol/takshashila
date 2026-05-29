@@ -68,15 +68,17 @@ export class WalletService {
 
       const creditField = this.getCreditField(dto.creditType);
 
+      const incFields: Record<string, number> = {
+        balanceCents: dto.amountCents,
+        [creditField]: dto.amountCents,
+      };
+      if (dto.creditType === CreditType.EARNED_CREDITS) {
+        incFields.totalEarnedCents = dto.amountCents;
+      }
+
       await WalletModel.findByIdAndUpdate(
         wallet._id,
-        {
-          $inc: {
-            balanceCents: dto.amountCents,
-            [creditField]: dto.amountCents,
-            totalEarnedCents: dto.amountCents,
-          },
-        },
+        { $inc: incFields },
         { session },
       );
 

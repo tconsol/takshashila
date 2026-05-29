@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import { authService } from '../services/auth.service';
@@ -33,12 +33,13 @@ export function useLogin() {
 export function useLogout() {
   const { clearAuth } = useAuthStore();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   return useMutation({
     mutationFn: authService.logout,
     onSettled: () => {
-      clearAuth();
-      localStorage.removeItem('refreshToken');
+      clearAuth();          // clears localStorage + sessionStorage
+      qc.clear();           // clears all React Query cache
       navigate('/login', { replace: true });
     },
   });

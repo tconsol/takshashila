@@ -53,6 +53,7 @@ const scheduledClassSchema = new Schema<IScheduledClass>(
     recordingGcsKey: { type: String },
     costCents: { type: Number, default: 0 },
     idempotencyKey: { type: String, required: true, unique: true },
+    studentJoinedAt: { type: Date },
     cancellationReason: { type: String },
     cancelledBy: { type: String },
     rescheduledFromId: { type: String },

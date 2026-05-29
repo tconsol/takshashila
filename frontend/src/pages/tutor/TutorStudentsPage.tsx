@@ -10,7 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { AttendanceSheet } from '../../components/shared/AttendanceSheet';
 import { useMyClassesAsTutor } from '../../hooks/use-classes';
-import { useMyStudentsAsTutor, useCreateStudent, useInviteExistingStudent, useUnlinkStudent } from '../../hooks/use-students';
+import { useMyStudentsAsTutor, useCreateStudent, useInviteExistingStudent, useUnlinkStudent, useSetStudentStatus } from '../../hooks/use-students';
 import { studentsService } from '../../services/students.service';
 import type { StudentLookupResult } from '../../services/students.service';
 import { useQuery } from '@tanstack/react-query';
@@ -20,7 +20,7 @@ import type { ClassRecord } from '../../services/classes.service';
 import { useStartConversation } from '../../features/chat/use-chat';
 import {
   UserPlus, GraduationCap, BookOpen, Eye, EyeOff, Search,
-  Trash2, Copy, Check, CheckCircle2,
+  Trash2, Copy, Check, CheckCircle2, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import { GRADE_OPTIONS, GRADE_LIST } from '../../constants/grades';
 
@@ -65,6 +65,7 @@ export function TutorStudentsPage() {
   const [lookupError, setLookupError]   = useState<string | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [unlinkTarget, setUnlinkTarget]   = useState<string | null>(null);
+  const [toggleTarget, setToggleTarget]   = useState<{ publicId: string; currentStatus: string } | null>(null);
   const [createdInfo, setCreatedInfo]     = useState<{ studentId: string; firstName: string; contactEmail?: string } | null>(null);
 
   const [form, setForm] = useState({
@@ -92,6 +93,7 @@ export function TutorStudentsPage() {
   const { mutateAsync: createStudent, isPending: creating } = useCreateStudent();
   const { mutateAsync: inviteExisting, isPending: inviting } = useInviteExistingStudent();
   const { mutateAsync: unlinkStudent, isPending: unlinking } = useUnlinkStudent();
+  const { mutateAsync: setStudentStatus, isPending: toggling } = useSetStudentStatus();
 
   const handleMessage = async (userPublicId: string) => {
     const conv = await startConversation({ recipientPublicId: userPublicId, recipientRole: 'STUDENT' });
@@ -218,7 +220,7 @@ export function TutorStudentsPage() {
                   <th className="text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-3 py-3 w-24">Grade</th>
                   <th className="text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-3 py-3 w-28">Attendance</th>
                   <th className="text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-3 py-3 w-32">Status</th>
-                  <th className="text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-5 py-3 w-32">Actions</th>
+                  <th className="text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-5 py-3 w-48">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -252,17 +254,35 @@ export function TutorStudentsPage() {
                         </Badge>
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => handleMessage(student.userPublicId)}
                             className="text-xs font-medium text-indigo-600 hover:underline whitespace-nowrap"
                           >
                             Message
                           </button>
+                          {/* Active / Inactive toggle */}
+                          {(student.status === 'ACTIVE' || student.status === 'INACTIVE') && (
+                            <button
+                              onClick={() => setToggleTarget({ publicId: student.publicId, currentStatus: student.status })}
+                              title={student.status === 'ACTIVE' ? 'Deactivate student' : 'Activate student'}
+                              className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold border transition-colors ${
+                                student.status === 'ACTIVE'
+                                  ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                              }`}
+                            >
+                              {student.status === 'ACTIVE'
+                                ? <><ToggleRight className="h-3.5 w-3.5" />Active</>
+                                : <><ToggleLeft className="h-3.5 w-3.5" />Inactive</>
+                              }
+                            </button>
+                          )}
+                          {/* Remove / Delete from connection */}
                           <button
                             onClick={() => setUnlinkTarget(student.publicId)}
                             className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-500 transition-colors"
-                            title="Remove student"
+                            title="Remove from my connection"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -508,6 +528,38 @@ export function TutorStudentsPage() {
           </form>
         </Modal>
       )}
+
+      {/* ── Active/Inactive toggle confirm ── */}
+      <Modal
+        open={!!toggleTarget}
+        onClose={() => setToggleTarget(null)}
+        title={toggleTarget?.currentStatus === 'ACTIVE' ? 'Deactivate Student' : 'Activate Student'}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setToggleTarget(null)}>Cancel</Button>
+            <Button
+              className={toggleTarget?.currentStatus === 'ACTIVE' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+              loading={toggling}
+              onClick={async () => {
+                if (!toggleTarget) return;
+                const newStatus = toggleTarget.currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+                await setStudentStatus({ studentPublicId: toggleTarget.publicId, status: newStatus });
+                setToggleTarget(null);
+              }}
+            >
+              {toggleTarget?.currentStatus === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-500">
+          {toggleTarget?.currentStatus === 'ACTIVE'
+            ? 'Deactivate this student? They will not be able to attend classes until reactivated.'
+            : 'Activate this student? They will be able to join classes again.'
+          }
+        </p>
+      </Modal>
 
       {/* ── Unlink confirm ── */}
       <Modal

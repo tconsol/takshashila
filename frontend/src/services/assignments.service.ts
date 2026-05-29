@@ -9,6 +9,10 @@ export interface Assignment {
   dueDate: string;
   maxScore: number;
   attachmentPublicIds: string[];
+  isFileAttachment?: boolean;
+  filePublicId?: string;
+  fileMimeType?: string;
+  fileOriginalName?: string;
   status: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
   createdAt: string;
 }
@@ -35,6 +39,10 @@ export interface CreateAssignmentDto {
   dueDate: string;
   maxScore?: number;
   attachmentPublicIds?: string[];
+  isFileAttachment?: boolean;
+  filePublicId?: string;
+  fileMimeType?: string;
+  fileOriginalName?: string;
 }
 
 export const assignmentsService = {

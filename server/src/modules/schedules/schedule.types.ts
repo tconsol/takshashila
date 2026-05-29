@@ -63,6 +63,7 @@ export interface IScheduledClass {
   recordingGcsKey?: string;
   costCents: number;
   idempotencyKey: string;
+  studentJoinedAt?: Date;
   cancellationReason?: string;
   cancelledBy?: string;
   rescheduledFromId?: string;

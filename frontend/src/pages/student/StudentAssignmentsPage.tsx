@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { format, isPast } from 'date-fns';
+import { Download } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -8,6 +9,7 @@ import { MediaUpload } from '../../components/shared/MediaUpload';
 import { useMyClassesAsStudent } from '../../hooks/use-classes';
 import { useAssignmentsByClass, useMySubmission, useSubmitAssignment } from '../../hooks/use-assignments';
 import type { Assignment } from '../../services/assignments.service';
+import { api } from '../../lib/axios';
 
 type StatusVariant = 'default' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -76,11 +78,25 @@ function AssignmentRow({ assignment }: { assignment: Assignment }) {
               </div>
             )}
           </div>
-          {canSubmit && (
-            <Button size="sm" onClick={() => setShowSubmit(true)}>
-              {submission?.status === 'NOT_SUBMITTED' ? 'Submit' : 'Resubmit'}
-            </Button>
-          )}
+          <div className="flex gap-2 flex-shrink-0">
+            {assignment.isFileAttachment && assignment.filePublicId && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  const { data } = await api.get(`/media/${assignment.filePublicId}/read-url`);
+                  window.open(data.data.url, '_blank');
+                }}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />{assignment.fileOriginalName ?? 'Download'}
+              </Button>
+            )}
+            {canSubmit && (
+              <Button size="sm" onClick={() => setShowSubmit(true)}>
+                {submission?.status === 'NOT_SUBMITTED' ? 'Submit' : 'Resubmit'}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

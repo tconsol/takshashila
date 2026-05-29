@@ -156,3 +156,12 @@ export function useUnlinkStudent() {
     onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.all }),
   });
 }
+
+export function useSetStudentStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ studentPublicId, status }: { studentPublicId: string; status: 'ACTIVE' | 'INACTIVE' }) =>
+      studentsService.setStudentStatus(studentPublicId, status),
+    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.myTutorStudents() }),
+  });
+}

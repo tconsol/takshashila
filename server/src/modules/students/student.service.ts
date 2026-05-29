@@ -744,6 +744,23 @@ export class StudentService {
     });
   }
 
+  async setStudentStatus(
+    studentPublicId: string,
+    tutorUserPublicId: string,
+    newStatus: 'ACTIVE' | 'INACTIVE',
+  ): Promise<IStudentProfile> {
+    const { tutorService } = await import('../tutors/tutor.service');
+    const tutorProfile = await tutorService.getByUserPublicId(tutorUserPublicId);
+    const profile = await studentRepository.findByPublicId(studentPublicId);
+    if (!profile) throw new NotFoundError('Student profile');
+    if (profile.tutorPublicId !== tutorProfile.publicId) {
+      throw new AppError('This student is not linked to your account', 403);
+    }
+    const updated = await studentRepository.update(studentPublicId, { status: newStatus as StudentStatus });
+    if (!updated) throw new NotFoundError('Student profile');
+    return updated;
+  }
+
   async canUseDemoCredit(userPublicId: string, tutorPublicId: string): Promise<boolean> {
     const profile = await studentRepository.findByUserPublicId(userPublicId);
     if (!profile) return false;
