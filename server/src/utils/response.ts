@@ -23,7 +23,7 @@ export function sendPaginated<T>(
   result: PaginatedResult<T>,
   message = 'Success',
 ): Response {
-  // Nest under `data` so the response shape matches sendSuccess —
+  // Nest under `data` so the response shape matches sendSuccess 
   // frontend can always read body.data.items
   return res.status(200).json({ success: true, message, data: result });
 }

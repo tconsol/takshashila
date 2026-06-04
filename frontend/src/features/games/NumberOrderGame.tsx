@@ -26,7 +26,7 @@ export function NumberOrderGame() {
   const [mistakes, setMistakes] = useState(0);
   const [confettiKey, setConfettiKey] = useState(0);
 
-  // Pause time tracking — freeze elapsed when paused, resume from same point
+  // Pause time tracking freeze elapsed when paused, resume from same point
   useEffect(() => {
     if (paused) {
       setPausedAt(Date.now());

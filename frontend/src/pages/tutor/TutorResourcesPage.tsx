@@ -270,7 +270,7 @@ export function TutorResourcesPage() {
                   <>
                     <Upload className="h-7 w-7 text-gray-400" />
                     <p className="text-sm text-gray-500">Click to select file</p>
-                    <p className="text-xs text-gray-400">PDF, Word, PPT, Excel, images — max 50 MB</p>
+                    <p className="text-xs text-gray-400">PDF, Word, PPT, Excel, images max 50 MB</p>
                   </>
                 )}
               </div>

@@ -46,10 +46,10 @@ const TESTIMONIALS: Testimonial[] = [
     name: 'Kavya Nair',
     role: 'Student · Class 12',
     avatar: 'KN',
-    text: "Physics used to be my nightmare. My tutor on Takshashila explained every concept with real examples. Scored 89 in boards — my parents cried happy tears!",
+    text: "Physics used to be my nightmare. My tutor on Takshashila explained every concept with real examples. Scored 89 in boards my parents cried happy tears!",
     rating: 5,
     verified: true,
-    highlight: '89 in boards — parents cried happy tears!',
+    highlight: '89 in boards parents cried happy tears!',
   },
   {
     name: 'Suresh Pillai',
@@ -85,7 +85,7 @@ const TESTIMONIALS: Testimonial[] = [
     text: 'The platform is intuitive. Setting my availability, creating assignments and tracking student progress all happen in one place. Game-changer for solo tutors.',
     rating: 5,
     verified: true,
-    highlight: 'Everything in one place — game-changer',
+    highlight: 'Everything in one place game-changer',
   },
   {
     name: 'Ravi Shankar',

@@ -205,7 +205,7 @@ function DetailRow({ icon, label, value }: {
       <View className="flex-1 ml-3">
         <Text className="text-[11px] text-gray-500">{label}</Text>
         <Text className="text-sm text-gray-900 mt-0.5" numberOfLines={1}>
-          {value || '—'}
+          {value || ''}
         </Text>
       </View>
     </View>

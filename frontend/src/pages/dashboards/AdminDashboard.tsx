@@ -73,14 +73,14 @@ export function AdminDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Pending Approvals"
-          value={stats?.pendingApprovals.toLocaleString() ?? '—'}
+          value={stats?.pendingApprovals.toLocaleString() ?? ''}
           accent="amber"
           icon={<CheckCircle2 className="h-5 w-5" />}
           hint="Principal applications waiting"
         />
         <StatsCard
           title="Active Principals"
-          value={stats?.activePrincipals.toLocaleString() ?? '—'}
+          value={stats?.activePrincipals.toLocaleString() ?? ''}
           accent="brand"
           icon={<Users className="h-5 w-5" />}
         />
@@ -93,7 +93,7 @@ export function AdminDashboard() {
         />
         <StatsCard
           title="Open Tickets"
-          value={stats?.openTickets.toLocaleString() ?? '—'}
+          value={stats?.openTickets.toLocaleString() ?? ''}
           accent="rose"
           icon={<Headphones className="h-5 w-5" />}
           hint={stats?.highPriorityTickets ? `${stats.highPriorityTickets} high priority` : undefined}

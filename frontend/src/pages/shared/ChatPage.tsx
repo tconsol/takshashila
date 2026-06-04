@@ -66,7 +66,7 @@ function useContacts() {
       }
 
       if (role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPPORT') {
-        // Admin sees all users via search — contacts are fetched dynamically per query
+        // Admin sees all users via search contacts are fetched dynamically per query
         // Return empty here; admin uses AdminNewChatModal with live search instead
         return contacts;
       }
@@ -309,7 +309,7 @@ function NewChatModal({ onClose, onStarted }: { onClose: () => void; onStarted: 
                     {initials}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{contact.displayName || '—'}</p>
+                    <p className="text-sm font-medium text-slate-800 truncate">{contact.displayName || ''}</p>
                     <p className={`text-[11px] font-medium capitalize ${roleColor.text}`}>{contact.role.toLowerCase().replace('_', ' ')}</p>
                   </div>
                   {starting === contact.userPublicId ? (

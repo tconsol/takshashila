@@ -50,7 +50,7 @@ function MiniRequestRow({ request, timezone }: { request: DemoRequest; timezone:
 
   const slotLabel = request.slotStartUTC
     ? formatInTimeZone(new Date(request.slotStartUTC), timezone, 'EEE, MMM d · h:mm a')
-    : '—';
+    : '';
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-amber-100 dark:border-amber-900/30 last:border-0 flex-wrap">

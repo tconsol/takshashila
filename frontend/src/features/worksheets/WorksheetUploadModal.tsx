@@ -285,7 +285,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={type === 'ASSIGNMENT' ? 'e.g. Chapter 3 Assignment' : 'e.g. Algebra Quiz — Week 2'}
+                placeholder={type === 'ASSIGNMENT' ? 'e.g. Chapter 3 Assignment' : 'e.g. Algebra Quiz Week 2'}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
@@ -342,7 +342,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
               <>
                 <CheckCircle className="h-8 w-8 text-green-500" />
                 <p className="text-sm font-medium text-green-600 dark:text-green-400">{uploadedFile.fileOriginalName}</p>
-                <Badge variant="info">File uploaded — students can download</Badge>
+                <Badge variant="info">File uploaded students can download</Badge>
                 <p className="text-xs text-gray-400">Click to change file</p>
               </>
             )}
@@ -366,7 +366,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
 
       {step === 'preview' && fileMode === 'excel' && (
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-          <p className="text-sm text-gray-500 dark:text-gray-400">{questions.length} questions — review before publishing</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{questions.length} questions review before publishing</p>
           {questions.map((q, idx) => (
             <div key={idx} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
               <div className="flex items-start justify-between gap-2">

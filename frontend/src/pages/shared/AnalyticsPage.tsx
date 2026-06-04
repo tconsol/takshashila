@@ -77,24 +77,24 @@ export function AnalyticsPage({ role, title = 'Analytics' }: AnalyticsPageProps)
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Total Classes"
-          value={statsLoading ? '—' : (stats?.totalClasses ?? recentClasses.length)}
+          value={statsLoading ? '' : (stats?.totalClasses ?? recentClasses.length)}
           icon={<CalendarDays className="h-5 w-5 text-brand-600" />}
         />
         <StatsCard
           title="Completed"
-          value={statsLoading ? '—' : (stats?.completedClasses ?? recentClasses.filter((c) => c.status === 'COMPLETED').length)}
+          value={statsLoading ? '' : (stats?.completedClasses ?? recentClasses.filter((c) => c.status === 'COMPLETED').length)}
           icon={<CheckCircle2 className="h-5 w-5 text-green-600" />}
           iconBg="bg-green-50 dark:bg-green-900/20"
         />
         <StatsCard
           title="Total Tutors"
-          value={statsLoading ? '—' : (stats?.totalTutors ?? '—')}
+          value={statsLoading ? '' : (stats?.totalTutors ?? '')}
           icon={<GraduationCap className="h-5 w-5 text-violet-600" />}
           iconBg="bg-violet-50 dark:bg-violet-900/20"
         />
         <StatsCard
           title="Total Students"
-          value={statsLoading ? '—' : (stats?.totalStudents ?? '—')}
+          value={statsLoading ? '' : (stats?.totalStudents ?? '')}
           icon={<Users className="h-5 w-5 text-sky-600" />}
           iconBg="bg-sky-50 dark:bg-sky-900/20"
         />

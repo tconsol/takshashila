@@ -71,7 +71,7 @@ export function PrincipalDashboard() {
         <StatsCard title="Pending Approvals" value={tutorsLoading ? '…' : String(pendingTutors.length)} accent="amber"  icon={<AlertCircle className="h-5 w-5" />} hint="Awaiting your review" />
       </div>
 
-      {/* Tutor content activity — worksheets & assignments */}
+      {/* Tutor content activity worksheets & assignments */}
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Worksheets"
@@ -140,7 +140,7 @@ export function PrincipalDashboard() {
                           {t.displayName}
                         </p>
                         <p className="truncate text-xs text-gray-500">
-                          {t.email ?? '—'}
+                          {t.email ?? ''}
                           {t.subjects?.length ? ` · ${t.subjects.slice(0, 2).join(', ')}` : ''}
                         </p>
                       </div>

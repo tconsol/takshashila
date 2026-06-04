@@ -153,7 +153,7 @@ export function ParentChildrenPage() {
         loading={creating}
       />
 
-      {/* Link Existing Modal — sends request to student for approval */}
+      {/* Link Existing Modal sends request to student for approval */}
       <LinkChildModal
         open={mode === 'link'}
         onClose={() => setMode(null)}
@@ -266,7 +266,7 @@ function CreateChildModal({
         customStudentId: form.customStudentId || undefined,
         grade: form.grade || undefined,
       }) as unknown as { studentId?: string };
-      setCreated({ studentId: (result as { studentId: string }).studentId ?? form.customStudentId ?? '—', firstName: form.firstName });
+      setCreated({ studentId: (result as { studentId: string }).studentId ?? form.customStudentId ?? '', firstName: form.firstName });
       setForm({ firstName: '', lastName: '', password: '', customStudentId: '', grade: '' });
       setIdManuallyEdited(false);
     } catch (err: unknown) {
@@ -344,7 +344,7 @@ function CreateChildModal({
         />
 
         <Input
-          label="Student ID (auto-generated — edit if needed)"
+          label="Student ID (auto-generated edit if needed)"
           placeholder="stuxx1234"
           value={form.customStudentId}
           onChange={setId}
@@ -405,7 +405,7 @@ function LinkChildModal({
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-3.5">
             <p className="text-sm text-sky-800 font-medium">How it works</p>
             <p className="text-xs text-sky-700 mt-1">
-              Enter your child's Student ID or Profile UUID. A request will be sent to them — they must approve before the link is created.
+              Enter your child's Student ID or Profile UUID. A request will be sent to them they must approve before the link is created.
             </p>
           </div>
           <Input

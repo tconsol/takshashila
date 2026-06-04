@@ -50,5 +50,5 @@ export function startSlotExpiryJob(): void {
     expireStaleSlots().catch((err) => logger.error('[slot-expiry] Run failed', { err }));
   }, INTERVAL_MS);
 
-  logger.info(`[slot-expiry] Job started — checking every ${INTERVAL_MS / 1000}s, grace period ${GRACE_PERIOD_MS / 60000}min`);
+  logger.info(`[slot-expiry] Job started checking every ${INTERVAL_MS / 1000}s, grace period ${GRACE_PERIOD_MS / 60000}min`);
 }

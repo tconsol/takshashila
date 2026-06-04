@@ -94,7 +94,7 @@ export function ClassCard({ cls, perspective, onAction, ratedClassIds }: ClassCa
 
       {(cls.status === 'SCHEDULED' || isInProgress) && (
         <div className="flex gap-2 pt-1 border-t border-gray-100 dark:border-gray-700">
-          {/* Join button — both tutor and student */}
+          {/* Join button both tutor and student */}
           {canJoin ? (
             <button
               onClick={handleJoin}

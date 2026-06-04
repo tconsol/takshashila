@@ -89,25 +89,25 @@ export function ParentProgressPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Attendance Rate"
-          value={isLoading ? '—' : `${attRate}%`}
+          value={isLoading ? '' : `${attRate}%`}
           icon={<BarChart3 className="h-5 w-5 text-brand-600" />}
           change={attRate >= 75 ? { value: 'Good standing', positive: true } : { value: 'Needs improvement', positive: false }}
         />
         <StatsCard
           title="Classes Attended"
-          value={isLoading ? '—' : (selectedChild?.totalClassesAttended ?? present)}
+          value={isLoading ? '' : (selectedChild?.totalClassesAttended ?? present)}
           icon={<CheckCircle2 className="h-5 w-5 text-green-600" />}
           iconBg="bg-green-50 dark:bg-green-900/20"
         />
         <StatsCard
           title="Classes Missed"
-          value={isLoading ? '—' : (selectedChild?.totalClassesMissed ?? absent)}
+          value={isLoading ? '' : (selectedChild?.totalClassesMissed ?? absent)}
           icon={<XCircle className="h-5 w-5 text-red-500" />}
           iconBg="bg-red-50 dark:bg-red-900/20"
         />
         <StatsCard
           title="Assignments"
-          value={isLoading ? '—' : `${submitted}/${totalAssignments}`}
+          value={isLoading ? '' : `${submitted}/${totalAssignments}`}
           icon={<BookOpen className="h-5 w-5 text-violet-600" />}
           iconBg="bg-violet-50 dark:bg-violet-900/20"
           change={totalAssignments > 0 ? { value: `${Math.round((submitted / totalAssignments) * 100)}% submitted`, positive: submitted / totalAssignments >= 0.7 } : undefined}
@@ -154,7 +154,7 @@ export function ParentProgressPage() {
               <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">Graded</p>
             </div>
             <div className="rounded-lg bg-violet-50 dark:bg-violet-900/20 py-3">
-              <p className="text-xl font-bold text-violet-700 dark:text-violet-400">{avgScore !== null ? `${avgScore}%` : '—'}</p>
+              <p className="text-xl font-bold text-violet-700 dark:text-violet-400">{avgScore !== null ? `${avgScore}%` : ''}</p>
               <p className="text-xs text-violet-600 dark:text-violet-500 mt-0.5">Avg Score</p>
             </div>
           </div>

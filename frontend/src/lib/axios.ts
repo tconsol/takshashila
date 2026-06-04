@@ -27,7 +27,7 @@ function logout() {
   window.location.href = '/login';
 }
 
-// ── Request interceptor — attach token, auto-logout if expired ───────────────
+// ── Request interceptor attach token, auto-logout if expired ───────────────
 
 api.interceptors.request.use((config) => {
   const { accessToken } = useAuthStore.getState();
@@ -42,7 +42,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Response interceptor — handle unexpected 401s ────────────────────────────
+// ── Response interceptor handle unexpected 401s ────────────────────────────
 
 api.interceptors.response.use(
   (res) => res,

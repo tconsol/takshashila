@@ -217,7 +217,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
-          {/* Expand toggle — collapsed only, top of nav */}
+          {/* Expand toggle collapsed only, top of nav */}
           {collapsed && (
             <div className="flex justify-center px-2 pb-1">
               <button

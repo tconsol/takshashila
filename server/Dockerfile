@@ -15,7 +15,7 @@ COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npm run build
 
-# Remove dev dependencies — npm prune keeps the already-compiled .node binaries
+# Remove dev dependencies npm prune keeps the already-compiled .node binaries
 # (npm ci --omit=dev would reinstall from scratch and skip scripts, losing argon2.node)
 RUN npm prune --omit=dev
 
@@ -39,5 +39,5 @@ USER appuser
 
 EXPOSE 4000
 
-# Cloud Run sends PORT env var — node process must listen on it
+# Cloud Run sends PORT env var node process must listen on it
 CMD ["node", "dist/server.js"]

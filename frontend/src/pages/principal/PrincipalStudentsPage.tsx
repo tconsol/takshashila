@@ -182,7 +182,7 @@ export function PrincipalStudentsPage() {
                       )}
                     </td>
                     <td className="hidden px-3 py-3.5 text-center sm:table-cell">
-                      <span className="text-sm text-slate-500">{student.grade ?? '—'}</span>
+                      <span className="text-sm text-slate-500">{student.grade ?? ''}</span>
                     </td>
                     <td className="hidden px-3 py-3.5 text-center md:table-cell">
                       <span className={`text-sm font-semibold ${
@@ -191,7 +191,7 @@ export function PrincipalStudentsPage() {
                         : attendancePct === 0 ? 'text-slate-400'
                         : 'text-rose-500'
                       }`}>
-                        {student.totalClassesAttended > 0 ? `${attendancePct}%` : '—'}
+                        {student.totalClassesAttended > 0 ? `${attendancePct}%` : ''}
                       </span>
                     </td>
                     <td className="px-3 py-3.5 text-center">
@@ -256,7 +256,7 @@ export function PrincipalStudentsPage() {
         </div>
       )}
 
-      {/* Create Student — success screen */}
+      {/* Create Student success screen */}
       {createdInfo && (
         <Modal open={showCreate} onClose={() => { setCreatedInfo(null); setShowCreate(false); }} title="Student Account Created!" size="sm"
           footer={<Button onClick={() => { setCreatedInfo(null); setShowCreate(false); }}>Done</Button>}
@@ -288,7 +288,7 @@ export function PrincipalStudentsPage() {
           onCreate={async (data) => {
             const result = await createStudent(data) as unknown as { studentId?: string; firstName?: string };
             setCreatedInfo({
-              studentId: result?.studentId ?? '—',
+              studentId: result?.studentId ?? '',
               firstName: data.firstName,
               contactEmail: data.contactEmail,
             });
@@ -373,7 +373,7 @@ export function PrincipalStudentsPage() {
       >
         <p className="text-sm text-slate-500">
           Unlink <strong className="text-slate-800">{unlinkTarget?.displayName}</strong> from your organization?
-          Their account won't be deleted — they can be re-linked later.
+          Their account won't be deleted they can be re-linked later.
         </p>
       </Modal>
 
@@ -498,7 +498,7 @@ function CreateStudentModal({
         </div>
 
         <Input
-          label="Contact Email (optional — login credentials will be sent here)"
+          label="Contact Email (optional login credentials will be sent here)"
           type="email"
           placeholder="parent@example.com"
           value={form.contactEmail}
@@ -537,7 +537,7 @@ function CreateStudentModal({
 
         <Input
           label="Custom Student ID (optional)"
-          placeholder="e.g. stujs1234 — leave blank to auto-generate"
+          placeholder="e.g. stujs1234 leave blank to auto-generate"
           value={form.customStudentId}
           onChange={set('customStudentId')}
         />
@@ -870,7 +870,7 @@ function StudentDetailView({ student, tutors }: { student: StudentProfile; tutor
     { icon: BookOpen, label: 'Classes Attended', value: student.totalClassesAttended, color: 'bg-sky-50', iconColor: 'text-sky-600' },
     { icon: BarChart3, label: 'Attendance Rate', value: student.totalClassesAttended > 0 ? `${attendancePct}%` : 'N/A', color: 'bg-emerald-50', iconColor: 'text-emerald-600' },
     { icon: Users, label: 'Demos Used', value: `${student.demoClassesUsed}/3`, color: 'bg-amber-50', iconColor: 'text-amber-600' },
-    { icon: GraduationCap, label: 'Grade', value: student.grade ?? '—', color: 'bg-violet-50', iconColor: 'text-violet-600' },
+    { icon: GraduationCap, label: 'Grade', value: student.grade ?? '', color: 'bg-violet-50', iconColor: 'text-violet-600' },
   ];
 
   return (

@@ -97,7 +97,7 @@ export function ParentClassesPage() {
               {
                 key: 'startUTC',
                 header: 'Date',
-                render: (c) => c.startUTC ? format(new Date(c.startUTC), 'EEE, MMM d yyyy · h:mm a') : '—',
+                render: (c) => c.startUTC ? format(new Date(c.startUTC), 'EEE, MMM d yyyy · h:mm a') : '',
               },
             ]}
             data={data?.items ?? []}

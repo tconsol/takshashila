@@ -317,7 +317,7 @@ export function TutorAssignmentsPage() {
                   { value: '', label: 'Select a class…' },
                   ...classes.map((c) => ({
                     value: c.publicId,
-                    label: `${c.subject || 'Class'} — ${c.scheduledStartUTC ? format(new Date(c.scheduledStartUTC), 'MMM d, yyyy') : ''}`.trim(),
+                    label: `${c.subject || 'Class'} ${c.scheduledStartUTC ? format(new Date(c.scheduledStartUTC), 'MMM d, yyyy') : ''}`.trim(),
                   })),
                 ]}
                 error={errors.classPublicId?.message}
@@ -422,7 +422,7 @@ export function TutorAssignmentsPage() {
       <Modal
         open={!!selectedAssignment && !gradingSubmission}
         onClose={() => setSelectedAssignment(null)}
-        title={selectedAssignment ? `Submissions — ${selectedAssignment.title}` : ''}
+        title={selectedAssignment ? `Submissions ${selectedAssignment.title}` : ''}
         size="xl"
       >
         <Table
@@ -440,12 +440,12 @@ export function TutorAssignmentsPage() {
             {
               key: 'submittedAt',
               header: 'Submitted',
-              render: (s) => s.submittedAt ? format(new Date(s.submittedAt), 'MMM d, h:mm a') : '—',
+              render: (s) => s.submittedAt ? format(new Date(s.submittedAt), 'MMM d, h:mm a') : '',
             },
             {
               key: 'score',
               header: 'Score',
-              render: (s) => s.score !== undefined ? `${s.score}/${selectedAssignment?.maxScore}` : '—',
+              render: (s) => s.score !== undefined ? `${s.score}/${selectedAssignment?.maxScore}` : '',
             },
             {
               key: 'actions',

@@ -48,7 +48,7 @@ export function StudentAttendancePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Attendance Rate"
-          value={profileLoading ? '—' : `${attendancePct}%`}
+          value={profileLoading ? '' : `${attendancePct}%`}
           icon={<BarChart2 className="h-5 w-5 text-brand-600" />}
           change={
             attendancePct >= 75
@@ -58,19 +58,19 @@ export function StudentAttendancePage() {
         />
         <StatsCard
           title="Classes Attended"
-          value={profileLoading ? '—' : (profile?.totalClassesAttended ?? 0)}
+          value={profileLoading ? '' : (profile?.totalClassesAttended ?? 0)}
           icon={<CheckCircle2 className="h-5 w-5 text-green-600" />}
           iconBg="bg-green-50 dark:bg-green-900/20"
         />
         <StatsCard
           title="Classes Missed"
-          value={profileLoading ? '—' : (profile?.totalClassesMissed ?? 0)}
+          value={profileLoading ? '' : (profile?.totalClassesMissed ?? 0)}
           icon={<XCircle className="h-5 w-5 text-red-500" />}
           iconBg="bg-red-50 dark:bg-red-900/20"
         />
         <StatsCard
           title="Avg Duration"
-          value={attLoading ? '—' : `${avgDuration} min`}
+          value={attLoading ? '' : `${avgDuration} min`}
           icon={<Clock className="h-5 w-5 text-violet-600" />}
           iconBg="bg-violet-50 dark:bg-violet-900/20"
         />
@@ -146,7 +146,7 @@ export function StudentAttendancePage() {
                 key: 'remarks',
                 header: 'Remarks',
                 render: (r) => (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{r.remarks ?? '—'}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{r.remarks ?? ''}</span>
                 ),
               },
             ]}

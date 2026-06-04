@@ -69,7 +69,7 @@ function MarkAttendanceModal({
     { value: '', label: 'Select a completed class…' },
     ...completedClasses.map((c) => ({
       value: c.publicId,
-      label: `${c.title} — ${format(new Date(c.startUTC), 'MMM d, h:mm a')}`,
+      label: `${c.title} ${format(new Date(c.startUTC), 'MMM d, h:mm a')}`,
     })),
   ];
 
@@ -263,26 +263,26 @@ export function TutorAttendancePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Total Records"
-          value={isLoading ? '—' : records.length}
+          value={isLoading ? '' : records.length}
           icon={<Users className="h-5 w-5 text-brand-600" />}
         />
         <StatsCard
           title="Present"
-          value={isLoading ? '—' : present}
+          value={isLoading ? '' : present}
           icon={<CheckCircle2 className="h-5 w-5 text-green-600" />}
           iconBg="bg-green-50 dark:bg-green-900/20"
           change={records.length > 0 ? { value: `${Math.round((present / records.length) * 100)}%`, positive: true } : undefined}
         />
         <StatsCard
           title="Absent"
-          value={isLoading ? '—' : absent}
+          value={isLoading ? '' : absent}
           icon={<XCircle className="h-5 w-5 text-red-500" />}
           iconBg="bg-red-50 dark:bg-red-900/20"
           change={records.length > 0 ? { value: `${Math.round((absent / records.length) * 100)}%`, positive: false } : undefined}
         />
         <StatsCard
           title="Avg Duration"
-          value={isLoading ? '—' : `${avgDuration} min`}
+          value={isLoading ? '' : `${avgDuration} min`}
           icon={<Clock className="h-5 w-5 text-violet-600" />}
           iconBg="bg-violet-50 dark:bg-violet-900/20"
         />
@@ -339,7 +339,7 @@ export function TutorAttendancePage() {
                 key: 'remarks',
                 header: 'Remarks',
                 render: (r) => (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{r.remarks ?? '—'}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{r.remarks ?? ''}</span>
                 ),
               },
               {

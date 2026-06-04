@@ -124,7 +124,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     invalidate(io, [`user:${payload.studentPublicId}`], 'students');
   });
 
-  // Wallet / payments — wallet.service emits ownerPublicId, not userId
+  // Wallet / payments wallet.service emits ownerPublicId, not userId
   domainEvents.on(DomainEvent.CREDITS_ADDED, (payload: { ownerPublicId: string }) => {
     invalidate(io, [`user:${payload.ownerPublicId}`], 'wallet');
   });
@@ -151,7 +151,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     invalidate(io, ['role:SUPPORT', 'role:ADMIN', 'role:SUPER_ADMIN'], 'tickets');
   });
 
-  // Student invited by tutor — notify the student so they see the pending invite
+  // Student invited by tutor notify the student so they see the pending invite
   domainEvents.on(DomainEvent.STUDENT_INVITED, (payload: { userPublicId: string; tutorUserPublicId?: string }) => {
     invalidate(io, [`user:${payload.userPublicId}`], 'students');
     if (payload.tutorUserPublicId) {
@@ -159,7 +159,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     }
   });
 
-  // Student approved — notify student, their tutor, and all principals
+  // Student approved notify student, their tutor, and all principals
   domainEvents.on(DomainEvent.STUDENT_APPROVED, (payload: {
     studentPublicId: string;
     studentUserPublicId?: string;
@@ -173,7 +173,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     if (payload.tutorUserPublicId) invalidate(io, [`user:${payload.tutorUserPublicId}`], 'tutors');
   });
 
-  // Slot events — notify connected students and principal
+  // Slot events notify connected students and principal
   domainEvents.on(DomainEvent.SLOT_CREATED, (payload: { tutorPublicId: string }) => {
     notifyTutorConnections(io, payload.tutorPublicId, 'schedules').catch(() => {});
   });
@@ -196,7 +196,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     invalidate(io, [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`], 'demo-requests');
     invalidate(io, [`user:${payload.studentUserPublicId}`, `user:${payload.tutorUserPublicId}`], 'classes');
     invalidate(io, [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`], 'badges');
-    // Push real-time notification to student — will trigger toast + query update
+    // Push real-time notification to student will trigger toast + query update
     io.to(`user:${payload.studentUserPublicId}`).emit('demo:accepted', {
       classPublicId: payload.classPublicId,
       subject: payload.subject,

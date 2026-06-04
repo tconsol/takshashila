@@ -150,7 +150,7 @@ export function QuickCountGame() {
             exit={{ opacity: 0 }}
             className="flex flex-col items-center gap-4"
           >
-            <p className="text-white/70 text-sm font-bold uppercase tracking-widest">Count the dots — quick!</p>
+            <p className="text-white/70 text-sm font-bold uppercase tracking-widest">Count the dots quick!</p>
             <div className="relative w-72 h-56 rounded-3xl bg-gradient-to-br from-indigo-900/80 to-purple-900/80 backdrop-blur-sm border-2 border-indigo-400/30 overflow-hidden shadow-2xl">
               {data.dots.map((d, i) => (
                 <motion.div

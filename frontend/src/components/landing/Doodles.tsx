@@ -1,4 +1,4 @@
-/* Hand-drawn education doodles — decorative SVGs for the landing page.
+/* Hand-drawn education doodles decorative SVGs for the landing page.
    All purely decorative → aria-hidden, currentColor for easy tinting. */
 import type { SVGProps } from 'react';
 

@@ -140,7 +140,7 @@ export class ClassService {
       { new: true },
     ).lean();
 
-    // Race condition — another participant won the race, fetch current state
+    // Race condition another participant won the race, fetch current state
     if (!updated) {
       return (await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean()) ?? cls;
     }
@@ -216,7 +216,7 @@ export class ClassService {
 
         await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
       } catch {
-        // Insufficient student balance — complete the class but skip the charge.
+        // Insufficient student balance complete the class but skip the charge.
         // (Booking already validated balance; this guards edge cases.)
       }
     }
@@ -283,7 +283,7 @@ export class ClassService {
       await scheduleService.releaseSlot(scheduled.availabilitySlotPublicId);
     }
 
-    // No refund needed — students are only charged at class completion, not at
+    // No refund needed students are only charged at class completion, not at
     // booking, so a cancelled class never debited the student in the first place.
 
     await tutorService.recordClassCancelled(scheduled.tutorPublicId);

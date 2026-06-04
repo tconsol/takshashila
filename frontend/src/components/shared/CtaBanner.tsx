@@ -89,7 +89,7 @@ export function CtaBanner() {
               transition={{ duration: 0.55, delay: 0.2 }}
             >
               Join thousands of families on Takshashila. Start with{' '}
-              <span className="font-bold text-amber-300">3 free demo classes</span> — no commitment needed.
+              <span className="font-bold text-amber-300">3 free demo classes</span> no commitment needed.
             </motion.p>
 
             <motion.div

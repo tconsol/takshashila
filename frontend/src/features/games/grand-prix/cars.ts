@@ -61,7 +61,7 @@ export function drawCar(ctx: CanvasRenderingContext2D, racer: Racer, racerIdx: n
   roundedRect(ctx, -10, -7, 20, 3, 2);
   ctx.fill();
 
-  // Player marker — small arrow above the car
+  // Player marker small arrow above the car
   if (racer.isPlayer) {
     ctx.save();
     ctx.rotate(-angle); // counter-rotate so arrow stays world-up

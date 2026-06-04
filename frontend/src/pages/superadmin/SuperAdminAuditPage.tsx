@@ -118,7 +118,7 @@ export function SuperAdminAuditPage() {
               {
                 key: 'ip',
                 header: 'IP',
-                render: (l) => <span className="text-xs font-mono text-gray-400">{l.ip ?? '—'}</span>,
+                render: (l) => <span className="text-xs font-mono text-gray-400">{l.ip ?? ''}</span>,
               },
             ]}
             data={logs}
