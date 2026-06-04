@@ -182,105 +182,141 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
           'fixed inset-y-0 left-0 z-30 flex flex-col bg-white border-r border-slate-200 transition-all duration-300',
           'dark:bg-slate-900 dark:border-slate-800',
           'lg:static lg:translate-x-0',
-          collapsed ? 'w-[68px]' : 'w-64',
-          isOpen ? 'translate-x-0 shadow-sidebar' : '-translate-x-full',
+          collapsed ? 'w-[64px]' : 'w-64',
+          isOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full',
         )}
       >
         {/* Brand header */}
-        <div
-          className={cn(
-            'flex h-14 items-center shrink-0 bg-gradient-to-r from-indigo-600 to-violet-600',
-            collapsed ? 'justify-center px-0' : 'justify-between px-4',
-          )}
-        >
-          {!collapsed && (
-            <Link to="/" className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
-                <GraduationCap className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-base font-bold text-white tracking-tight">Takshashila</span>
-            </Link>
-          )}
-          {collapsed && (
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+        <div className={cn(
+          'flex h-14 shrink-0 items-center bg-gradient-to-r from-indigo-600 to-violet-600',
+          collapsed ? 'justify-center' : 'justify-between px-4',
+        )}>
+          {collapsed ? (
+            <Link to="/" className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
               <GraduationCap className="h-5 w-5 text-white" />
-            </div>
+            </Link>
+          ) : (
+            <>
+              <Link to="/" className="flex flex-1 items-center gap-2.5 min-w-0">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                  <GraduationCap className="h-4 w-4 text-white" />
+                </div>
+                <span className="truncate text-sm font-bold text-white tracking-tight">Takshashila</span>
+              </Link>
+              <button
+                onClick={onToggleCollapse}
+                className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors"
+                title="Collapse sidebar"
+              >
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              </button>
+            </>
           )}
-
-          {/* Collapse toggle — desktop only */}
-          <button
-            onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center h-7 w-7 rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors shrink-0"
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? <PanelLeftOpen className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
-          </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2.5">
-          <ul className="space-y-0.5">
+        <nav className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
+          {/* Expand toggle — collapsed only, top of nav */}
+          {collapsed && (
+            <div className="flex justify-center px-2 pb-1">
+              <button
+                onClick={onToggleCollapse}
+                title="Expand sidebar"
+                className="hidden lg:flex h-8 w-10 items-center justify-center rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 transition-colors"
+              >
+                <PanelLeftOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              </button>
+            </div>
+          )}
+          <ul className={cn('space-y-1', collapsed ? 'px-2' : 'px-2.5')}>
             {items.map((item) => {
               const Icon = item.icon;
               const isActive = isOnPage(item.href);
               const badgeCount = getBadgeCount(item.badgeKey, item.href);
               return (
                 <li key={item.href}>
-                  <Link
-                    to={item.href}
-                    onClick={() => { onClose(); clearSearch(); }}
-                    title={collapsed ? item.label : undefined}
-                    className={cn(
-                      'flex items-center rounded-xl transition-all duration-150',
-                      collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5',
-                      'text-sm',
-                      isActive
-                        ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-indigo-900/30 dark:text-indigo-300'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 font-medium dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200',
-                    )}
-                  >
-                    <div className="relative shrink-0">
-                      <Icon className={cn('h-4 w-4', isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500')} />
-                      {badgeCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
-                        </span>
-                      )}
-                    </div>
-
-                    {!collapsed && (
-                      <>
-                        <span className="truncate">{item.label}</span>
-                        {badgeCount > 0 && !isActive && (
-                          <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
-                            {badgeCount > 99 ? '99+' : badgeCount}
+                  {collapsed ? (
+                    /* ── COLLAPSED: icon pill, always-visible bg ── */
+                    <Link
+                      to={item.href}
+                      onClick={() => { onClose(); clearSearch(); }}
+                      title={item.label}
+                      className="flex justify-center"
+                    >
+                      <div className={cn(
+                        'relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150',
+                        isActive
+                          ? 'bg-indigo-600 shadow-sm shadow-indigo-500/30'
+                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700',
+                      )}>
+                        <Icon
+                          className={cn('h-[18px] w-[18px]', isActive ? 'text-white' : 'text-slate-600 dark:text-slate-300')}
+                        />
+                        {badgeCount > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 items-center justify-center">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
                           </span>
                         )}
-                        {isActive && <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-indigo-400" />}
-                      </>
-                    )}
-                  </Link>
+                      </div>
+                    </Link>
+                  ) : (
+                    /* ── EXPANDED: icon + label ── */
+                    <Link
+                      to={item.href}
+                      onClick={() => { onClose(); clearSearch(); }}
+                      className={cn(
+                        'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150',
+                        isActive
+                          ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-indigo-900/30 dark:text-indigo-300'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200',
+                      )}
+                    >
+                      <div className="relative shrink-0">
+                        <Icon className={cn('h-4 w-4', isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400')} />
+                        {badgeCount > 0 && (
+                          <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
+                          </span>
+                        )}
+                      </div>
+                      <span className="truncate">{item.label}</span>
+                      {badgeCount > 0 && !isActive && (
+                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
+                          {badgeCount > 99 ? '99+' : badgeCount}
+                        </span>
+                      )}
+                      {isActive && <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-indigo-400" />}
+                    </Link>
+                  )}
                 </li>
               );
             })}
           </ul>
         </nav>
 
-        {/* Footer */}
-        <div className="border-t border-slate-100 dark:border-slate-800 p-2.5 shrink-0">
-          <button
-            onClick={handleLogout}
-            title={collapsed ? 'Sign out' : undefined}
-            className={cn(
-              'flex w-full items-center rounded-xl text-sm font-medium text-slate-500 transition-all',
-              'hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20 dark:hover:text-rose-400',
-              collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5',
-            )}
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {!collapsed && 'Sign out'}
-          </button>
+        {/* Footer / logout */}
+        <div className={cn('shrink-0 border-t border-slate-100 py-2 dark:border-slate-800', collapsed ? 'px-2' : 'px-2.5')}>
+          {collapsed ? (
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className="flex w-full justify-center"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-900/30 transition-colors">
+                <LogOut className="h-[18px] w-[18px] text-slate-600 hover:text-rose-600 dark:text-slate-300" />
+              </div>
+            </button>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition-all hover:bg-rose-50 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              Sign out
+            </button>
+          )}
         </div>
       </aside>
     </>

@@ -40,7 +40,7 @@ function MarkAttendanceModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const { success: toastSuccess, error: toastError } = useToast();
   const qc = useQueryClient();
   const [classId, setClassId] = useState('');
   const [studentId, setStudentId] = useState('');
@@ -91,14 +91,14 @@ function MarkAttendanceModal({
         remarks: remarks || undefined,
       }),
     onSuccess: () => {
-      toast.success('Attendance marked');
+      toastSuccess('Attendance marked');
       qc.invalidateQueries({ queryKey: ['attendance', 'tutor', 'my'] });
       setClassId(''); setStudentId(''); setStatus('PRESENT'); setDuration(''); setRemarks('');
       onClose();
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(e.response?.data?.message ?? e.message ?? 'Failed to mark attendance');
+      toastError(e.response?.data?.message ?? e.message ?? 'Failed to mark attendance');
     },
   });
 
@@ -164,7 +164,7 @@ function OverrideModal({
   record: { publicId: string; status: string; remarks?: string };
   onClose: () => void;
 }) {
-  const { toast } = useToast();
+  const { success: toastSuccess, error: toastError } = useToast();
   const qc = useQueryClient();
   const [status, setStatus] = useState(record.status);
   const [remarks, setRemarks] = useState(record.remarks ?? '');
@@ -172,13 +172,13 @@ function OverrideModal({
   const { mutateAsync: override, isPending } = useMutation({
     mutationFn: () => attendanceService.overrideAttendance(record.publicId, { status, remarks }),
     onSuccess: () => {
-      toast.success('Attendance updated');
+      toastSuccess('Attendance updated');
       qc.invalidateQueries({ queryKey: ['attendance', 'tutor', 'my'] });
       onClose();
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(e.response?.data?.message ?? e.message ?? 'Failed to update');
+      toastError(e.response?.data?.message ?? e.message ?? 'Failed to update');
     },
   });
 

@@ -126,7 +126,7 @@ type FileState =
   | { kind: 'error'; message: string };
 
 export function TutorAssignmentsPage() {
-  const { toast } = useToast();
+  const { success: toastSuccess } = useToast();
   const [activeTab, setActiveTab] = useState('PUBLISHED');
   const [showCreate, setShowCreate] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
@@ -196,7 +196,7 @@ export function TutorAssignmentsPage() {
           questions: fileState.questions,
           assignedToStudentPublicIds: [],
         });
-        toast.success('Quiz assignment created in Worksheets');
+        toastSuccess('Quiz assignment created in Worksheets');
       } else if (fileState.kind === 'attachment') {
         await createAssignment({
           ...data,
