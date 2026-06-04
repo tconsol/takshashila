@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MessageSquare, Plus, Search, X, Users } from 'lucide-react';
+import { MessageSquare, Plus, Search, X, Users, Send } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/auth.store';
 import { ConversationList } from '../../features/chat/ConversationList';
