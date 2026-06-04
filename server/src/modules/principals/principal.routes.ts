@@ -11,8 +11,8 @@ import { sendSuccess, sendPaginated } from '../../utils/response';
 const router = Router();
 router.use(authMiddleware);
 
-// Tutors can browse active principals to send join requests
-router.get('/active', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+// Tutors, parents, and students can browse active principals
+router.get('/active', requireRole(Role.TUTOR, Role.PARENT, Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const result = await principalService.listActive(req.query);
     sendPaginated(res, result, 'Active principals fetched');

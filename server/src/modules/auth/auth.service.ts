@@ -160,10 +160,13 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, device: DeviceInfo): Promise<TokenPair & { user: object }> {
-    const user = await userRepository.findByEmail(dto.email, true);
+    // If identifier contains '@' treat as email; otherwise treat as studentId
+    const user = dto.identifier.includes('@')
+      ? await userRepository.findByEmail(dto.identifier, true)
+      : await userRepository.findByStudentId(dto.identifier, true);
 
     if (!user) {
-      throw new AuthenticationError('Invalid email or password');
+      throw new AuthenticationError('Invalid credentials');
     }
 
     if (user.isDeleted) {
@@ -176,7 +179,7 @@ export class AuthService {
 
     const isPasswordValid = await argon2.verify(user.passwordHash, dto.password);
     if (!isPasswordValid) {
-      throw new AuthenticationError('Invalid email or password');
+      throw new AuthenticationError('Invalid credentials');
     }
 
     if (!user.emailVerified || user.status === UserStatus.PENDING_VERIFICATION) {

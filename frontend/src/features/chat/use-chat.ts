@@ -19,7 +19,8 @@ export function useConversations() {
       const { data } = await api.get('/chat/conversations');
       return data;
     },
-    refetchInterval: 30_000,
+    // Socket invalidation handles real-time updates; poll every 5min as fallback
+    refetchInterval: 5 * 60 * 1000,
     enabled: isAuthenticated,
   });
 }
@@ -32,7 +33,8 @@ export function useChatUnreadCount() {
       const { data } = await api.get('/chat/conversations/unread-count');
       return data.count;
     },
-    refetchInterval: 30_000,
+    // Socket invalidation handles real-time updates; poll every 5min as fallback
+    refetchInterval: 5 * 60 * 1000,
     enabled: isAuthenticated,
   });
 }
@@ -58,7 +60,7 @@ export function useStartConversation() {
   return useMutation({
     mutationFn: async (payload: { recipientPublicId: string; recipientRole: string }) => {
       const { data } = await api.post('/chat/conversations', payload);
-      return data as IConversation;
+      return (data?.data ?? data) as IConversation;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: chatKeys.conversations() }),
   });
@@ -83,6 +85,48 @@ export function useMarkRead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: chatKeys.conversations() });
       qc.invalidateQueries({ queryKey: chatKeys.unread() });
+    },
+  });
+}
+
+export function usePinMessage(conversationPublicId: string) {
+  return useMutation({
+    mutationFn: async ({ messagePublicId, durationHours }: { messagePublicId: string; durationHours: number }) => {
+      const { data } = await api.post(
+        `/chat/conversations/${conversationPublicId}/messages/${messagePublicId}/pin`,
+        { durationHours },
+      );
+      return data as IMessage;
+    },
+  });
+}
+
+export function useUnpinMessage(conversationPublicId: string) {
+  return useMutation({
+    mutationFn: async (messagePublicId: string) => {
+      await api.delete(`/chat/conversations/${conversationPublicId}/messages/${messagePublicId}/pin`);
+    },
+  });
+}
+
+export function useReactToMessage(conversationPublicId: string) {
+  return useMutation({
+    mutationFn: async ({ messagePublicId, emoji }: { messagePublicId: string; emoji: string }) => {
+      const { data } = await api.post(
+        `/chat/conversations/${conversationPublicId}/messages/${messagePublicId}/react`,
+        { emoji },
+      );
+      return data as IMessage;
+    },
+  });
+}
+
+export function useDeleteMessage(conversationPublicId: string) {
+  return useMutation({
+    mutationFn: async ({ messagePublicId, forEveryone }: { messagePublicId: string; forEveryone: boolean }) => {
+      await api.delete(`/chat/conversations/${conversationPublicId}/messages/${messagePublicId}`, {
+        params: { forEveryone },
+      });
     },
   });
 }

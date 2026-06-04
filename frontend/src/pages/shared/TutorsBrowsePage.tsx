@@ -137,14 +137,14 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
         <Card padding="md" tone="soft" className="mb-6">
           <div className="grid gap-3 lg:grid-cols-12">
             <div className="lg:col-span-5">
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Search</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-gray-300">Search</label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Subject, name, or qualification…"
-                  className="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  className="w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition-all focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:bg-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -187,16 +187,16 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
           </div>
 
           {(subject || priceIdx > 0 || minRating > 0 || search) && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-200/70 pt-3 dark:border-gray-800">
-              <Filter className="h-3.5 w-3.5 text-gray-400" />
-              <span className="text-xs text-gray-500">Active filters:</span>
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-dashed border-slate-200 pt-3">
+              <Filter className="h-3.5 w-3.5 text-slate-500" />
+              <span className="text-xs font-medium text-slate-500">Active filters:</span>
               {search && <Chip onClear={() => setSearch('')}>"{search}"</Chip>}
               {subject && <Chip onClear={() => setSubject('')}>{subject}</Chip>}
               {priceIdx > 0 && <Chip onClear={() => setPriceIdx(0)}>{PRICE_BUCKETS[priceIdx].label}</Chip>}
               {minRating > 0 && <Chip onClear={() => setMinRating(0)}>★ {minRating}+</Chip>}
               <button
                 onClick={() => { setSearch(''); setSubject(''); setPriceIdx(0); setMinRating(0); }}
-                className="ml-auto text-xs font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+                className="ml-auto rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors"
               >
                 Reset all
               </button>
@@ -274,11 +274,11 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
 
 function Chip({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100/60 px-2.5 py-1 text-xs font-medium text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
       {children}
       <button
         onClick={onClear}
-        className="text-brand-500 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-200"
+        className="text-indigo-400 hover:text-rose-600 transition-colors"
         aria-label="Remove filter"
       >
         ×
@@ -371,18 +371,18 @@ function TutorCard({ tutor, onBook }: { tutor: TutorListing; onBook: () => void 
 function PublicNav() {
   const { isAuthenticated, user } = useAuthStore();
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/85 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/85">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-600 to-violet-600 text-white">
-            <GraduationCap className="h-5 w-5" />
+    <header className="sticky top-4 z-40 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <nav className="flex h-16 items-center justify-between rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-sm px-4 shadow-sm sm:px-6 dark:bg-gray-950">
+        <Link to="/" className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600">
+            <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="text-lg font-bold text-gray-900 dark:text-white">Takshashila</span>
+          <span className="text-lg font-bold text-slate-900 dark:text-white">Takshashila</span>
         </Link>
         <div className="hidden gap-7 md:flex">
-          <Link to="/" className="text-sm font-medium text-gray-600 hover:text-brand-600">Home</Link>
-          <Link to="/tutors" className="text-sm font-semibold text-brand-600">Find Tutors</Link>
-          <Link to="/#features" className="text-sm font-medium text-gray-600 hover:text-brand-600">Features</Link>
+          <Link to="/" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Home</Link>
+          <Link to="/tutors" className="text-sm font-semibold text-indigo-600">Find Tutors</Link>
+          <Link to="/#features" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Features</Link>
         </div>
         <div className="flex items-center gap-3">
           {isAuthenticated && user ? (
@@ -391,9 +391,9 @@ function PublicNav() {
             </Link>
           ) : (
             <>
-              <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-brand-600">Sign in</Link>
+              <Link to="/login" className="hidden sm:block text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Sign in</Link>
               <Link to="/register/student">
-                <Button size="sm" variant="gradient">Get started</Button>
+                <Button size="sm">Get started</Button>
               </Link>
             </>
           )}

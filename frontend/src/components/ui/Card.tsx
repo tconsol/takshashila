@@ -12,18 +12,15 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const paddings: Record<Pad, string> = {
   none: '',
-  sm: 'p-4',
-  md: 'p-6',
-  lg: 'p-8',
+  sm:   'p-4',
+  md:   'p-5',
+  lg:   'p-7',
 };
 
 const tones: Record<Tone, string> = {
-  default:
-    'bg-white border border-gray-200/70 dark:bg-gray-900 dark:border-gray-800',
-  soft:
-    'bg-gradient-to-br from-gray-50 via-white to-gray-50 border border-gray-200/70 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800/60 dark:border-gray-800',
-  gradient:
-    'bg-gradient-to-br from-brand-50 via-white to-violet-50 border border-brand-100/60 dark:from-brand-900/20 dark:via-gray-900 dark:to-violet-900/20 dark:border-brand-900/40',
+  default:  'bg-white border border-slate-200/80 shadow-card',
+  soft:     'bg-slate-50/70 border border-slate-200/60',
+  gradient: 'bg-white border border-slate-200/80 shadow-card',
 };
 
 export function Card({
@@ -37,10 +34,10 @@ export function Card({
   return (
     <div
       className={cn(
-        'rounded-2xl shadow-sm shadow-gray-200/40 dark:shadow-black/20 transition-all',
+        'rounded-2xl transition-all duration-200',
         tones[tone],
         paddings[padding],
-        hoverable && 'hover:shadow-md hover:shadow-brand-200/30 hover:-translate-y-0.5 dark:hover:shadow-brand-900/20',
+        hoverable && 'hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer',
         className,
       )}
       {...props}
@@ -52,10 +49,7 @@ export function Card({
 
 export function CardHeader({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      className={cn('mb-5 flex items-start justify-between gap-3', className)}
-      {...props}
-    >
+    <div className={cn('mb-4 flex items-start justify-between gap-3', className)} {...props}>
       {children}
     </div>
   );
@@ -63,28 +57,15 @@ export function CardHeader({ className, children, ...props }: HTMLAttributes<HTM
 
 export function CardTitle({ className, children, ...props }: HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3
-      className={cn(
-        'text-base font-semibold tracking-tight text-gray-900 dark:text-white',
-        className,
-      )}
-      {...props}
-    >
+    <h3 className={cn('text-base font-bold tracking-tight text-slate-900 dark:text-slate-100', className)} {...props}>
       {children}
     </h3>
   );
 }
 
-export function CardDescription({
-  className,
-  children,
-  ...props
-}: HTMLAttributes<HTMLParagraphElement>) {
+export function CardDescription({ className, children, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p
-      className={cn('mt-1 text-sm text-gray-500 dark:text-gray-400', className)}
-      {...props}
-    >
+    <p className={cn('mt-1 text-sm text-slate-500 dark:text-slate-400', className)} {...props}>
       {children}
     </p>
   );
@@ -92,7 +73,7 @@ export function CardDescription({
 
 export function CardContent({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn('text-gray-700 dark:text-gray-300', className)} {...props}>
+    <div className={cn('text-slate-700 dark:text-slate-300', className)} {...props}>
       {children}
     </div>
   );
@@ -101,10 +82,7 @@ export function CardContent({ className, children, ...props }: HTMLAttributes<HT
 export function CardFooter({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn(
-        'mt-5 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800',
-        className,
-      )}
+      className={cn('mt-5 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800', className)}
       {...props}
     >
       {children}

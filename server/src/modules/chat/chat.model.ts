@@ -14,7 +14,8 @@ const conversationSchema = new Schema<IConversation>(
   },
   {
     timestamps: true,
-    toJSON: { transform: (_doc, ret: Record<string, unknown>) => { delete ret.__v; return ret; } },
+    toJSON: { flattenMaps: true, transform: (_doc, ret: Record<string, unknown>) => { delete ret.__v; return ret; } },
+    toObject: { flattenMaps: true },
   },
 );
 
@@ -33,6 +34,13 @@ const messageSchema = new Schema<IMessage>(
     body: { type: String, default: '', maxlength: 4000 },
     isRead: { type: Boolean, default: false },
     readAt: { type: Date },
+    deletedFor: { type: [String], default: [] },
+    reactions: { type: Map, of: [String], default: {} },
+    pinnedUntil: { type: Date },
+    pinnedBy: { type: String },
+    replyToPublicId: { type: String },
+    replyToBody: { type: String },
+    replyToSender: { type: String },
     mediaPublicId: { type: String },
     mediaMimeType: { type: String },
     mediaName: { type: String },
@@ -41,7 +49,9 @@ const messageSchema = new Schema<IMessage>(
   },
   {
     timestamps: true,
-    toJSON: { transform: (_doc, ret: Record<string, unknown>) => { delete ret.__v; return ret; } },
+    // flattenMaps ensures Map fields (reactions) serialize as plain objects via toObject/toJSON
+    toJSON: { flattenMaps: true, transform: (_doc, ret: Record<string, unknown>) => { delete ret.__v; return ret; } },
+    toObject: { flattenMaps: true },
   },
 );
 

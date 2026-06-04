@@ -12,8 +12,9 @@ export interface IStudentProfile {
   _id: string;
   publicId: string;
   userPublicId: string;
-  tutorPublicId: string;
+  tutorPublicId?: string;
   previousTutorPublicIds: string[];
+  contactEmail?: string;
   status: StudentStatus;
   demoClassesUsed: number;
   demoClassTakenWith: string[];

@@ -27,8 +27,8 @@ export function VerifyEmailPage() {
   if (state === 'verifying') {
     return (
       <div className="flex flex-col items-center gap-4 py-8 text-center">
-        <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
-        <p className="text-gray-600 dark:text-gray-400">Verifying your email…</p>
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Verifying your email…</p>
       </div>
     );
   }
@@ -36,16 +36,19 @@ export function VerifyEmailPage() {
   if (state === 'success') {
     return (
       <div className="flex flex-col items-center gap-6 py-8 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-          <CheckCircle2 className="h-8 w-8 text-green-600" />
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-100">
+          <CheckCircle2 className="h-9 w-9 text-emerald-600" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Email verified!</h2>
-          <p className="mt-2 text-gray-500 dark:text-gray-400">
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Email verified!</h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             Your email address has been verified. You can now sign in.
           </p>
         </div>
-        <Link to="/login" className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-700 transition-colors">
+        <Link
+          to="/login"
+          className="inline-flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors"
+        >
           Go to Login
         </Link>
       </div>
@@ -55,33 +58,38 @@ export function VerifyEmailPage() {
   if (state === 'error') {
     return (
       <div className="flex flex-col items-center gap-6 py-8 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-          <XCircle className="h-8 w-8 text-red-600" />
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-rose-100">
+          <XCircle className="h-9 w-9 text-rose-600" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Verification failed</h2>
-          <p className="mt-2 text-gray-500 dark:text-gray-400">{errorMsg}</p>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Verification failed</h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{errorMsg}</p>
         </div>
-        <Link to="/login" className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors">
+        <Link
+          to="/login"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors"
+        >
           Back to Login
         </Link>
       </div>
     );
   }
 
-  // missing token
   return (
     <div className="flex flex-col items-center gap-6 py-8 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-        <Mail className="h-8 w-8 text-amber-600" />
+      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-100">
+        <Mail className="h-9 w-9 text-amber-600" />
       </div>
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Check your inbox</h2>
-        <p className="mt-2 text-gray-500 dark:text-gray-400">
+        <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Check your inbox</h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           We sent a verification link to your email address. Click it to activate your account.
         </p>
       </div>
-      <Link to="/login" className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors">
+      <Link
+        to="/login"
+        className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors"
+      >
         Back to Login
       </Link>
     </div>

@@ -32,7 +32,10 @@ const envSchema = z.object({
 
   GCP_PROJECT_ID: z.string().optional(),
   GCP_BUCKET_NAME: z.string().optional(),
-  GCP_KEY_FILE: z.string().optional(),
+  GCP_PRIVATE_KEY_ID: z.string().optional(),
+  GCP_PRIVATE_KEY: z.string().optional(),
+  GCP_CLIENT_EMAIL: z.string().optional(),
+  GCP_CLIENT_ID: z.string().optional(),
 
   // ── Agora RTC ───────────────────────────────────────────────────────────────
   AGORA_APP_ID: z.string().min(1, 'AGORA_APP_ID is required'),

@@ -8,6 +8,7 @@ const userSchema = new Schema<IUser>(
   {
     publicId: { type: String, default: uuidv4, unique: true, index: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+    studentId: { type: String, sparse: true, unique: true, index: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },

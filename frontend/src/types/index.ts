@@ -6,6 +6,7 @@ export interface User {
   _id: string;
   publicId: string;
   email: string;
+  studentId?: string;
   firstName: string;
   lastName: string;
   role: Role;

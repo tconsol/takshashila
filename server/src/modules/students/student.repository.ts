@@ -77,6 +77,25 @@ export class StudentRepository {
     return this.findAll({ ...query, status: 'PENDING_APPROVAL' });
   }
 
+  async findManyByContactEmail(email: string): Promise<IStudentProfile[]> {
+    return StudentProfileModel.find({ contactEmail: email.toLowerCase(), isDeleted: false }).lean();
+  }
+
+  async findByTutorIds(
+    tutorPublicIds: string[],
+    query: PaginationQuery & { status?: string },
+  ): Promise<PaginatedResult<IStudentProfile>> {
+    const { page, limit, skip } = parsePaginationQuery(query);
+    const filter: Record<string, unknown> = { tutorPublicId: { $in: tutorPublicIds }, isDeleted: false };
+    if (query.status) filter.status = query.status;
+
+    const [items, total] = await Promise.all([
+      StudentProfileModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      StudentProfileModel.countDocuments(filter),
+    ]);
+    return buildPaginatedResult(items, total, page, limit);
+  }
+
   async softDelete(publicId: string, deletedBy: string): Promise<void> {
     await StudentProfileModel.updateOne(
       { publicId },

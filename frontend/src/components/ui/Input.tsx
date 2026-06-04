@@ -16,13 +16,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={inputId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor={inputId} className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
             {label}
           </label>
         )}
         <div className="relative">
           {leftIcon && (
-            <div className="absolute inset-y-0 left-3 flex items-center text-gray-400">
+            <div className="pointer-events-none absolute inset-y-0 left-3.5 z-10 flex items-center text-slate-400">
               {leftIcon}
             </div>
           )}
@@ -30,12 +30,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              'w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 transition-colors',
-              'focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500',
-              'disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500',
-              'dark:border-gray-600 dark:bg-gray-900 dark:text-white dark:placeholder:text-gray-500',
-              'dark:focus:border-brand-400 dark:focus:ring-brand-400',
-              error && 'border-red-500 focus:border-red-500 focus:ring-red-500',
+              'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5',
+              'text-sm font-medium text-slate-900 placeholder:text-slate-400',
+              'transition-colors duration-150 shadow-sm',
+              'focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500',
+              'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200',
+              'dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500',
+              'dark:focus:border-indigo-400 dark:focus:ring-indigo-400/25',
+              error && 'border-rose-400 focus:ring-rose-500/25 focus:border-rose-500',
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
               className,
@@ -43,13 +45,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <div className="absolute inset-y-0 right-3 flex items-center text-gray-400">
+            <div className="absolute inset-y-0 right-3.5 z-10 flex items-center text-slate-400">
               {rightIcon}
             </div>
           )}
         </div>
-        {error && <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{error}</p>}
-        {!error && hint && <p className="mt-1.5 text-xs text-gray-500">{hint}</p>}
+        {error && <p className="mt-1.5 text-xs font-medium text-rose-500">{error}</p>}
+        {!error && hint && <p className="mt-1.5 text-xs text-slate-400">{hint}</p>}
       </div>
     );
   },

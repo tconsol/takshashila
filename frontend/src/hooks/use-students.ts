@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studentsService } from '../services/students.service';
 import { tutorsService } from '../services/tutors.service';
-import type { CreateStudentDto } from '../services/students.service';
+import type { CreateStudentDto, CreateStudentByPrincipalDto, InviteStudentByPrincipalDto } from '../services/students.service';
 
 export const studentKeys = {
   all: ['students'] as const,
@@ -10,6 +10,7 @@ export const studentKeys = {
   pending: () => [...studentKeys.all, 'pending'] as const,
   list: (params?: Record<string, string>) => [...studentKeys.all, 'list', params] as const,
   myTutorStudents: (params?: Record<string, string>) => [...studentKeys.all, 'my-tutor', params] as const,
+  principalStudents: (params?: Record<string, string>) => [...studentKeys.all, 'principal', params] as const,
 };
 
 export function useMyStudentProfile() {
@@ -74,6 +75,13 @@ export function useMyTutor() {
   });
 }
 
+export function useStudentPrincipal() {
+  return useQuery({
+    queryKey: ['students', 'me', 'principal'],
+    queryFn: studentsService.getMyPrincipal,
+  });
+}
+
 export function useCreateStudent() {
   const qc = useQueryClient();
   return useMutation({
@@ -106,5 +114,45 @@ export function useDeclineInvite() {
   return useMutation({
     mutationFn: () => studentsService.declineInvite(),
     onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.myProfile() }),
+  });
+}
+
+export function useMyStudentsAsPrincipal(params?: Record<string, string>) {
+  return useQuery({
+    queryKey: studentKeys.principalStudents(params),
+    queryFn: () => studentsService.getMyStudentsAsPrincipal(params),
+  });
+}
+
+export function useCreateStudentByPrincipal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateStudentByPrincipalDto) => studentsService.createStudentByPrincipal(dto),
+    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.all }),
+  });
+}
+
+export function useInviteExistingByPrincipal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: InviteStudentByPrincipalDto) => studentsService.inviteExistingByPrincipal(dto),
+    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.all }),
+  });
+}
+
+export function useTransferStudent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ studentPublicId, newTutorPublicId }: { studentPublicId: string; newTutorPublicId: string }) =>
+      studentsService.transferStudent(studentPublicId, newTutorPublicId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.all }),
+  });
+}
+
+export function useUnlinkStudent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (studentPublicId: string) => studentsService.unlinkStudent(studentPublicId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.all }),
   });
 }

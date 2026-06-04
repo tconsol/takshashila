@@ -88,6 +88,19 @@ export class UserRepository {
     return count > 0;
   }
 
+  async findByStudentId(studentId: string, withSensitive = false): Promise<IUser | null> {
+    const query = UserModel.findOne({ studentId: studentId.toLowerCase(), isDeleted: false });
+    if (withSensitive) {
+      query.select('+passwordHash +emailVerificationToken +emailVerificationExpiry +passwordResetToken +passwordResetExpiry');
+    }
+    return query.lean();
+  }
+
+  async existsByStudentId(studentId: string): Promise<boolean> {
+    const count = await UserModel.countDocuments({ studentId: studentId.toLowerCase() });
+    return count > 0;
+  }
+
   async updateLastLogin(publicId: string, ip: string): Promise<void> {
     await UserModel.updateOne(
       { publicId },

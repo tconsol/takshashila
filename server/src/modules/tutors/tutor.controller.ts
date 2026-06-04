@@ -82,6 +82,14 @@ export class TutorController {
     } catch (error) { next(error); }
   }
 
+  async getByPrincipalForParent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      // profilePublicId = principal profile UUID → resolve to user publicId for tutor query
+      const result = await tutorService.getByPrincipalProfile(req.params.profilePublicId, req.query);
+      sendPaginated(res, result, 'Tutors fetched');
+    } catch (error) { next(error); }
+  }
+
   async getPending(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       // Principals only see pending tutors under them; admins see all

@@ -6,13 +6,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   User, Mail, Phone, Globe, ShieldCheck, Camera,
   CheckCircle2, AlertCircle, Lock, Eye, EyeOff,
-  BookOpen, DollarSign, Sparkles, GraduationCap, Calendar,
+  BookOpen, DollarSign, Sparkles, GraduationCap, Calendar, Copy, Check,
 } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../stores/auth.store';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const SUBJECT_OPTIONS = [
   'Mathematics', 'Physics', 'Chemistry', 'Biology', 'English',
   'Computer Science', 'History', 'Economics', 'Geography',
@@ -29,25 +28,15 @@ const ROLE_LABELS: Record<string, string> = {
   TUTOR: 'Tutor', STUDENT: 'Student', SUPPORT: 'Support',
 };
 
-const ROLE_GRADIENTS: Record<string, string> = {
-  SUPER_ADMIN: 'from-red-500 to-orange-500',
-  ADMIN: 'from-orange-500 to-amber-500',
-  PRINCIPAL: 'from-blue-500 to-sky-400',
-  TUTOR: 'from-violet-600 to-indigo-500',
-  STUDENT: 'from-emerald-500 to-teal-400',
-  SUPPORT: 'from-sky-500 to-cyan-400',
+const ROLE_COLOR: Record<string, { bg: string; text: string; gradient: string }> = {
+  SUPER_ADMIN: { bg: 'bg-rose-50',   text: 'text-rose-600',   gradient: 'from-rose-500 to-pink-600' },
+  ADMIN:       { bg: 'bg-amber-50',  text: 'text-amber-600',  gradient: 'from-amber-500 to-orange-600' },
+  PRINCIPAL:   { bg: 'bg-teal-50',   text: 'text-teal-600',   gradient: 'from-teal-500 to-emerald-600' },
+  TUTOR:       { bg: 'bg-violet-50', text: 'text-violet-600', gradient: 'from-violet-500 to-purple-600' },
+  STUDENT:     { bg: 'bg-indigo-50', text: 'text-indigo-600', gradient: 'from-indigo-500 to-blue-600' },
+  SUPPORT:     { bg: 'bg-pink-50',   text: 'text-pink-600',   gradient: 'from-pink-500 to-rose-600' },
 };
 
-const ROLE_BADGE: Record<string, string> = {
-  SUPER_ADMIN: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  ADMIN: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  PRINCIPAL: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  TUTOR: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
-  STUDENT: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  SUPPORT: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
-};
-
-// ─── Schemas ──────────────────────────────────────────────────────────────────
 const profileSchema = z.object({
   firstName: z.string().min(1, 'Required').max(50),
   lastName: z.string().min(1, 'Required').max(50),
@@ -74,13 +63,12 @@ type ProfileForm = z.infer<typeof profileSchema>;
 type TutorProfileForm = z.infer<typeof tutorProfileSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
 
-// ─── Small helpers ────────────────────────────────────────────────────────────
 function Toast({ type, message }: { type: 'success' | 'error'; message: string }) {
   return (
     <div className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium ${
       type === 'success'
-        ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:ring-emerald-800/40'
-        : 'bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-900/20 dark:text-red-400 dark:ring-red-800/40'
+        ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+        : 'bg-rose-50 border border-rose-200 text-rose-700'
     }`}>
       {type === 'success'
         ? <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -95,12 +83,12 @@ function Field({ label, error, children, hint }: {
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
         {label}
       </label>
       {children}
-      {hint && !error && <p className="mt-1 text-[11px] text-gray-400">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {hint && !error && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
     </div>
   );
 }
@@ -110,16 +98,16 @@ function TextInput({ icon: Icon, readOnly, ...props }: {
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="relative">
-      {Icon && <Icon className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />}
+      {Icon && <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 z-10 text-slate-400" />}
       <input
         {...props}
         readOnly={readOnly}
-        className={`w-full rounded-xl border py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 ${
+        className={`w-full rounded-xl border py-2.5 text-sm transition-colors ${
           Icon ? 'pl-10' : 'pl-3.5'
         } pr-3.5 ${
           readOnly
-            ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'
-            : 'border-gray-200 bg-gray-50 text-gray-900 focus:border-brand-500 focus:bg-white focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800'
+            ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:bg-slate-800 dark:border-slate-700'
+            : 'border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white'
         }`}
       />
     </div>
@@ -131,17 +119,17 @@ const PasswordInput = forwardRef<HTMLInputElement, {
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>>(
   ({ show, onToggle, ...rest }, ref) => (
     <div className="relative">
-      <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 z-10 text-slate-400" />
       <input
         {...rest}
         ref={ref}
         type={show ? 'text' : 'password'}
-        className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-10 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800"
+        className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white"
       />
       <button
         type="button"
         onClick={onToggle}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>
@@ -155,7 +143,7 @@ function SaveButton({ pending, label = 'Save changes' }: { pending: boolean; lab
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-500/30 transition-all hover:from-brand-700 hover:to-violet-700 hover:shadow-brand-500/40 focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
     >
       {pending
         ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -165,10 +153,36 @@ function SaveButton({ pending, label = 'Save changes' }: { pending: boolean; lab
   );
 }
 
-// ─── Tab types ────────────────────────────────────────────────────────────────
+function CopyChip({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+        <p className={`truncate text-xs font-semibold text-slate-700 ${mono ? 'font-mono' : ''}`}>{value}</p>
+      </div>
+      <button
+        type="button"
+        onClick={handleCopy}
+        title="Copy to clipboard"
+        className="shrink-0 rounded-lg p-1 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+      >
+        {copied
+          ? <Check className="h-3.5 w-3.5 text-emerald-600" />
+          : <Copy className="h-3.5 w-3.5 text-slate-400" />}
+      </button>
+    </div>
+  );
+}
+
 type Tab = 'account' | 'teaching' | 'security';
 
-// ─── Main page ────────────────────────────────────────────────────────────────
 export function ProfilePage() {
   const { user, setUser } = useAuthStore();
   const queryClient = useQueryClient();
@@ -182,14 +196,19 @@ export function ProfilePage() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const isTutor = user?.role === 'TUTOR';
+  const isStudent = user?.role === 'STUDENT';
 
-  // Fetch fresh user data from server — used for hero card and timezone display
   const { data: freshUser } = useQuery({
     queryKey: ['users', 'me'],
     queryFn: () => api.get('/users/me').then((r) => r.data.data),
   });
 
-  // Sync fresh user into auth store so other parts of the app stay current
+  const { data: studentProfile } = useQuery({
+    queryKey: ['students', 'me'],
+    queryFn: () => api.get('/students/me').then((r) => r.data.data),
+    enabled: isStudent,
+  });
+
   useEffect(() => {
     if (freshUser && user) setUser({ ...user, ...freshUser });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -198,13 +217,11 @@ export function ProfilePage() {
   const activeUser = freshUser ?? user;
   const userTimezone = activeUser?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  // ── Account form ──
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: { firstName: '', lastName: '', phone: '' },
   });
 
-  // Populate fields as soon as server data arrives
   useEffect(() => {
     if (!freshUser) return;
     profileForm.setValue('firstName', freshUser.firstName ?? '', { shouldDirty: false });
@@ -223,7 +240,6 @@ export function ProfilePage() {
     onError: (e: Error) => setProfileFeedback({ type: 'error', message: e.message || 'Update failed' }),
   });
 
-  // ── Tutor profile form ──
   const { data: tutorData } = useQuery({
     queryKey: ['tutors', 'me'],
     queryFn: () => api.get('/tutors/me').then((r) => r.data.data),
@@ -258,7 +274,6 @@ export function ProfilePage() {
     onError: (e: Error) => setTutorFeedback({ type: 'error', message: e.message || 'Update failed' }),
   });
 
-  // ── Password form ──
   const passwordForm = useForm<PasswordForm>({ resolver: zodResolver(passwordSchema) });
 
   const { mutateAsync: changePassword, isPending: savingPassword } = useMutation({
@@ -277,10 +292,9 @@ export function ProfilePage() {
 
   const displayUser = activeUser ?? user;
   const initials = `${(displayUser.firstName ?? '?')[0]}${(displayUser.lastName ?? '?')[0]}`.toUpperCase();
-  const gradient = ROLE_GRADIENTS[user.role] ?? 'from-brand-600 to-violet-600';
+  const roleColor = ROLE_COLOR[user.role] ?? ROLE_COLOR.STUDENT;
   const roleLabel = ROLE_LABELS[user.role] ?? user.role;
 
-  // Tutor profile completion
   const tutorCompletion = isTutor && tutorData ? (() => {
     const checks = [
       !!tutorData.bio,
@@ -301,81 +315,91 @@ export function ProfilePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
 
-      {/* ── Hero card ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
-        {/* gradient strip */}
-        <div className={`h-28 w-full bg-gradient-to-br ${gradient} opacity-90`} />
-
+      {/* Hero card */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+        <div className={`h-24 w-full bg-gradient-to-r ${roleColor.gradient}`} />
         <div className="px-6 pb-6">
-          {/* avatar pulled up over the strip */}
           <div className="relative -mt-12 mb-4 flex items-end justify-between">
             <div className="relative">
-              <div className={`flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} text-3xl font-bold text-white shadow-lg ring-4 ring-white dark:ring-gray-900`}>
+              <div className={`flex h-24 w-24 items-center justify-center rounded-2xl ring-4 ring-white ${roleColor.bg} text-3xl font-bold ${roleColor.text} shadow-sm`}>
                 {displayUser.avatarUrl
                   ? <img src={displayUser.avatarUrl} alt={initials} className="h-full w-full rounded-2xl object-cover" />
                   : initials}
               </div>
               <button
                 type="button"
-                className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-gray-200 transition-colors hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-gray-700"
+                className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors"
               >
-                <Camera className="h-3.5 w-3.5 text-gray-600 dark:text-gray-300" />
+                <Camera className="h-3.5 w-3.5 text-slate-500" />
               </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${ROLE_BADGE[user.role] ?? ''}`}>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roleColor.bg} ${roleColor.text}`}>
                 {roleLabel}
               </span>
               {displayUser.emailVerified
-                ? <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                ? <span className="flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700">
                     <CheckCircle2 className="h-3 w-3" /> Verified
                   </span>
-                : <span className="flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                : <span className="flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-semibold text-amber-700">
                     <AlertCircle className="h-3 w-3" /> Unverified
                   </span>}
             </div>
           </div>
 
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
             {displayUser.firstName} {displayUser.lastName}
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{displayUser.email}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {isStudent ? (displayUser.studentId ?? displayUser.email) : displayUser.email}
+          </p>
 
-          <div className="mt-4 flex flex-wrap gap-5 text-xs text-gray-400">
-            <span className="flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5" />
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {isStudent && displayUser.studentId && (
+              <CopyChip label="Student ID (login)" value={displayUser.studentId} />
+            )}
+            {isStudent && studentProfile?.publicId && (
+              <CopyChip label="Profile ID (share with parent)" value={studentProfile.publicId} />
+            )}
+            {!isStudent && (
+              <CopyChip label="Account ID" value={displayUser.publicId} />
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+              <Calendar className="h-3 w-3" />
               Member since {new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
             </span>
             {user.lastLoginAt && (
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                <CheckCircle2 className="h-3 w-3" />
                 Last login {new Date(user.lastLoginAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             )}
           </div>
 
-          {/* Tutor profile completion bar */}
           {isTutor && tutorCompletion !== null && (
-            <div className="mt-4">
-              <div className="mb-1.5 flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 font-medium text-gray-600 dark:text-gray-300">
-                  <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+            <div className="mt-5">
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
                   Teaching profile {tutorCompletion}% complete
                 </span>
                 {tutorCompletion < 100 && (
                   <button
                     type="button"
                     onClick={() => setTab('teaching')}
-                    className="text-brand-600 hover:underline dark:text-brand-400"
+                    className="font-semibold text-indigo-600 hover:text-indigo-700"
                   >
                     Complete now →
                   </button>
                 )}
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-brand-500 to-violet-500 transition-all duration-500"
+                  className="h-full bg-indigo-500 transition-all duration-500 rounded-full"
                   style={{ width: `${tutorCompletion}%` }}
                 />
               </div>
@@ -384,8 +408,8 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* ── Tab navigation ── */}
-      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
+      {/* Tab navigation */}
+      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -393,8 +417,8 @@ export function ProfilePage() {
             onClick={() => setTab(key)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === key
-                ? 'bg-brand-600 text-white shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -403,9 +427,9 @@ export function ProfilePage() {
         ))}
       </div>
 
-      {/* ── Account tab ── */}
+      {/* Account tab */}
       {tab === 'account' && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
           {profileFeedback && <div className="mb-5"><Toast {...profileFeedback} /></div>}
           <form onSubmit={profileForm.handleSubmit((d) => updateProfile(d))} className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -441,15 +465,14 @@ export function ProfilePage() {
               </Field>
             </div>
 
-            {/* Timezone — read-only, auto-detected */}
-            <div className="flex items-center gap-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 px-4 py-3">
-              <Globe className="h-4 w-4 text-indigo-500 shrink-0" />
+            <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+              <Globe className="h-4 w-4 text-sky-500 shrink-0" />
               <div className="text-sm">
-                <span className="font-medium text-indigo-700 dark:text-indigo-300">{userTimezone}</span>
-                <span className="ml-1.5 text-indigo-500">
+                <span className="font-semibold text-slate-700">{userTimezone}</span>
+                <span className="ml-1.5 text-slate-500">
                   (UTC{formatInTimeZone(new Date(), userTimezone, 'xxx')})
                 </span>
-                <p className="text-xs text-indigo-400 dark:text-indigo-500 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Auto-detected from your device — class times display in this timezone
                 </p>
               </div>
@@ -462,27 +485,23 @@ export function ProfilePage() {
         </div>
       )}
 
-      {/* ── Teaching profile tab (tutor only) ── */}
+      {/* Teaching profile tab (tutor only) */}
       {tab === 'teaching' && isTutor && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
           {tutorFeedback && <div className="mb-5"><Toast {...tutorFeedback} /></div>}
           <form onSubmit={tutorForm.handleSubmit((d) => updateTutorProfile(d))} className="space-y-6">
 
-            {/* Bio */}
             <Field label="About You">
               <textarea
                 {...tutorForm.register('bio')}
                 rows={3}
                 placeholder="Tell students about your teaching style, experience and background…"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white"
               />
             </Field>
 
-            {/* Subjects */}
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Subjects you teach
-              </p>
+              <p className="mb-2 text-sm font-semibold text-slate-700">Subjects you teach</p>
               <Controller
                 control={tutorForm.control}
                 name="subjects"
@@ -497,13 +516,13 @@ export function ProfilePage() {
                           onClick={() => field.onChange(
                             active ? field.value.filter((v) => v !== s) : [...field.value, s],
                           )}
-                          className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                          className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all border ${
                             active
-                              ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/30'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'border-slate-300 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50'
                           }`}
                         >
-                          {active && <span className="mr-1">✓</span>}{s}
+                          {s}
                         </button>
                       );
                     })}
@@ -512,11 +531,8 @@ export function ProfilePage() {
               />
             </div>
 
-            {/* Languages */}
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Languages you teach in
-              </p>
+              <p className="mb-2 text-sm font-semibold text-slate-700">Languages you teach in</p>
               <Controller
                 control={tutorForm.control}
                 name="languages"
@@ -531,13 +547,13 @@ export function ProfilePage() {
                           onClick={() => field.onChange(
                             active ? field.value.filter((v) => v !== l) : [...field.value, l],
                           )}
-                          className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                          className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all border ${
                             active
-                              ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/30'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                              ? 'bg-violet-600 text-white border-violet-600'
+                              : 'border-slate-300 text-slate-600 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50'
                           }`}
                         >
-                          {active && <span className="mr-1">✓</span>}{l}
+                          {l}
                         </button>
                       );
                     })}
@@ -549,13 +565,13 @@ export function ProfilePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Hourly Rate ($)" error={tutorForm.formState.errors.hourlyRateUSD?.message}>
                 <div className="relative">
-                  <DollarSign className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <DollarSign className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     {...tutorForm.register('hourlyRateUSD', { valueAsNumber: true })}
                     type="number"
                     min={0}
                     placeholder="e.g. 50"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-3.5 text-sm text-gray-900 transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white dark:focus:bg-gray-800"
+                    className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                   />
                 </div>
               </Field>
@@ -582,17 +598,17 @@ export function ProfilePage() {
         </div>
       )}
 
-      {/* ── Security tab ── */}
+      {/* Security tab */}
       {tab === 'security' && (
         <div className="space-y-4">
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
-            <div className="mb-5 flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-900/20">
-                <Lock className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50">
+                <Lock className="h-4 w-4 text-rose-600" />
               </span>
               <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Change Password</h3>
-                <p className="text-xs text-gray-500">All active sessions will be signed out after change</p>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white">Change Password</h3>
+                <p className="text-xs text-slate-500">All active sessions will be signed out after change</p>
               </div>
             </div>
 
@@ -630,27 +646,34 @@ export function ProfilePage() {
             </form>
           </div>
 
-          {/* Account details */}
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200/80 dark:bg-gray-900 dark:ring-gray-800">
-            <div className="mb-4 flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-900/20">
-                <ShieldCheck className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
+                <ShieldCheck className="h-4 w-4 text-indigo-600" />
               </span>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Account Details</h3>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Account Details</h3>
             </div>
             <dl className="grid gap-3 sm:grid-cols-2">
               {[
-                { label: 'Account ID', value: user.publicId },
-                { label: 'Status', value: user.status.replace(/_/g, ' ') },
-                { label: 'Role', value: roleLabel },
-                { label: 'Created', value: new Date(user.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' }) },
-              ].map(({ label, value }) => (
-                <div key={label} className="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-800/50">
-                  <dt className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</dt>
-                  <dd className="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{value}</dd>
+                { label: 'Status',  value: user.status.replace(/_/g, ' '), bg: 'bg-emerald-50', text: 'text-emerald-700' },
+                { label: 'Role',    value: roleLabel, bg: 'bg-indigo-50', text: 'text-indigo-700' },
+                { label: 'Created', value: new Date(user.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' }), bg: 'bg-amber-50', text: 'text-amber-700' },
+              ].map(({ label, value, bg, text }) => (
+                <div key={label} className={`rounded-xl ${bg} px-4 py-3`}>
+                  <dt className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
+                  <dd className={`truncate text-sm font-semibold ${text}`}>{value}</dd>
                 </div>
               ))}
             </dl>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <CopyChip label="Account ID" value={user.publicId} />
+              {isStudent && displayUser?.studentId && (
+                <CopyChip label="Student ID" value={displayUser.studentId} />
+              )}
+              {isStudent && studentProfile?.publicId && (
+                <CopyChip label="Profile ID" value={studentProfile.publicId} />
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -18,29 +18,31 @@ export function ForgotPasswordPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <div>
-        <Link to="/login" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 dark:text-gray-400 mb-5 transition-colors">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+        <Link to="/login" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors mb-4">
+          <ArrowLeft className="h-4 w-4" /> Back to sign in
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reset your password</h1>
-        <p className="mt-2 text-gray-500 dark:text-gray-400">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Reset your password</h1>
+        <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
           Enter your email and we&apos;ll send you a reset link
         </p>
       </div>
 
       {mutation.isSuccess ? (
-        <div className="rounded-2xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-6 text-center space-y-3">
+        <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-6 text-center space-y-4">
           <div className="flex justify-center">
-            <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-              <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+            <div className="h-14 w-14 rounded-2xl bg-emerald-100 flex items-center justify-center">
+              <CheckCircle2 className="h-7 w-7 text-emerald-600" />
             </div>
           </div>
-          <p className="font-semibold text-green-800 dark:text-green-300">Check your inbox</p>
-          <p className="text-sm text-green-600 dark:text-green-400">
-            If an account exists with that email, a password reset link has been sent. It expires in 24 hours.
-          </p>
-          <Link to="/login" className="inline-block mt-2 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">
+          <div>
+            <p className="font-semibold text-emerald-800">Check your inbox</p>
+            <p className="text-sm text-emerald-600 mt-1">
+              If an account exists with that email, a password reset link has been sent. It expires in 24 hours.
+            </p>
+          </div>
+          <Link to="/login" className="inline-block text-sm font-semibold text-indigo-600 hover:text-indigo-700">
             Return to sign in
           </Link>
         </div>

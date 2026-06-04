@@ -199,6 +199,16 @@ export class TutorService {
     return this._hydrateWithUser(result);
   }
 
+  async getByPrincipalProfile(
+    profilePublicId: string,
+    query: PaginationQuery,
+  ): Promise<PaginatedResult<ITutorProfile & { displayName: string; email: string }>> {
+    const principalProfile = await PrincipalProfileModel.findOne({ publicId: profilePublicId, isDeleted: false }).lean();
+    if (!principalProfile) throw new NotFoundError('Principal not found');
+    const result = await tutorRepository.findByPrincipal(principalProfile.userPublicId, query);
+    return this._hydrateWithUser(result);
+  }
+
   async getPending(
     query: PaginationQuery,
     principalPublicId?: string,

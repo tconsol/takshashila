@@ -16,6 +16,7 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'image/gif',
   'application/pdf',
   'video/mp4', 'video/webm', 'video/quicktime',
+  'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav',
   'application/zip',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -28,8 +29,19 @@ const MAX_SIZE_BYTES = 50 * 1024 * 1024;      // 50 MB general
 const MAX_VIDEO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB for videos
 
 function getStorage(): Storage {
-  if (env.GCP_KEY_FILE) {
-    return new Storage({ projectId: env.GCP_PROJECT_ID, keyFilename: env.GCP_KEY_FILE });
+  if (env.GCP_CLIENT_EMAIL && env.GCP_PRIVATE_KEY) {
+    return new Storage({
+      projectId: env.GCP_PROJECT_ID,
+      credentials: {
+        type: 'service_account',
+        project_id: env.GCP_PROJECT_ID,
+        private_key_id: env.GCP_PRIVATE_KEY_ID,
+        // .env stores \n as literal two-char sequence; convert to real newlines
+        private_key: env.GCP_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        client_email: env.GCP_CLIENT_EMAIL,
+        client_id: env.GCP_CLIENT_ID,
+      },
+    });
   }
   return new Storage({ projectId: env.GCP_PROJECT_ID });
 }

@@ -82,11 +82,19 @@ export function useDataInvalidation() {
     const handleChatMessage = (msg: { senderPublicId: string; conversationPublicId: string }) => {
       // Always refresh conversation list (re-sorts to top + updates preview)
       qc.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+      qc.invalidateQueries({ queryKey: ['chat', 'unread'] });
       qc.invalidateQueries({ queryKey: ['badges'] });
 
-      // Play sound only if message is from someone else and we're not viewing that conversation
       const isFromMe = msg.senderPublicId === user?.publicId;
+      const isOnChatPage = location.pathname.startsWith('/chat');
       const isViewingConversation = location.pathname === `/chat/${msg.conversationPublicId}`;
+
+      // Restore dismissed badge so red dot reappears for new incoming messages
+      if (!isFromMe && !isOnChatPage) {
+        restore('messages');
+      }
+
+      // Play sound only if message is from someone else and we're not viewing that conversation
       if (!isFromMe && !isViewingConversation && audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(() => {});

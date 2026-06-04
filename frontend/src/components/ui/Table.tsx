@@ -18,7 +18,6 @@ interface TableProps<T> {
   emptyMessage?: string;
   emptyState?: ReactNode;
   onRowClick?: (row: T) => void;
-  /** Show a compact, denser variant */
   dense?: boolean;
 }
 
@@ -35,33 +34,31 @@ export function Table<T>({
   const cellPad = dense ? 'px-4 py-2.5' : 'px-5 py-3.5';
   const headPad = dense ? 'px-4 py-2.5' : 'px-5 py-3';
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-gray-200/70 bg-white shadow-sm shadow-gray-200/40 dark:border-gray-800 dark:bg-gray-900 dark:shadow-black/20">
+    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-card dark:bg-slate-900 dark:border-slate-700">
       <table className="w-full text-sm text-left">
-        <thead className="border-b border-gray-200/70 bg-gray-50/60 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-400">
+        <thead className="border-b border-slate-100 bg-slate-50/80 dark:bg-slate-800/40 dark:border-slate-700">
           <tr>
             {columns.map((col) => (
               <th
                 key={col.key}
                 style={col.width ? { width: col.width } : undefined}
-                className={`${headPad} ${col.headerClassName ?? ''}`}
+                className={`${headPad} text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 ${col.headerClassName ?? ''}`}
               >
                 {col.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {loading ? (
             <tr>
               <td colSpan={columns.length} className="px-5 py-12 text-center">
-                <div className="flex justify-center">
-                  <Spinner />
-                </div>
+                <div className="flex justify-center"><Spinner /></div>
               </td>
             </tr>
           ) : data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-5 py-12 text-center text-sm text-gray-400 dark:text-gray-500">
+              <td colSpan={columns.length} className="px-5 py-12 text-center text-sm text-slate-400">
                 {emptyState ?? emptyMessage}
               </td>
             </tr>
@@ -72,14 +69,14 @@ export function Table<T>({
                 onClick={() => onRowClick?.(row)}
                 className={`transition-colors ${
                   onRowClick
-                    ? 'cursor-pointer hover:bg-brand-50/40 dark:hover:bg-brand-900/10'
+                    ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50'
                     : ''
                 }`}
               >
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`${cellPad} text-sm text-gray-700 dark:text-gray-200 ${col.className ?? ''}`}
+                    className={`${cellPad} text-sm font-medium text-slate-700 dark:text-slate-200 ${col.className ?? ''}`}
                   >
                     {col.render
                       ? col.render(row)
