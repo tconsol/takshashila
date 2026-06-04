@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { FileText, Trash2, Users, Trophy, Calendar, BookOpen, ClipboardList, ChevronRight } from 'lucide-react';
+import { FileText, Trash2, Users, Trophy, Calendar, BookOpen, ClipboardList, ChevronRight, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
 import { Tabs } from '../../components/ui/Tabs';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Spinner } from '../../components/ui/Loading';
 import { useMyWorksheetsAsTutor, useDeleteWorksheet } from '../../hooks/use-worksheets';
+import { useMyStudentsAsTutor } from '../../hooks/use-students';
+import { WorksheetUploadModal } from '../../features/worksheets/WorksheetUploadModal';
 import type { Worksheet } from '../../services/worksheets.service';
 
 const TYPE_TABS = [
@@ -81,32 +84,35 @@ function WorksheetCard({ worksheet, onDelete, onViewResults }: {
 }
 
 export function TutorWorksheetsPage() {
-  const [activeType, setActiveType] = useState('WORKSHEET');
+  const [activeType, setActiveType] = useState<'WORKSHEET' | 'ASSIGNMENT'>('WORKSHEET');
+  const [showUpload, setShowUpload] = useState(false);
 
   const { data, isLoading } = useMyWorksheetsAsTutor({ type: activeType, limit: '100' });
   const { mutateAsync: deleteWorksheet } = useDeleteWorksheet();
+  const { data: studentsData } = useMyStudentsAsTutor({ limit: '200' });
   const navigate = useNavigate();
 
   const items = data?.items ?? [];
+  const students = (studentsData?.items ?? [])
+    .filter((s) => s.status === 'ACTIVE' || s.status === 'APPROVED')
+    .map((s) => ({ publicId: s.publicId, name: s.displayName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim() || 'Student' }));
 
-  const typeIcon = activeType === 'WORKSHEET' ? BookOpen : ClipboardList;
-  const TypeIcon = typeIcon;
+  const TypeIcon = activeType === 'WORKSHEET' ? BookOpen : ClipboardList;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <PageHeader
           title="Worksheets & Assignments"
-          subtitle="Quiz-based assessments uploaded from completed classes"
+          subtitle="Create and manage quiz-based assessments for your students"
         />
+        <Button onClick={() => setShowUpload(true)}>
+          <Plus className="h-4 w-4 mr-1.5" />
+          Create {activeType === 'WORKSHEET' ? 'Worksheet' : 'Assignment'}
+        </Button>
       </div>
 
-      <Tabs tabs={TYPE_TABS} activeTab={activeType} onChange={setActiveType} />
-
-      <div className="rounded-xl bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 p-3 text-sm text-brand-700 dark:text-brand-300 flex items-center gap-2">
-        <TypeIcon className="h-4 w-4 flex-shrink-0" />
-        To create {activeType === 'WORKSHEET' ? 'a worksheet' : 'an assignment'}, go to <strong className="mx-1">My Classes → Completed</strong> and click the Upload button on any class card.
-      </div>
+      <Tabs tabs={TYPE_TABS} activeTab={activeType} onChange={(k) => setActiveType(k as 'WORKSHEET' | 'ASSIGNMENT')} />
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
@@ -114,7 +120,13 @@ export function TutorWorksheetsPage() {
         <EmptyState
           icon={<TypeIcon className="h-8 w-8" />}
           title={`No ${activeType === 'WORKSHEET' ? 'worksheets' : 'assignments'} yet`}
-          description={`Upload an Excel quiz file from any completed class to create ${activeType === 'WORKSHEET' ? 'worksheets' : 'assignments'}.`}
+          description={`Upload an Excel file to create an interactive quiz, or upload any PDF/DOC for students to download.`}
+          action={
+            <Button onClick={() => setShowUpload(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Create {activeType === 'WORKSHEET' ? 'Worksheet' : 'Assignment'}
+            </Button>
+          }
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -129,6 +141,15 @@ export function TutorWorksheetsPage() {
         </div>
       )}
 
+      {showUpload && (
+        <WorksheetUploadModal
+          open={showUpload}
+          onClose={() => setShowUpload(false)}
+          cls={null}
+          type={activeType}
+          students={students}
+        />
+      )}
     </div>
   );
 }

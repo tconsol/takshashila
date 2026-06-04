@@ -69,6 +69,12 @@ export const worksheetsService = {
   getMyAsTutor: (params?: Record<string, string>) =>
     api.get('/worksheets/my', { params }).then((r) => r.data.data as PaginatedWorksheets),
 
+  getAsPrincipal: (params?: Record<string, string>) =>
+    api.get('/worksheets/principal/all', { params }).then((r) => r.data.data as {
+      items: (Worksheet & { tutorName: string; submissionCount: number })[];
+      total: number; page: number; limit: number; totalPages: number;
+    }),
+
   getMyAsStudent: (params?: Record<string, string>) =>
     api.get('/worksheets/student/me', { params }).then((r) => r.data.data as PaginatedWorksheets),
 

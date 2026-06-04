@@ -40,12 +40,18 @@ function mimeLabel(mimeType: string): string {
   return map[mimeType] ?? 'File';
 }
 
+function getMediaType(mimeType: string): string {
+  if (mimeType.startsWith('image/')) return 'DOCUMENT';
+  if (mimeType.startsWith('video/')) return 'VIDEO';
+  return 'DOCUMENT';
+}
+
 async function uploadFile(file: File, onProgress: (pct: number) => void): Promise<{ mediaPublicId: string; fileName: string; mimeType: string; sizeBytes: number }> {
   const { data: urlRes } = await api.post('/media/upload-url', {
     originalName: file.name,
     mimeType: file.type,
     sizeBytes: file.size,
-    mediaType: 'RESOURCE',
+    mediaType: getMediaType(file.type),
   });
   const { uploadUrl, gcsObjectKey } = urlRes.data as { uploadUrl: string; gcsObjectKey: string };
 
@@ -59,7 +65,13 @@ async function uploadFile(file: File, onProgress: (pct: number) => void): Promis
     xhr.send(file);
   });
 
-  const { data: confirmRes } = await api.post('/media/confirm', { gcsObjectKey });
+  const { data: confirmRes } = await api.post('/media/confirm', {
+    gcsObjectKey,
+    originalName: file.name,
+    mimeType: file.type,
+    sizeBytes: file.size,
+    mediaType: getMediaType(file.type),
+  });
   return {
     mediaPublicId: (confirmRes.data as { publicId: string }).publicId,
     fileName: file.name,

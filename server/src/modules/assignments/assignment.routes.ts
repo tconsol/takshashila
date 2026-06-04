@@ -100,6 +100,14 @@ router.get('/:assignmentId/my-submission', requireRole(Role.STUDENT), async (req
   } catch (e) { next(e); }
 });
 
+// Principal: list assignments across all their tutors
+router.get('/principal/all', requireRole(Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const assignments = await assignmentService.getByPrincipal(req.user!.publicId, req.query as { tutorPublicId?: string });
+    sendSuccess(res, assignments, 'Assignments fetched');
+  } catch (e) { next(e); }
+});
+
 // Get single assignment
 router.get('/:assignmentId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

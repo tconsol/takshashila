@@ -46,6 +46,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Tutors',      href: '/dashboard/principal/tutors',    icon: GraduationCap,   badgeKey: 'tutors' },
     { label: 'Students',    href: '/dashboard/principal/students',  icon: Users,           badgeKey: 'students' },
     { label: 'Classes',     href: '/dashboard/principal/classes',   icon: Video },
+    { label: 'Content',     href: '/dashboard/principal/content',   icon: FileText },
     { label: 'Analytics',   href: '/dashboard/principal/analytics', icon: BarChart3 },
     { label: 'Messages',    href: '/chat',                          icon: MessageSquare,   badgeKey: 'messages' },
     { label: 'Wallet',      href: '/dashboard/principal/wallet',    icon: Wallet },

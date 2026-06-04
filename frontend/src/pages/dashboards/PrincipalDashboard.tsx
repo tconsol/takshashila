@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Users, GraduationCap, Video, ArrowUpRight, UserPlus, Building2,
-  Sparkles, AlertCircle,
+  Sparkles, AlertCircle, FileText, ClipboardList,
 } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
@@ -17,12 +17,22 @@ import { Spinner } from '../../components/ui/Loading';
 import { api } from '../../lib/axios';
 import { usePendingTutors, useInviteTutor } from '../../hooks/use-tutors';
 
+interface PrincipalStats {
+  tutors: number;
+  students: number;
+  classes: number;
+  worksheets: number;
+  assignments: number;
+  worksheetSubmissions: number;
+  assignmentSubmissions: number;
+}
+
 function usePrincipalStats() {
   return useQuery({
     queryKey: ['analytics', 'principal', 'me'],
     queryFn: async () => {
       const { data } = await api.get('/analytics/principal/me');
-      return (data?.data ?? data ?? {}) as { tutors: number; students: number; classes: number };
+      return (data?.data ?? data ?? {}) as PrincipalStats;
     },
   });
 }
@@ -59,6 +69,36 @@ export function PrincipalDashboard() {
         <StatsCard title="Total Students"    value={statsLoading ? '…' : String(stats?.students ?? 0)} accent="green"  icon={<Users className="h-5 w-5" />} />
         <StatsCard title="Classes (30d)"     value={statsLoading ? '…' : String(stats?.classes ?? 0)}  accent="violet" icon={<Video className="h-5 w-5" />} />
         <StatsCard title="Pending Approvals" value={tutorsLoading ? '…' : String(pendingTutors.length)} accent="amber"  icon={<AlertCircle className="h-5 w-5" />} hint="Awaiting your review" />
+      </div>
+
+      {/* Tutor content activity — worksheets & assignments */}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatsCard
+          title="Worksheets"
+          value={statsLoading ? '…' : String(stats?.worksheets ?? 0)}
+          accent="brand"
+          icon={<FileText className="h-5 w-5" />}
+          hint={`${stats?.worksheetSubmissions ?? 0} submissions`}
+        />
+        <StatsCard
+          title="Assignments"
+          value={statsLoading ? '…' : String(stats?.assignments ?? 0)}
+          accent="violet"
+          icon={<ClipboardList className="h-5 w-5" />}
+          hint={`${stats?.assignmentSubmissions ?? 0} submissions`}
+        />
+        <StatsCard
+          title="Worksheet Submissions"
+          value={statsLoading ? '…' : String(stats?.worksheetSubmissions ?? 0)}
+          accent="green"
+          icon={<FileText className="h-5 w-5" />}
+        />
+        <StatsCard
+          title="Assignment Submissions"
+          value={statsLoading ? '…' : String(stats?.assignmentSubmissions ?? 0)}
+          accent="amber"
+          icon={<ClipboardList className="h-5 w-5" />}
+        />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
