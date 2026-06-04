@@ -27,6 +27,10 @@ export interface IWorksheet {
   type: WorksheetType;
   dueDate?: Date;
   questions: IQuestion[];
+  isFileAttachment: boolean;
+  filePublicId?: string;
+  fileMimeType?: string;
+  fileOriginalName?: string;
   assignedToStudentPublicIds: string[];
   status: WorksheetStatus;
   isDeleted: boolean;
@@ -56,7 +60,11 @@ export interface CreateWorksheetDto {
   subject?: string;
   type: WorksheetType;
   dueDate?: string;
-  questions: IQuestion[];
+  questions?: IQuestion[];
+  isFileAttachment?: boolean;
+  filePublicId?: string;
+  fileMimeType?: string;
+  fileOriginalName?: string;
   assignedToStudentPublicIds?: string[];
 }
 

@@ -74,6 +74,23 @@ export class UserRepository {
     return buildPaginatedResult(items, total, page, limit);
   }
 
+  async searchAll(q: string, limit = 30): Promise<IUser[]> {
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'i');
+    return UserModel.find({
+      isDeleted: false,
+      $or: [
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+        { studentId: regex },
+      ],
+    })
+      .select('publicId firstName lastName email role studentId avatarUrl')
+      .limit(limit)
+      .lean();
+  }
+
   async findManyByPublicIds(publicIds: string[]): Promise<IUser[]> {
     if (publicIds.length === 0) return [];
     return UserModel.find({ publicId: { $in: publicIds }, isDeleted: false }).lean();

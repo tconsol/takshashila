@@ -16,6 +16,10 @@ export interface Worksheet {
   type: 'WORKSHEET' | 'ASSIGNMENT';
   dueDate?: string;
   questions: IQuestion[];
+  isFileAttachment?: boolean;
+  filePublicId?: string;
+  fileMimeType?: string;
+  fileOriginalName?: string;
   assignedToStudentPublicIds: string[];
   status: 'DRAFT' | 'PUBLISHED';
   mySubmission?: WorksheetSubmission;
@@ -42,7 +46,11 @@ export interface CreateWorksheetDto {
   subject?: string;
   type: 'WORKSHEET' | 'ASSIGNMENT';
   dueDate?: string;
-  questions: IQuestion[];
+  questions?: IQuestion[];
+  isFileAttachment?: boolean;
+  filePublicId?: string;
+  fileMimeType?: string;
+  fileOriginalName?: string;
   assignedToStudentPublicIds?: string[];
 }
 

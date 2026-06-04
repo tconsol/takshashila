@@ -8,8 +8,11 @@ import { parsePaginationQuery, buildPaginatedResult } from '../../utils/paginati
 
 export class WorksheetService {
   async create(tutorPublicId: string, dto: CreateWorksheetDto): Promise<IWorksheet> {
-    if (!dto.questions || dto.questions.length === 0) {
+    if (!dto.isFileAttachment && (!dto.questions || dto.questions.length === 0)) {
       throw new AppError('Worksheet must have at least one question', 400);
+    }
+    if (dto.isFileAttachment && !dto.filePublicId) {
+      throw new AppError('File attachment requires a filePublicId', 400);
     }
     const worksheet = await WorksheetModel.create({
       publicId: uuidv4(),
@@ -19,7 +22,11 @@ export class WorksheetService {
       subject: dto.subject,
       type: dto.type,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-      questions: dto.questions,
+      questions: dto.isFileAttachment ? [] : (dto.questions ?? []),
+      isFileAttachment: dto.isFileAttachment ?? false,
+      filePublicId: dto.filePublicId,
+      fileMimeType: dto.fileMimeType,
+      fileOriginalName: dto.fileOriginalName,
       assignedToStudentPublicIds: dto.assignedToStudentPublicIds ?? [],
       status: WorksheetStatus.PUBLISHED,
     });

@@ -38,7 +38,8 @@ function WorksheetCard({ worksheet, onDelete, onViewResults }: {
           </div>
           <div className="flex gap-4 mt-1.5 text-xs text-gray-400">
             <span className="flex items-center gap-1">
-              <FileText className="h-3 w-3" /> {worksheet.questions.length} questions
+              <FileText className="h-3 w-3" />
+              {worksheet.isFileAttachment ? (worksheet.fileOriginalName ?? 'File attachment') : `${worksheet.questions.length} questions`}
             </span>
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" />

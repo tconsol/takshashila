@@ -7,7 +7,14 @@ export class WalletController {
   async getMyWallet(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const wallet = await walletService.getWallet(req.user!.publicId);
-      sendSuccess(res, wallet, 'Wallet fetched');
+      // Normalize field names + add computed aliases for frontend compatibility
+      const response = {
+        ...wallet,
+        purchasedCreditsCents: wallet.purchasedCreditsCents ?? 0,
+        earnedCreditsCents: wallet.earnedCreditsCents ?? 0,
+        earningsCents: wallet.earnedCreditsCents ?? 0,
+      };
+      sendSuccess(res, response, 'Wallet fetched');
     } catch (error) {
       next(error);
     }

@@ -23,6 +23,10 @@ export interface IAssignment {
   dueDate: Date;
   maxScore: number;
   attachmentPublicIds: string[];
+  isFileAttachment: boolean;
+  filePublicId?: string;
+  fileMimeType?: string;
+  fileOriginalName?: string;
   status: AssignmentStatus;
   isDeleted: boolean;
   createdAt: Date;
@@ -54,6 +58,10 @@ export interface CreateAssignmentDto {
   dueDate: string;
   maxScore?: number;
   attachmentPublicIds?: string[];
+  isFileAttachment?: boolean;
+  filePublicId?: string;
+  fileMimeType?: string;
+  fileOriginalName?: string;
 }
 
 export interface SubmitAssignmentDto {

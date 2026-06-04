@@ -28,6 +28,16 @@ router.patch('/me', async (req: AuthRequest, res: Response, next: NextFunction) 
   } catch (e) { next(e); }
 });
 
+// ─── Admin-only search across all users ──────────────────────────────────────
+router.get('/search', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const q = String(req.query.q ?? '').trim();
+    if (!q || q.length < 2) { sendSuccess(res, [], 'No query'); return; }
+    const users = await userRepository.searchAll(q, 40);
+    sendSuccess(res, users, 'Users found');
+  } catch (e) { next(e); }
+});
+
 // ─── Admin-only user listing & management ────────────────────────────────────
 router.get('/', requireRole(Role.SUPER_ADMIN, Role.ADMIN), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

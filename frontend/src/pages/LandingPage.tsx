@@ -11,6 +11,8 @@ import {
 import { useAuthStore } from '../stores/auth.store';
 import { ROLE_DASHBOARD_PATHS } from '../constants/roles';
 import { InfiniteCarouselWall } from '../components/lightswind/InfiniteCarouselWall';
+import ThreeDSlider from '../components/lightswind/ThreeDSlider';
+import InteractiveGridBackground from '../components/lightswind/InteractiveGridBackground';
 import { CtaBanner } from '../components/shared/CtaBanner';
 
 const ROTATING_SUBJECTS = ['Mathematics', 'Physics', 'English', 'Coding', 'Chemistry', 'Biology'];
@@ -21,10 +23,10 @@ const SUBJECTS_MARQUEE = [
 ];
 
 const STATS = [
-  { label: 'Active students', display: '50K+', bg: 'bg-indigo-50', text: 'text-indigo-600',  icon: Users },
-  { label: 'Expert tutors',   display: '5K+',  bg: 'bg-violet-50', text: 'text-violet-600', icon: GraduationCap },
-  { label: 'Subjects',        display: '100+', bg: 'bg-teal-50',   text: 'text-teal-600',   icon: BookOpen },
-  { label: 'Avg. rating',     display: '4.9★', bg: 'bg-amber-50',  text: 'text-amber-600',  icon: Star },
+  { label: 'Active students', target: 50,  suffix: 'K+', gradient: 'from-indigo-500 to-violet-600', icon: Users },
+  { label: 'Expert tutors',   target: 5,   suffix: 'K+', gradient: 'from-violet-500 to-purple-600', icon: GraduationCap },
+  { label: 'Subjects',        target: 100, suffix: '+',  gradient: 'from-teal-500 to-cyan-600',     icon: BookOpen },
+  { label: 'Avg. rating',     target: 4.9, suffix: '★',  gradient: 'from-amber-400 to-orange-500',  icon: Star, decimal: true },
 ];
 
 const SKILL_TABS = [
@@ -70,10 +72,65 @@ const SKILL_TABS = [
   },
 ];
 
+const JOURNEY_SLIDES = [
+  {
+    num: '01',
+    title: 'Sign up free',
+    imageUrl: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=600&q=80',
+  },
+  {
+    num: '02',
+    title: 'Find your tutor',
+    imageUrl: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?w=600&q=80',
+  },
+  {
+    num: '03',
+    title: 'Attend live classes',
+    imageUrl: 'https://images.unsplash.com/photo-1596495577886-d920f1fb7238?w=600&q=80',
+  },
+  {
+    num: '04',
+    title: 'Track progress',
+    imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&q=80',
+  },
+  {
+    num: '05',
+    title: 'Ace exams',
+    imageUrl: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&q=80',
+  },
+];
+
 const STEPS = [
-  { step: '01', title: 'Begin at your level', desc: 'Quick assessment so your tutor knows exactly where to start.', color: 'bg-indigo-500' },
-  { step: '02', title: 'Progress fast',       desc: 'Live classes, real-time feedback and targeted practice.',     color: 'bg-violet-500' },
-  { step: '03', title: 'Ace exams & shine',   desc: 'Confidence to tackle any exam, debate or presentation.',     color: 'bg-teal-500' },
+  {
+    step: '01', color: 'from-indigo-500 to-indigo-600', dot: 'bg-indigo-500', icon: Sparkles,
+    title: 'Sign up free',
+    desc: 'Create your account in 2 minutes. Pick your role — student, parent or tutor. No credit card needed.',
+    badge: 'Free forever',
+  },
+  {
+    step: '02', color: 'from-violet-500 to-violet-600', dot: 'bg-violet-500', icon: Search,
+    title: 'Find your perfect tutor',
+    desc: 'Browse verified tutors by subject, language and schedule. Book a free demo class before committing.',
+    badge: '5 K+ tutors',
+  },
+  {
+    step: '03', color: 'from-sky-500 to-sky-600', dot: 'bg-sky-500', icon: Video,
+    title: 'Attend live HD classes',
+    desc: 'Real-time sessions via Zoom or our native classroom. Screen share, whiteboard and instant recording replay.',
+    badge: 'HD video',
+  },
+  {
+    step: '04', color: 'from-teal-500 to-teal-600', dot: 'bg-teal-500', icon: BarChart3,
+    title: 'Track progress weekly',
+    desc: 'Worksheets, assignments and attendance tracked automatically. Parents get weekly reports. No surprises.',
+    badge: 'Auto-reports',
+  },
+  {
+    step: '05', color: 'from-emerald-500 to-emerald-600', dot: 'bg-emerald-500', icon: Trophy,
+    title: 'Ace exams & shine',
+    desc: 'Confidence to tackle any exam, debate or presentation. 87 % of students improve within 30 days.',
+    badge: '87 % improve',
+  },
 ];
 
 const fadeUp = {
@@ -95,28 +152,39 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AnimatedStat({ display, label, bg, text, icon: Icon }: (typeof STATS)[0]) {
+function AnimatedStat({ label, target, suffix, gradient, icon: Icon, decimal }: (typeof STATS)[0]) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-60px' });
+  const [val, setVal] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    const duration = 1800;
+    const start = performance.now();
+    const raf = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setVal(parseFloat((target * eased).toFixed(decimal ? 1 : 0)));
+      if (t < 1) requestAnimationFrame(raf);
+    };
+    requestAnimationFrame(raf);
+  }, [inView, target, decimal]);
+
   return (
     <motion.div
       ref={ref}
       variants={fadeUp}
-      className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all"
+      className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all group"
     >
-      <div className={`absolute -right-4 -top-4 h-16 w-16 rounded-full ${bg} opacity-60`} />
-      <div className={`mb-2 flex h-10 w-10 items-center justify-center rounded-xl ${bg}`}>
-        <Icon className={`h-5 w-5 ${text}`} />
+      {/* gradient blob */}
+      <div className={`absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br ${gradient} opacity-10 group-hover:opacity-20 transition-opacity`} />
+      <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${gradient}`}>
+        <Icon className="h-5 w-5 text-white" />
       </div>
-      <motion.p
-        className={`text-3xl font-bold md:text-4xl ${text}`}
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={inView ? { opacity: 1, scale: 1 } : {}}
-        transition={{ duration: 0.5, ease: 'backOut' }}
-      >
-        {display}
-      </motion.p>
-      <p className="mt-1 text-sm text-slate-500">{label}</p>
+      <p className={`text-4xl font-extrabold bg-gradient-to-r ${gradient} bg-clip-text text-transparent md:text-5xl tabular-nums`}>
+        {decimal ? val.toFixed(1) : val}{suffix}
+      </p>
+      <p className="mt-1.5 text-sm font-medium text-slate-500">{label}</p>
     </motion.div>
   );
 }
@@ -129,6 +197,17 @@ export function LandingPage() {
 
   useEffect(() => {
     const id = setInterval(() => setWordIdx((i) => (i + 1) % ROTATING_SUBJECTS.length), 2600);
+    return () => clearInterval(id);
+  }, []);
+
+  // Auto-cycle skills tab every 2 s
+  useEffect(() => {
+    const id = setInterval(() => {
+      setActiveSkill((cur) => {
+        const idx = SKILL_TABS.findIndex((t) => t.id === cur);
+        return SKILL_TABS[(idx + 1) % SKILL_TABS.length].id;
+      });
+    }, 2000);
     return () => clearInterval(id);
   }, []);
 
@@ -194,10 +273,20 @@ export function LandingPage() {
       </header>
 
       {/* HERO */}
-      <section className="relative overflow-hidden pb-20 pt-12 lg:pt-20 lg:pb-28">
-        {/* Subtle background orbs */}
-        <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-indigo-100/60 blur-3xl" aria-hidden />
-        <div className="absolute -left-32 top-1/3 h-80 w-80 rounded-full bg-violet-100/50 blur-3xl" aria-hidden />
+      <section className="relative overflow-hidden">
+        <InteractiveGridBackground
+          gridSize={48}
+          effectColor="rgba(99, 102, 241, 0.45)"
+          darkEffectColor="rgba(165, 180, 252, 0.45)"
+          gridColor="#dde1f0"
+          darkGridColor="#1e2340"
+          trailLength={5}
+          glow
+          glowRadius={18}
+          fadeIntensity={18}
+          idleRandomCount={3}
+          className="pb-20 pt-12 lg:pt-20 lg:pb-28"
+        >
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid items-center gap-14 lg:grid-cols-2">
@@ -403,6 +492,7 @@ export function LandingPage() {
             </motion.div>
           </div>
         </div>
+        </InteractiveGridBackground>
       </section>
 
       {/* MARQUEE */}
@@ -421,8 +511,17 @@ export function LandingPage() {
       </section>
 
       {/* STATS */}
-      <section className="py-20">
+      <section className="py-20 bg-gradient-to-b from-[#FAFBFF] to-white dark:from-slate-950 dark:to-slate-900">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div
+            className="mb-10 text-center"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.45 }}
+          >
+            <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">By the numbers</p>
+          </motion.div>
           <motion.div
             className="grid grid-cols-2 gap-4 md:grid-cols-4"
             variants={stagger}
@@ -580,7 +679,7 @@ export function LandingPage() {
             </motion.div>
 
             {/* Chat */}
-            <motion.div variants={fadeUp} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
+            <motion.div variants={fadeUp} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all md:col-span-2">
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50">
                 <MessageSquare className="h-5 w-5 text-teal-600" />
               </div>
@@ -623,21 +722,32 @@ export function LandingPage() {
             {/* RBAC */}
             <motion.div
               variants={fadeUp}
-              className="relative overflow-hidden rounded-2xl bg-slate-900 p-6 shadow-xl md:col-span-2"
+              className="relative overflow-hidden rounded-2xl bg-slate-900 p-6 shadow-xl md:col-span-3"
             >
-              <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-rose-500/10" />
-              <div className="relative z-10">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/20">
-                  <Shield className="h-5 w-5 text-rose-400" />
+              <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-rose-500/10 blur-xl" />
+              <div className="absolute left-1/3 bottom-0 h-24 w-24 rounded-full bg-indigo-500/10 blur-xl" />
+              <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/20">
+                    <Shield className="h-5 w-5 text-rose-400" />
+                  </div>
+                  <h3 className="text-base font-semibold text-white">Role-based Access Control</h3>
+                  <p className="mt-1.5 max-w-md text-sm leading-relaxed text-slate-400">
+                    7 secure permission tiers — every user sees only what they need. No data leaks, no overexposure.
+                  </p>
                 </div>
-                <h3 className="text-base font-semibold text-white">Role-based Access</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
-                  7 secure tiers: Admin, Principal, Tutor, Student, Parent & Support.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {['Super Admin', 'Admin', 'Principal', 'Tutor', 'Student', 'Parent', 'Support'].map((r) => (
-                    <span key={r} className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[10px] font-medium text-slate-300">
-                      {r}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { role: 'Super Admin', color: 'border-rose-500/40 bg-rose-500/10 text-rose-300' },
+                    { role: 'Admin',       color: 'border-orange-500/40 bg-orange-500/10 text-orange-300' },
+                    { role: 'Principal',   color: 'border-violet-500/40 bg-violet-500/10 text-violet-300' },
+                    { role: 'Tutor',       color: 'border-sky-500/40 bg-sky-500/10 text-sky-300' },
+                    { role: 'Student',     color: 'border-teal-500/40 bg-teal-500/10 text-teal-300' },
+                    { role: 'Parent',      color: 'border-pink-500/40 bg-pink-500/10 text-pink-300' },
+                    { role: 'Support',     color: 'border-slate-500/40 bg-slate-700 text-slate-300' },
+                  ].map(({ role, color }) => (
+                    <span key={role} className={`rounded-full border px-3 py-1 text-xs font-semibold ${color}`}>
+                      {role}
                     </span>
                   ))}
                 </div>
@@ -648,44 +758,39 @@ export function LandingPage() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="how-it-works" className="py-24 bg-slate-50/80 dark:bg-slate-900/50">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section id="how-it-works" className="overflow-hidden bg-slate-950 dark:bg-slate-950">
+        <div className="mx-auto max-w-7xl px-4 pt-16 pb-6 text-center sm:px-6 lg:px-8">
           <motion.div
-            className="mb-16 text-center"
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.55 }}
           >
-            <SectionLabel>The journey</SectionLabel>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-5xl">
-              How your child will <span className="text-indigo-600">progress</span>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-indigo-500/20 border border-indigo-500/30 px-4 py-1.5 text-sm font-semibold text-indigo-300">
+              <Sparkles className="h-3.5 w-3.5" />The journey
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight text-white md:text-5xl">
+              How your child will <span className="text-indigo-400">progress</span>
             </h2>
+            <p className="mt-3 text-slate-400 text-base">Drag or scroll through each step of the learning journey</p>
           </motion.div>
-
-          <div className="grid gap-6 md:grid-cols-3">
-            {STEPS.map((step, i) => (
-              <motion.div
-                key={step.title}
-                initial={{ opacity: 0, y: 32 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-40px' }}
-                transition={{ duration: 0.55, delay: i * 0.15 }}
-                className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all"
-              >
-                <div className={`absolute top-0 left-0 right-0 h-1 ${step.color} rounded-t-2xl`} />
-                <div className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${step.color.replace('bg-', 'from-')} to-${step.color.split('-')[1]}-600`}>
-                  <span className="text-xl font-bold text-white">{step.step}</span>
-                </div>
-                <h3 className="text-xl font-semibold text-slate-900">{step.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-500">{step.desc}</p>
-
-                {i < STEPS.length - 1 && (
-                  <ChevronRight className="absolute right-4 top-1/2 hidden -translate-y-1/2 h-5 w-5 text-slate-300 md:block" />
-                )}
-              </motion.div>
-            ))}
-          </div>
+        </div>
+        <ThreeDSlider
+          items={JOURNEY_SLIDES}
+          speedWheel={0.05}
+          speedDrag={-0.15}
+          containerStyle={{ height: '520px', background: '#020617' }}
+        />
+        <div className="grid grid-cols-2 gap-4 px-4 pb-16 pt-6 sm:px-6 lg:grid-cols-5 lg:px-8 mx-auto max-w-7xl">
+          {STEPS.map((step, i) => (
+            <div key={step.title} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
+              <div className={`mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${step.color}`}>
+                <step.icon className="h-4 w-4 text-white" />
+              </div>
+              <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Step {step.step}</p>
+              <p className="mt-1 text-sm font-semibold text-white">{step.title}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -774,44 +879,160 @@ export function LandingPage() {
       </section>
 
       {/* LEARNING FLOW */}
-      <section className="py-20 bg-slate-50/80 dark:bg-slate-900/50">
+      <section className="relative py-24 overflow-hidden bg-slate-950">
+        {/* Background glow blobs */}
+        <div className="pointer-events-none absolute -left-32 top-0 h-80 w-80 rounded-full bg-indigo-600/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-32 bottom-0 h-80 w-80 rounded-full bg-violet-600/10 blur-3xl" />
+
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
-            className="mx-auto mb-12 max-w-2xl text-center"
+            className="mx-auto mb-16 max-w-2xl text-center"
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.55 }}
           >
-            <SectionLabel>Learning loop</SectionLabel>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-5xl">
-              How learning <span className="text-indigo-600">feels</span> on Takshashila
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-indigo-500/15 border border-indigo-500/25 px-4 py-1.5 text-sm font-semibold text-indigo-300">
+              <Sparkles className="h-3.5 w-3.5" />Learning loop
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight text-white md:text-5xl">
+              How learning <span className="text-indigo-400">feels</span> on Takshashila
             </h2>
+            <p className="mt-4 text-slate-400">Five tools that work together to make every student unstoppable.</p>
           </motion.div>
+
           <motion.div
-            className="grid grid-cols-2 items-start gap-6 text-center md:grid-cols-5"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
             variants={stagger}
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: '-40px' }}
           >
             {[
-              { icon: Video,         title: 'Join a class',  desc: 'Jump into live sessions.',      bg: 'bg-indigo-50',  text: 'text-indigo-600' },
-              { icon: BookOpen,      title: 'Assignments',   desc: 'Reinforce what you learnt.',    bg: 'bg-sky-50',     text: 'text-sky-600' },
-              { icon: Layout,        title: 'Worksheets',    desc: 'Extra practice at all levels.', bg: 'bg-teal-50',    text: 'text-teal-600' },
-              { icon: MessageSquare, title: 'Chat doubts',   desc: 'Ask anything, anytime.',        bg: 'bg-violet-50',  text: 'text-violet-600' },
-              { icon: Play,          title: 'Recordings',    desc: 'Rewatch for revision.',         bg: 'bg-rose-50',    text: 'text-rose-600' },
-            ].map((it) => {
+              {
+                icon: Video, num: '01',
+                title: 'Live HD Classes',
+                desc: 'Join real-time sessions with screen share, whiteboard and instant Q&A.',
+                gradient: 'from-indigo-500/20 to-violet-500/20',
+                border: 'border-indigo-500/30',
+                iconGrad: 'from-indigo-500 to-violet-600',
+                glow: 'group-hover:shadow-indigo-500/20',
+                preview: (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-left">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-rose-400" />
+                      <span className="text-[10px] font-semibold text-white/60">Physics · LIVE</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                      {['MS','AV','KN','RM'].map((i, k) => (
+                        <div key={k} className="h-6 rounded-lg bg-white/10 flex items-center justify-center text-[9px] font-bold text-white/50">{i}</div>
+                      ))}
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                icon: BookOpen, num: '02',
+                title: 'Assignments',
+                desc: 'Tutor sets tasks, student submits, tutor grades — all in one flow.',
+                gradient: 'from-sky-500/20 to-blue-500/20',
+                border: 'border-sky-500/30',
+                iconGrad: 'from-sky-500 to-blue-600',
+                glow: 'group-hover:shadow-sky-500/20',
+                preview: (
+                  <div className="mt-4 space-y-1.5">
+                    {['Chapter 3 — Due today', 'Problem set 7 — Graded ✓'].map((t, k) => (
+                      <div key={k} className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5">
+                        <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${k === 0 ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                        <span className="text-[10px] text-white/50 truncate">{t}</span>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              },
+              {
+                icon: Layout, num: '03',
+                title: 'Worksheets',
+                desc: 'Interactive quizzes from Excel uploads. Auto-graded with instant scores.',
+                gradient: 'from-teal-500/20 to-emerald-500/20',
+                border: 'border-teal-500/30',
+                iconGrad: 'from-teal-500 to-emerald-600',
+                glow: 'group-hover:shadow-teal-500/20',
+                preview: (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
+                    <p className="text-[10px] text-white/40 mb-2">Q. What is Newton's 1st law?</p>
+                    {['Inertia','Momentum','Energy','Force'].map((a, k) => (
+                      <div key={k} className={`mb-1 rounded-lg px-2 py-1 text-[9px] font-medium ${k === 0 ? 'bg-emerald-500/30 text-emerald-300' : 'bg-white/5 text-white/40'}`}>{a}</div>
+                    ))}
+                  </div>
+                ),
+              },
+              {
+                icon: MessageSquare, num: '04',
+                title: 'Chat & Doubts',
+                desc: 'Private messaging between student, tutor and parents. Ask anything.',
+                gradient: 'from-violet-500/20 to-purple-500/20',
+                border: 'border-violet-500/30',
+                iconGrad: 'from-violet-500 to-purple-600',
+                glow: 'group-hover:shadow-violet-500/20',
+                preview: (
+                  <div className="mt-4 space-y-1.5">
+                    {[
+                      { msg: "I don't get Q3 🤔", me: false },
+                      { msg: 'Let me explain!', me: true },
+                    ].map((m, k) => (
+                      <div key={k} className={`flex ${m.me ? 'justify-end' : ''}`}>
+                        <span className={`rounded-xl px-2.5 py-1 text-[10px] font-medium ${m.me ? 'bg-violet-600 text-white' : 'bg-white/10 text-white/60'}`}>
+                          {m.msg}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              },
+              {
+                icon: Play, num: '05',
+                title: 'Recordings',
+                desc: 'Every class auto-recorded. Students rewatch anytime for revision.',
+                gradient: 'from-rose-500/20 to-pink-500/20',
+                border: 'border-rose-500/30',
+                iconGrad: 'from-rose-500 to-pink-600',
+                glow: 'group-hover:shadow-rose-500/20',
+                preview: (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      <span className="text-[10px] text-white/40">Algebra · 48 min</span>
+                    </div>
+                    <div className="flex items-center justify-center py-4">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer">
+                        <Play className="h-4 w-4 fill-white text-white ml-0.5" />
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+            ].map((it, i) => {
               const Icon = it.icon;
               return (
-                <motion.div key={it.title} variants={fadeUp} className="flex flex-col items-center gap-3">
-                  <div className={`flex h-24 w-24 items-center justify-center rounded-full ${it.bg} border border-slate-200 shadow-sm transition-transform hover:scale-110 hover:shadow-md`}>
-                    <Icon className={`h-10 w-10 ${it.text}`} />
+                <motion.div
+                  key={it.title}
+                  variants={fadeUp}
+                  custom={i}
+                  className={`group relative overflow-hidden rounded-2xl border ${it.border} bg-gradient-to-br ${it.gradient} p-5 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl ${it.glow}`}
+                >
+                  {/* number badge */}
+                  <span className="absolute right-4 top-4 text-[11px] font-black text-white/15">{it.num}</span>
+
+                  {/* icon */}
+                  <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${it.iconGrad} shadow-lg`}>
+                    <Icon className="h-5 w-5 text-white" />
                   </div>
-                  <div className="max-w-[160px] space-y-1">
-                    <p className="text-sm font-semibold text-slate-800">{it.title}</p>
-                    <p className="text-xs text-slate-400">{it.desc}</p>
-                  </div>
+
+                  <p className="text-sm font-bold text-white">{it.title}</p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-white/50">{it.desc}</p>
+
+                  {it.preview}
                 </motion.div>
               );
             })}
