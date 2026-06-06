@@ -61,4 +61,12 @@ router.get('/my', requireRole(Role.STUDENT), async (req: AuthRequest, res: Respo
   } catch (e) { next(e); }
 });
 
+// Admin/principal/support: attendance by student profile publicId
+router.get('/student/:studentPublicId', requirePermission(Permission.MANAGE_STUDENTS), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const result = await attendanceService.getByStudent(req.params.studentPublicId, req.query);
+    sendPaginated(res, result, 'Attendance fetched');
+  } catch (e) { next(e); }
+});
+
 export default router;

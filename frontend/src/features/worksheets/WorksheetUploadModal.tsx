@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, Download, CheckCircle, AlertCircle, X, FileSpreadsheet, Users, Eye, EyeOff } from 'lucide-react';
+import { Upload, Download, CheckCircle, AlertCircle, FileSpreadsheet, Users, Eye, EyeOff, File, Loader2 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -8,6 +8,7 @@ import { Spinner } from '../../components/ui/Loading';
 import { useCreateWorksheet } from '../../hooks/use-worksheets';
 import type { IQuestion, CreateWorksheetDto } from '../../services/worksheets.service';
 import type { ClassRecord } from '../../services/classes.service';
+import { api } from '../../lib/axios';
 
 interface Props {
   open: boolean;
@@ -28,6 +29,19 @@ const SAMPLE_ROW = [
   'New Delhi is the capital and seat of government of India.',
 ];
 
+const EXCEL_MIME_TYPES = [
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+];
+
+function isExcelFile(file: File): boolean {
+  return (
+    EXCEL_MIME_TYPES.includes(file.type) ||
+    file.name.endsWith('.xlsx') ||
+    file.name.endsWith('.xls')
+  );
+}
+
 function downloadTemplate() {
   const wb = XLSX.utils.book_new();
   const wsData = [TEMPLATE_HEADERS, SAMPLE_ROW];
@@ -46,45 +60,30 @@ function parseExcel(file: File): Promise<IQuestion[]> {
         const wb = XLSX.read(data, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 }) as string[][];
-
         const questions: IQuestion[] = [];
         const errors: string[] = [];
 
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
-          if (!row || row.every((cell) => !cell)) continue; // skip empty rows
-
+          if (!row || row.every((cell) => !cell)) continue;
           const [q, optA, optB, optC, optD, correct, explanation] = row.map((c) => String(c ?? '').trim());
-
           if (!q) { errors.push(`Row ${i + 1}: Question is empty`); continue; }
-          if (!optA || !optB || !optC || !optD) { errors.push(`Row ${i + 1}: All 4 options are required`); continue; }
-
+          if (!optA || !optB || !optC || !optD) { errors.push(`Row ${i + 1}: All 4 options required`); continue; }
           const correctUpper = correct.toUpperCase();
           if (!['A', 'B', 'C', 'D'].includes(correctUpper)) {
-            errors.push(`Row ${i + 1}: Correct answer must be A, B, C, or D`);
-            continue;
+            errors.push(`Row ${i + 1}: Correct answer must be A, B, C, or D`); continue;
           }
-
           const correctIndex = { A: 0, B: 1, C: 2, D: 3 }[correctUpper] as 0 | 1 | 2 | 3;
-
-          questions.push({
-            questionText: q,
-            options: [optA, optB, optC, optD],
-            correctIndex,
-            explanation: explanation || '',
-          });
+          questions.push({ questionText: q, options: [optA, optB, optC, optD], correctIndex, explanation: explanation || '' });
         }
 
         if (errors.length > 0) {
           reject(new Error(errors.slice(0, 5).join('\n') + (errors.length > 5 ? `\n…and ${errors.length - 5} more errors` : '')));
           return;
         }
-        if (questions.length === 0) {
-          reject(new Error('No valid questions found. Check the file format.'));
-          return;
-        }
+        if (questions.length === 0) { reject(new Error('No valid questions found. Check the file format.')); return; }
         resolve(questions);
-      } catch (err) {
+      } catch {
         reject(new Error('Failed to read Excel file. Make sure it is a valid .xlsx/.xls file.'));
       }
     };
@@ -93,15 +92,51 @@ function parseExcel(file: File): Promise<IQuestion[]> {
   });
 }
 
+async function uploadFileToGCS(file: File): Promise<{ filePublicId: string; fileMimeType: string; fileOriginalName: string }> {
+  // Step 1: Get signed upload URL
+  const { data: urlData } = await api.post('/media/upload-url', {
+    originalName: file.name,
+    mimeType: file.type || 'application/octet-stream',
+    sizeBytes: file.size,
+    mediaType: 'WORKSHEET',
+  });
+  const { uploadUrl, gcsObjectKey } = urlData.data;
+
+  // Step 2: Upload directly to GCS
+  await fetch(uploadUrl, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+  });
+
+  // Step 3: Confirm upload
+  const { data: confirmData } = await api.post('/media/confirm', {
+    gcsObjectKey,
+    originalName: file.name,
+    mimeType: file.type || 'application/octet-stream',
+    sizeBytes: file.size,
+    mediaType: 'WORKSHEET',
+  });
+
+  return {
+    filePublicId: confirmData.data.publicId,
+    fileMimeType: file.type || 'application/octet-stream',
+    fileOriginalName: file.name,
+  };
+}
+
 export function WorksheetUploadModal({ open, onClose, cls, type, students }: Props) {
   const [step, setStep] = useState<'upload' | 'preview' | 'confirm'>('upload');
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileMode, setFileMode] = useState<'excel' | 'attachment' | null>(null);
   const [questions, setQuestions] = useState<IQuestion[]>([]);
+  const [uploadedFile, setUploadedFile] = useState<{ filePublicId: string; fileMimeType: string; fileOriginalName: string } | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [allStudents, setAllStudents] = useState(true);
   const [previewExpanded, setPreviewExpanded] = useState<number | null>(null);
@@ -112,15 +147,10 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
 
   const handleClose = () => {
     setStep('upload');
-    setTitle('');
-    setSubject('');
-    setDueDate('');
-    setSelectedFile(null);
-    setQuestions([]);
-    setParseError(null);
-    setSelectedStudents([]);
-    setAllStudents(true);
-    setSubmitError(null);
+    setTitle(''); setSubject(''); setDueDate('');
+    setSelectedFile(null); setFileMode(null);
+    setQuestions([]); setUploadedFile(null);
+    setParseError(null); setSelectedStudents([]); setAllStudents(true); setSubmitError(null);
     onClose();
   };
 
@@ -129,19 +159,40 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
     if (!file) return;
     setSelectedFile(file);
     setParseError(null);
-    setParsing(true);
-    try {
-      const qs = await parseExcel(file);
-      setQuestions(qs);
-    } catch (err) {
-      setParseError(err instanceof Error ? err.message : 'Parse error');
-      setQuestions([]);
-    } finally {
-      setParsing(false);
+    setQuestions([]);
+    setUploadedFile(null);
+
+    if (isExcelFile(file)) {
+      setFileMode('excel');
+      setParsing(true);
+      try {
+        const qs = await parseExcel(file);
+        setQuestions(qs);
+      } catch (err) {
+        setParseError(err instanceof Error ? err.message : 'Parse error');
+        setFileMode(null);
+      } finally {
+        setParsing(false);
+      }
+    } else {
+      setFileMode('attachment');
+      setUploading(true);
+      try {
+        const result = await uploadFileToGCS(file);
+        setUploadedFile(result);
+      } catch (err) {
+        const e = err as { response?: { data?: { message?: string } }; message?: string };
+        setParseError(e.response?.data?.message ?? e.message ?? 'Upload failed');
+        setFileMode(null);
+        setSelectedFile(null);
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
-  const canProceed = title.trim().length >= 2 && questions.length > 0 && !parseError;
+  const canProceed = title.trim().length >= 2 && !parseError && !uploading &&
+    (fileMode === 'excel' ? questions.length > 0 : fileMode === 'attachment' ? !!uploadedFile : false);
 
   const handleSubmit = async () => {
     if (!canProceed) return;
@@ -152,14 +203,17 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
       subject: subject.trim() || undefined,
       type,
       dueDate: type === 'ASSIGNMENT' && dueDate ? dueDate : undefined,
-      questions,
       assignedToStudentPublicIds: allStudents ? [] : selectedStudents,
+      ...(fileMode === 'excel'
+        ? { questions }
+        : { isFileAttachment: true, ...uploadedFile }),
     };
     try {
       await createWorksheet(dto);
       handleClose();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to create');
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setSubmitError(e.response?.data?.message ?? e.message ?? 'Failed to create');
     }
   };
 
@@ -179,9 +233,15 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
         step === 'upload' ? (
           <>
             <Button variant="ghost" onClick={handleClose}>Cancel</Button>
-            <Button onClick={() => setStep('preview')} disabled={!canProceed}>
-              Preview Questions ({questions.length})
-            </Button>
+            {fileMode === 'excel' ? (
+              <Button onClick={() => setStep('preview')} disabled={!canProceed}>
+                Preview Questions ({questions.length})
+              </Button>
+            ) : (
+              <Button onClick={() => setStep('confirm')} disabled={!canProceed}>
+                Choose Students
+              </Button>
+            )}
           </>
         ) : step === 'preview' ? (
           <>
@@ -190,7 +250,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
           </>
         ) : (
           <>
-            <Button variant="ghost" onClick={() => setStep('preview')}>Back</Button>
+            <Button variant="ghost" onClick={() => setStep(fileMode === 'excel' ? 'preview' : 'upload')}>Back</Button>
             <Button
               onClick={handleSubmit}
               loading={creating}
@@ -204,39 +264,18 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
     >
       {step === 'upload' && (
         <div className="space-y-5">
-          {/* Format guide */}
+          {/* Format hint */}
           <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Excel Format</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">File Types</p>
               <Button size="sm" variant="outline" onClick={downloadTemplate}>
-                <Download className="h-3.5 w-3.5 mr-1.5" /> Download Template
+                <Download className="h-3.5 w-3.5 mr-1.5" /> Excel Template
               </Button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr>
-                    {['A: Question', 'B: Option A', 'C: Option B', 'D: Option C', 'E: Option D', 'F: Correct (A-D)', 'G: Explanation'].map((h, i) => (
-                      <th key={i} className={`px-2 py-1.5 text-left font-semibold border border-blue-200 dark:border-blue-700 whitespace-nowrap ${i === 5 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-blue-100 dark:bg-blue-800/50 text-blue-700 dark:text-blue-300'}`}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="text-gray-600 dark:text-gray-400">
-                    {SAMPLE_ROW.map((cell, i) => (
-                      <td key={i} className={`px-2 py-1.5 border border-blue-200 dark:border-blue-700 max-w-[120px] truncate ${i === 5 ? 'font-bold text-green-600 dark:text-green-400' : ''}`}>
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
+            <div className="flex gap-4 text-xs text-blue-700 dark:text-blue-400">
+              <span className="flex items-center gap-1"><FileSpreadsheet className="h-3.5 w-3.5" /> <strong>Excel (.xlsx/.xls)</strong> → Interactive quiz for students</span>
+              <span className="flex items-center gap-1"><File className="h-3.5 w-3.5" /> <strong>PDF / DOC / IMG</strong> → Students download & view</span>
             </div>
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-              Row 1 = headers (keep as-is). Each row below = one question. Column F must be A, B, C, or D.
-            </p>
           </div>
 
           {/* Metadata */}
@@ -246,7 +285,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={type === 'ASSIGNMENT' ? 'e.g. Chapter 3 Assignment' : 'e.g. Algebra Quiz - Week 2'}
+                placeholder={type === 'ASSIGNMENT' ? 'e.g. Chapter 3 Assignment' : 'e.g. Algebra Quiz — Week 2'}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
@@ -263,7 +302,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
 
           {type === 'ASSIGNMENT' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date (assignment deadline)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
               <input
                 type="datetime-local"
                 value={dueDate}
@@ -273,26 +312,45 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
             </div>
           )}
 
-          {/* File upload */}
+          {/* File drop zone */}
           <div
             className="relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 cursor-pointer hover:border-brand-500 dark:hover:border-brand-400 transition-colors"
             onClick={() => fileRef.current?.click()}
           >
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
-            {parsing ? (
-              <><Spinner size="sm" /><p className="text-sm text-gray-500">Parsing questions…</p></>
-            ) : selectedFile && questions.length > 0 ? (
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls,.pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.gif"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {parsing && (
+              <><Spinner size="sm" /><p className="text-sm text-gray-500">Parsing Excel…</p></>
+            )}
+            {uploading && (
+              <><Loader2 className="h-8 w-8 animate-spin text-brand-500" /><p className="text-sm text-gray-500">Uploading file…</p></>
+            )}
+            {!parsing && !uploading && fileMode === 'excel' && questions.length > 0 && (
               <>
                 <CheckCircle className="h-8 w-8 text-green-500" />
-                <p className="text-sm font-medium text-green-600 dark:text-green-400">{selectedFile.name}</p>
+                <p className="text-sm font-medium text-green-600 dark:text-green-400">{selectedFile?.name}</p>
                 <Badge variant="success">{questions.length} questions parsed</Badge>
                 <p className="text-xs text-gray-400">Click to change file</p>
               </>
-            ) : (
+            )}
+            {!parsing && !uploading && fileMode === 'attachment' && uploadedFile && (
               <>
-                <FileSpreadsheet className="h-8 w-8 text-gray-400" />
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Click to upload Excel file</p>
-                <p className="text-xs text-gray-400">.xlsx or .xls — use the template above</p>
+                <CheckCircle className="h-8 w-8 text-green-500" />
+                <p className="text-sm font-medium text-green-600 dark:text-green-400">{uploadedFile.fileOriginalName}</p>
+                <Badge variant="info">File uploaded — students can download</Badge>
+                <p className="text-xs text-gray-400">Click to change file</p>
+              </>
+            )}
+            {!parsing && !uploading && !fileMode && (
+              <>
+                <Upload className="h-8 w-8 text-gray-400" />
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Click to upload file</p>
+                <p className="text-xs text-gray-400">Excel → quiz • PDF / DOC / IMG → download</p>
               </>
             )}
           </div>
@@ -306,33 +364,21 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
         </div>
       )}
 
-      {step === 'preview' && (
+      {step === 'preview' && fileMode === 'excel' && (
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
           <p className="text-sm text-gray-500 dark:text-gray-400">{questions.length} questions — review before publishing</p>
           {questions.map((q, idx) => (
             <div key={idx} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {idx + 1}. {q.questionText}
-                </p>
-                <button
-                  onClick={() => setPreviewExpanded(previewExpanded === idx ? null : idx)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0"
-                >
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{idx + 1}. {q.questionText}</p>
+                <button onClick={() => setPreviewExpanded(previewExpanded === idx ? null : idx)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
                   {previewExpanded === idx ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-1.5 mt-2">
                 {q.options.map((opt, oi) => (
-                  <div
-                    key={oi}
-                    className={`rounded-lg px-3 py-1.5 text-xs ${oi === q.correctIndex
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold border border-green-300 dark:border-green-700'
-                      : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                    }`}
-                  >
-                    {String.fromCharCode(65 + oi)}. {opt}
-                    {oi === q.correctIndex && ' ✓'}
+                  <div key={oi} className={`rounded-lg px-3 py-1.5 text-xs ${oi === q.correctIndex ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-semibold border border-green-300 dark:border-green-700' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                    {String.fromCharCode(65 + oi)}. {opt}{oi === q.correctIndex && ' ✓'}
                   </div>
                 ))}
               </div>
@@ -348,9 +394,13 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
 
       {step === 'confirm' && (
         <div className="space-y-4">
-          <div className="rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4 flex gap-4 text-sm">
+          <div className="rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4 flex flex-wrap gap-4 text-sm">
             <div><span className="text-gray-400">Title:</span> <span className="font-semibold text-gray-900 dark:text-white">{title}</span></div>
-            <div><span className="text-gray-400">Questions:</span> <span className="font-semibold text-gray-900 dark:text-white">{questions.length}</span></div>
+            {fileMode === 'excel' ? (
+              <div><span className="text-gray-400">Questions:</span> <span className="font-semibold text-gray-900 dark:text-white">{questions.length}</span></div>
+            ) : (
+              <div><span className="text-gray-400">File:</span> <span className="font-semibold text-gray-900 dark:text-white">{uploadedFile?.fileOriginalName}</span></div>
+            )}
             {subject && <div><span className="text-gray-400">Subject:</span> <span className="font-semibold">{subject}</span></div>}
           </div>
 
@@ -359,16 +409,10 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
               <Users className="h-4 w-4" /> Assign to
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setAllStudents(true)}
-                className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors ${allStudents ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-brand-400'}`}
-              >
+              <button onClick={() => setAllStudents(true)} className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors ${allStudents ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-brand-400'}`}>
                 All my students
               </button>
-              <button
-                onClick={() => setAllStudents(false)}
-                className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors ${!allStudents ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-brand-400'}`}
-              >
+              <button onClick={() => setAllStudents(false)} className={`flex-1 rounded-lg border py-2.5 text-sm font-medium transition-colors ${!allStudents ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-brand-400'}`}>
                 Specific students
               </button>
             </div>
@@ -380,12 +424,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
                 <p className="text-sm text-gray-400 text-center py-4">No students found</p>
               ) : students.map((s) => (
                 <label key={s.publicId} className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <input
-                    type="checkbox"
-                    checked={selectedStudents.includes(s.publicId)}
-                    onChange={() => toggleStudent(s.publicId)}
-                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                  />
+                  <input type="checkbox" checked={selectedStudents.includes(s.publicId)} onChange={() => toggleStudent(s.publicId)} className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
                   <span className="text-sm text-gray-900 dark:text-white">{s.name}</span>
                 </label>
               ))}

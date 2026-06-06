@@ -13,6 +13,10 @@ const assignmentSchema = new Schema<IAssignment>(
     dueDate: { type: Date, required: true },
     maxScore: { type: Number, default: 100, min: 1 },
     attachmentPublicIds: [{ type: String }],
+    isFileAttachment: { type: Boolean, default: false },
+    filePublicId: { type: String },
+    fileMimeType: { type: String },
+    fileOriginalName: { type: String },
     status: {
       type: String,
       enum: Object.values(AssignmentStatus),

@@ -11,9 +11,12 @@ interface WalletData {
   publicId: string;
   balanceCents: number;
   demoCreditsCents: number;
-  regularCreditsCents: number;
+  purchasedCreditsCents: number;
   bonusCreditsCents: number;
+  earnedCreditsCents: number;
   earningsCents?: number;
+  totalEarnedCents?: number;
+  totalSpentCents?: number;
 }
 
 interface WalletTransaction {
@@ -78,7 +81,7 @@ export function WalletPage({ title = 'Wallet', subtitle = 'Balance and transacti
         {showEarnings ? (
           <StatsCard
             title="Total Earnings"
-            value={walletLoading ? '—' : centsToDisplay(wallet?.earningsCents ?? 0)}
+            value={walletLoading ? '—' : centsToDisplay(wallet?.earnedCreditsCents ?? wallet?.earningsCents ?? 0)}
             icon={<TrendingUp className="h-5 w-5 text-green-600" />}
             iconBg="bg-green-50 dark:bg-green-900/20"
           />
@@ -91,8 +94,8 @@ export function WalletPage({ title = 'Wallet', subtitle = 'Balance and transacti
           />
         )}
         <StatsCard
-          title="Regular Credits"
-          value={walletLoading ? '—' : centsToDisplay(wallet?.regularCreditsCents ?? 0)}
+          title="Purchased Credits"
+          value={walletLoading ? '—' : centsToDisplay(wallet?.purchasedCreditsCents ?? 0)}
           icon={<BookOpen className="h-5 w-5 text-sky-600" />}
           iconBg="bg-sky-50 dark:bg-sky-900/20"
         />

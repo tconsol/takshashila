@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MessageSquare, Plus, Search, X, Send } from 'lucide-react';
+import { MessageSquare, Plus, Search, X, Users } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/auth.store';
 import { ConversationList } from '../../features/chat/ConversationList';
@@ -65,6 +65,12 @@ function useContacts() {
         });
       }
 
+      if (role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPPORT') {
+        // Admin sees all users via search — contacts are fetched dynamically per query
+        // Return empty here; admin uses AdminNewChatModal with live search instead
+        return contacts;
+      }
+
       if (role === 'PARENT') {
         const ch = await api.get('/parents/me/children').catch(() => null);
         const children = ch?.data?.data ?? [];
@@ -94,6 +100,132 @@ const ROLE_COLORS: Record<string, { bg: string; text: string; gradient: string }
   SUPER_ADMIN: { bg: 'bg-rose-50',    text: 'text-rose-600',    gradient: 'from-rose-400 to-red-500' },
   SUPPORT:     { bg: 'bg-amber-50',   text: 'text-amber-600',   gradient: 'from-amber-400 to-orange-500' },
 };
+
+// ── Admin: live search across all platform users ──────────────────────────────
+function AdminNewChatModal({ onClose, onStarted }: { onClose: () => void; onStarted: (conv: IConversation) => void }) {
+  const [search, setSearch] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
+  const { mutateAsync: startConversation } = useStartConversation();
+  const [starting, setStarting] = useState<string | null>(null);
+
+  // Debounce input 300ms
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data: results = [], isFetching } = useQuery<Contact[]>({
+    queryKey: ['admin-user-search', debouncedQ],
+    queryFn: async () => {
+      if (debouncedQ.length < 2) return [];
+      const { data } = await api.get('/users/search', { params: { q: debouncedQ } });
+      return (data?.data ?? []).map((u: { publicId: string; firstName?: string; lastName?: string; email?: string; role: string; studentId?: string }) => ({
+        userPublicId: u.publicId,
+        displayName: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || u.studentId || u.publicId.slice(0, 8),
+        role: u.role,
+        email: u.email,
+      }));
+    },
+    enabled: debouncedQ.length >= 2,
+    staleTime: 30_000,
+  });
+
+  async function handleStart(contact: Contact) {
+    setStarting(contact.userPublicId);
+    try {
+      const conv = await startConversation({ recipientPublicId: contact.userPublicId, recipientRole: contact.role });
+      onStarted(conv);
+    } finally {
+      setStarting(null);
+    }
+  }
+
+  const showEmpty = debouncedQ.length >= 2 && !isFetching && results.length === 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-xl flex flex-col max-h-[80vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 rounded-t-2xl flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100">
+              <Users className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900 text-sm">Message Any User</p>
+              <p className="text-xs text-slate-400">Search across all platform users</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 py-3 flex-shrink-0 border-b border-slate-100">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-colors">
+            <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search by name, email or student ID…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none"
+            />
+            {isFetching && <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />}
+          </div>
+          {debouncedQ.length < 2 && (
+            <p className="mt-2 text-xs text-slate-400 text-center">Type at least 2 characters to search</p>
+          )}
+        </div>
+
+        {/* Results */}
+        <div className="flex-1 overflow-y-auto">
+          {showEmpty ? (
+            <div className="py-10 text-center">
+              <Users className="h-8 w-8 mx-auto text-slate-300 mb-2" />
+              <p className="text-sm text-slate-400">No users found for "{debouncedQ}"</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {results.map((c) => {
+                const roleColor = ROLE_COLORS[c.role] ?? ROLE_COLORS['SUPPORT'];
+                const isStarting = starting === c.userPublicId;
+                return (
+                  <li key={c.userPublicId}>
+                    <button
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                      onClick={() => handleStart(c)}
+                      disabled={!!starting}
+                    >
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${roleColor.gradient} text-white text-xs font-bold`}>
+                        {c.displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{c.displayName}</p>
+                        {(c as Contact & { email?: string }).email && (
+                          <p className="text-xs text-slate-400 truncate">{(c as Contact & { email?: string }).email}</p>
+                        )}
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${roleColor.bg} ${roleColor.text}`}>
+                        {c.role.replace('_', ' ')}
+                      </span>
+                      {isStarting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function NewChatModal({ onClose, onStarted }: { onClose: () => void; onStarted: (conv: IConversation) => void }) {
   const [search, setSearch] = useState('');
@@ -289,7 +421,9 @@ export function ChatPage() {
       </div>
 
       {showNewChat && (
-        <NewChatModal onClose={() => setShowNewChat(false)} onStarted={handleStarted} />
+        (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'SUPPORT')
+          ? <AdminNewChatModal onClose={() => setShowNewChat(false)} onStarted={handleStarted} />
+          : <NewChatModal onClose={() => setShowNewChat(false)} onStarted={handleStarted} />
       )}
     </>
   );

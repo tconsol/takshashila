@@ -8,6 +8,7 @@ import {
   CheckCircle2, AlertCircle, Lock, Eye, EyeOff,
   BookOpen, DollarSign, Sparkles, GraduationCap, Calendar, Copy, Check,
 } from 'lucide-react';
+import { HangingIdCard } from '../../components/lightswind/HangingIdCard';
 import { formatInTimeZone } from 'date-fns-tz';
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../stores/auth.store';
@@ -315,25 +316,38 @@ export function ProfilePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
 
-      {/* Hero card */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-        <div className={`h-24 w-full bg-gradient-to-r ${roleColor.gradient}`} />
-        <div className="px-6 pb-6">
-          <div className="relative -mt-12 mb-4 flex items-end justify-between">
-            <div className="relative">
-              <div className={`flex h-24 w-24 items-center justify-center rounded-2xl ring-4 ring-white ${roleColor.bg} text-3xl font-bold ${roleColor.text} shadow-sm`}>
-                {displayUser.avatarUrl
-                  ? <img src={displayUser.avatarUrl} alt={initials} className="h-full w-full rounded-2xl object-cover" />
-                  : initials}
-              </div>
-              <button
-                type="button"
-                className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors"
-              >
-                <Camera className="h-3.5 w-3.5 text-slate-500" />
-              </button>
-            </div>
+      {/* Hanging ID Card */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-indigo-50/40 pt-8 pb-4 flex flex-col items-center">
+        <HangingIdCard
+          name={`${displayUser.firstName} ${displayUser.lastName}`.trim()}
+          role={roleLabel}
+          badgeId={isStudent ? (displayUser.studentId ?? displayUser.publicId.slice(0, 8).toUpperCase()) : displayUser.publicId.slice(0, 8).toUpperCase()}
+          accentColor={
+            displayUser.role === 'TUTOR' ? '#7c3aed' :
+            displayUser.role === 'PRINCIPAL' ? '#0d9488' :
+            displayUser.role === 'ADMIN' ? '#d97706' :
+            displayUser.role === 'SUPER_ADMIN' ? '#e11d48' :
+            displayUser.role === 'STUDENT' ? '#4f46e5' :
+            '#ec4899'
+          }
+          ropeColor={
+            displayUser.role === 'TUTOR' ? '#7c3aed' :
+            displayUser.role === 'PRINCIPAL' ? '#0d9488' :
+            '#4f46e5'
+          }
+          ropeLength={110}
+        />
 
+        <div className="mt-2 w-full px-6 pb-2">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+                {displayUser.firstName} {displayUser.lastName}
+              </h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {isStudent ? (displayUser.studentId ?? displayUser.email) : displayUser.email}
+              </p>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roleColor.bg} ${roleColor.text}`}>
                 {roleLabel}
@@ -347,15 +361,7 @@ export function ProfilePage() {
                   </span>}
             </div>
           </div>
-
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            {displayUser.firstName} {displayUser.lastName}
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {isStudent ? (displayUser.studentId ?? displayUser.email) : displayUser.email}
-          </p>
-
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {isStudent && displayUser.studentId && (
               <CopyChip label="Student ID (login)" value={displayUser.studentId} />
             )}

@@ -11,8 +11,9 @@ interface WalletData {
   publicId: string;
   balanceCents: number;
   demoCreditsCents: number;
-  regularCreditsCents: number;
+  purchasedCreditsCents: number;
   bonusCreditsCents: number;
+  totalSpentCents?: number;
 }
 
 interface WalletTransaction {
@@ -65,8 +66,8 @@ export function StudentWalletPage() {
           iconBg="bg-pink-50 dark:bg-pink-900/20"
         />
         <StatsCard
-          title="Regular Credits"
-          value={walletLoading ? '—' : centsToDisplay(wallet?.regularCreditsCents ?? 0)}
+          title="Purchased Credits"
+          value={walletLoading ? '—' : centsToDisplay(wallet?.purchasedCreditsCents ?? 0)}
           icon={<BookOpen className="h-5 w-5 text-sky-600" />}
           iconBg="bg-sky-50 dark:bg-sky-900/20"
         />
