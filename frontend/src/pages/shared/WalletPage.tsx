@@ -75,33 +75,33 @@ export function WalletPage({ title = 'Wallet', subtitle = 'Balance and transacti
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Total Balance"
-          value={walletLoading ? '—' : centsToDisplay(wallet?.balanceCents ?? 0)}
+          value={walletLoading ? '' : centsToDisplay(wallet?.balanceCents ?? 0)}
           icon={<Wallet className="h-5 w-5 text-brand-600" />}
         />
         {showEarnings ? (
           <StatsCard
             title="Total Earnings"
-            value={walletLoading ? '—' : centsToDisplay(wallet?.earnedCreditsCents ?? wallet?.earningsCents ?? 0)}
+            value={walletLoading ? '' : centsToDisplay(wallet?.earnedCreditsCents ?? wallet?.earningsCents ?? 0)}
             icon={<TrendingUp className="h-5 w-5 text-green-600" />}
             iconBg="bg-green-50 dark:bg-green-900/20"
           />
         ) : (
           <StatsCard
             title="Demo Credits"
-            value={walletLoading ? '—' : centsToDisplay(wallet?.demoCreditsCents ?? 0)}
+            value={walletLoading ? '' : centsToDisplay(wallet?.demoCreditsCents ?? 0)}
             icon={<Gift className="h-5 w-5 text-pink-600" />}
             iconBg="bg-pink-50 dark:bg-pink-900/20"
           />
         )}
         <StatsCard
           title="Purchased Credits"
-          value={walletLoading ? '—' : centsToDisplay(wallet?.purchasedCreditsCents ?? 0)}
+          value={walletLoading ? '' : centsToDisplay(wallet?.purchasedCreditsCents ?? 0)}
           icon={<BookOpen className="h-5 w-5 text-sky-600" />}
           iconBg="bg-sky-50 dark:bg-sky-900/20"
         />
         <StatsCard
           title="Bonus Credits"
-          value={walletLoading ? '—' : centsToDisplay(wallet?.bonusCreditsCents ?? 0)}
+          value={walletLoading ? '' : centsToDisplay(wallet?.bonusCreditsCents ?? 0)}
           icon={<Star className="h-5 w-5 text-amber-500" />}
           iconBg="bg-amber-50 dark:bg-amber-900/20"
         />

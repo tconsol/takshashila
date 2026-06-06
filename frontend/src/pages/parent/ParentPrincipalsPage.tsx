@@ -59,7 +59,7 @@ function TutorRow({
         </div>
         <div className="flex items-center gap-3 mt-0.5">
           <span className="flex items-center gap-0.5 text-xs text-slate-500">
-            <Star className="h-3 w-3 text-amber-400 fill-amber-400" />{tutor.rating?.toFixed(1) ?? '—'}
+            <Star className="h-3 w-3 text-amber-400 fill-amber-400" />{tutor.rating?.toFixed(1) ?? ''}
           </span>
           <span className="text-xs text-slate-500">
             ${((tutor.hourlyRateCents ?? 0) / 100).toFixed(0)}/hr

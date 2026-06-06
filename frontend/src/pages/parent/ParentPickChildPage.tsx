@@ -69,7 +69,7 @@ export function ParentPickChildPage() {
                     <Avatar name={fullName} size="md" />
                     <div>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">{fullName}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">{child.grade ?? '—'}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">{child.grade ?? ''}</p>
                     </div>
                   </div>
                   <Badge variant={statusColors[child.status] ?? 'default'}>{child.status.replace('_', ' ')}</Badge>

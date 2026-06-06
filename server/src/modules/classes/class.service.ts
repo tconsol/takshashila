@@ -42,20 +42,18 @@ export class ClassService {
 
     const costCents = tutorProfile.hourlyRateCents;
 
+    // Charge happens at class completion (not booking). Verify student has
+    // enough balance up front so they cannot book a class they cannot pay for.
+    if (costCents > 0) {
+      const wallet = await walletService.getWallet(studentUserPublicId);
+      if (wallet.balanceCents < costCents) {
+        throw new AppError('Insufficient credits to book this class', 402);
+      }
+    }
+
     await scheduleService.blockSlot(slot.publicId);
 
     try {
-      if (costCents > 0) {
-        await walletService.debitWallet({
-          ownerPublicId: studentUserPublicId,
-          amountCents: costCents,
-          description: `Booking: ${dto.title}`,
-          idempotencyKey: `booking-debit-${dto.idempotencyKey}`,
-          referenceId: dto.availabilitySlotPublicId,
-          referenceType: 'BOOKING',
-        });
-      }
-
       const scheduledClass = await ScheduledClassModel.create({
         publicId: uuidv4(),
         tutorPublicId: dto.tutorPublicId,
@@ -142,7 +140,7 @@ export class ClassService {
       { new: true },
     ).lean();
 
-    // Race condition — another participant won the race, fetch current state
+    // Race condition another participant won the race, fetch current state
     if (!updated) {
       return (await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean()) ?? cls;
     }
@@ -179,7 +177,14 @@ export class ClassService {
       { new: true },
     ).lean();
 
-    if (scheduled.costCents > 0) {
+    const studentProfileForEvent = await StudentProfileModel.findOne(
+      { publicId: scheduled.studentPublicId, isDeleted: false },
+      { userPublicId: 1 },
+    ).lean();
+
+    // Charge student → pay tutor, but only if the student actually attended.
+    const studentAttended = !!scheduled.studentJoinedAt;
+    if (scheduled.costCents > 0 && studentAttended && studentProfileForEvent?.userPublicId) {
       const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
       const commissionCents = calculateCommission(
         scheduled.costCents,
@@ -187,23 +192,34 @@ export class ClassService {
       );
       const tutorEarningsCents = scheduled.costCents - commissionCents;
 
-      await walletService.creditWallet({
-        ownerPublicId: scheduled.tutorPublicId,
-        amountCents: tutorEarningsCents,
-        creditType: CreditType.EARNED_CREDITS,
-        description: `Earnings: ${scheduled.title}`,
-        idempotencyKey: `tutor-earning-${classPublicId}`,
-        referenceId: classPublicId,
-        referenceType: 'CLASS_COMPLETION',
-      });
+      try {
+        // 1) Debit the student the full per-class charge
+        await walletService.debitWallet({
+          ownerPublicId: studentProfileForEvent.userPublicId,
+          amountCents: scheduled.costCents,
+          description: `Class: ${scheduled.title}`,
+          idempotencyKey: `class-charge-${classPublicId}`,
+          referenceId: classPublicId,
+          referenceType: 'CLASS_COMPLETION',
+        });
 
-      await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
+        // 2) Credit the tutor their earnings (charge minus platform commission)
+        await walletService.creditWallet({
+          ownerPublicId: tutorProfile.userPublicId,
+          amountCents: tutorEarningsCents,
+          creditType: CreditType.EARNED_CREDITS,
+          description: `Earnings: ${scheduled.title}`,
+          idempotencyKey: `tutor-earning-${classPublicId}`,
+          referenceId: classPublicId,
+          referenceType: 'CLASS_COMPLETION',
+        });
+
+        await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
+      } catch {
+        // Insufficient student balance complete the class but skip the charge.
+        // (Booking already validated balance; this guards edge cases.)
+      }
     }
-
-    const studentProfileForEvent = await StudentProfileModel.findOne(
-      { publicId: scheduled.studentPublicId, isDeleted: false },
-      { userPublicId: 1 },
-    ).lean();
 
     if (scheduled.classType === ClassType.DEMO && scheduled.studentPublicId) {
       await studentService.recordDemoClassUsed(scheduled.studentPublicId, scheduled.tutorPublicId).catch(() => {});
@@ -267,17 +283,8 @@ export class ClassService {
       await scheduleService.releaseSlot(scheduled.availabilitySlotPublicId);
     }
 
-    if (scheduled.costCents > 0) {
-      await walletService.creditWallet({
-        ownerPublicId: scheduled.studentPublicId,
-        amountCents: scheduled.costCents,
-        creditType: CreditType.PURCHASED_CREDITS,
-        description: `Refund: ${scheduled.title}`,
-        idempotencyKey: `refund-${classPublicId}`,
-        referenceId: classPublicId,
-        referenceType: 'CLASS_CANCELLATION',
-      });
-    }
+    // No refund needed students are only charged at class completion, not at
+    // booking, so a cancelled class never debited the student in the first place.
 
     await tutorService.recordClassCancelled(scheduled.tutorPublicId);
 

@@ -95,12 +95,23 @@ export class AnalyticsService {
     const tutorProfiles = await TutorProfileModel.find({ principalPublicId, isDeleted: false }, { publicId: 1 }).lean();
     const tutorPublicIds = tutorProfiles.map((t) => t.publicId);
 
-    const [tutors, students, classes] = await Promise.all([
+    const { WorksheetModel, WorksheetSubmissionModel } = await import('../worksheets/worksheet.model');
+
+    const [wsIds, aIds] = await Promise.all([
+      WorksheetModel.distinct('publicId', { tutorPublicId: { $in: tutorPublicIds }, isDeleted: false }),
+      AssignmentModel.distinct('publicId', { tutorPublicId: { $in: tutorPublicIds }, isDeleted: false }),
+    ]);
+
+    const [tutors, students, classes, worksheets, assignments, worksheetSubmissions, assignmentSubmissions] = await Promise.all([
       Promise.resolve(tutorPublicIds.length),
       StudentProfileModel.countDocuments({ tutorPublicId: { $in: tutorPublicIds }, isDeleted: false }),
       ScheduledClassModel.countDocuments({ tutorPublicId: { $in: tutorPublicIds }, isDeleted: false }),
+      Promise.resolve(wsIds.length),
+      Promise.resolve(aIds.length),
+      WorksheetSubmissionModel.countDocuments({ worksheetPublicId: { $in: wsIds }, isDeleted: false }),
+      SubmissionModel.countDocuments({ assignmentPublicId: { $in: aIds }, isDeleted: false }),
     ]);
-    return { tutors, students, classes };
+    return { tutors, students, classes, worksheets, assignments, worksheetSubmissions, assignmentSubmissions };
   }
 
   async getTutorStats(tutorPublicId: string) {

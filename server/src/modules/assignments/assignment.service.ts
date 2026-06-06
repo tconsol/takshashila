@@ -71,6 +71,42 @@ export class AssignmentService {
       .lean();
   }
 
+  async getByPrincipal(
+    principalUserPublicId: string,
+    query: { tutorPublicId?: string } = {},
+  ): Promise<Array<IAssignment & { tutorName: string; submissionCount: number }>> {
+    const { tutorRepository } = await import('../tutors/tutor.repository');
+    const { UserModel } = await import('../users/user.model');
+    const tutorsResult = await tutorRepository.findByPrincipal(principalUserPublicId, { page: 1, limit: 500 } as never);
+    const tutorPublicIds = tutorsResult.items.map((t) => t.publicId);
+    if (tutorPublicIds.length === 0) return [];
+
+    const filter: Record<string, unknown> = {
+      tutorPublicId: query.tutorPublicId ? query.tutorPublicId : { $in: tutorPublicIds },
+      isDeleted: false,
+    };
+    const items = await AssignmentModel.find(filter).sort({ createdAt: -1 }).lean();
+
+    // Enrich
+    const tutorUserMap = new Map(tutorsResult.items.map((t) => [t.publicId, t.userPublicId]));
+    const userPublicIds = [...new Set(tutorsResult.items.map((t) => t.userPublicId))];
+    const users = await UserModel.find({ publicId: { $in: userPublicIds } }, { publicId: 1, firstName: 1, lastName: 1 }).lean();
+    const userNameMap = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+
+    const assignmentIds = items.map((a) => a.publicId);
+    const subAgg = await SubmissionModel.aggregate([
+      { $match: { assignmentPublicId: { $in: assignmentIds }, isDeleted: false, submittedAt: { $ne: null } } },
+      { $group: { _id: '$assignmentPublicId', count: { $sum: 1 } } },
+    ]);
+    const subMap = new Map(subAgg.map((s) => [s._id as string, s.count as number]));
+
+    return items.map((a) => ({
+      ...a,
+      tutorName: userNameMap.get(tutorUserMap.get(a.tutorPublicId) ?? '') ?? 'Unknown Tutor',
+      submissionCount: subMap.get(a.publicId) ?? 0,
+    }));
+  }
+
   async getByPublicId(publicId: string): Promise<IAssignment> {
     const assignment = await AssignmentModel.findOne({ publicId, isDeleted: false }).lean();
     if (!assignment) throw new NotFoundError('Assignment');

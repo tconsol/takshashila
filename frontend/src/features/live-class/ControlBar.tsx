@@ -131,7 +131,7 @@ export function ControlBar({
         recordingUrl: publicUrl,
       });
     } catch {
-      // Recording upload failed silently — class completion is not blocked
+      // Recording upload failed silently class completion is not blocked
     } finally {
       setIsUploadingRecording(false);
       chunksRef.current = [];

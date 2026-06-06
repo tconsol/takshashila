@@ -12,7 +12,7 @@ export const WORLD_H = 420;
 export const ROAD_WIDTH = 56;
 export const SAMPLES_PER_SEGMENT = 40;
 
-// Control points for a closed circuit. Order matters — they define the loop.
+// Control points for a closed circuit. Order matters they define the loop.
 // Includes a long top straight, a swooping right corner, a chicane, and a
 // hairpin back to the start/finish line.
 const CONTROL_POINTS: { x: number; y: number }[] = [
@@ -139,12 +139,12 @@ export function drawTrack(ctx: CanvasRenderingContext2D, dashOffset: number) {
   ctx.closePath();
   ctx.stroke();
 
-  // Kerbs (alternating red/white) — draw small rects perpendicular at edges, only on tight corners
+  // Kerbs (alternating red/white) draw small rects perpendicular at edges, only on tight corners
   for (let i = 0; i < path.length; i += 4) {
     const cur = path[i];
     const next = path[(i + 1) % path.length];
     const angleDelta = Math.abs(angleDiff(cur.angle, next.angle));
-    if (angleDelta < 0.04) continue; // straight segments — no kerbs
+    if (angleDelta < 0.04) continue; // straight segments no kerbs
     const outer = offsetPoint(cur, ROAD_WIDTH / 2 + 3);
     const inner = offsetPoint(cur, -ROAD_WIDTH / 2 - 3);
     const color = (i / 4) % 2 === 0 ? '#cc0000' : '#ffffff';
@@ -168,7 +168,7 @@ export function drawTrack(ctx: CanvasRenderingContext2D, dashOffset: number) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Start/finish line at t=0 — checkered pattern across road width
+  // Start/finish line at t=0 checkered pattern across road width
   drawFinishLine(ctx);
 
   // Decorative trees

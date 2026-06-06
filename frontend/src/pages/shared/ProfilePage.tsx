@@ -479,7 +479,7 @@ export function ProfilePage() {
                   (UTC{formatInTimeZone(new Date(), userTimezone, 'xxx')})
                 </span>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Auto-detected from your device — class times display in this timezone
+                  Auto-detected from your device class times display in this timezone
                 </p>
               </div>
             </div>

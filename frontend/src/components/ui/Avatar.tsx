@@ -20,7 +20,7 @@ function getInitials(name: string): string {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
-// Modern gradient palette — one per hash bucket
+// Modern gradient palette one per hash bucket
 const GRADIENTS = [
   'from-indigo-400 to-violet-500',
   'from-pink-400 to-rose-500',

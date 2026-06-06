@@ -137,7 +137,7 @@ export function ParentAttendancePage() {
               {
                 key: 'remarks',
                 header: 'Remarks',
-                render: (a) => <span className="text-xs text-gray-500 dark:text-gray-400">{a.remarks ?? '—'}</span>,
+                render: (a) => <span className="text-xs text-gray-500 dark:text-gray-400">{a.remarks ?? ''}</span>,
               },
             ]}
             data={items}

@@ -14,7 +14,7 @@ export interface Racer {
   wrong: number;
   // AI only
   nextAnswerAt: number | null;
-  skill: number;             // 0..1 — higher = answers faster + more accurate
+  skill: number;             // 0..1 higher = answers faster + more accurate
 }
 
 export interface Question {

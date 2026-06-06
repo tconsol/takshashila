@@ -145,6 +145,15 @@ router.get('/:worksheetId/my-submission', requireRole(Role.STUDENT), async (req:
   } catch (e) { next(e); }
 });
 
+// ─── Principal: list worksheets across all their tutors ──────────────────────
+
+router.get('/principal/all', requireRole(Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const result = await worksheetService.getByPrincipal(req.user!.publicId, req.query as Record<string, string>);
+    sendPaginated(res, result, 'Worksheets fetched');
+  } catch (e) { next(e); }
+});
+
 // ─── Shared: get single worksheet ────────────────────────────────────────────
 
 router.get('/:worksheetId', async (req: AuthRequest, res: Response, next: NextFunction) => {

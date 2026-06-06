@@ -19,7 +19,7 @@ import { DomainEvent } from '../../constants/events';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 
-const DEMO_INITIAL_CREDITS_CENTS = 300_00;
+const DEMO_INITIAL_CREDITS_CENTS = 30_00;
 
 export class WalletService {
   async createWallet(ownerPublicId: string): Promise<IWallet> {

@@ -139,7 +139,7 @@ export function TutorStudentsPage() {
         notes: form.notes || undefined,
       }) as unknown as { studentId?: string };
       setCreatedInfo({
-        studentId: (result as { studentId: string }).studentId ?? form.customStudentId ?? '—',
+        studentId: (result as { studentId: string }).studentId ?? form.customStudentId ?? '',
         firstName: form.firstName,
         contactEmail: form.contactEmail || undefined,
       });
@@ -237,7 +237,7 @@ export function TutorStudentsPage() {
                         )}
                       </td>
                       <td className="px-3 py-3.5 text-center">
-                        <span className="text-sm text-slate-500">{student.grade ?? '—'}</span>
+                        <span className="text-sm text-slate-500">{student.grade ?? ''}</span>
                       </td>
                       <td className="px-3 py-3.5 text-center">
                         <span className={`text-sm font-semibold ${
@@ -245,7 +245,7 @@ export function TutorStudentsPage() {
                           : attendancePct >= 50 ? 'text-amber-500'
                           : attendancePct === 0 ? 'text-slate-400' : 'text-rose-500'
                         }`}>
-                          {student.totalClassesAttended > 0 ? `${attendancePct}%` : '—'}
+                          {student.totalClassesAttended > 0 ? `${attendancePct}%` : ''}
                         </span>
                       </td>
                       <td className="px-3 py-3.5 text-center">
@@ -340,7 +340,7 @@ export function TutorStudentsPage() {
       <Modal
         open={!!selectedClass}
         onClose={() => setSelectedClass(null)}
-        title={selectedClass ? `${selectedClass.subject} — ${studentNameMap.get(selectedClass.studentPublicId) ?? 'Student'}` : ''}
+        title={selectedClass ? `${selectedClass.subject} ${studentNameMap.get(selectedClass.studentPublicId) ?? 'Student'}` : ''}
         size="lg"
       >
         {selectedClass && (
@@ -479,7 +479,7 @@ export function TutorStudentsPage() {
             </div>
 
             <Input
-              label="Contact Email (optional — for login details)"
+              label="Contact Email (optional for login details)"
               type="email"
               placeholder="parent@example.com"
               value={form.contactEmail}
@@ -510,7 +510,7 @@ export function TutorStudentsPage() {
 
             <Input
               label="Custom Student ID (optional)"
-              placeholder="e.g. stujs1234 — leave blank to auto-generate"
+              placeholder="e.g. stujs1234 leave blank to auto-generate"
               value={form.customStudentId}
               onChange={set('customStudentId')}
             />
@@ -581,7 +581,7 @@ export function TutorStudentsPage() {
         }
       >
         <p className="text-sm text-slate-500">
-          Remove this student from your account? Their account won't be deleted — they can be re-linked later.
+          Remove this student from your account? Their account won't be deleted they can be re-linked later.
         </p>
       </Modal>
     </div>

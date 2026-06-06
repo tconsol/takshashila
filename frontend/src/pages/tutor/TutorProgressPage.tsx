@@ -80,24 +80,24 @@ export function TutorProgressPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Completed Classes"
-          value={statsLoading ? '—' : stats?.completed ?? 0}
+          value={statsLoading ? '' : stats?.completed ?? 0}
           icon={<CheckCircle2 className="h-5 w-5 text-green-600" />}
           iconBg="bg-green-50 dark:bg-green-900/20"
         />
         <StatsCard
           title="Upcoming Classes"
-          value={statsLoading ? '—' : stats?.upcoming ?? 0}
+          value={statsLoading ? '' : stats?.upcoming ?? 0}
           icon={<CalendarDays className="h-5 w-5 text-brand-600" />}
         />
         <StatsCard
           title="Total Students"
-          value={statsLoading ? '—' : stats?.totalStudents ?? 0}
+          value={statsLoading ? '' : stats?.totalStudents ?? 0}
           icon={<Users className="h-5 w-5 text-violet-600" />}
           iconBg="bg-violet-50 dark:bg-violet-900/20"
         />
         <StatsCard
           title="Completion Rate"
-          value={statsLoading ? '—' : `${completionRate}%`}
+          value={statsLoading ? '' : `${completionRate}%`}
           icon={<Video className="h-5 w-5 text-sky-600" />}
           iconBg="bg-sky-50 dark:bg-sky-900/20"
           change={completionRate >= 80 ? { value: 'Great pace', positive: true } : undefined}
@@ -158,7 +158,7 @@ export function TutorProgressPage() {
                 header: 'Date',
                 render: (c) => {
                   const d = c.scheduledStartUTC ?? c.startUTC;
-                  return d ? format(new Date(d), 'MMM d, yyyy') : '—';
+                  return d ? format(new Date(d), 'MMM d, yyyy') : '';
                 },
               },
             ]}

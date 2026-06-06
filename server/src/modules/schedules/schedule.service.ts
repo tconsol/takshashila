@@ -91,7 +91,7 @@ export class ScheduleService {
     if (!slot) throw new NotFoundError('Availability slot');
 
     if (slot.status === AvailabilityStatus.BOOKED) {
-      throw new ConflictError('Cannot cancel a booked slot — cancel the class first');
+      throw new ConflictError('Cannot cancel a booked slot cancel the class first');
     }
 
     const updated = await AvailabilitySlotModel.findOneAndUpdate(
@@ -113,7 +113,7 @@ export class ScheduleService {
     if (!slot) throw new NotFoundError('Availability slot');
 
     if (slot.status === AvailabilityStatus.BOOKED) {
-      throw new ConflictError('Cannot reschedule a booked slot — reschedule the class instead');
+      throw new ConflictError('Cannot reschedule a booked slot reschedule the class instead');
     }
 
     const start = new Date(dto.startUTC);

@@ -31,7 +31,7 @@ const config: Config = {
           800: '#9a3412',
           900: '#7c2d12',
         },
-        // Clay tokens remapped to modern LMS design — used throughout pages
+        // Clay tokens remapped to modern LMS design used throughout pages
         clay: {
           bg:           'rgb(var(--clay-bg) / <alpha-value>)',
           surface:      'rgb(var(--clay-surface) / <alpha-value>)',

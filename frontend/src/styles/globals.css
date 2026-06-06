@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700&family=Caveat:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,17 +7,17 @@
 @layer base {
   :root {
     color-scheme: light;
-    /* Modern Kids LMS — clean indigo-tinted palette */
-    --clay-bg:            250 251 255;  /* #FAFBFF — near-white with indigo warmth */
+    /* Modern Kids LMS clean indigo-tinted palette */
+    --clay-bg:            250 251 255;  /* #FAFBFF near-white with indigo warmth */
     --clay-surface:       255 255 255;  /* pure white surfaces */
-    --clay-ink:           15  23  42;   /* slate-900 — rich readable text */
-    --clay-muted:         100 116 139;  /* slate-500 — secondary text */
+    --clay-ink:           15  23  42;   /* slate-900 rich readable text */
+    --clay-muted:         100 116 139;  /* slate-500 secondary text */
 
     /* Primary = indigo (replaces old clay-green) */
     --clay-green:         79  70  229;  /* indigo-600 */
     --clay-green-dark:    67  56  202;  /* indigo-700 */
 
-    /* Accent pastels — bright but soft */
+    /* Accent pastels bright but soft */
     --clay-coral:         254 215 170;  /* orange-200 */
     --clay-coral-strong:  249 115  22;  /* orange-500 */
     --clay-sky:           186 230 253;  /* sky-200 */
@@ -66,6 +66,19 @@
     @apply outline-none ring-2 ring-indigo-500/40 ring-offset-2 ring-offset-clay-bg;
   }
 
+  /* Accessibility respect users who prefer reduced motion.
+     Disables the marquee, floating cards, count-ups, carousel auto-pan, etc. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   ::-webkit-scrollbar {
     @apply w-1.5 h-1.5;
   }
@@ -91,4 +104,9 @@
     to   { opacity: 1; transform: translateY(0); }
   }
   .animate-fade-in { animation: fade-in 0.3s ease-out; }
+
+  /* Animated beam flowing dash along connector paths */
+  @keyframes beam-dash {
+    to { stroke-dashoffset: -240; }
+  }
 }

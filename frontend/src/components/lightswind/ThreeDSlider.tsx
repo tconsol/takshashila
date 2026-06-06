@@ -107,7 +107,7 @@ const ThreeDSlider: React.FC<ThreeDSliderProps> = ({
     const loop = () => {
       const diff = targetProgressRef.current - progressRef.current;
       if (Math.abs(diff) < 0.01 && !isDownRef.current) {
-        // Settled — apply final position and stop loop
+        // Settled apply final position and stop loop
         progressRef.current = targetProgressRef.current;
         applyStyles();
         rafRef.current = null;

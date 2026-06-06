@@ -73,7 +73,7 @@ export class StudentService {
     }
 
     const studentId = dto.customStudentId?.toLowerCase() ?? await generateStudentId(dto.firstName, dto.lastName);
-    // Internal unique email — students log in by studentId, not email
+    // Internal unique email students log in by studentId, not email
     const internalEmail = `${studentId}@student.internal`;
 
     const passwordHash = await argon2.hash(dto.password, {
@@ -135,7 +135,7 @@ export class StudentService {
     if (dto.contactEmail) {
       await enqueueEmail({
         to: dto.contactEmail,
-        subject: `Student account created for ${dto.firstName} — Takshashila`,
+        subject: `Student account created for ${dto.firstName} Takshashila`,
         html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
       });
     }
@@ -298,7 +298,7 @@ export class StudentService {
     if (dto.studentId) {
       user = await userRepository.findByStudentId(dto.studentId);
     } else if (dto.email) {
-      // Email might be a shared contact email — search StudentProfile first
+      // Email might be a shared contact email search StudentProfile first
       const profiles = await studentRepository.findManyByContactEmail(dto.email);
       if (profiles.length > 0) {
         // Return first match that isn't already linked to this tutor
@@ -360,7 +360,7 @@ export class StudentService {
     const existing = await studentRepository.findByUserAndTutor(user.publicId, tutorProfile.publicId);
     if (existing) throw new ConflictError('This student is already linked to your account');
 
-    // Check if they already have a profile with no tutor — update it
+    // Check if they already have a profile with no tutor update it
     const profileWithoutTutor = await StudentProfileModel.findOne({
       userPublicId: user.publicId,
       tutorPublicId: { $exists: false },
@@ -545,7 +545,7 @@ export class StudentService {
     if (dto.contactEmail) {
       await enqueueEmail({
         to: dto.contactEmail,
-        subject: `Student account created for ${dto.firstName} — Takshashila`,
+        subject: `Student account created for ${dto.firstName} Takshashila`,
         html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
       });
     }
@@ -701,7 +701,7 @@ export class StudentService {
     if (parentUser?.email && !parentUser.email.endsWith('@student.internal')) {
       await enqueueEmail({
         to: parentUser.email,
-        subject: `Child account created for ${dto.firstName} — Takshashila`,
+        subject: `Child account created for ${dto.firstName} Takshashila`,
         html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
       });
     }
@@ -725,7 +725,7 @@ export class StudentService {
       }
       await tutorRepository.incrementStats(tutorProfile.publicId, { totalStudents: -1 }).catch(() => {});
     } else {
-      // PRINCIPAL — verify the student's tutor belongs to this principal's org
+      // PRINCIPAL verify the student's tutor belongs to this principal's org
       const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: actorUserPublicId, isDeleted: false }).lean();
       if (!principalProfile) throw new AppError('Principal profile not found', 404);
       if (profile.tutorPublicId) {

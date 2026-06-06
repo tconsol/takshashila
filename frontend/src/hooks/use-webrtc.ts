@@ -70,7 +70,7 @@ export function useWebRTC(classPublicId: string | null, socket: Socket | null) {
             const offer = await pc.createOffer({ iceRestart: true });
             await pc.setLocalDescription(offer);
             socket.emit(SocketEvent.RTC_OFFER, { to: remoteSocketId, offer, classPublicId });
-          } catch { /* ignore — peer may have left */ }
+          } catch { /* ignore peer may have left */ }
         }
       };
 

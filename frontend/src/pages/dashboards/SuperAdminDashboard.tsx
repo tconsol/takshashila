@@ -95,7 +95,7 @@ export function SuperAdminDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Total Users"
-          value={data?.totalUsers.toLocaleString() ?? '—'}
+          value={data?.totalUsers.toLocaleString() ?? ''}
           accent="brand"
           icon={<Users className="h-5 w-5" />}
         />
@@ -107,7 +107,7 @@ export function SuperAdminDashboard() {
         />
         <StatsCard
           title="Total Classes"
-          value={data?.totalClasses.toLocaleString() ?? '—'}
+          value={data?.totalClasses.toLocaleString() ?? ''}
           accent="sky"
           icon={<Activity className="h-5 w-5" />}
         />
@@ -242,7 +242,7 @@ export function SuperAdminDashboard() {
               <div>
                 <h3 className="text-base font-semibold text-gray-900 dark:text-white">Infrastructure ops</h3>
                 <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
-                  Mongo, Redis and queue workers — check system console for live health status.
+                  Mongo, Redis and queue workers check system console for live health status.
                 </p>
               </div>
             </div>

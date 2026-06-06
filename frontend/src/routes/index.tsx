@@ -42,6 +42,7 @@ import { PrincipalStudentsPage } from '../pages/principal/PrincipalStudentsPage'
 import { PrincipalAnalyticsPage } from '../pages/principal/PrincipalAnalyticsPage';
 import { PrincipalWalletPage } from '../pages/principal/PrincipalWalletPage';
 import { PrincipalClassesPage } from '../pages/principal/PrincipalClassesPage';
+import { PrincipalContentPage } from '../pages/principal/PrincipalContentPage';
 
 // Tutor pages
 import { TutorPrincipalsPage } from '../pages/tutor/TutorPrincipalsPage';
@@ -160,6 +161,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/principal/tutors', element: <PrincipalTutorsPage /> },
         { path: '/dashboard/principal/students', element: <PrincipalStudentsPage /> },
         { path: '/dashboard/principal/classes', element: <PrincipalClassesPage /> },
+        { path: '/dashboard/principal/content', element: <PrincipalContentPage /> },
         { path: '/dashboard/principal/analytics', element: <PrincipalAnalyticsPage /> },
         { path: '/dashboard/principal/wallet', element: <PrincipalWalletPage /> },
       ],

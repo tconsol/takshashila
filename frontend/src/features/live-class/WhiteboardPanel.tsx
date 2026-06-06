@@ -60,7 +60,7 @@ export function WhiteboardPanel({ remoteElements, onUpdate, onClose }: Whiteboar
         </button>
       </div>
 
-      {/* Canvas — absolute-fill gives Excalidraw a concrete bounding box */}
+      {/* Canvas absolute-fill gives Excalidraw a concrete bounding box */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
         <div className="absolute inset-0">
           <Excalidraw

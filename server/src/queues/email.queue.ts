@@ -51,6 +51,6 @@ export async function enqueueEmail(data: EmailJobData) {
     await emailQueue.add('send', data);
   } catch (err) {
     // Redis unavailable log and skip; email won't be sent but the caller won't 500
-    console.warn('[email] Queue unavailable, skipping email to', data.to, '—', (err as Error).message);
+    console.warn('[email] Queue unavailable, skipping email to', data.to, '', (err as Error).message);
   }
 }

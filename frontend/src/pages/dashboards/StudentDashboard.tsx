@@ -124,7 +124,7 @@ const formatINR = (cents: number) =>
   `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 
 const TIPS = [
-  'Consistency beats intensity — show up every day! 🎯',
+  'Consistency beats intensity show up every day! 🎯',
   'Every class brings you closer to your goal 🚀',
   'Small progress is still progress. Keep going! 💪',
   'Learning is a superpower. Use it well! ⚡',
@@ -253,7 +253,7 @@ export function StudentDashboard() {
         </motion.div>
       )}
 
-      {/* Stats cards — staggered entrance */}
+      {/* Stats cards staggered entrance */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
@@ -312,7 +312,7 @@ export function StudentDashboard() {
               <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Attendance rate</p>
               <p className="text-xs text-gray-500">
                 {(stats?.attendanceRate ?? 0) >= 75
-                  ? 'Great — keep it up! 🏆'
+                  ? 'Great keep it up! 🏆'
                   : 'Aim for 75% to stay on track'}
               </p>
             </div>
@@ -346,7 +346,7 @@ export function StudentDashboard() {
                   compact
                   icon={<GraduationCap className="h-6 w-6" />}
                   title="No upcoming classes"
-                  description="Browse expert tutors and book your first session — demo classes available."
+                  description="Browse expert tutors and book your first session demo classes available."
                   action={
                     <Link to="/dashboard/student/tutors">
                       <Button size="sm" variant="gradient">

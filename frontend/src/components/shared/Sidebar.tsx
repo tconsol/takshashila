@@ -46,6 +46,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Tutors',      href: '/dashboard/principal/tutors',    icon: GraduationCap,   badgeKey: 'tutors' },
     { label: 'Students',    href: '/dashboard/principal/students',  icon: Users,           badgeKey: 'students' },
     { label: 'Classes',     href: '/dashboard/principal/classes',   icon: Video },
+    { label: 'Content',     href: '/dashboard/principal/content',   icon: FileText },
     { label: 'Analytics',   href: '/dashboard/principal/analytics', icon: BarChart3 },
     { label: 'Messages',    href: '/chat',                          icon: MessageSquare,   badgeKey: 'messages' },
     { label: 'Wallet',      href: '/dashboard/principal/wallet',    icon: Wallet },
@@ -216,7 +217,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
-          {/* Expand toggle — collapsed only, top of nav */}
+          {/* Expand toggle collapsed only, top of nav */}
           {collapsed && (
             <div className="flex justify-center px-2 pb-1">
               <button

@@ -23,7 +23,7 @@ async function getOrCreateStudentProfile(userPublicId: string) {
   try {
     return await studentService.getByUserPublicId(userPublicId);
   } catch {
-    // Profile missing — create it for legacy accounts
+    // Profile missing create it for legacy accounts
     const created = await StudentProfileModel.create({
       publicId: uuidv4(),
       userPublicId,

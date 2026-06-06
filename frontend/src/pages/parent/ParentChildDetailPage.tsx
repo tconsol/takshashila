@@ -40,7 +40,7 @@ function ClassesTab({ studentPublicId }: { studentPublicId: string }) {
         { key: 'title', header: 'Class', render: (c) => <span className="font-medium text-gray-800 dark:text-gray-200">{c.title}</span> },
         { key: 'classType', header: 'Type', render: (c) => <Badge variant="info">{c.classType}</Badge> },
         { key: 'status', header: 'Status', render: (c) => <Badge variant={classStatusBadge[c.status] ?? 'default'}>{c.status}</Badge> },
-        { key: 'startUTC', header: 'Date', render: (c) => c.startUTC ? format(new Date(c.startUTC), 'MMM d, yyyy h:mm a') : '—' },
+        { key: 'startUTC', header: 'Date', render: (c) => c.startUTC ? format(new Date(c.startUTC), 'MMM d, yyyy h:mm a') : '' },
       ]}
       data={data?.items ?? []}
       keyField="publicId"
@@ -77,7 +77,7 @@ function AttendanceTab({ studentPublicId }: { studentPublicId: string }) {
         columns={[
           { key: 'status', header: 'Status', render: (a) => <Badge variant={attendanceBadge[a.status] ?? 'default'}>{a.status}</Badge> },
           { key: 'durationPresentMinutes', header: 'Duration', render: (a) => `${a.durationPresentMinutes} min` },
-          { key: 'remarks', header: 'Remarks', render: (a) => a.remarks ?? '—' },
+          { key: 'remarks', header: 'Remarks', render: (a) => a.remarks ?? '' },
           { key: 'createdAt', header: 'Date', render: (a) => format(new Date(a.createdAt), 'MMM d, yyyy') },
         ]}
         data={items}

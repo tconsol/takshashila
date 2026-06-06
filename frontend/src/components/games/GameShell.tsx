@@ -261,12 +261,12 @@ const STARS = Array.from({ length: 25 }, (_, i) => ({
 function AnimatedBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {/* Static gradient orbs — no JS animation, CSS only */}
+      {/* Static gradient orbs no JS animation, CSS only */}
       <div className="absolute -top-32 -left-32 w-[28rem] h-[28rem] rounded-full bg-purple-600/25 blur-3xl" />
       <div className="absolute -bottom-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-indigo-600/30 blur-3xl" />
       <div className="absolute top-1/3 left-1/2 w-72 h-72 rounded-full bg-pink-500/15 blur-3xl" />
 
-      {/* Twinkling stars — CSS animation, no Framer Motion */}
+      {/* Twinkling stars CSS animation, no Framer Motion */}
       {STARS.map((s, i) => (
         <div
           key={i}

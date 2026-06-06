@@ -32,7 +32,7 @@ const ROLES = [
   {
     icon: Heart,
     title: 'Parent',
-    description: "Monitor your child's learning journey — classes, attendance, assignments, and worksheets.",
+    description: "Monitor your child's learning journey classes, attendance, assignments, and worksheets.",
     color: 'bg-pink-50 text-pink-600',
     ring: 'hover:border-pink-300',
     path: '/register/parent',

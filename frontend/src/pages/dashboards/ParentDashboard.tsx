@@ -78,7 +78,7 @@ function ChildSummaryCard({ student }: {
               >
                 <span className="truncate text-xs font-medium text-slate-700">{cls.title}</span>
                 <span className="ml-2 shrink-0 text-[11px] text-slate-400">
-                  {cls.startUTC ? format(new Date(cls.startUTC), 'MMM d') : '—'}
+                  {cls.startUTC ? format(new Date(cls.startUTC), 'MMM d') : ''}
                 </span>
               </div>
             ))}
@@ -138,7 +138,7 @@ export function ParentDashboard() {
           title="Avg Attendance Rate"
           value={children.length > 0
             ? `${Math.round(children.reduce((s, c) => s + (c.attendanceRate ?? 0), 0) / children.length)}%`
-            : '—'}
+            : ''}
           icon={<BarChart3 className="h-5 w-5 text-violet-600" />}
           iconBg="bg-violet-50 dark:bg-violet-900/20"
         />

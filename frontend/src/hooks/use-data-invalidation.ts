@@ -71,7 +71,7 @@ export function useDataInvalidation() {
     if (!socket) return;
 
     const handleInvalidate = ({ module }: { module: string }) => {
-      // Real new data arrived — restore any badge the user had dismissed for this module
+      // Real new data arrived restore any badge the user had dismissed for this module
       (MODULE_TO_BADGE_KEYS[module] ?? []).forEach(restore);
 
       const keys = MODULE_KEYS[module];
@@ -140,7 +140,7 @@ export function useDataInvalidation() {
     const handleWorksheetSubmitted = ({ worksheetTitle, score }: { worksheetPublicId: string; worksheetTitle: string; studentPublicId: string; score: number }) => {
       qc.invalidateQueries({ queryKey: ['worksheets'] });
       qc.invalidateQueries({ queryKey: ['badges'] });
-      toast.info('Worksheet submitted', `${worksheetTitle} — Score: ${score}%`);
+      toast.info('Worksheet submitted', `${worksheetTitle} Score: ${score}%`);
     };
 
     const handleClassCreated = ({ title }: { classPublicId: string; title: string; tutorPublicId: string }) => {

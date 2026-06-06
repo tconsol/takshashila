@@ -52,6 +52,10 @@ export const assignmentsService = {
   getMyAssignments: () =>
     api.get<{ data: Assignment[] }>('/assignments/my').then((r) => r.data.data),
 
+  getAsPrincipal: (params?: Record<string, string>) =>
+    api.get<{ data: (Assignment & { tutorName: string; submissionCount: number })[] }>('/assignments/principal/all', { params })
+      .then((r) => r.data.data),
+
   getByClass: (classId: string) =>
     api.get<{ data: Assignment[] }>(`/assignments/class/${classId}`).then((r) => r.data.data),
 

@@ -49,6 +49,53 @@ export class WorksheetService {
     return buildPaginatedResult(items, total, page, limit);
   }
 
+  async getByPrincipal(
+    principalUserPublicId: string,
+    query: PaginationQuery & { type?: string; tutorPublicId?: string },
+  ): Promise<PaginatedResult<IWorksheet & { tutorName: string; submissionCount: number }>> {
+    const { tutorRepository } = await import('../tutors/tutor.repository');
+    const { UserModel } = await import('../users/user.model');
+
+    const tutorsResult = await tutorRepository.findByPrincipal(principalUserPublicId, { page: 1, limit: 500 } as PaginationQuery);
+    const tutorPublicIds = tutorsResult.items.map((t) => t.publicId);
+    if (tutorPublicIds.length === 0) {
+      return { items: [], pagination: { total: 0, page: 1, limit: 20, totalPages: 0 } };
+    }
+
+    const { page, limit, skip } = parsePaginationQuery(query);
+    const filter: Record<string, unknown> = {
+      tutorPublicId: query.tutorPublicId ? query.tutorPublicId : { $in: tutorPublicIds },
+      isDeleted: false,
+    };
+    if (query.type) filter.type = query.type;
+
+    const [items, total] = await Promise.all([
+      WorksheetModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      WorksheetModel.countDocuments(filter),
+    ]);
+
+    // Enrich with tutor names + submission counts
+    const tutorUserMap = new Map(tutorsResult.items.map((t) => [t.publicId, t.userPublicId]));
+    const userPublicIds = [...new Set(tutorsResult.items.map((t) => t.userPublicId))];
+    const users = await UserModel.find({ publicId: { $in: userPublicIds } }, { publicId: 1, firstName: 1, lastName: 1 }).lean();
+    const userNameMap = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+
+    const worksheetIds = items.map((w) => w.publicId);
+    const subAgg = await WorksheetSubmissionModel.aggregate([
+      { $match: { worksheetPublicId: { $in: worksheetIds }, isDeleted: false } },
+      { $group: { _id: '$worksheetPublicId', count: { $sum: 1 } } },
+    ]);
+    const subMap = new Map(subAgg.map((s) => [s._id as string, s.count as number]));
+
+    const enriched = items.map((w) => ({
+      ...w,
+      tutorName: userNameMap.get(tutorUserMap.get(w.tutorPublicId) ?? '') ?? 'Unknown Tutor',
+      submissionCount: subMap.get(w.publicId) ?? 0,
+    }));
+
+    return buildPaginatedResult(enriched, total, page, limit);
+  }
+
   async getForStudent(
     studentPublicId: string,
     query: PaginationQuery & { type?: string },

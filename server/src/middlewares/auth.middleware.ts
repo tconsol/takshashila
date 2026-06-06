@@ -29,7 +29,7 @@ export async function authMiddleware(
       }
     } catch (err) {
       if (err instanceof AuthenticationError) throw err;
-      // Redis unavailable — fall through to DB check below
+      // Redis unavailable fall through to DB check below
     }
 
     // Verify user still exists in DB and is not deleted/suspended

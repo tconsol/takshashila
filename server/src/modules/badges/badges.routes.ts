@@ -24,7 +24,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
     const { publicId, role } = req.user!;
     const badges: Record<string, number> = {};
 
-    // Unread chat messages — all roles
+    // Unread chat messages all roles
     const unreadMessages = await chatService.getTotalUnread(publicId).catch(() => 0);
     if (unreadMessages > 0) badges['messages'] = unreadMessages;
 
