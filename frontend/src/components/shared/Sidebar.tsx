@@ -48,6 +48,12 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Classes',     href: '/dashboard/principal/classes',   icon: Video },
     { label: 'Content',     href: '/dashboard/principal/content',   icon: FileText },
     { label: 'Analytics',   href: '/dashboard/principal/analytics', icon: BarChart3 },
+    // ── Teaching (principal also teaches) ──
+    { label: 'My Schedule',    href: '/dashboard/principal/teach/schedule',    icon: Calendar },
+    { label: 'Teach Classes',  href: '/dashboard/principal/teach/classes',     icon: Video },
+    { label: 'My Worksheets',  href: '/dashboard/principal/teach/worksheets',  icon: FileText },
+    { label: 'My Assignments', href: '/dashboard/principal/teach/assignments', icon: BookOpen },
+    { label: 'My Attendance',  href: '/dashboard/principal/teach/attendance',  icon: UserCheck },
     { label: 'Messages',    href: '/chat',                          icon: MessageSquare,   badgeKey: 'messages' },
     { label: 'Wallet',      href: '/dashboard/principal/wallet',    icon: Wallet },
     { label: 'Profile',     href: '/profile',                       icon: UserCircle },

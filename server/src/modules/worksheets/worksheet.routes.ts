@@ -17,7 +17,7 @@ router.use(authMiddleware);
 
 // ─── Tutor: create worksheet/assignment ──────────────────────────────────────
 
-router.post('/', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const worksheet = await worksheetService.create(tutor.publicId, req.body);
@@ -45,7 +45,7 @@ router.post('/', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response
 
 // ─── Tutor: list own worksheets ───────────────────────────────────────────────
 
-router.get('/my', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/my', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const result = await worksheetService.getByTutor(tutor.publicId, req.query as Record<string, string>);
@@ -55,7 +55,7 @@ router.get('/my', requireRole(Role.TUTOR), async (req: AuthRequest, res: Respons
 
 // ─── Tutor: delete worksheet ──────────────────────────────────────────────────
 
-router.delete('/:worksheetId', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.delete('/:worksheetId', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     await worksheetService.softDelete(req.params.worksheetId, tutor.publicId);
@@ -65,7 +65,7 @@ router.delete('/:worksheetId', requireRole(Role.TUTOR), async (req: AuthRequest,
 
 // ─── Tutor: get submissions for a worksheet ───────────────────────────────────
 
-router.get('/:worksheetId/submissions', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/:worksheetId/submissions', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const submissions = await worksheetService.getSubmissionsForWorksheet(req.params.worksheetId, tutor.publicId);

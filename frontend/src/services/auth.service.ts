@@ -8,7 +8,15 @@ export const authService = {
     return res.data.data;
   },
 
-  async register(data: Omit<RegisterFormData, 'confirmPassword'> & { role?: string }) {
+  async register(
+    data: Omit<RegisterFormData, 'confirmPassword'> & {
+      role?: string;
+      subjects?: string[];
+      languages?: string[];
+      bio?: string;
+      qualifications?: string[];
+    },
+  ) {
     const res = await api.post<ApiResponse<{ publicId: string }>>('/auth/register', data);
     return res.data.data;
   },

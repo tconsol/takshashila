@@ -50,7 +50,7 @@ export function RegisterTutorPage() {
   const removeSubject = (s: string) => setValue('subjects', subjects.filter((x) => x !== s));
 
   const mutation = useMutation({
-    mutationFn: ({ confirmPassword: _, subjects: __, ...data }: FormData) =>
+    mutationFn: ({ confirmPassword: _, ...data }: FormData) =>
       authService.register({
         ...data,
         role: 'TUTOR',

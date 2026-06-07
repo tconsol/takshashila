@@ -16,10 +16,10 @@ router.get('/search', validate(tutorSearchSchema, 'query'), tutorController.sear
 router.use(authMiddleware);
 router.get('/pending', requireRole(Role.PRINCIPAL, Role.ADMIN, Role.SUPER_ADMIN), tutorController.getPending.bind(tutorController));
 router.post('/invite', requireRole(Role.PRINCIPAL, Role.ADMIN, Role.SUPER_ADMIN), tutorController.invite.bind(tutorController));
-router.get('/me', requireRole(Role.TUTOR), tutorController.getMyProfile.bind(tutorController));
-router.put('/me', requireRole(Role.TUTOR), validate(updateTutorProfileSchema), tutorController.updateMyProfile.bind(tutorController));
-router.post('/me/submit-verification', requireRole(Role.TUTOR), tutorController.submitForVerification.bind(tutorController));
-router.get('/my-principal', requireRole(Role.TUTOR), tutorController.getMyPrincipal.bind(tutorController));
+router.get('/me', requireRole(Role.TUTOR, Role.PRINCIPAL), tutorController.getMyProfile.bind(tutorController));
+router.put('/me', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(updateTutorProfileSchema), tutorController.updateMyProfile.bind(tutorController));
+router.post('/me/submit-verification', requireRole(Role.TUTOR, Role.PRINCIPAL), tutorController.submitForVerification.bind(tutorController));
+router.get('/my-principal', requireRole(Role.TUTOR, Role.PRINCIPAL), tutorController.getMyPrincipal.bind(tutorController));
 router.get('/by-principal/:principalId', requirePermission(Permission.VIEW_TUTOR_ANALYTICS), tutorController.getByPrincipal.bind(tutorController));
 router.get('/parent/by-principal/:profilePublicId', requireRole(Role.PARENT, Role.STUDENT), tutorController.getByPrincipalForParent.bind(tutorController));
 router.get('/my-tutors', requireRole(Role.PRINCIPAL), tutorController.getByPrincipal.bind(tutorController));
