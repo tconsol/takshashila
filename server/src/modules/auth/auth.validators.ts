@@ -16,6 +16,11 @@ export const registerSchema = z.object({
   phone: z.string().optional(),
   timezone: z.string().optional(),
   grade: z.string().optional(),
+  // Tutor self-registration extras
+  subjects: z.array(z.string()).optional(),
+  languages: z.array(z.string()).optional(),
+  bio: z.string().max(1000).optional(),
+  qualifications: z.array(z.string()).optional(),
 });
 
 export const loginSchema = z.object({

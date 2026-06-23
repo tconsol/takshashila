@@ -36,7 +36,7 @@ router.get('/class/:classId', async (req: AuthRequest, res: Response, next: Next
   } catch (e) { next(e); }
 });
 
-router.get('/tutor/my', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/tutor/my', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutorProfile = await tutorService.getByUserPublicId(req.user!.publicId);
     const result = await attendanceService.getByTutor(tutorProfile.publicId, req.query);

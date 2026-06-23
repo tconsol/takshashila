@@ -9,12 +9,12 @@ import { createAvailabilitySlotSchema, getAvailabilityQuerySchema, rescheduleSlo
 const router = Router();
 router.use(authMiddleware);
 
-router.post('/slots', requireRole(Role.TUTOR), validate(createAvailabilitySlotSchema), scheduleController.createSlot.bind(scheduleController));
-router.get('/slots/me', requireRole(Role.TUTOR), scheduleController.getMySlots.bind(scheduleController));
-router.get('/slots/calendar', requireRole(Role.TUTOR), scheduleController.getMyCalendar.bind(scheduleController));
-router.delete('/slots/:slotId', requireRole(Role.TUTOR), scheduleController.deleteSlot.bind(scheduleController));
-router.patch('/slots/:slotId/cancel', requireRole(Role.TUTOR), scheduleController.cancelSlot.bind(scheduleController));
-router.patch('/slots/:slotId/reschedule', requireRole(Role.TUTOR), validate(rescheduleSlotSchema), scheduleController.rescheduleSlot.bind(scheduleController));
+router.post('/slots', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(createAvailabilitySlotSchema), scheduleController.createSlot.bind(scheduleController));
+router.get('/slots/me', requireRole(Role.TUTOR, Role.PRINCIPAL), scheduleController.getMySlots.bind(scheduleController));
+router.get('/slots/calendar', requireRole(Role.TUTOR, Role.PRINCIPAL), scheduleController.getMyCalendar.bind(scheduleController));
+router.delete('/slots/:slotId', requireRole(Role.TUTOR, Role.PRINCIPAL), scheduleController.deleteSlot.bind(scheduleController));
+router.patch('/slots/:slotId/cancel', requireRole(Role.TUTOR, Role.PRINCIPAL), scheduleController.cancelSlot.bind(scheduleController));
+router.patch('/slots/:slotId/reschedule', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(rescheduleSlotSchema), scheduleController.rescheduleSlot.bind(scheduleController));
 router.get('/availability/:tutorId', validate(getAvailabilityQuerySchema, 'query'), scheduleController.getTutorAvailability.bind(scheduleController));
 
 export default router;

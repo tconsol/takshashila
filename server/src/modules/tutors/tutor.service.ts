@@ -64,7 +64,22 @@ export class TutorService {
   }
 
   async getByUserPublicId(userPublicId: string): Promise<ITutorProfile> {
-    const profile = await tutorRepository.findByUserPublicId(userPublicId);
+    let profile = await tutorRepository.findByUserPublicId(userPublicId);
+    if (!profile) {
+      // Principals can also teach — auto-provision a tutor profile the first time
+      // they use any tutor-scoped action (schedule, classes, worksheets, etc).
+      const user = await userRepository.findByPublicId(userPublicId);
+      if (user?.role === 'PRINCIPAL') {
+        const created = await this.createProfile(userPublicId, userPublicId, userPublicId, {
+          timezone: user.timezone || 'UTC',
+          subjects: [],
+          languages: [],
+        });
+        // Principal-tutor is trusted by default — active & verified so they can teach immediately.
+        await tutorRepository.update(created.publicId, { status: TutorStatus.ACTIVE, isVerified: true });
+        profile = await tutorRepository.findByPublicId(created.publicId);
+      }
+    }
     if (!profile) throw new NotFoundError('Tutor profile');
     return profile;
   }

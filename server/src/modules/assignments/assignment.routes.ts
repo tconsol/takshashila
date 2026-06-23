@@ -13,7 +13,7 @@ const router = Router();
 router.use(authMiddleware);
 
 // Tutor: create assignment
-router.post('/', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const assignment = await assignmentService.create(req.body, tutor.publicId);
@@ -22,7 +22,7 @@ router.post('/', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response
 });
 
 // Tutor: list own assignments
-router.get('/my', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/my', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const assignments = await assignmentService.getByTutor(tutor.publicId);
@@ -31,7 +31,7 @@ router.get('/my', requireRole(Role.TUTOR), async (req: AuthRequest, res: Respons
 });
 
 // Tutor: publish assignment
-router.post('/:assignmentId/publish', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/:assignmentId/publish', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const updated = await assignmentService.publish(req.params.assignmentId, tutor.publicId);
@@ -40,7 +40,7 @@ router.post('/:assignmentId/publish', requireRole(Role.TUTOR), async (req: AuthR
 });
 
 // Tutor: close assignment
-router.post('/:assignmentId/close', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/:assignmentId/close', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const updated = await assignmentService.close(req.params.assignmentId, tutor.publicId);
@@ -49,7 +49,7 @@ router.post('/:assignmentId/close', requireRole(Role.TUTOR), async (req: AuthReq
 });
 
 // Tutor: view submissions for an assignment
-router.get('/:assignmentId/submissions', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/:assignmentId/submissions', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const submissions = await assignmentService.getSubmissionsForAssignment(req.params.assignmentId);
     sendSuccess(res, submissions, 'Submissions fetched');
@@ -57,7 +57,7 @@ router.get('/:assignmentId/submissions', requireRole(Role.TUTOR), async (req: Au
 });
 
 // Tutor: grade a submission
-router.patch('/submissions/:submissionId/grade', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.patch('/submissions/:submissionId/grade', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const updated = await assignmentService.gradeSubmission(req.params.submissionId, tutor.publicId, req.body);
@@ -66,7 +66,7 @@ router.patch('/submissions/:submissionId/grade', requireRole(Role.TUTOR), async 
 });
 
 // Tutor: delete assignment
-router.delete('/:assignmentId', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.delete('/:assignmentId', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     await assignmentService.softDelete(req.params.assignmentId, tutor.publicId);

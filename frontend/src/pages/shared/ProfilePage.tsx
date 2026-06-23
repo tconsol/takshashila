@@ -196,7 +196,8 @@ export function ProfilePage() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const isTutor = user?.role === 'TUTOR';
+  // Principals also teach, so they get the teaching profile tab too
+  const isTutor = user?.role === 'TUTOR' || user?.role === 'PRINCIPAL';
   const isStudent = user?.role === 'STUDENT';
 
   const { data: freshUser } = useQuery({

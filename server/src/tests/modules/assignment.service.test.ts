@@ -1,11 +1,14 @@
 import { AssignmentService } from '../../modules/assignments/assignment.service';
 import { AssignmentModel, SubmissionModel } from '../../modules/assignments/assignment.model';
-import { AssignmentStatus, SubmissionStatus } from '../../modules/assignments/assignment.types';
+import { AssignmentStatus } from '../../modules/assignments/assignment.types';
 
 jest.mock('../../modules/assignments/assignment.model');
 jest.mock('../../events/event-emitter', () => ({
   domainEvents: { emit: jest.fn() },
 }));
+
+// Helper: mongoose .lean() chainable mock
+const lean = (val: unknown) => ({ lean: () => Promise.resolve(val) });
 
 describe('AssignmentService', () => {
   let service: AssignmentService;
@@ -21,36 +24,43 @@ describe('AssignmentService', () => {
       await expect(service.publish('pub-1', 'tutor-1')).rejects.toMatchObject({ statusCode: 404 });
     });
 
-    it('throws 400 when already published', async () => {
-      (AssignmentModel.findOne as jest.Mock).mockResolvedValue({
-        status: AssignmentStatus.PUBLISHED,
-        save: jest.fn(),
-      });
-      await expect(service.publish('pub-1', 'tutor-1')).rejects.toMatchObject({ statusCode: 400 });
+    it('throws 409 (conflict) when already published', async () => {
+      (AssignmentModel.findOne as jest.Mock).mockResolvedValue({ status: AssignmentStatus.PUBLISHED });
+      await expect(service.publish('pub-1', 'tutor-1')).rejects.toMatchObject({ statusCode: 409 });
     });
 
     it('publishes a DRAFT assignment', async () => {
-      const mockSave = jest.fn();
-      const mockAssignment = { status: AssignmentStatus.DRAFT, save: mockSave, toObject: () => ({}) };
-      (AssignmentModel.findOne as jest.Mock).mockResolvedValue(mockAssignment);
+      (AssignmentModel.findOne as jest.Mock).mockResolvedValue({ status: AssignmentStatus.DRAFT });
+      (AssignmentModel.findOneAndUpdate as jest.Mock).mockReturnValue(
+        lean({ publicId: 'pub-1', status: AssignmentStatus.PUBLISHED }),
+      );
 
-      await service.publish('pub-1', 'tutor-1');
+      const result = await service.publish('pub-1', 'tutor-1');
 
-      expect(mockAssignment.status).toBe(AssignmentStatus.PUBLISHED);
-      expect(mockSave).toHaveBeenCalled();
+      expect(AssignmentModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { publicId: 'pub-1' },
+        { $set: { status: AssignmentStatus.PUBLISHED } },
+        { new: true },
+      );
+      expect(result.status).toBe(AssignmentStatus.PUBLISHED);
     });
   });
 
   describe('gradeSubmission', () => {
-    it('throws 400 if score exceeds maxScore', async () => {
-      const mockSubmission = { assignmentPublicId: 'asgn-1' };
-      const mockAssignment = { maxScore: 100 };
-      (SubmissionModel.findOne as jest.Mock).mockResolvedValue(mockSubmission);
-      (AssignmentModel.findOne as jest.Mock).mockResolvedValue(mockAssignment);
+    it('throws 403 when tutor does not own the assignment', async () => {
+      (SubmissionModel.findOne as jest.Mock).mockResolvedValue({ assignmentPublicId: 'asgn-1' });
+      (AssignmentModel.findOne as jest.Mock).mockResolvedValue({ tutorPublicId: 'someone-else', maxScore: 100 });
+      await expect(
+        service.gradeSubmission('sub-1', 'tutor-1', { score: 50, feedback: '' }),
+      ).rejects.toMatchObject({ statusCode: 403 });
+    });
 
+    it('throws 422 if score exceeds maxScore', async () => {
+      (SubmissionModel.findOne as jest.Mock).mockResolvedValue({ assignmentPublicId: 'asgn-1' });
+      (AssignmentModel.findOne as jest.Mock).mockResolvedValue({ tutorPublicId: 'tutor-1', maxScore: 100 });
       await expect(
         service.gradeSubmission('sub-1', 'tutor-1', { score: 150, feedback: '' }),
-      ).rejects.toMatchObject({ statusCode: 400 });
+      ).rejects.toMatchObject({ statusCode: 422 });
     });
   });
 });

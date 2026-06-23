@@ -80,6 +80,15 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.VIEW_OWN_WALLET,
     Permission.MANAGE_STUDENTS,
     Permission.VIEW_ANALYTICS,
+    // Principals can also teach — full tutor capability set
+    Permission.CREATE_STUDENT,
+    Permission.SCHEDULE_CLASS,
+    Permission.CONDUCT_CLASS,
+    Permission.UPLOAD_RECORDING,
+    Permission.MANAGE_ASSIGNMENTS,
+    Permission.GRADE_ASSIGNMENTS,
+    Permission.MARK_ATTENDANCE,
+    Permission.UPLOAD_MEDIA,
   ],
 
   TUTOR: [

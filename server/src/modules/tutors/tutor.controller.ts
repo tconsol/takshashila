@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { tutorService } from './tutor.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
+import { cached } from '../../lib/cache';
 
 export class TutorController {
   async getMyProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -58,17 +59,21 @@ export class TutorController {
   async search(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { subject, language, timezone, minRating, minHourlyRateCents, maxHourlyRateCents, isVerified, ...paginationQuery } = req.query as Record<string, string>;
-      const result = await tutorService.search(
-        {
-          subject,
-          language,
-          timezone,
-          minRating: minRating ? +minRating : undefined,
-          minHourlyRateCents: minHourlyRateCents ? +minHourlyRateCents : undefined,
-          maxHourlyRateCents: maxHourlyRateCents ? +maxHourlyRateCents : undefined,
-          isVerified: isVerified === undefined ? undefined : isVerified === 'true',
-        },
-        paginationQuery,
+      // Public, read-heavy endpoint — cache 60s per unique query to cut DB reads/compute.
+      const cacheKey = `tutors:search:${JSON.stringify(req.query)}`;
+      const result = await cached(cacheKey, 60, () =>
+        tutorService.search(
+          {
+            subject,
+            language,
+            timezone,
+            minRating: minRating ? +minRating : undefined,
+            minHourlyRateCents: minHourlyRateCents ? +minHourlyRateCents : undefined,
+            maxHourlyRateCents: maxHourlyRateCents ? +maxHourlyRateCents : undefined,
+            isVerified: isVerified === undefined ? undefined : isVerified === 'true',
+          },
+          paginationQuery,
+        ),
       );
       sendPaginated(res, result, 'Tutors fetched');
     } catch (error) { next(error); }

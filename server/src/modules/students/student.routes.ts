@@ -17,13 +17,13 @@ import { sendSuccess } from '../../utils/response';
 const router = Router();
 router.use(authMiddleware);
 
-router.post('/', requireRole(Role.TUTOR), validate(createStudentByTutorSchema), studentController.createStudent.bind(studentController));
+router.post('/', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(createStudentByTutorSchema), studentController.createStudent.bind(studentController));
 router.post('/principal/create', requireRole(Role.PRINCIPAL), validate(createStudentByPrincipalSchema), studentController.createStudentByPrincipal.bind(studentController));
 router.post('/principal/invite', requireRole(Role.PRINCIPAL), validate(inviteStudentByPrincipalSchema), studentController.inviteExistingByPrincipal.bind(studentController));
 router.get('/principal/my-students', requireRole(Role.PRINCIPAL), studentController.getMyStudentsAsPrincipal.bind(studentController));
 router.get('/principal/search-parent', requireRole(Role.PRINCIPAL), studentController.searchParentByEmail.bind(studentController));
-router.get('/lookup', requireRole(Role.TUTOR), validate(inviteExistingStudentSchema, 'query'), studentController.lookupStudent.bind(studentController));
-router.post('/invite-existing', requireRole(Role.TUTOR), validate(inviteExistingStudentSchema), studentController.inviteExistingStudent.bind(studentController));
+router.get('/lookup', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(inviteExistingStudentSchema, 'query'), studentController.lookupStudent.bind(studentController));
+router.post('/invite-existing', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(inviteExistingStudentSchema), studentController.inviteExistingStudent.bind(studentController));
 router.get('/me/principal', requireRole(Role.STUDENT), studentController.getMyPrincipal.bind(studentController));
 router.get('/me', requireRole(Role.STUDENT), studentController.getMyProfile.bind(studentController));
 router.post('/me/accept-invite', requireRole(Role.STUDENT), studentController.acceptInvite.bind(studentController));
@@ -57,7 +57,7 @@ router.post('/me/parent-requests/:requestPublicId/reject', requireRole(Role.STUD
 });
 router.get('/pending', requirePermission(Permission.MANAGE_STUDENTS), studentController.listPending.bind(studentController));
 router.get('/', requirePermission(Permission.MANAGE_STUDENTS), studentController.listAll.bind(studentController));
-router.get('/my-students', requireRole(Role.TUTOR), studentController.getMyStudents.bind(studentController));
+router.get('/my-students', requireRole(Role.TUTOR, Role.PRINCIPAL), studentController.getMyStudents.bind(studentController));
 router.get('/:studentId', requirePermission(Permission.MANAGE_STUDENTS), studentController.getByPublicId.bind(studentController));
 router.post('/:studentId/approve', requirePermission(Permission.MANAGE_STUDENTS), studentController.approveStudent.bind(studentController));
 router.post('/:studentId/reject', requirePermission(Permission.MANAGE_STUDENTS), studentController.rejectStudent.bind(studentController));
@@ -65,7 +65,7 @@ router.post('/:studentId/suspend', requirePermission(Permission.MANAGE_STUDENTS)
 router.post('/:studentId/transfer', requirePermission(Permission.MANAGE_STUDENTS), studentController.transferStudent.bind(studentController));
 router.delete('/:studentId/unlink', requireRole(Role.TUTOR, Role.PRINCIPAL), studentController.unlinkStudent.bind(studentController));
 
-router.patch('/:studentId/status', requireRole(Role.TUTOR), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.patch('/:studentId/status', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { status } = req.body as { status: 'ACTIVE' | 'INACTIVE' };
     if (status !== 'ACTIVE' && status !== 'INACTIVE') {
