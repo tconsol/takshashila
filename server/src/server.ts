@@ -5,10 +5,14 @@ import { connectDatabase } from './config/database';
 import { getRedisClient } from './config/redis';
 import { logger } from './lib/logger';
 import { initSocketServer } from './sockets/socket.handler';
-import { scheduleCleanupJobs } from './queues/cleanup.queue';
 import { auditService } from './modules/audit/audit.service';
 import { notificationService } from './modules/notifications/notification.service';
-import { startSlotExpiryJob } from './jobs/slot-expiry.job';
+
+// Background workers (email/notification/cleanup/slot-expiry) live in a separate
+// process by default (see worker.ts) so the web service can scale to zero on
+// Cloud Run — no always-on instance = no idle bill. Set RUN_WORKERS=true to also
+// run them inside the web process (single-instance / local dev convenience).
+const RUN_WORKERS = process.env.RUN_WORKERS === 'true';
 
 async function bootstrap() {
   await connectDatabase();
@@ -20,8 +24,18 @@ async function bootstrap() {
   const httpServer = createServer(app);
   initSocketServer(httpServer);
 
-  await scheduleCleanupJobs();
-  startSlotExpiryJob();
+  if (RUN_WORKERS) {
+    const { startEmailWorker } = await import('./queues/email.queue');
+    const { startCleanupWorker, scheduleCleanupJobs } = await import('./queues/cleanup.queue');
+    const { startNotificationWorker } = await import('./queues/notification.queue');
+    const { startSlotExpiryJob } = await import('./jobs/slot-expiry.job');
+    startEmailWorker();
+    startNotificationWorker();
+    startCleanupWorker();
+    await scheduleCleanupJobs();
+    startSlotExpiryJob();
+    logger.info('Background workers running inside web process (RUN_WORKERS=true)');
+  }
 
   httpServer.listen(env.PORT, () => {
     logger.info(`Takshashila API running on port ${env.PORT} [${env.NODE_ENV}]`);

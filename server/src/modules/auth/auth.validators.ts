@@ -21,6 +21,11 @@ export const registerSchema = z.object({
   languages: z.array(z.string()).optional(),
   bio: z.string().max(1000).optional(),
   qualifications: z.array(z.string()).optional(),
+}).superRefine((data, ctx) => {
+  // A tutor must pick at least one subject to register.
+  if (data.role === 'TUTOR' && (!data.subjects || data.subjects.length === 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['subjects'], message: 'Select at least one subject' });
+  }
 });
 
 export const loginSchema = z.object({

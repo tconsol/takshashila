@@ -5,20 +5,7 @@ import { useSocket } from '../sockets/use-socket';
 import { SocketEvent } from '../sockets/socket.events';
 import { useToast } from '../components/ui/Toast';
 import { useAuthStore } from '../stores/auth.store';
-import { useDismissedBadgesStore } from '../stores/dismissed-badges.store';
 import notificationSound from '../assets/aayein-meme.mp3';
-
-// Maps a socket module name → badge keys that should be restored when new data arrives
-const MODULE_TO_BADGE_KEYS: Record<string, string[]> = {
-  worksheets:      ['worksheets'],
-  students:        ['students'],
-  tutors:          ['tutors', 'principals'],
-  principals:      ['principals'],
-  tickets:         ['tickets', 'support'],
-  'join-requests': ['join-requests', 'principals'],
-  'demo-requests': ['demo-requests'],
-  badges:          [],
-};
 
 const MODULE_KEYS: Record<string, readonly (readonly string[])[]> = {
   principals:      [['principals'], ['admin-overview'], ['badges']],
@@ -44,7 +31,6 @@ export function useDataInvalidation() {
   const toast = useToast();
   const location = useLocation();
   const { user } = useAuthStore();
-  const restore = useDismissedBadgesStore((s) => s.restore);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -71,9 +57,6 @@ export function useDataInvalidation() {
     if (!socket) return;
 
     const handleInvalidate = ({ module }: { module: string }) => {
-      // Real new data arrived restore any badge the user had dismissed for this module
-      (MODULE_TO_BADGE_KEYS[module] ?? []).forEach(restore);
-
       const keys = MODULE_KEYS[module];
       if (!keys) return;
       keys.forEach((key) => qc.invalidateQueries({ queryKey: key as string[] }));
@@ -86,13 +69,7 @@ export function useDataInvalidation() {
       qc.invalidateQueries({ queryKey: ['badges'] });
 
       const isFromMe = msg.senderPublicId === user?.publicId;
-      const isOnChatPage = location.pathname.startsWith('/chat');
       const isViewingConversation = location.pathname === `/chat/${msg.conversationPublicId}`;
-
-      // Restore dismissed badge so red dot reappears for new incoming messages
-      if (!isFromMe && !isOnChatPage) {
-        restore('messages');
-      }
 
       // Play sound only if message is from someone else and we're not viewing that conversation
       if (!isFromMe && !isViewingConversation && audioRef.current) {

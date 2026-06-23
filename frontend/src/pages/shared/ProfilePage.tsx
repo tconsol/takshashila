@@ -7,7 +7,9 @@ import {
   User, Mail, Phone, Globe, ShieldCheck, Camera,
   CheckCircle2, AlertCircle, Lock, Eye, EyeOff,
   BookOpen, DollarSign, Sparkles, GraduationCap, Calendar, Copy, Check,
+  Wallet, ArrowRight,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { HangingIdCard } from '../../components/lightswind/HangingIdCard';
 import { formatInTimeZone } from 'date-fns-tz';
 import { api } from '../../lib/axios';
@@ -414,6 +416,23 @@ export function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Wallet quick-link (wallet lives under profile now) */}
+      {(['STUDENT', 'TUTOR', 'PRINCIPAL'] as const).includes(displayUser.role as 'STUDENT' | 'TUTOR' | 'PRINCIPAL') && (
+        <Link
+          to={`/dashboard/${displayUser.role.toLowerCase()}/wallet`}
+          className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-card transition-all hover:-translate-y-0.5 hover:border-indigo-200 dark:bg-slate-900 dark:border-slate-800"
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <Wallet className="h-5 w-5" />
+          </span>
+          <div className="flex-1">
+            <p className="font-semibold text-slate-900 dark:text-white">My Wallet</p>
+            <p className="text-sm text-slate-500">View balance, credits and transactions</p>
+          </div>
+          <ArrowRight className="h-5 w-5 text-slate-300 transition-colors group-hover:text-indigo-500" />
+        </Link>
+      )}
 
       {/* Tab navigation */}
       <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">

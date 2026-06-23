@@ -52,9 +52,16 @@ export function StudentMyTutorPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="My Tutor"
-        subtitle="Your connected tutor's profile and details"
+        title="Tutors"
+        subtitle="Your connected tutor — or find a new one"
         icon={<GraduationCap className="h-5 w-5" />}
+        actions={
+          <Link to="/dashboard/student/tutors">
+            <Button variant="outline" size="sm">
+              <BookOpen className="h-4 w-4" /> Find tutors
+            </Button>
+          </Link>
+        }
       />
 
       {/* Pending invite banner */}

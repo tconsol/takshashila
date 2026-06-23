@@ -25,6 +25,9 @@ function scramble(word: string): string {
   return scrambled;
 }
 
+// Fresh randomized order of words every game (was fixed 0→N — same words each round).
+const shuffledDeck = () => [...WORDS.keys()].sort(() => Math.random() - 0.5);
+
 export function WordScrambleGame() {
   const triggerShake = useGameStore((s) => s.triggerShake);
   const triggerFlash = useGameStore((s) => s.triggerFlash);
@@ -36,11 +39,12 @@ export function WordScrambleGame() {
   const [showHint, setShowHint] = useState(false);
   const [hintPenalty, setHintPenalty] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
+  const [deck, setDeck] = useState<number[]>(() => shuffledDeck());
 
-  const item = WORDS[qIdx];
+  const item = WORDS[deck[qIdx]];
 
-  const reset = useCallback((idx: number) => {
-    const sc = scramble(WORDS[idx].word);
+  const reset = useCallback((idx: number, d: number[]) => {
+    const sc = scramble(WORDS[d[idx]].word);
     setLetters(sc.split('').map((ch) => ({ ch, used: false })));
     setTyped([]);
     setStatus('playing');
@@ -48,11 +52,17 @@ export function WordScrambleGame() {
     setHintPenalty(false);
   }, []);
 
-  useEffect(() => {
-    reset(0);
-    setScore(0);
+  const newGame = useCallback(() => {
+    const d = shuffledDeck();
+    setDeck(d);
     setQIdx(0);
+    setScore(0);
+    reset(0, d);
   }, [reset]);
+
+  useEffect(() => {
+    newGame();
+  }, [newGame]);
 
   const pick = (i: number) => {
     if (status !== 'playing' || letters[i].used) return;
@@ -82,7 +92,7 @@ export function WordScrambleGame() {
           return;
         }
         setQIdx((q) => q + 1);
-        reset(qIdx + 1);
+        reset(qIdx + 1, deck);
       }, 1100);
     }
   };
@@ -117,12 +127,7 @@ export function WordScrambleGame() {
           </p>
         </motion.div>
         <motion.button
-          onClick={() => {
-            reset(0);
-            setQIdx(0);
-            setScore(0);
-            setStatus('playing');
-          }}
+          onClick={newGame}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 px-8 py-3 font-bold text-gray-900 shadow-lg shadow-orange-500/30"

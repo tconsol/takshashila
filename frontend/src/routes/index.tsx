@@ -14,6 +14,7 @@ import { RegisterTutorPage } from '../pages/auth/RegisterTutor';
 import { RegisterPrincipalPage } from '../pages/auth/RegisterPrincipal';
 import { RegisterParentPage } from '../pages/auth/RegisterParent';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPassword';
+import { ResetPasswordPage } from '../pages/auth/ResetPassword';
 import { VerifyEmailPage } from '../pages/auth/VerifyEmail';
 import { AcceptInvitePage } from '../pages/auth/AcceptInvite';
 
@@ -62,7 +63,7 @@ import { TutorCreateClassPage } from '../pages/tutor/TutorCreateClassPage';
 // Student pages
 import { StudentMyTutorPage } from '../pages/student/StudentMyTutorPage';
 import { StudentPrincipalPage } from '../pages/student/StudentPrincipalPage';
-import { StudentClassesPage } from '../pages/student/StudentClassesPage';
+import { StudentLearningPage } from '../pages/student/StudentLearningPage';
 import { StudentAssignmentsPage } from '../pages/student/StudentAssignmentsPage';
 import { StudentAttendancePage } from '../pages/student/StudentAttendancePage';
 import { StudentProgressPage } from '../pages/student/StudentProgressPage';
@@ -116,6 +117,7 @@ export const router = createBrowserRouter([
       { path: '/register/principal', element: <RegisterPrincipalPage /> },
       { path: '/register/parent', element: <RegisterParentPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
       { path: '/verify-email', element: <VerifyEmailPage /> },
       { path: '/accept-invite', element: <AcceptInvitePage /> },
     ],
@@ -211,7 +213,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/my-tutor', element: <StudentMyTutorPage /> },
         { path: '/dashboard/student/my-organization', element: <StudentPrincipalPage /> },
         { path: '/dashboard/student/tutors', element: <TutorsBrowsePage variant="student" /> },
-        { path: '/dashboard/student/classes', element: <StudentClassesPage /> },
+        { path: '/dashboard/student/classes', element: <StudentLearningPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
         { path: '/dashboard/student/worksheets', element: <StudentWorksheetsPage /> },
         { path: '/dashboard/student/worksheets/:worksheetId/test', element: <StudentWorksheetTestPage /> },

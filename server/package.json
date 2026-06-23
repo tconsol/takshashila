@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --exit-child src/server.ts",
+    "dev:worker": "ts-node-dev --respawn --transpile-only --exit-child src/worker.ts",
     "build": "tsc --project tsconfig.json",
     "start": "node dist/server.js",
+    "worker": "node dist/worker.js",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",

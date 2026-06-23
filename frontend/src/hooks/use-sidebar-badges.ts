@@ -14,7 +14,12 @@ export function useSidebarBadges(): Record<string, number> {
   const { data = {} } = useQuery({
     queryKey: ['badges', role],
     queryFn: fetchBadges,
-    staleTime: Infinity,   // never auto-refetch; only re-fetches when socket data:invalidate fires
+    // Socket data:invalidate is the fast path; poll + window-focus refetch are
+    // the safety net so the dot still updates if a socket event is missed.
+    staleTime: 20_000,
+    refetchInterval: 45_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
     enabled: isAuthenticated,
   });
 

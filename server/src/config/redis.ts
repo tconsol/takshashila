@@ -19,7 +19,7 @@ export function getRedisClient(): Redis {
         return Math.min(times * 200, 3000);
       },
       enableReadyCheck: true,
-      lazyConnect: false,
+      lazyConnect: true,   // connect on first use, not on boot
     });
 
     redisClient.on('connect', () => logger.info('Redis connected'));

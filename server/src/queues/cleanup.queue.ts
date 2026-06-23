@@ -8,20 +8,23 @@ export const cleanupQueue = new Queue('cleanup', {
   defaultJobOptions,
 });
 
-export const cleanupWorker = new Worker(
-  'cleanup',
-  async (job) => {
-    if (job.name === 'purge-orphan-media') {
-      const count = await mediaService.purgeOrphanPendingFiles();
-      logger.info('Orphan media purge complete', { purged: count });
-    }
-  },
-  { connection: redisConnection, concurrency: 1 },
-);
-
-cleanupWorker.on('failed', (job, err) => {
-  logger.error('Cleanup job failed', { jobId: job?.id, name: job?.name, error: err.message });
-});
+// Worker created only in the dedicated worker process (worker.ts).
+export function startCleanupWorker(): Worker {
+  const worker = new Worker(
+    'cleanup',
+    async (job) => {
+      if (job.name === 'purge-orphan-media') {
+        const count = await mediaService.purgeOrphanPendingFiles();
+        logger.info('Orphan media purge complete', { purged: count });
+      }
+    },
+    { connection: redisConnection, concurrency: 1 },
+  );
+  worker.on('failed', (job, err) => {
+    logger.error('Cleanup job failed', { jobId: job?.id, name: job?.name, error: err.message });
+  });
+  return worker;
+}
 
 export async function scheduleCleanupJobs() {
   try {

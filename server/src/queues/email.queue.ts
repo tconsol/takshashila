@@ -26,25 +26,23 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const emailWorker = new Worker<EmailJobData>(
-  'email',
-  async (job) => {
-    const { to, subject, html, text } = job.data;
-    await transporter.sendMail({
-      from: env.EMAIL_FROM,
-      to,
-      subject,
-      html,
-      text,
-    });
-    logger.info('Email sent', { to, subject });
-  },
-  { connection: redisConnection, concurrency: 5 },
-);
-
-emailWorker.on('failed', (job, err) => {
-  logger.error('Email job failed', { jobId: job?.id, error: err.message });
-});
+// Worker is created ONLY in the dedicated worker process (see worker.ts), so the
+// web process never spins up a long-running poller → it can scale to zero.
+export function startEmailWorker(): Worker<EmailJobData> {
+  const worker = new Worker<EmailJobData>(
+    'email',
+    async (job) => {
+      const { to, subject, html, text } = job.data;
+      await transporter.sendMail({ from: env.EMAIL_FROM, to, subject, html, text });
+      logger.info('Email sent', { to, subject });
+    },
+    { connection: redisConnection, concurrency: 5 },
+  );
+  worker.on('failed', (job, err) => {
+    logger.error('Email job failed', { jobId: job?.id, error: err.message });
+  });
+  return worker;
+}
 
 export async function enqueueEmail(data: EmailJobData) {
   try {

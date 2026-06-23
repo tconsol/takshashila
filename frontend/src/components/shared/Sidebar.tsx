@@ -75,19 +75,14 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Profile',        href: '/profile',                          icon: UserCircle },
   ],
   STUDENT: [
-    { label: 'Overview',        href: '/dashboard/student',                  icon: LayoutDashboard },
-    { label: 'My Tutor',        href: '/dashboard/student/my-tutor',         icon: GraduationCap },
+    { label: 'Home',            href: '/dashboard/student',                  icon: LayoutDashboard },
+    { label: 'Tutors',          href: '/dashboard/student/my-tutor',         icon: GraduationCap },
     { label: 'My Organization', href: '/dashboard/student/my-organization',  icon: Building2 },
-    { label: 'Find Tutors',     href: '/dashboard/student/tutors',           icon: Search },
     { label: 'Classes',         href: '/dashboard/student/classes',          icon: Video,          badgeKey: 'scheduleAlert' },
-    { label: 'Assignments',     href: '/dashboard/student/assignments',      icon: BookOpen },
-    { label: 'Worksheets',      href: '/dashboard/student/worksheets',       icon: FileText,       badgeKey: 'worksheets' },
+    { label: 'Homework',        href: '/dashboard/student/worksheets',       icon: FileText,       badgeKey: 'worksheets' },
     { label: 'Games',           href: '/dashboard/student/games',            icon: Gamepad2 },
     { label: 'Resources',       href: '/dashboard/student/resources',        icon: FolderOpen },
-    { label: 'Attendance',      href: '/dashboard/student/attendance',       icon: UserCheck },
-    { label: 'Progress',        href: '/dashboard/student/progress',         icon: BarChart3 },
     { label: 'Messages',        href: '/chat',                               icon: MessageSquare,  badgeKey: 'messages' },
-    { label: 'Wallet',          href: '/dashboard/student/wallet',           icon: Wallet },
     { label: 'Profile',         href: '/profile',                            icon: UserCircle },
   ],
   PARENT: [
@@ -123,7 +118,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
   const location = useLocation();
   const { user, clearAuth } = useAuthStore();
   const badges = useSidebarBadges();
-  const { dismissed, dismiss } = useDismissedBadgesStore();
+  const { seen, markSeen } = useDismissedBadgesStore();
   const scheduleAlertCount = useScheduleAlertsStore((s) => s.count);
   const clearScheduleAlerts = useScheduleAlertsStore((s) => s.clear);
   const isTutor = user?.role === 'TUTOR';
@@ -143,8 +138,9 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
         item.badgeKey !== 'demoRequests' &&
         (location.pathname === item.href || location.pathname.startsWith(item.href + '/')),
     );
-    if (active?.badgeKey) dismiss(active.badgeKey);
-  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Mark the current server count as seen so the dot clears for this page.
+    if (active?.badgeKey) markSeen(active.badgeKey, badges[active.badgeKey] ?? 0);
+  }, [location.pathname, badges]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user) return null;
 
@@ -163,8 +159,9 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
     }
     if (badgeKey === 'scheduleAlert') return scheduleAlertCount;
     if (badgeKey === 'demoRequests') return demoRequestCount;
-    if (dismissed[badgeKey]) return 0;
-    return badges[badgeKey] ?? 0;
+    // Show the dot only when the server count exceeds what the user last saw.
+    const count = badges[badgeKey] ?? 0;
+    return count > (seen[badgeKey] ?? 0) ? count : 0;
   };
 
   const handleLogout = async () => {
