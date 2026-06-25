@@ -106,8 +106,8 @@ async function main() {
   process.stdout.write('='.repeat(50) + '\n');
   process.stdout.write(`  SEED COMPLETE  (password: ${PASSWORD})\n`);
   process.stdout.write('='.repeat(50) + '\n');
-  process.stdout.write('  superadmin@Brainbase Edu.com  (SUPER_ADMIN)\n');
-  process.stdout.write('  admin@Brainbase Edu.com       (ADMIN)\n');
+  process.stdout.write('  superadmin@brainbaseedu.com  (SUPER_ADMIN)\n');
+  process.stdout.write('  admin@brainbaseedu.com       (ADMIN)\n');
   process.stdout.write('='.repeat(50) + '\n\n');
 
   await mongoose.disconnect();
