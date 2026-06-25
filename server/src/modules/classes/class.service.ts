@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ScheduledClassModel } from '../schedules/schedule.model';
-import { ClassStatus, ClassType } from '../schedules/schedule.types';
+import { ClassStatus, ClassType, BillingMode } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { scheduleService } from '../schedules/schedule.service';
 import { walletService } from '../wallets/wallet.service';
@@ -14,7 +14,7 @@ import { StudentProfileModel } from '../students/student.model';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
-import { calculateCommission } from '../../utils/currency';
+import { PLATFORM_FEE_CENTS } from '../../utils/currency';
 import { attendanceService } from '../attendance/attendance.service';
 import { AttendanceStatus } from '../attendance/attendance.types';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
@@ -43,10 +43,11 @@ export class ClassService {
     const costCents = tutorProfile.hourlyRateCents;
 
     // Charge happens at class completion (not booking). Verify student has
-    // enough balance up front so they cannot book a class they cannot pay for.
+    // enough balance up front (rate + platform fee) so they cannot book a class
+    // they cannot pay for.
     if (costCents > 0) {
       const wallet = await walletService.getWallet(studentUserPublicId);
-      if (wallet.balanceCents < costCents) {
+      if (wallet.balanceCents < costCents + PLATFORM_FEE_CENTS) {
         throw new AppError('Insufficient credits to book this class', 402);
       }
     }
@@ -68,6 +69,7 @@ export class ClassService {
         title: dto.title,
         description: dto.description,
         costCents,
+        billingMode: BillingMode.STUDENT_REQUESTED,
         idempotencyKey: dto.idempotencyKey,
         isDeleted: false,
       });
@@ -182,42 +184,66 @@ export class ClassService {
       { userPublicId: 1 },
     ).lean();
 
-    // Charge student → pay tutor, but only if the student actually attended.
-    const studentAttended = !!scheduled.studentJoinedAt;
-    if (scheduled.costCents > 0 && studentAttended && studentProfileForEvent?.userPublicId) {
-      const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
-      const commissionCents = calculateCommission(
-        scheduled.costCents,
-        tutorProfile.commissionRatePercent,
-      );
-      const tutorEarningsCents = scheduled.costCents - commissionCents;
+    // ── Billing on completion ──────────────────────────────────────────────
+    const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
 
-      try {
-        // 1) Debit the student the full per-class charge
-        await walletService.debitWallet({
-          ownerPublicId: studentProfileForEvent.userPublicId,
-          amountCents: scheduled.costCents,
-          description: `Class: ${scheduled.title}`,
-          idempotencyKey: `class-charge-${classPublicId}`,
-          referenceId: classPublicId,
-          referenceType: 'CLASS_COMPLETION',
-        });
+    if (scheduled.billingMode === BillingMode.TUTOR_INVITED) {
+      // Tutor created + invited: students attend FREE. The tutor pays a flat
+      // 2-credit platform fee PER ATTENDING STUDENT, and earns nothing.
+      // tutorCreateClass writes one class doc per student, so completing each
+      // attended doc charges 2 credits → e.g. 10 attendees = 20 credits.
+      const studentAttended = !!scheduled.studentJoinedAt;
+      if (studentAttended && studentProfileForEvent?.userPublicId) {
+        const tutorFeeCents = PLATFORM_FEE_CENTS * 2;
+        try {
+          await walletService.debitWallet({
+            ownerPublicId: tutorProfile.userPublicId,
+            amountCents: tutorFeeCents,
+            description: `Platform fee (hosted class): ${scheduled.title}`,
+            idempotencyKey: `tutor-platform-fee-${classPublicId}`,
+            referenceId: classPublicId,
+            referenceType: 'CLASS_COMPLETION',
+          });
+        } catch {
+          // Insufficient tutor balance complete the class but skip the fee.
+        }
+      }
+    } else {
+      // Student-requested: charge student (rate + fee), pay tutor (rate − fee),
+      // platform keeps the fee from both sides. Only if the student attended.
+      const studentAttended = !!scheduled.studentJoinedAt;
+      if (scheduled.costCents > 0 && studentAttended && studentProfileForEvent?.userPublicId) {
+        const studentChargeCents = scheduled.costCents + PLATFORM_FEE_CENTS;
+        const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
 
-        // 2) Credit the tutor their earnings (charge minus platform commission)
-        await walletService.creditWallet({
-          ownerPublicId: tutorProfile.userPublicId,
-          amountCents: tutorEarningsCents,
-          creditType: CreditType.EARNED_CREDITS,
-          description: `Earnings: ${scheduled.title}`,
-          idempotencyKey: `tutor-earning-${classPublicId}`,
-          referenceId: classPublicId,
-          referenceType: 'CLASS_COMPLETION',
-        });
+        try {
+          // 1) Debit the student the rate plus the platform fee
+          await walletService.debitWallet({
+            ownerPublicId: studentProfileForEvent.userPublicId,
+            amountCents: studentChargeCents,
+            description: `Class: ${scheduled.title}`,
+            idempotencyKey: `class-charge-${classPublicId}`,
+            referenceId: classPublicId,
+            referenceType: 'CLASS_COMPLETION',
+          });
 
-        await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
-      } catch {
-        // Insufficient student balance complete the class but skip the charge.
-        // (Booking already validated balance; this guards edge cases.)
+          // 2) Credit the tutor the rate minus the platform fee
+          if (tutorEarningsCents > 0) {
+            await walletService.creditWallet({
+              ownerPublicId: tutorProfile.userPublicId,
+              amountCents: tutorEarningsCents,
+              creditType: CreditType.EARNED_CREDITS,
+              description: `Earnings: ${scheduled.title}`,
+              idempotencyKey: `tutor-earning-${classPublicId}`,
+              referenceId: classPublicId,
+              referenceType: 'CLASS_COMPLETION',
+            });
+            await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
+          }
+        } catch {
+          // Insufficient student balance complete the class but skip the charge.
+          // (Booking already validated balance; this guards edge cases.)
+        }
       }
     }
 
@@ -300,6 +326,84 @@ export class ClassService {
       tutorUserPublicId: cancelledTutorProfile?.userPublicId ?? '',
       studentUserPublicId: cancelledStudentProfile?.userPublicId ?? '',
     });
+
+    return updated!;
+  }
+
+  /**
+   * Refund/reverse a COMPLETED, already-charged class.
+   * STUDENT_REQUESTED: refund the student (rate + fee) and claw back the tutor's
+   * earning (rate − fee). TUTOR_INVITED: refund the tutor the platform fee they paid.
+   * Idempotent via per-class transaction keys + the isRefunded flag.
+   */
+  async refundClass(
+    classPublicId: string,
+    actorUserPublicId: string,
+    reason: string,
+  ): Promise<IScheduledClass> {
+    const scheduled = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (!scheduled) throw new NotFoundError('Scheduled class');
+    if (scheduled.status !== ClassStatus.COMPLETED) {
+      throw new ConflictError('Only completed classes can be refunded');
+    }
+    if (scheduled.isRefunded) throw new ConflictError('Class already refunded');
+
+    const studentAttended = !!scheduled.studentJoinedAt;
+    const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
+
+    if (scheduled.billingMode === BillingMode.TUTOR_INVITED) {
+      // Tutor paid a 2-credit fee per attending student → refund it.
+      if (studentAttended) {
+        await walletService.refundWallet({
+          ownerPublicId: tutorProfile.userPublicId,
+          amountCents: PLATFORM_FEE_CENTS * 2,
+          description: `Refund — platform fee: ${scheduled.title}`,
+          idempotencyKey: `tutor-fee-refund-${classPublicId}`,
+          referenceId: classPublicId,
+          referenceType: 'CLASS_REFUND',
+        });
+      }
+    } else if (scheduled.costCents > 0 && studentAttended) {
+      const studentProfile = await StudentProfileModel.findOne(
+        { publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 },
+      ).lean();
+      if (studentProfile?.userPublicId) {
+        const studentChargeCents = scheduled.costCents + PLATFORM_FEE_CENTS;
+        const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
+
+        // 1) Refund the student in full (rate + fee). Must succeed before we mark refunded.
+        await walletService.refundWallet({
+          ownerPublicId: studentProfile.userPublicId,
+          amountCents: studentChargeCents,
+          description: `Refund: ${scheduled.title}`,
+          idempotencyKey: `class-refund-${classPublicId}`,
+          referenceId: classPublicId,
+          referenceType: 'CLASS_REFUND',
+        });
+
+        // 2) Claw back the tutor's earning (best-effort — may have been spent).
+        if (tutorEarningsCents > 0) {
+          try {
+            await walletService.reverseWallet({
+              ownerPublicId: tutorProfile.userPublicId,
+              amountCents: tutorEarningsCents,
+              description: `Reversal: ${scheduled.title}`,
+              idempotencyKey: `tutor-reversal-${classPublicId}`,
+              referenceId: classPublicId,
+              referenceType: 'CLASS_REFUND',
+            });
+          } catch {
+            // Tutor balance too low to claw back — platform absorbs the difference.
+          }
+        }
+      }
+    }
+
+    const updated = await ScheduledClassModel.findOneAndUpdate(
+      { publicId: classPublicId },
+      { $set: { isRefunded: true, refundedAt: new Date(), cancellationReason: reason, cancelledBy: actorUserPublicId } },
+      { new: true },
+    ).lean();
 
     return updated!;
   }
@@ -447,6 +551,7 @@ export class ClassService {
           title: dto.title,
           description: dto.description,
           costCents: 0,
+          billingMode: BillingMode.TUTOR_INVITED,
           idempotencyKey: uuidv4(),
           isDeleted: false,
         });

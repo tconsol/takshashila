@@ -29,7 +29,7 @@ export const useThemeStore = create<ThemeStore>()(
       },
     }),
     {
-      name: 'takshashila-theme',
+      name: 'Brainbase Edu-theme',
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {

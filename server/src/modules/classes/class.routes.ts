@@ -27,6 +27,7 @@ router.post('/:classId/join', classController.joinClass.bind(classController));
 router.post('/:classId/start', requireRole(Role.TUTOR, Role.PRINCIPAL), classController.startClass.bind(classController));
 router.post('/:classId/complete', requireRole(Role.TUTOR, Role.PRINCIPAL), classController.completeClass.bind(classController));
 router.post('/:classId/cancel', validate(cancelClassSchema), classController.cancelClass.bind(classController));
+router.post('/:classId/refund', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.PRINCIPAL, Role.TUTOR), validate(cancelClassSchema), classController.refundClass.bind(classController));
 router.patch('/:classId/meeting-url', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(setMeetingUrlSchema), classController.setMeetingUrl.bind(classController));
 router.patch('/:classId/reschedule-by-tutor', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(tutorRescheduleSchema), classController.tutorReschedule.bind(classController));
 router.post('/:classId/recording', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(saveRecordingSchema), classController.saveRecording.bind(classController));

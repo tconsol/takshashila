@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import { ClassType, ClassStatus, AvailabilityStatus } from './schedule.types';
+import { ClassType, ClassStatus, AvailabilityStatus, BillingMode } from './schedule.types';
 import type { IAvailabilitySlot, IScheduledClass } from './schedule.types';
 
 const availabilitySlotSchema = new Schema<IAvailabilitySlot>(
@@ -52,11 +52,18 @@ const scheduledClassSchema = new Schema<IScheduledClass>(
     recordingUrl: { type: String },
     recordingGcsKey: { type: String },
     costCents: { type: Number, default: 0 },
+    billingMode: {
+      type: String,
+      enum: Object.values(BillingMode),
+      default: BillingMode.STUDENT_REQUESTED,
+    },
     idempotencyKey: { type: String, required: true, unique: true },
     studentJoinedAt: { type: Date },
     cancellationReason: { type: String },
     cancelledBy: { type: String },
     rescheduledFromId: { type: String },
+    isRefunded: { type: Boolean, default: false },
+    refundedAt: { type: Date },
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true },

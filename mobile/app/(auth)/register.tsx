@@ -79,7 +79,7 @@ export default function RegisterScreen() {
         >
           <View className="mb-8">
             <Text className="text-3xl font-bold text-gray-900">Create account</Text>
-            <Text className="text-muted mt-1">Join Takshashila as a student</Text>
+            <Text className="text-muted mt-1">Join brainbaseeduas a student</Text>
           </View>
 
           <View className="flex-row gap-3">

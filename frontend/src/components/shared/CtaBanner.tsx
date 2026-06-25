@@ -88,7 +88,7 @@ export function CtaBanner() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.2 }}
             >
-              Join thousands of families on Takshashila. Start with{' '}
+              Join thousands of families on Brainbase Edu. Start with{' '}
               <span className="font-bold text-amber-300">3 free demo classes</span> no commitment needed.
             </motion.p>
 

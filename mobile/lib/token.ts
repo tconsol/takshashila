@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ACCESS_KEY = 'takshashila_access_token';
-const REFRESH_KEY = 'takshashila_refresh_token';
+const ACCESS_KEY = 'Brainbase Edu_access_token';
+const REFRESH_KEY = 'Brainbase Edu_refresh_token';
 
 export const tokenStorage = {
   setTokens: async (access: string, refresh: string) => {

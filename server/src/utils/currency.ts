@@ -1,3 +1,6 @@
+/** 1 credit = 100 cents. Flat platform fee charged per side of a paid class. */
+export const PLATFORM_FEE_CENTS = 100;
+
 export function dollarsToCents(dollars: number): number {
   return Math.round(dollars * 100);
 }

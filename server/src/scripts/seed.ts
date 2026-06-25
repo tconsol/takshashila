@@ -1,5 +1,5 @@
 /**
- * Seed Script - Takshashila LMS
+ * Seed Script - brainbaseeduLMS
  *
  * Run:  npm run seed
  *
@@ -75,7 +75,7 @@ async function main() {
   await UserModel.insertMany([
     {
       publicId: uuidv4(),
-      email: 'superadmin@takshashila.com',
+      email: 'superadmin@Brainbase Edu.com',
       firstName: 'Super',
       lastName: 'Admin',
       role: 'SUPER_ADMIN',
@@ -88,7 +88,7 @@ async function main() {
     },
     {
       publicId: uuidv4(),
-      email: 'admin@takshashila.com',
+      email: 'admin@Brainbase Edu.com',
       firstName: 'Admin',
       lastName: 'User',
       role: 'ADMIN',
@@ -106,8 +106,8 @@ async function main() {
   process.stdout.write('='.repeat(50) + '\n');
   process.stdout.write(`  SEED COMPLETE  (password: ${PASSWORD})\n`);
   process.stdout.write('='.repeat(50) + '\n');
-  process.stdout.write('  superadmin@takshashila.com  (SUPER_ADMIN)\n');
-  process.stdout.write('  admin@takshashila.com       (ADMIN)\n');
+  process.stdout.write('  superadmin@Brainbase Edu.com  (SUPER_ADMIN)\n');
+  process.stdout.write('  admin@Brainbase Edu.com       (ADMIN)\n');
   process.stdout.write('='.repeat(50) + '\n\n');
 
   await mongoose.disconnect();

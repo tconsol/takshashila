@@ -22,15 +22,15 @@ import CardSwap, { Card } from '../components/landing/CardSwap';
 import { ChatBot } from '../components/landing/FloatingWidgets';
 
 const CODE_LINES: TermLine[] = [
-  { type: 'cmd', text: 'takshashila start --subject coding' },
+  { type: 'cmd', text: 'brainbaseedustart --subject coding' },
   { type: 'muted', text: 'Finding the perfect tutor for you…' },
   { type: 'ok', text: '✔ Matched with Priya · Python & Web Dev · ★ 4.9' },
   { type: 'gap' },
-  { type: 'cmd', text: 'takshashila demo --free' },
+  { type: 'cmd', text: 'brainbaseedudemo --free' },
   { type: 'ok', text: '✔ 3 free demo classes added to your wallet' },
   { type: 'out', text: '  Live class starts in 2 minutes…' },
   { type: 'gap' },
-  { type: 'cmd', text: 'takshashila progress' },
+  { type: 'cmd', text: 'brainbaseeduprogress' },
   { type: 'out', text: '  Attendance 94%  ·  Worksheets 12/12  ·  Streak 🔥 7 days' },
   { type: 'ok', text: '✔ You\'re on track. Keep going!' },
 ];
@@ -189,7 +189,7 @@ export function LandingPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-extrabold tracking-tight">Takshashila</span>
+            <span className="text-xl font-extrabold tracking-tight">Brainbase Edu</span>
           </Link>
 
           <div className="hidden items-center gap-7 md:flex">
@@ -855,7 +855,7 @@ export function LandingPage() {
               </span>
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              Whether you're learning, teaching, parenting or running a school Takshashila fits the way you work.
+              Whether you're learning, teaching, parenting or running a school brainbaseedufits the way you work.
             </p>
           </motion.div>
 
@@ -1124,11 +1124,11 @@ export function LandingPage() {
               </Sticker>
             </motion.div>
 
-            {/* Takshashila way */}
+            {/* brainbaseeduway */}
             <motion.div custom={1} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}>
               <Sticker rotate="rotate-1" className="relative h-full overflow-hidden bg-indigo-600 p-7">
                 <Sparkle className="absolute right-5 top-5 h-9 w-9 text-white/20" />
-                <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">With Takshashila</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">With Brainbase Edu</p>
                 <h3 className="mt-1 text-2xl font-extrabold text-white">The smart way</h3>
                 <ul className="mt-6 space-y-3.5">
                   {[
@@ -1223,7 +1223,7 @@ export function LandingPage() {
       {/* ════════ SCROLL REVEAL STATEMENT ════════ */}
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <ScrollReveal text="We believe every child deserves a tutor who makes learning click patient, expert and genuinely fun. That's the whole point of Takshashila." />
+          <ScrollReveal text="We believe every child deserves a tutor who makes learning click patient, expert and genuinely fun. That's the whole point of Brainbase Edu." />
         </div>
       </section>
 
@@ -1392,7 +1392,7 @@ export function LandingPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
                   <GraduationCap className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-lg font-extrabold text-white">Takshashila</span>
+                <span className="text-lg font-extrabold text-white">Brainbase Edu</span>
               </div>
               <p className="text-sm leading-relaxed text-indigo-200">
                 India's friendliest tutoring marketplace connecting students with expert tutors, live.
@@ -1428,7 +1428,7 @@ export function LandingPage() {
           </div>
 
           <div className="relative z-10 mt-10 flex flex-col items-center gap-4 border-t border-white/10 pt-6 text-sm md:flex-row md:justify-between">
-            <p className="font-semibold text-indigo-300">© 2026 Takshashila. All rights reserved.</p>
+            <p className="font-semibold text-indigo-300">© 2026 Brainbase Edu. All rights reserved.</p>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-white/20"

@@ -33,7 +33,7 @@ export function AuthLayout() {
               <div className="h-10 w-10 rounded-2xl bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
                 <GraduationCap className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-white tracking-tight">Takshashila</span>
+              <span className="text-xl font-bold text-white tracking-tight">Brainbase Edu</span>
             </Link>
 
             {/* Hero */}
@@ -46,7 +46,7 @@ export function AuthLayout() {
                 The smarter way<br />to learn and teach
               </h1>
               <p className="text-white/75 text-sm leading-relaxed max-w-md">
-                Takshashila connects students with expert tutors, empowers principals with full oversight, and automates everything in between.
+                brainbaseeduconnects students with expert tutors, empowers principals with full oversight, and automates everything in between.
               </p>
             </div>
 
@@ -82,7 +82,7 @@ export function AuthLayout() {
             {/* Testimonial */}
             <div className="rounded-2xl bg-white/10 backdrop-blur-sm p-4 mt-auto">
               <p className="text-[13px] text-white/80 leading-relaxed line-clamp-3">
-                &ldquo;Takshashila helped me manage 60+ tutors effortlessly. Analytics and scheduling are exactly what an institution needs.&rdquo;
+                &ldquo;brainbaseeduhelped me manage 60+ tutors effortlessly. Analytics and scheduling are exactly what an institution needs.&rdquo;
               </p>
               <div className="mt-3 flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-violet-400/40 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">AR</div>
@@ -103,7 +103,7 @@ export function AuthLayout() {
           <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center">
             <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="text-base font-bold text-slate-900 dark:text-white">Takshashila</span>
+          <span className="text-base font-bold text-slate-900 dark:text-white">Brainbase Edu</span>
         </Link>
 
         <div className="flex min-h-full items-center justify-center px-6 py-8 lg:py-10">

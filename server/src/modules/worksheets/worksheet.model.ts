@@ -52,7 +52,7 @@ const worksheetSchema = new Schema<IWorksheet>(
 
 worksheetSchema.index({ tutorPublicId: 1, type: 1, createdAt: -1 });
 worksheetSchema.index({ assignedToStudentPublicIds: 1, status: 1 });
-worksheetSchema.index({ classPublicId: 1 });
+// classPublicId already indexed via `index: true` on the field above.
 
 const submissionSchema = new Schema<IWorksheetSubmission>(
   {

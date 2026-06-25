@@ -149,7 +149,7 @@ export const HangingIdCard = ({
                 className="px-4 py-4 flex flex-col items-center gap-2"
                 style={{ background: `linear-gradient(135deg, ${accentColor} 0%, #6366f1 100%)` }}
               >
-                <p className="text-[9px] font-bold tracking-[0.25em] text-white/70 uppercase">Takshashila</p>
+                <p className="text-[9px] font-bold tracking-[0.25em] text-white/70 uppercase">Brainbase Edu</p>
                 <div
                   className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm shadow-inner text-white font-bold text-xl"
                 >

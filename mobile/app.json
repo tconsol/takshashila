@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "Takshashila Student",
-    "slug": "takshashila-student",
+    "name": "brainbaseeduStudent",
+    "slug": "Brainbase Edu-student",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "takshashila",
+    "scheme": "Brainbase Edu",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.takshashila.student"
+      "bundleIdentifier": "com.Brainbase Edu.student"
     },
     "android": {
-      "package": "com.takshashila.student"
+      "package": "com.Brainbase Edu.student"
     },
     "plugins": [
       "expo-router",

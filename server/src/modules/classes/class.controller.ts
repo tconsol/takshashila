@@ -55,6 +55,13 @@ export class ClassController {
     } catch (error) { next(error); }
   }
 
+  async refundClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const cls = await classService.refundClass(req.params.classId, req.user!.publicId, req.body.reason);
+      sendSuccess(res, cls, 'Class refunded');
+    } catch (error) { next(error); }
+  }
+
   async setMeetingUrl(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const cls = await classService.setMeetingUrl(req.params.classId, req.body);

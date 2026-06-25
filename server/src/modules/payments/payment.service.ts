@@ -19,16 +19,23 @@ const razorpay = new Razorpay({
 });
 
 export class PaymentService {
-  async createOrder(userPublicId: string, dto: CreatePaymentOrderDto): Promise<IPayment> {
+  async createOrder(
+    userPublicId: string,
+    dto: CreatePaymentOrderDto,
+  ): Promise<IPayment & { clientSecret?: string }> {
     let providerOrderId: string;
+    let clientSecret: string | undefined;
 
     if (dto.provider === PaymentProvider.STRIPE) {
       const intent = await stripe.paymentIntents.create({
         amount: dto.amountCents,
         currency: dto.currency.toLowerCase(),
         metadata: { userPublicId },
+        automatic_payment_methods: { enabled: true },
       });
       providerOrderId = intent.id;
+      // Frontend needs the client secret to confirm the card payment.
+      clientSecret = intent.client_secret ?? undefined;
     } else {
       const order = await razorpay.orders.create({
         amount: dto.amountCents,
@@ -50,7 +57,7 @@ export class PaymentService {
       metadata: dto.metadata,
     });
 
-    return payment.toObject();
+    return { ...payment.toObject(), clientSecret };
   }
 
   async verifyAndCredit(userPublicId: string, dto: VerifyPaymentDto): Promise<IPayment> {

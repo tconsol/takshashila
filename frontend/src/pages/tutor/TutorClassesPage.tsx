@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ClipboardList, Plus, Calendar } from 'lucide-react';
+import { BookOpen, ClipboardList, Plus, Calendar, RotateCcw } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { ClassCard } from '../../components/shared/ClassCard';
 import { Tabs } from '../../components/ui/Tabs';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-import { useMyClassesAsTutor, useCompleteClass, useCancelClass } from '../../hooks/use-classes';
+import { useMyClassesAsTutor, useCompleteClass, useCancelClass, useRefundClass } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
 import { WorksheetUploadModal } from '../../features/worksheets/WorksheetUploadModal';
 import { TutorRescheduleModal } from '../../features/classes/TutorCreateClassModal';
@@ -24,6 +24,8 @@ export function TutorClassesPage() {
   const [activeTab, setActiveTab] = useState('SCHEDULED');
   const [cancelTarget, setCancelTarget] = useState<ClassRecord | null>(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [refundTarget, setRefundTarget] = useState<ClassRecord | null>(null);
+  const [refundReason, setRefundReason] = useState('');
   const [uploadTarget, setUploadTarget] = useState<ClassRecord | null>(null);
   const [uploadType, setUploadType] = useState<'WORKSHEET' | 'ASSIGNMENT'>('WORKSHEET');
   const [rescheduleTarget, setRescheduleTarget] = useState<ClassRecord | null>(null);
@@ -34,6 +36,14 @@ export function TutorClassesPage() {
 
   const { mutateAsync: completeClass } = useCompleteClass();
   const { mutateAsync: cancelClass, isPending: cancelling } = useCancelClass();
+  const { mutateAsync: refundClass, isPending: refunding } = useRefundClass();
+
+  const handleRefund = async () => {
+    if (!refundTarget) return;
+    await refundClass({ classId: refundTarget.publicId, reason: refundReason });
+    setRefundTarget(null);
+    setRefundReason('');
+  };
 
   const { data: studentsData } = useMyStudentsAsTutor({ limit: '200' });
   const studentList = (studentsData?.items ?? [])
@@ -118,6 +128,18 @@ export function TutorClassesPage() {
                   >
                     <ClipboardList className="h-3.5 w-3.5" /> Upload Assignment
                   </button>
+                  {cls.isRefunded ? (
+                    <span className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5">
+                      <RotateCcw className="h-3.5 w-3.5" /> Refunded
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => { setRefundTarget(cls); setRefundReason(''); }}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg py-1.5 transition-colors"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Refund
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -149,6 +171,36 @@ export function TutorClassesPage() {
             onChange={(e) => setCancelReason(e.target.value)}
             rows={3}
             placeholder="Reason for cancellation…"
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+          />
+        </div>
+      </Modal>
+
+      {/* Refund modal */}
+      <Modal
+        open={!!refundTarget}
+        onClose={() => setRefundTarget(null)}
+        title="Refund Class"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRefundTarget(null)}>Back</Button>
+            <Button variant="danger" onClick={handleRefund} loading={refunding} disabled={!refundReason.trim()}>
+              Confirm Refund
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            This reverses the charge for a completed class — the student is refunded in full and your
+            earning for it is clawed back. This cannot be undone.
+          </p>
+          <textarea
+            value={refundReason}
+            onChange={(e) => setRefundReason(e.target.value)}
+            rows={3}
+            placeholder="Reason for refund…"
             className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
           />
         </div>

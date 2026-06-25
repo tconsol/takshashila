@@ -4,6 +4,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { useTutorCreateClass, useTutorReschedule } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
+import { PLATFORM_FEE_CREDITS } from '../../lib/billing';
 import type { ClassRecord } from '../../services/classes.service';
 
 type ClassType = 'DEMO' | 'ONE_ON_ONE' | 'GROUP' | 'RECURRING';
@@ -116,6 +117,16 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
       }
     >
       <div className="space-y-5">
+        {/* Billing notice — tutor-created classes are free for students */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 dark:border-amber-800/40 dark:bg-amber-900/20">
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            <strong>Heads up:</strong> classes you create and invite students to are <strong>free for students</strong>.
+            You'll be charged a <strong>{PLATFORM_FEE_CREDITS * 2}-credit</strong> platform fee from your wallet per
+            student who attends (e.g. {PLATFORM_FEE_CREDITS * 2 * 10} credits for 10 attendees in a group class).
+            No-shows cost nothing.
+          </p>
+        </div>
+
         {/* Class type */}
         <div>
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Class Type</p>

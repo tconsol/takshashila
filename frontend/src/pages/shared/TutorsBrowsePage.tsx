@@ -498,7 +498,7 @@ function PublicNav() {
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600">
             <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="text-lg font-bold text-slate-900 dark:text-white">Takshashila</span>
+          <span className="text-lg font-bold text-slate-900 dark:text-white">Brainbase Edu</span>
         </Link>
         <div className="hidden gap-7 md:flex">
           <Link to="/" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Home</Link>

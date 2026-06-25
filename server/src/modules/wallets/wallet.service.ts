@@ -197,6 +197,110 @@ export class WalletService {
     }
   }
 
+  /** Refund money back into a wallet (e.g. a charged class was reversed). */
+  async refundWallet(dto: DebitWalletDto): Promise<IWalletTransaction> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const existing = await WalletTransactionModel.findOne({ idempotencyKey: dto.idempotencyKey }).session(session);
+      if (existing) { await session.abortTransaction(); return existing.toObject(); }
+
+      const wallet = await WalletModel.findOne({ ownerPublicId: dto.ownerPublicId, isDeleted: false }).session(session);
+      if (!wallet) throw new NotFoundError('Wallet');
+
+      const balanceBefore = wallet.balanceCents;
+      const balanceAfter = balanceBefore + dto.amountCents;
+
+      await WalletModel.findByIdAndUpdate(
+        wallet._id,
+        { $inc: { balanceCents: dto.amountCents, totalSpentCents: -dto.amountCents } },
+        { session },
+      );
+
+      const tx = await WalletTransactionModel.create([{
+        publicId: uuidv4(),
+        idempotencyKey: dto.idempotencyKey,
+        walletPublicId: wallet.publicId,
+        ownerPublicId: dto.ownerPublicId,
+        type: TransactionType.REFUND,
+        amountCents: dto.amountCents,
+        balanceBeforeCents: balanceBefore,
+        balanceAfterCents: balanceAfter,
+        description: dto.description,
+        referenceId: dto.referenceId,
+        referenceType: dto.referenceType,
+        metadata: dto.metadata,
+        status: TransactionStatus.COMPLETED,
+      }], { session });
+
+      await session.commitTransaction();
+      domainEvents.emit(DomainEvent.CREDITS_ADDED, {
+        ownerPublicId: dto.ownerPublicId,
+        amountCents: dto.amountCents,
+        creditType: CreditType.PURCHASED_CREDITS,
+      });
+      return tx[0].toObject();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  /** Reverse a credit out of a wallet (e.g. claw back tutor earnings on refund). */
+  async reverseWallet(dto: DebitWalletDto): Promise<IWalletTransaction> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const existing = await WalletTransactionModel.findOne({ idempotencyKey: dto.idempotencyKey }).session(session);
+      if (existing) { await session.abortTransaction(); return existing.toObject(); }
+
+      const wallet = await WalletModel.findOne({ ownerPublicId: dto.ownerPublicId, isDeleted: false }).session(session);
+      if (!wallet) throw new NotFoundError('Wallet');
+      if (wallet.balanceCents < dto.amountCents) {
+        throw new AppError('Insufficient balance to reverse', 402);
+      }
+
+      const balanceBefore = wallet.balanceCents;
+      const balanceAfter = balanceBefore - dto.amountCents;
+
+      await WalletModel.findByIdAndUpdate(
+        wallet._id,
+        { $inc: { balanceCents: -dto.amountCents, earnedCreditsCents: -dto.amountCents, totalEarnedCents: -dto.amountCents } },
+        { session },
+      );
+
+      const tx = await WalletTransactionModel.create([{
+        publicId: uuidv4(),
+        idempotencyKey: dto.idempotencyKey,
+        walletPublicId: wallet.publicId,
+        ownerPublicId: dto.ownerPublicId,
+        type: TransactionType.REVERSAL,
+        amountCents: dto.amountCents,
+        balanceBeforeCents: balanceBefore,
+        balanceAfterCents: balanceAfter,
+        description: dto.description,
+        referenceId: dto.referenceId,
+        referenceType: dto.referenceType,
+        metadata: dto.metadata,
+        status: TransactionStatus.COMPLETED,
+      }], { session });
+
+      await session.commitTransaction();
+      domainEvents.emit(DomainEvent.CREDITS_DEDUCTED, {
+        ownerPublicId: dto.ownerPublicId,
+        amountCents: dto.amountCents,
+      });
+      return tx[0].toObject();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
   async getTransactionHistory(
     ownerPublicId: string,
     query: PaginationQuery,

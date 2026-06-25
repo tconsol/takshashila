@@ -1,10 +1,18 @@
+import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { ProtectedRoute } from './protected-route';
+import { Spinner } from '../components/ui/Loading';
 
-// Landing
-import { LandingPage } from '../pages/LandingPage';
+// Heavy, self-contained routes are code-split so they don't bloat the initial bundle.
+const LandingPage = lazy(() => import('../pages/LandingPage').then((m) => ({ default: m.LandingPage })));
+const StudentGamesPage = lazy(() => import('../pages/student/StudentGamesPage').then((m) => ({ default: m.StudentGamesPage })));
+const ClassRoomPage = lazy(() => import('../features/live-class/ClassRoomPage').then((m) => ({ default: m.ClassRoomPage })));
+
+const lazyEl = (node: ReactNode): ReactNode => (
+  <Suspense fallback={<div className="flex h-screen items-center justify-center"><Spinner /></div>}>{node}</Suspense>
+);
 
 // Auth
 import { LoginPage } from '../pages/auth/Login';
@@ -71,7 +79,6 @@ import { StudentWalletPage } from '../pages/student/StudentWalletPage';
 import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
 import { StudentWorksheetTestPage } from '../pages/student/StudentWorksheetTestPage';
 import { StudentResourcesPage } from '../pages/student/StudentResourcesPage';
-import { StudentGamesPage } from '../pages/student/StudentGamesPage';
 import { StudentParentRequestsPage } from '../pages/student/StudentParentRequestsPage';
 
 // Parent pages
@@ -90,7 +97,6 @@ import { SupportTicketsPage } from '../pages/support/SupportTicketsPage';
 import { SupportAccountsPage } from '../pages/support/SupportAccountsPage';
 
 // Live class
-import { ClassRoomPage } from '../features/live-class/ClassRoomPage';
 
 // Chat
 import { ChatPage } from '../pages/shared/ChatPage';
@@ -104,7 +110,7 @@ import { ProfilePage } from '../pages/shared/ProfilePage';
 // aggregated). We reuse ParentChildDetailPage with a special "all" param.
 
 export const router = createBrowserRouter([
-  { path: '/', element: <LandingPage /> },
+  { path: '/', element: lazyEl(<LandingPage />) },
   { path: '/tutors', element: <TutorsBrowsePage variant="public" /> },
 
   {
@@ -218,7 +224,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/worksheets', element: <StudentWorksheetsPage /> },
         { path: '/dashboard/student/worksheets/:worksheetId/test', element: <StudentWorksheetTestPage /> },
         { path: '/dashboard/student/resources', element: <StudentResourcesPage /> },
-        { path: '/dashboard/student/games', element: <StudentGamesPage /> },
+        { path: '/dashboard/student/games', element: lazyEl(<StudentGamesPage />) },
         { path: '/dashboard/student/attendance', element: <StudentAttendancePage /> },
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },
         { path: '/dashboard/student/wallet', element: <StudentWalletPage /> },
@@ -277,7 +283,7 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute allowedRoles={['TUTOR', 'STUDENT', 'PRINCIPAL', 'ADMIN', 'SUPER_ADMIN', 'SUPPORT']} />,
     children: [
-      { path: '/class/:classPublicId', element: <ClassRoomPage /> },
+      { path: '/class/:classPublicId', element: lazyEl(<ClassRoomPage />) },
     ],
   },
 

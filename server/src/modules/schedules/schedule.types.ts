@@ -7,6 +7,19 @@ export const ClassType = {
 } as const;
 export type ClassType = (typeof ClassType)[keyof typeof ClassType];
 
+/**
+ * How a class is billed on completion:
+ * - STUDENT_REQUESTED: student booked the tutor. Student pays (rate + platform fee),
+ *   tutor earns (rate − platform fee). Platform keeps a fee from both sides.
+ * - TUTOR_INVITED: tutor created the class and invited students. Students attend free;
+ *   the tutor pays the platform fee (both sides) and earns nothing.
+ */
+export const BillingMode = {
+  STUDENT_REQUESTED: 'STUDENT_REQUESTED',
+  TUTOR_INVITED: 'TUTOR_INVITED',
+} as const;
+export type BillingMode = (typeof BillingMode)[keyof typeof BillingMode];
+
 export const ClassStatus = {
   SCHEDULED: 'SCHEDULED',
   LIVE: 'LIVE',
@@ -62,11 +75,14 @@ export interface IScheduledClass {
   recordingUrl?: string;
   recordingGcsKey?: string;
   costCents: number;
+  billingMode: BillingMode;
   idempotencyKey: string;
   studentJoinedAt?: Date;
   cancellationReason?: string;
   cancelledBy?: string;
   rescheduledFromId?: string;
+  isRefunded?: boolean;
+  refundedAt?: Date;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;

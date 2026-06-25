@@ -2,7 +2,7 @@ import { createServer } from 'http';
 import app from './app';
 import { env } from './config/env';
 import { connectDatabase } from './config/database';
-import { getRedisClient } from './config/redis';
+import { getRedisClient, verifyRedisConnection } from './config/redis';
 import { logger } from './lib/logger';
 import { initSocketServer } from './sockets/socket.handler';
 import { auditService } from './modules/audit/audit.service';
@@ -15,6 +15,8 @@ import { notificationService } from './modules/notifications/notification.servic
 const RUN_WORKERS = process.env.RUN_WORKERS === 'true';
 
 async function bootstrap() {
+  // Verify Redis first so its status is visible in the terminal even if Mongo fails.
+  await verifyRedisConnection();
   await connectDatabase();
   getRedisClient();
 
@@ -38,7 +40,7 @@ async function bootstrap() {
   }
 
   httpServer.listen(env.PORT, () => {
-    logger.info(`Takshashila API running on port ${env.PORT} [${env.NODE_ENV}]`);
+    logger.info(`brainbaseeduAPI running on port ${env.PORT} [${env.NODE_ENV}]`);
     logger.info(`API base: /api/${env.API_VERSION}`);
   });
 

@@ -6,6 +6,7 @@ export function TutorWalletPage() {
       title="My Earnings"
       subtitle="Earnings from completed classes and transaction history"
       showEarnings
+      allowTopUp={false}
     />
   );
 }

@@ -103,6 +103,21 @@ export function useCancelClass() {
   });
 }
 
+export function useRefundClass() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({ classId, reason }: { classId: string; reason: string }) =>
+      classesService.refund(classId, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: classKeys.all });
+      qc.invalidateQueries({ queryKey: ['wallet'] });
+      toast.success('Class refunded', 'Credits have been returned to the student.');
+    },
+    onError: (err: Error) => toast.error('Could not refund class', err.message),
+  });
+}
+
 export function useTutorCreateClass() {
   const qc = useQueryClient();
   const toast = useToast();

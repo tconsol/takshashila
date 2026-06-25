@@ -22,6 +22,6 @@ const resourceSchema = new Schema<IResource>(
 );
 
 resourceSchema.index({ tutorPublicId: 1, createdAt: -1 });
-resourceSchema.index({ classPublicId: 1 });
+// classPublicId already indexed via `index: true` on the field above.
 
 export const ResourceModel = mongoose.model<IResource>('Resource', resourceSchema);

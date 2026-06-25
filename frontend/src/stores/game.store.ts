@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { gameSounds } from '../lib/game-sounds';
 
-const SOUND_KEY = 'takshashila_game_sound';
+const SOUND_KEY = 'Brainbase Edu_game_sound';
 
 interface GameStore {
   paused: boolean;

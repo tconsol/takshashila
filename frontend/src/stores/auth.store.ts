@@ -33,7 +33,7 @@ export const useAuthStore = create<AuthStore>()(
       setLoading: (isLoading) => set({ isLoading }),
     }),
     {
-      name: 'takshashila-auth',
+      name: 'Brainbase Edu-auth',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated, accessToken: state.accessToken }),
     },

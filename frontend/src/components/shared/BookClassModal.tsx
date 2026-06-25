@@ -12,6 +12,7 @@ import { useBookClass } from '../../hooks/use-classes';
 import { useCreateDemoRequest } from '../../hooks/use-demo-requests';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuthStore } from '../../stores/auth.store';
+import { PLATFORM_FEE_CREDITS } from '../../lib/billing';
 import type { TutorProfile } from '../../services/tutors.service';
 
 const schema = z.object({
@@ -151,6 +152,27 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
             </p>
           </div>
         )}
+
+        {!isDemo && (() => {
+          const rate = tutor.hourlyRateCents ?? 0;
+          const rateCredits = rate / 100;
+          const total = rateCredits + PLATFORM_FEE_CREDITS;
+          return (
+            <div className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 dark:border-violet-800/40 dark:bg-violet-900/20">
+              <p className="mb-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300">Cost (charged after the class)</p>
+              <div className="space-y-0.5 text-xs text-violet-700/90 dark:text-violet-300/90">
+                <div className="flex justify-between"><span>Tutor rate</span><span>{rateCredits} credits</span></div>
+                <div className="flex justify-between"><span>Platform fee</span><span>{PLATFORM_FEE_CREDITS} credit</span></div>
+                <div className="flex justify-between border-t border-violet-200/70 pt-0.5 font-semibold dark:border-violet-700/50">
+                  <span>You pay</span><span>{total} credits</span>
+                </div>
+              </div>
+              <p className="mt-1.5 text-[11px] text-violet-600/80 dark:text-violet-400/80">
+                Charged only when the class is completed and you've attended.
+              </p>
+            </div>
+          );
+        })()}
 
         {slotsLoading ? (
           <p className="text-sm text-gray-500">Loading available slots…</p>

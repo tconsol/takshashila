@@ -161,7 +161,7 @@ export default function MoreScreen() {
         </View>
 
         <Text className="text-center text-[11px] text-gray-400 mt-6">
-          Takshashila Student · v1.0.0
+          brainbaseeduStudent · v1.0.0
         </Text>
       </ScrollView>
     </SafeAreaView>

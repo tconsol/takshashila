@@ -96,12 +96,12 @@ export class NotificationService {
           const inviteUrl = `${env.FRONTEND_URL}/accept-invite?token=${payload.verificationToken}&email=${encodeURIComponent(payload.email)}&firstName=${encodeURIComponent(payload.firstName ?? '')}&lastName=${encodeURIComponent(payload.lastName ?? '')}`;
           await enqueueEmail({
             to: payload.email,
-            subject: "You've been invited to Takshashila!",
+            subject: "You've been invited to Brainbase Edu!",
             html: `
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2 style="color:#4f46e5">You're invited!</h2>
                 <p>Hi ${payload.firstName ?? ''},</p>
-                <p>You have been invited to join Takshashila as a <strong>${payload.role.toLowerCase()}</strong>. Click the button below to set your password and activate your account.</p>
+                <p>You have been invited to join brainbaseeduas a <strong>${payload.role.toLowerCase()}</strong>. Click the button below to set your password and activate your account.</p>
                 <a href="${inviteUrl}"
                    style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
                   Accept Invitation
@@ -110,16 +110,16 @@ export class NotificationService {
                 <p style="color:#6b7280;font-size:13px">This invite link expires in 7 days.</p>
               </div>
             `,
-            text: `You're invited to Takshashila. Accept your invitation: ${inviteUrl}`,
+            text: `You're invited to Brainbase Edu. Accept your invitation: ${inviteUrl}`,
           });
         } else {
           const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${payload.verificationToken}`;
           await enqueueEmail({
             to: payload.email,
-            subject: 'Verify your Takshashila account',
+            subject: 'Verify your brainbaseeduaccount',
             html: `
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
-                <h2 style="color:#4f46e5">Welcome to Takshashila!</h2>
+                <h2 style="color:#4f46e5">Welcome to Brainbase Edu!</h2>
                 <p>Thanks for signing up. Please click the button below to verify your email address.</p>
                 <a href="${verifyUrl}"
                    style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -142,7 +142,7 @@ export class NotificationService {
         const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${payload.resetToken}`;
         await enqueueEmail({
           to: payload.email,
-          subject: 'Reset your Takshashila password',
+          subject: 'Reset your brainbaseedupassword',
           html: `
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
               <h2 style="color:#4f46e5">Password Reset Request</h2>
@@ -264,7 +264,7 @@ export class NotificationService {
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2 style="color:#4f46e5">New Join Request</h2>
                 <p>Hi ${principal.firstName},</p>
-                <p><strong>${tutor.firstName} ${tutor.lastName}</strong> (${tutor.email}) has sent a request to join your institution on Takshashila.</p>
+                <p><strong>${tutor.firstName} ${tutor.lastName}</strong> (${tutor.email}) has sent a request to join your institution on Brainbase Edu.</p>
                 <p>Log in to review and approve or reject this request.</p>
                 <a href="${env.FRONTEND_URL}/dashboard/principal/tutors"
                    style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -295,7 +295,7 @@ export class NotificationService {
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2 style="color:#4f46e5">Institution Invitation</h2>
                 <p>Hi ${tutor.firstName},</p>
-                <p><strong>${principal.firstName} ${principal.lastName}</strong> has invited you to join their institution on Takshashila.</p>
+                <p><strong>${principal.firstName} ${principal.lastName}</strong> has invited you to join their institution on Brainbase Edu.</p>
                 <p>Log in to accept or decline this invitation.</p>
                 <a href="${env.FRONTEND_URL}/dashboard/tutor/principals"
                    style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -410,12 +410,12 @@ export class NotificationService {
 
         await enqueueEmail({
           to: user.email,
-          subject: 'Your Takshashila account has been approved!',
+          subject: 'Your brainbaseeduaccount has been approved!',
           html: `
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
               <h2 style="color:#4f46e5">Account Approved!</h2>
               <p>Hi ${user.firstName},</p>
-              <p>Great news! Your principal account on Takshashila has been reviewed and <strong>approved</strong> by our team.</p>
+              <p>Great news! Your principal account on brainbaseeduhas been reviewed and <strong>approved</strong> by our team.</p>
               <p>You can now log in and start managing your institution.</p>
               <a href="${loginUrl}"
                  style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -425,7 +425,7 @@ export class NotificationService {
               <p style="color:#6b7280;font-size:13px">If you have any questions, please contact our support team.</p>
             </div>
           `,
-          text: `Hi ${user.firstName}, your Takshashila principal account has been approved. Log in at: ${loginUrl}`,
+          text: `Hi ${user.firstName}, your brainbaseeduprincipal account has been approved. Log in at: ${loginUrl}`,
         });
 
         await this.create({

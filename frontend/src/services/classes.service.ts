@@ -16,6 +16,7 @@ function mapClass(raw: any): ClassRecord {
     meetingUrl: raw.meetingUrl,
     costCents: raw.costCents ?? 0,
     notes: raw.notes ?? raw.description,
+    isRefunded: raw.isRefunded ?? false,
     createdAt: raw.createdAt,
   };
 }
@@ -62,6 +63,7 @@ export interface ClassRecord {
   meetingUrl?: string;
   costCents: number;
   notes?: string;
+  isRefunded?: boolean;
   createdAt: string;
 }
 
@@ -109,6 +111,9 @@ export const classesService = {
 
   cancel: (classId: string, dto: CancelClassDto) =>
     api.post(`/classes/${classId}/cancel`, dto).then((r) => mapClass(r.data.data)),
+
+  refund: (classId: string, reason: string) =>
+    api.post(`/classes/${classId}/refund`, { reason }).then((r) => mapClass(r.data.data)),
 
   setMeetingUrl: (classId: string, meetingUrl: string) =>
     api.patch(`/classes/${classId}/meeting-url`, { meetingUrl }).then((r) => mapClass(r.data.data)),

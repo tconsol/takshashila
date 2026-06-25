@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Wallet, TrendingUp, Gift, BookOpen, Star } from 'lucide-react';
+import { Wallet, TrendingUp, Gift, BookOpen, Star, Plus } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { TopUpModal } from '../../features/payments/TopUpModal';
 import { api } from '../../lib/axios';
 
 interface WalletData {
@@ -53,9 +56,12 @@ interface WalletPageProps {
   title?: string;
   subtitle?: string;
   showEarnings?: boolean;
+  /** Allow buying credits. Off for roles that only earn (e.g. tutors). */
+  allowTopUp?: boolean;
 }
 
-export function WalletPage({ title = 'Wallet', subtitle = 'Balance and transaction history', showEarnings = false }: WalletPageProps) {
+export function WalletPage({ title = 'Wallet', subtitle = 'Balance and transaction history', showEarnings = false, allowTopUp = true }: WalletPageProps) {
+  const [topUpOpen, setTopUpOpen] = useState(false);
   const { data: wallet, isLoading: walletLoading } = useQuery<WalletData>({
     queryKey: ['wallet', 'me'],
     queryFn: () => api.get('/wallets/me').then((r) => r.data.data),
@@ -70,7 +76,18 @@ export function WalletPage({ title = 'Wallet', subtitle = 'Balance and transacti
 
   return (
     <div className="space-y-6">
-      <PageHeader title={title} subtitle={subtitle} />
+      <PageHeader
+        title={title}
+        subtitle={subtitle}
+        actions={
+          allowTopUp ? (
+            <Button variant="gradient" onClick={() => setTopUpOpen(true)}>
+              <Plus className="h-4 w-4" /> Add Credits
+            </Button>
+          ) : undefined
+        }
+      />
+      {allowTopUp && <TopUpModal open={topUpOpen} onClose={() => setTopUpOpen(false)} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
