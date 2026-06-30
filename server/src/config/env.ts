@@ -21,14 +21,15 @@ const envSchema = z.object({
 
   COOKIE_SECRET: z.string().min(32, 'COOKIE_SECRET must be at least 32 chars'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
-  FRONTEND_URL: z.string().default('http://localhost:5173'),
+  // Strip any trailing slash so links never become `https://site.com//verify-email`.
+  FRONTEND_URL: z.string().default('http://localhost:5173').transform((s) => s.replace(/\/+$/, '')),
 
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().default(1025),
   SMTP_SECURE: z.coerce.boolean().default(false),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  EMAIL_FROM: z.string().default('noreply@Brainbase Edu.com'),
+  EMAIL_FROM: z.string().default('noreply@brainbaseedu.com'),
 
   GCP_PROJECT_ID: z.string().optional(),
   GCP_BUCKET_NAME: z.string().optional(),
@@ -36,6 +37,13 @@ const envSchema = z.object({
   GCP_PRIVATE_KEY: z.string().optional(),
   GCP_CLIENT_EMAIL: z.string().optional(),
   GCP_CLIENT_ID: z.string().optional(),
+
+  // ── Firebase Admin SDK (server-side; FCM push) ──────────────────────────────
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  FIREBASE_PRIVATE_KEY_ID: z.string().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().optional(),
+  FIREBASE_CLIENT_ID: z.string().optional(),
 
   // ── Agora RTC ───────────────────────────────────────────────────────────────
   AGORA_APP_ID: z.string().min(1, 'AGORA_APP_ID is required'),

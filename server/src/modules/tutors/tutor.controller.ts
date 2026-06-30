@@ -59,7 +59,7 @@ export class TutorController {
   async search(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { subject, language, timezone, minRating, minHourlyRateCents, maxHourlyRateCents, isVerified, ...paginationQuery } = req.query as Record<string, string>;
-      // Public, read-heavy endpoint — cache 60s per unique query to cut DB reads/compute.
+      // Public, read-heavy endpoint cache 60s per unique query to cut DB reads/compute.
       const cacheKey = `tutors:search:${JSON.stringify(req.query)}`;
       const result = await cached(cacheKey, 60, () =>
         tutorService.search(
@@ -81,8 +81,13 @@ export class TutorController {
 
   async getByPrincipal(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const principalId = req.params.principalId || req.user!.publicId;
-      const result = await tutorService.getByPrincipal(principalId, req.query);
+      const role = req.user!.role;
+      // Admins hitting /my-tutors (no principalId param) see EVERY tutor on the platform.
+      // /by-principal/:principalId still scopes to that specific principal's tutors.
+      const isAdminAll = !req.params.principalId && (role === 'ADMIN' || role === 'SUPER_ADMIN');
+      const result = isAdminAll
+        ? await tutorService.getAll(req.query)
+        : await tutorService.getByPrincipal(req.params.principalId || req.user!.publicId, req.query);
       sendPaginated(res, result, 'Tutors fetched');
     } catch (error) { next(error); }
   }

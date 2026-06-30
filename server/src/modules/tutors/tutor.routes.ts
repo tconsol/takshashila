@@ -22,7 +22,7 @@ router.post('/me/submit-verification', requireRole(Role.TUTOR, Role.PRINCIPAL), 
 router.get('/my-principal', requireRole(Role.TUTOR, Role.PRINCIPAL), tutorController.getMyPrincipal.bind(tutorController));
 router.get('/by-principal/:principalId', requirePermission(Permission.VIEW_TUTOR_ANALYTICS), tutorController.getByPrincipal.bind(tutorController));
 router.get('/parent/by-principal/:profilePublicId', requireRole(Role.PARENT, Role.STUDENT), tutorController.getByPrincipalForParent.bind(tutorController));
-router.get('/my-tutors', requireRole(Role.PRINCIPAL), tutorController.getByPrincipal.bind(tutorController));
+router.get('/my-tutors', requireRole(Role.PRINCIPAL, Role.ADMIN, Role.SUPER_ADMIN), tutorController.getByPrincipal.bind(tutorController));
 router.get('/:tutorId', tutorController.getByPublicId.bind(tutorController));
 router.post('/:tutorId/approve', requirePermission(Permission.MANAGE_TUTORS), tutorController.approveTutor.bind(tutorController));
 router.post('/:tutorId/suspend', requirePermission(Permission.MANAGE_TUTORS), tutorController.suspendTutor.bind(tutorController));

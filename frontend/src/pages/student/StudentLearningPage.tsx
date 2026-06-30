@@ -3,7 +3,7 @@ import { Tabs } from '../../components/ui/Tabs';
 import { StudentClassesPage } from './StudentClassesPage';
 import { StudentAttendancePage } from './StudentAttendancePage';
 
-/* Combined "Classes" hub — Classes + Attendance in one place.
+/* Combined "Classes" hub Classes + Attendance in one place.
    (Progress was redundant with Attendance, so it's folded in here.) */
 const TABS = [
   { key: 'classes', label: 'Classes' },

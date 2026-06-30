@@ -33,7 +33,7 @@ export function AuthLayout() {
               <div className="h-10 w-10 rounded-2xl bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
                 <GraduationCap className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-white tracking-tight">Brainbase Edu</span>
+              <span className="text-xl font-bold text-white tracking-tight">brainbaseedu</span>
             </Link>
 
             {/* Hero */}
@@ -103,7 +103,7 @@ export function AuthLayout() {
           <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center">
             <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="text-base font-bold text-slate-900 dark:text-white">Brainbase Edu</span>
+          <span className="text-base font-bold text-slate-900 dark:text-white">brainbaseedu</span>
         </Link>
 
         <div className="flex min-h-full items-center justify-center px-6 py-8 lg:py-10">

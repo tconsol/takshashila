@@ -10,6 +10,14 @@ import { CreditType } from '../wallets/wallet.types';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { logger } from '../../lib/logger';
+import { AppError } from '../../utils/error';
+
+// A key is "usable" only if it's set and not a leftover placeholder (your_..., etc.).
+function isRealKey(v: string | undefined): boolean {
+  return !!v && v.length > 8 && !/^your_|^<|placeholder|changeme/i.test(v);
+}
+const STRIPE_READY = isRealKey(process.env.STRIPE_SECRET_KEY);
+const RAZORPAY_READY = isRealKey(process.env.RAZORPAY_KEY_ID) && isRealKey(process.env.RAZORPAY_KEY_SECRET);
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2024-04-10' as never });
 
@@ -26,24 +34,40 @@ export class PaymentService {
     let providerOrderId: string;
     let clientSecret: string | undefined;
 
-    if (dto.provider === PaymentProvider.STRIPE) {
-      const intent = await stripe.paymentIntents.create({
-        amount: dto.amountCents,
-        currency: dto.currency.toLowerCase(),
-        metadata: { userPublicId },
-        automatic_payment_methods: { enabled: true },
-      });
-      providerOrderId = intent.id;
-      // Frontend needs the client secret to confirm the card payment.
-      clientSecret = intent.client_secret ?? undefined;
-    } else {
-      const order = await razorpay.orders.create({
-        amount: dto.amountCents,
-        currency: dto.currency,
-        receipt: uuidv4(),
-        notes: { userPublicId },
-      });
-      providerOrderId = order.id;
+    try {
+      if (dto.provider === PaymentProvider.STRIPE) {
+        if (!STRIPE_READY) {
+          throw new AppError('Card payments (Stripe) are not configured. Please try another method or contact support.', 503);
+        }
+        const intent = await stripe.paymentIntents.create({
+          amount: dto.amountCents,
+          currency: dto.currency.toLowerCase(),
+          metadata: { userPublicId },
+          automatic_payment_methods: { enabled: true },
+        });
+        providerOrderId = intent.id;
+        // Frontend needs the client secret to confirm the card payment.
+        clientSecret = intent.client_secret ?? undefined;
+      } else {
+        if (!RAZORPAY_READY) {
+          throw new AppError('UPI/Razorpay payments are not configured. Please try another method or contact support.', 503);
+        }
+        const order = await razorpay.orders.create({
+          amount: dto.amountCents,
+          currency: dto.currency,
+          receipt: uuidv4(),
+          notes: { userPublicId },
+        });
+        providerOrderId = order.id;
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      // Surface the real provider failure (bad keys, declined, etc.) as a clean 502
+      // instead of a generic 500, and log the detail for debugging.
+      const message = (err as { error?: { description?: string }; message?: string }).error?.description
+        ?? (err as Error).message ?? 'Unknown error';
+      logger.error('Payment provider order creation failed', { provider: dto.provider, error: message });
+      throw new AppError(`Payment provider error: ${message}`, 502);
     }
 
     const payment = await PaymentModel.create({

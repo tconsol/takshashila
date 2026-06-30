@@ -1,20 +1,19 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { useSocket } from '../sockets/use-socket';
 import { SocketEvent } from '../sockets/socket.events';
 import { useToast } from '../components/ui/Toast';
 import { useAuthStore } from '../stores/auth.store';
-import notificationSound from '../assets/aayein-meme.mp3';
 
 const MODULE_KEYS: Record<string, readonly (readonly string[])[]> = {
   principals:      [['principals'], ['admin-overview'], ['badges']],
   users:           [['users'], ['admin-overview'], ['super-admin-overview']],
-  classes:         [['classes']],
+  classes:         [['classes'], ['analytics']],
   schedules:       [['schedules']],
   assignments:     [['assignments']],
-  attendance:      [['attendance']],
-  wallet:          [['wallet'], ['transactions']],
+  attendance:      [['attendance'], ['analytics']],
+  wallet:          [['wallet'], ['transactions'], ['analytics']],
   tickets:         [['tickets'], ['admin-overview'], ['badges']],
   students:        [['students'], ['badges']],
   'join-requests': [['join-requests'], ['badges']],
@@ -31,27 +30,6 @@ export function useDataInvalidation() {
   const toast = useToast();
   const location = useLocation();
   const { user } = useAuthStore();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    const audio = new Audio(notificationSound);
-    audio.volume = 0.6;
-    audioRef.current = audio;
-
-    // Unlock autoplay on first user interaction (browsers block audio until then)
-    const unlock = () => {
-      audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
-      document.removeEventListener('click', unlock, true);
-      document.removeEventListener('keydown', unlock, true);
-    };
-    document.addEventListener('click', unlock, true);
-    document.addEventListener('keydown', unlock, true);
-
-    return () => {
-      document.removeEventListener('click', unlock, true);
-      document.removeEventListener('keydown', unlock, true);
-    };
-  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -62,20 +40,11 @@ export function useDataInvalidation() {
       keys.forEach((key) => qc.invalidateQueries({ queryKey: key as string[] }));
     };
 
-    const handleChatMessage = (msg: { senderPublicId: string; conversationPublicId: string }) => {
-      // Always refresh conversation list (re-sorts to top + updates preview)
+    const handleChatMessage = () => {
+      // Refresh conversation list + unread/badge counts (notification sound removed).
       qc.invalidateQueries({ queryKey: ['chat', 'conversations'] });
       qc.invalidateQueries({ queryKey: ['chat', 'unread'] });
       qc.invalidateQueries({ queryKey: ['badges'] });
-
-      const isFromMe = msg.senderPublicId === user?.publicId;
-      const isViewingConversation = location.pathname === `/chat/${msg.conversationPublicId}`;
-
-      // Play sound only if message is from someone else and we're not viewing that conversation
-      if (!isFromMe && !isViewingConversation && audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      }
     };
 
     const handleStudentInvited = () => {
@@ -106,11 +75,6 @@ export function useDataInvalidation() {
     const handleWorksheetNew = ({ title, type }: { worksheetPublicId: string; title: string; type: string; subject?: string }) => {
       qc.invalidateQueries({ queryKey: ['worksheets'] });
       qc.invalidateQueries({ queryKey: ['badges'] });
-      const isOnWorksheetsPage = location.pathname.includes('/worksheets');
-      if (!isOnWorksheetsPage && audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      }
       toast.info(`New ${type === 'ASSIGNMENT' ? 'assignment' : 'worksheet'} available!`, title);
     };
 

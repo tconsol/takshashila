@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Users, Video, CheckCircle2, CalendarDays } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -25,7 +26,8 @@ interface TutorStats {
 
 interface RecentClass {
   publicId: string;
-  subject: string;
+  subject?: string;
+  title?: string;
   status: string;
   scheduledStartUTC?: string;
   startUTC?: string;
@@ -33,12 +35,17 @@ interface RecentClass {
 }
 
 export function TutorProgressPage() {
+  const navigate = useNavigate();
+
   const { data: stats, isLoading: statsLoading } = useQuery<TutorStats>({
     queryKey: ['analytics', 'tutor', 'me'],
     queryFn: async () => {
       const { data } = await api.get('/analytics/tutor/me');
       return (data?.data ?? data ?? {}) as TutorStats;
     },
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    staleTime: 10_000,
   });
 
   const { data: classData, isLoading: classesLoading } = useQuery({
@@ -49,6 +56,9 @@ export function TutorProgressPage() {
       });
       return (data?.data?.items ?? []) as RecentClass[];
     },
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    staleTime: 10_000,
   });
 
   const { data: myStudents } = useQuery({
@@ -129,12 +139,13 @@ export function TutorProgressPage() {
         </div>
         <div className="p-4">
           <Table
+            onRowClick={(c) => navigate(`/dashboard/tutor/classes/${c.publicId}`)}
             columns={[
               {
                 key: 'subject',
                 header: 'Subject',
                 render: (c) => (
-                  <span className="font-medium text-gray-800 dark:text-gray-200">{c.subject}</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-200">{c.subject || c.title || 'Class'}</span>
                 ),
               },
               {
@@ -155,10 +166,14 @@ export function TutorProgressPage() {
               },
               {
                 key: 'scheduledStartUTC',
-                header: 'Date',
+                header: 'Date & Time',
                 render: (c) => {
                   const d = c.scheduledStartUTC ?? c.startUTC;
-                  return d ? format(new Date(d), 'MMM d, yyyy') : '';
+                  return (
+                    <span className="whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {d ? format(new Date(d), 'MMM d, yyyy · h:mm a') : ''}
+                    </span>
+                  );
                 },
               },
             ]}

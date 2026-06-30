@@ -53,7 +53,7 @@ export function StudentMyTutorPage() {
     <div className="space-y-6">
       <PageHeader
         title="Tutors"
-        subtitle="Your connected tutor — or find a new one"
+        subtitle="Your connected tutor or find a new one"
         icon={<GraduationCap className="h-5 w-5" />}
         actions={
           <Link to="/dashboard/student/tutors">

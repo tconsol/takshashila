@@ -25,7 +25,7 @@ function scramble(word: string): string {
   return scrambled;
 }
 
-// Fresh randomized order of words every game (was fixed 0→N — same words each round).
+// Fresh randomized order of words every game (was fixed 0→N same words each round).
 const shuffledDeck = () => [...WORDS.keys()].sort(() => Math.random() - 0.5);
 
 export function WordScrambleGame() {

@@ -7,7 +7,7 @@ import { parsePaginationQuery, buildPaginatedResult } from '../../utils/paginati
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { logger } from '../../lib/logger';
-import { enqueueEmail } from '../../queues/email.queue';
+import { sendEmailNow } from '../../queues/email.queue';
 import { env } from '../../config/env';
 import { UserModel } from '../users/user.model';
 
@@ -94,9 +94,9 @@ export class NotificationService {
       try {
         if (payload.isInvite) {
           const inviteUrl = `${env.FRONTEND_URL}/accept-invite?token=${payload.verificationToken}&email=${encodeURIComponent(payload.email)}&firstName=${encodeURIComponent(payload.firstName ?? '')}&lastName=${encodeURIComponent(payload.lastName ?? '')}`;
-          await enqueueEmail({
+          await sendEmailNow({
             to: payload.email,
-            subject: "You've been invited to Brainbase Edu!",
+            subject: "You've been invited to brainbaseedu!",
             html: `
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2 style="color:#4f46e5">You're invited!</h2>
@@ -110,16 +110,16 @@ export class NotificationService {
                 <p style="color:#6b7280;font-size:13px">This invite link expires in 7 days.</p>
               </div>
             `,
-            text: `You're invited to Brainbase Edu. Accept your invitation: ${inviteUrl}`,
+            text: `You're invited to brainbaseedu. Accept your invitation: ${inviteUrl}`,
           });
         } else {
           const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${payload.verificationToken}`;
-          await enqueueEmail({
+          await sendEmailNow({
             to: payload.email,
             subject: 'Verify your brainbaseeduaccount',
             html: `
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
-                <h2 style="color:#4f46e5">Welcome to Brainbase Edu!</h2>
+                <h2 style="color:#4f46e5">Welcome to brainbaseedu!</h2>
                 <p>Thanks for signing up. Please click the button below to verify your email address.</p>
                 <a href="${verifyUrl}"
                    style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -140,7 +140,7 @@ export class NotificationService {
     domainEvents.on(DomainEvent.USER_PASSWORD_RESET, async (payload: { userId: string; email: string; resetToken: string }) => {
       try {
         const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${payload.resetToken}`;
-        await enqueueEmail({
+        await sendEmailNow({
           to: payload.email,
           subject: 'Reset your brainbaseedupassword',
           html: `
@@ -257,14 +257,14 @@ export class NotificationService {
             data: { requestPublicId: payload.requestPublicId },
           });
 
-          await enqueueEmail({
+          await sendEmailNow({
             to: principal.email,
             subject: `${tutor.firstName} ${tutor.lastName} wants to join your institution`,
             html: `
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2 style="color:#4f46e5">New Join Request</h2>
                 <p>Hi ${principal.firstName},</p>
-                <p><strong>${tutor.firstName} ${tutor.lastName}</strong> (${tutor.email}) has sent a request to join your institution on Brainbase Edu.</p>
+                <p><strong>${tutor.firstName} ${tutor.lastName}</strong> (${tutor.email}) has sent a request to join your institution on brainbaseedu.</p>
                 <p>Log in to review and approve or reject this request.</p>
                 <a href="${env.FRONTEND_URL}/dashboard/principal/tutors"
                    style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -288,14 +288,14 @@ export class NotificationService {
             data: { requestPublicId: payload.requestPublicId },
           });
 
-          await enqueueEmail({
+          await sendEmailNow({
             to: tutor.email,
             subject: `${principal.firstName} ${principal.lastName} wants you to join their institution`,
             html: `
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2 style="color:#4f46e5">Institution Invitation</h2>
                 <p>Hi ${tutor.firstName},</p>
-                <p><strong>${principal.firstName} ${principal.lastName}</strong> has invited you to join their institution on Brainbase Edu.</p>
+                <p><strong>${principal.firstName} ${principal.lastName}</strong> has invited you to join their institution on brainbaseedu.</p>
                 <p>Log in to accept or decline this invitation.</p>
                 <a href="${env.FRONTEND_URL}/dashboard/tutor/principals"
                    style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -330,7 +330,7 @@ export class NotificationService {
           data: { requestPublicId: payload.requestPublicId },
         });
 
-        await enqueueEmail({
+        await sendEmailNow({
           to: tutor.email,
           subject: 'Your join request has been approved!',
           html: `
@@ -379,7 +379,7 @@ export class NotificationService {
           data: { requestPublicId: payload.requestPublicId },
         });
 
-        await enqueueEmail({
+        await sendEmailNow({
           to: tutor.email,
           subject: 'Update on your institution join request',
           html: `
@@ -408,7 +408,7 @@ export class NotificationService {
 
         const loginUrl = `${env.FRONTEND_URL}/login`;
 
-        await enqueueEmail({
+        await sendEmailNow({
           to: user.email,
           subject: 'Your brainbaseeduaccount has been approved!',
           html: `

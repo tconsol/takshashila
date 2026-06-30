@@ -14,7 +14,7 @@ const SECTIONS: SettingSection[] = [
     title: 'Platform',
     description: 'General platform configuration',
     fields: [
-      { label: 'Platform Name', key: 'platformName', placeholder: 'Brainbase Edu' },
+      { label: 'Platform Name', key: 'platformName', placeholder: 'brainbaseedu' },
       { label: 'Support Email', key: 'supportEmail', type: 'email', placeholder: 'support@brainbaseedu.com' },
     ],
   },
@@ -41,7 +41,7 @@ const SECTIONS: SettingSection[] = [
 export function SuperAdminSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({
-    platformName: 'Brainbase Edu',
+    platformName: 'brainbaseedu',
     supportEmail: 'support@brainbaseedu.com',
     defaultCommissionRate: '20',
     demoCreditAmount: '100',

@@ -41,3 +41,22 @@ export async function invalidate(key: string): Promise<void> {
   mem.delete(key);
   try { await getRedisClient().del(key); } catch { /* best-effort */ }
 }
+
+/**
+ * Invalidate every key starting with `prefix` (e.g. 'tutors:search:').
+ * Clears both the in-memory map and matching Redis keys (via non-blocking SCAN).
+ */
+export async function invalidatePrefix(prefix: string): Promise<void> {
+  for (const k of mem.keys()) {
+    if (k.startsWith(prefix)) mem.delete(k);
+  }
+  try {
+    const redis = getRedisClient();
+    let cursor = '0';
+    do {
+      const [next, keys] = await redis.scan(cursor, 'MATCH', `${prefix}*`, 'COUNT', 100);
+      cursor = next;
+      if (keys.length) await redis.del(...keys);
+    } while (cursor !== '0');
+  } catch { /* best-effort */ }
+}

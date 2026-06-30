@@ -9,7 +9,6 @@ import { Link } from 'react-router-dom';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuthStore } from '../../stores/auth.store';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { StatsCard } from '../../components/shared/StatsCard';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -41,6 +40,11 @@ function useStudentStats() {
         attendanceRate: number;
       };
     },
+    // Refresh when the student returns to the dashboard (e.g. after a class
+    // completes) so completed/attendance counts aren't stale.
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    staleTime: 10_000,
   });
 }
 
@@ -67,6 +71,9 @@ function useWalletBalance() {
       const { data } = await api.get('/wallets/me');
       return data?.data?.balanceCents ?? 0;
     },
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    staleTime: 10_000,
   });
 }
 
@@ -259,34 +266,67 @@ export function StudentDashboard() {
           {
             title: 'Upcoming Classes',
             value: statsLoading ? '…' : String(upcoming),
-            accent: 'brand' as const,
             icon: <Video className="h-5 w-5" />,
+            ring: 'from-indigo-500 to-blue-500',
+            tile: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300',
+            hint: 'Scheduled sessions',
           },
           {
             title: 'Wallet Balance',
             value: formatINR(walletAnim),
-            accent: 'green' as const,
             icon: <Wallet className="h-5 w-5" />,
+            ring: 'from-emerald-500 to-teal-500',
+            tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300',
             hint: 'Credits available',
           },
           {
             title: 'Submissions',
             value: statsLoading ? '…' : String(submissions),
-            accent: 'orange' as const,
             icon: <BookOpen className="h-5 w-5" />,
+            ring: 'from-orange-500 to-amber-500',
+            tile: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300',
+            hint: 'Worksheets done',
           },
           {
             title: 'Attendance',
             value: statsLoading ? '…' : `${attendance}%`,
-            accent: 'violet' as const,
             icon: <BarChart3 className="h-5 w-5" />,
-            change: (stats?.attendanceRate ?? 0) >= 75
-              ? { value: 'Good standing', positive: true }
-              : { value: 'Needs attention', positive: false },
+            ring: 'from-violet-500 to-purple-500',
+            tile: 'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300',
+            badge: (stats?.attendanceRate ?? 0) >= 75
+              ? { text: 'Good standing', good: true }
+              : { text: 'Needs attention', good: false },
           },
         ].map((card, i) => (
-          <motion.div key={card.title} custom={i} variants={fadeUp} initial="hidden" animate="show">
-            <StatsCard {...card} />
+          <motion.div
+            key={card.title}
+            custom={i}
+            variants={fadeUp}
+            initial="hidden"
+            animate="show"
+            className="group relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+          >
+            {/* accent strip */}
+            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.ring}`} />
+            <div className="flex items-start justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{card.title}</p>
+              <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tile}`}>
+                {card.icon}
+              </span>
+            </div>
+            <p className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white tabular-nums">
+              {card.value}
+            </p>
+            {card.hint && <p className="mt-1 text-xs text-slate-400">{card.hint}</p>}
+            {card.badge && (
+              <span className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                card.badge.good
+                  ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : 'bg-rose-50 text-rose-500 dark:bg-rose-900/30 dark:text-rose-400'
+              }`}>
+                {card.badge.good ? '↗' : '↘'} {card.badge.text}
+              </span>
+            )}
           </motion.div>
         ))}
       </div>

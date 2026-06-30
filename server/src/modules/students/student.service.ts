@@ -27,7 +27,7 @@ function buildWelcomeEmail(opts: {
 }): string {
   return `
     <div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;background:#fafafa;border-radius:16px;border:2px solid #1a1a2e">
-      <h2 style="margin:0 0 8px;color:#1a1a2e">Welcome to Brainbase Edu! 🎓</h2>
+      <h2 style="margin:0 0 8px;color:#1a1a2e">Welcome to brainbaseedu! 🎓</h2>
       <p style="color:#555;margin:0 0 24px">A student account has been created for <strong>${opts.firstName} ${opts.lastName}</strong>.</p>
       <div style="background:#fff;border:2px solid #1a1a2e;border-radius:12px;padding:20px;margin-bottom:20px">
         <table style="width:100%;border-collapse:collapse">
@@ -135,7 +135,7 @@ export class StudentService {
     if (dto.contactEmail) {
       await enqueueEmail({
         to: dto.contactEmail,
-        subject: `Student account created for ${dto.firstName} Brainbase Edu`,
+        subject: `Student account created for ${dto.firstName} brainbaseedu`,
         html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
       });
     }
@@ -545,7 +545,7 @@ export class StudentService {
     if (dto.contactEmail) {
       await enqueueEmail({
         to: dto.contactEmail,
-        subject: `Student account created for ${dto.firstName} Brainbase Edu`,
+        subject: `Student account created for ${dto.firstName} brainbaseedu`,
         html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
       });
     }
@@ -701,7 +701,7 @@ export class StudentService {
     if (parentUser?.email && !parentUser.email.endsWith('@student.internal')) {
       await enqueueEmail({
         to: parentUser.email,
-        subject: `Child account created for ${dto.firstName} Brainbase Edu`,
+        subject: `Child account created for ${dto.firstName} brainbaseedu`,
         html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
       });
     }

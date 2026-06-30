@@ -17,6 +17,10 @@ function mapClass(raw: any): ClassRecord {
     costCents: raw.costCents ?? 0,
     notes: raw.notes ?? raw.description,
     isRefunded: raw.isRefunded ?? false,
+    studentJoinedAt: raw.studentJoinedAt,
+    durationMinutes: raw.durationMinutes,
+    billingMode: raw.billingMode,
+    refundedAt: raw.refundedAt,
     createdAt: raw.createdAt,
   };
 }
@@ -64,6 +68,10 @@ export interface ClassRecord {
   costCents: number;
   notes?: string;
   isRefunded?: boolean;
+  studentJoinedAt?: string;
+  durationMinutes?: number;
+  billingMode?: string;
+  refundedAt?: string;
   createdAt: string;
 }
 

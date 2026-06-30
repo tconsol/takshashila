@@ -3,22 +3,22 @@ version: '3.9'
 services:
   mongodb:
     image: mongo:7.0
-    container_name: Brainbase Edu-mongo
+    container_name: brainbaseedu-mongo
     restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
-      MONGO_INITDB_DATABASE: Brainbase Edu
+      MONGO_INITDB_DATABASE: brainbaseedu
     volumes:
       - mongo_data:/data/db
     networks:
-      - Brainbase Edu-net
+      - brainbaseedu-net
 
   redis:
     image: redis:7.2-alpine
-    container_name: Brainbase Edu-redis
+    container_name: brainbaseedu-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -26,11 +26,11 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - Brainbase Edu-net
+      - brainbaseedu-net
 
   mongo-express:
     image: mongo-express:1.0.2
-    container_name: Brainbase Edu-mongo-express
+    container_name: brainbaseedu-mongo-express
     restart: unless-stopped
     ports:
       - "8081:8081"
@@ -42,12 +42,12 @@ services:
     depends_on:
       - mongodb
     networks:
-      - Brainbase Edu-net
+      - brainbaseedu-net
 
 volumes:
   mongo_data:
   redis_data:
 
 networks:
-  Brainbase Edu-net:
+  brainbaseedu-net:
     driver: bridge

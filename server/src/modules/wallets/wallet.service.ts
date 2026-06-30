@@ -149,16 +149,16 @@ export class WalletService {
       const balanceBefore = wallet.balanceCents;
       const balanceAfter = balanceBefore - dto.amountCents;
 
-      await WalletModel.findByIdAndUpdate(
-        wallet._id,
-        {
-          $inc: {
-            balanceCents: -dto.amountCents,
-            totalSpentCents: dto.amountCents,
-          },
-        },
-        { session },
-      );
+      const incFields: Record<string, number> = {
+        balanceCents: -dto.amountCents,
+        totalSpentCents: dto.amountCents,
+      };
+      // Optionally draw down a specific sub-bucket (e.g. demo credits).
+      if (dto.bucketField) {
+        incFields[dto.bucketField] = -dto.amountCents;
+      }
+
+      await WalletModel.findByIdAndUpdate(wallet._id, { $inc: incFields }, { session });
 
       const transaction = await WalletTransactionModel.create(
         [

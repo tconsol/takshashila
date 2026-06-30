@@ -1,4 +1,4 @@
-/* Wallet debit/credit guards — the money primitives.
+/* Wallet debit/credit guards the money primitives.
    Mocks the mongoose session + models so we test the balance/idempotency/lock
    logic without a live DB. */
 import mongoose from 'mongoose';
@@ -36,7 +36,7 @@ describe('WalletService', () => {
       ).rejects.toMatchObject({ statusCode: 402 });
     });
 
-    it('is idempotent — returns existing tx, does not double-charge', async () => {
+    it('is idempotent returns existing tx, does not double-charge', async () => {
       const existing = { toObject: () => ({ publicId: 'tx-existing', amountCents: 2000 }) };
       (jest.spyOn(WalletTransactionModel, 'findOne') as jest.Mock).mockReturnValue(withSession(existing));
       const walletFind = jest.spyOn(WalletModel, 'findByIdAndUpdate');

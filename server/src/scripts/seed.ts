@@ -7,7 +7,7 @@
  *  - 1 Super Admin
  *  - 1 Admin
  *
- * Password for both: from SEED_PASSWORD env var (default: Seed@1234!)
+ * Password for both: from SEED_PASSWORD env var (default: Brainbaseedu@4u)
  */
 
 import 'dotenv/config';
@@ -29,7 +29,7 @@ import { ParentProfileModel } from '../modules/parents/parent.model';
 import { WorksheetModel } from '../modules/worksheets/worksheet.model';
 
 const MONGO_URI = process.env.MONGODB_URI!;
-const PASSWORD = process.env.SEED_PASSWORD ?? 'Seed@1234!';
+const PASSWORD = process.env.SEED_PASSWORD ?? 'Brainbaseedu@4u';
 
 if (!MONGO_URI) {
   process.stderr.write('[seed] MONGODB_URI is not set\n');
@@ -75,7 +75,7 @@ async function main() {
   await UserModel.insertMany([
     {
       publicId: uuidv4(),
-      email: 'superadmin@Brainbase Edu.com',
+      email: 'superadmin@brainbaseedu.com',
       firstName: 'Super',
       lastName: 'Admin',
       role: 'SUPER_ADMIN',
@@ -88,7 +88,7 @@ async function main() {
     },
     {
       publicId: uuidv4(),
-      email: 'admin@Brainbase Edu.com',
+      email: 'admin@brainbaseedu.com',
       firstName: 'Admin',
       lastName: 'User',
       role: 'ADMIN',

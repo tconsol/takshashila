@@ -52,6 +52,11 @@ export async function authMiddleware(
 }
 
 function extractBearerToken(req: AuthRequest): string | null {
+  // Prefer the HttpOnly cookie (web, XSS-safe); fall back to the Authorization
+  // header (native mobile / API clients using Bearer tokens).
+  const cookieToken = (req as AuthRequest & { cookies?: Record<string, string> }).cookies?.accessToken;
+  if (cookieToken) return cookieToken;
+
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     return authHeader.slice(7);

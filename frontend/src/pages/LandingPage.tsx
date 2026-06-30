@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import brandLogo from '../assets/brainbaseedulogo.png';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import {
   Search, ArrowRight, GraduationCap, Star, Heart, Play,
@@ -184,12 +185,9 @@ export function LandingPage() {
     >
       {/* ════════ NAVBAR ════════ */}
       <header className="sticky top-4 z-50 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <nav className="flex h-16 items-center justify-between rounded-2xl border-2 border-slate-900/5 bg-white/90 px-4 shadow-sm backdrop-blur-md sm:px-6">
+        <nav className="flex h-20 items-center justify-between rounded-2xl border-2 border-slate-900/5 bg-white/90 px-4 shadow-sm backdrop-blur-md sm:px-6">
           <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600">
-              <GraduationCap className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-extrabold tracking-tight">Brainbase Edu</span>
+            <img src={brandLogo} alt="Brainbase Edu" className="h-16 sm:h-[72px] w-auto max-w-[220px] object-contain" />
           </Link>
 
           <div className="hidden items-center gap-7 md:flex">
@@ -1128,7 +1126,7 @@ export function LandingPage() {
             <motion.div custom={1} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}>
               <Sticker rotate="rotate-1" className="relative h-full overflow-hidden bg-indigo-600 p-7">
                 <Sparkle className="absolute right-5 top-5 h-9 w-9 text-white/20" />
-                <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">With Brainbase Edu</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">With brainbaseedu</p>
                 <h3 className="mt-1 text-2xl font-extrabold text-white">The smart way</h3>
                 <ul className="mt-6 space-y-3.5">
                   {[
@@ -1223,7 +1221,7 @@ export function LandingPage() {
       {/* ════════ SCROLL REVEAL STATEMENT ════════ */}
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <ScrollReveal text="We believe every child deserves a tutor who makes learning click patient, expert and genuinely fun. That's the whole point of Brainbase Edu." />
+          <ScrollReveal text="We believe every child deserves a tutor who makes learning click patient, expert and genuinely fun. That's the whole point of brainbaseedu." />
         </div>
       </section>
 
@@ -1389,10 +1387,7 @@ export function LandingPage() {
           <div className="relative z-10 mt-10 grid gap-10 md:grid-cols-[260px_1fr_1fr_1fr]">
             <div className="space-y-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
-                  <GraduationCap className="h-5 w-5 text-white" />
-                </div>
-                <span className="text-lg font-extrabold text-white">Brainbase Edu</span>
+                <img src={brandLogo} alt="Brainbase Edu" className="h-20 w-auto max-w-[240px] object-contain" />
               </div>
               <p className="text-sm leading-relaxed text-indigo-200">
                 India's friendliest tutoring marketplace connecting students with expert tutors, live.
@@ -1428,7 +1423,7 @@ export function LandingPage() {
           </div>
 
           <div className="relative z-10 mt-10 flex flex-col items-center gap-4 border-t border-white/10 pt-6 text-sm md:flex-row md:justify-between">
-            <p className="font-semibold text-indigo-300">© 2026 Brainbase Edu. All rights reserved.</p>
+            <p className="font-semibold text-indigo-300">© 2026 brainbaseedu. All rights reserved.</p>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-white/20"

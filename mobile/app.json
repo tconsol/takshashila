@@ -1,17 +1,17 @@
 {
   "expo": {
     "name": "brainbaseeduStudent",
-    "slug": "Brainbase Edu-student",
+    "slug": "brainbaseedu-student",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "Brainbase Edu",
+    "scheme": "brainbaseedu",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.Brainbase Edu.student"
+      "bundleIdentifier": "com.brainbaseedu.student"
     },
     "android": {
-      "package": "com.Brainbase Edu.student"
+      "package": "com.brainbaseedu.student"
     },
     "plugins": [
       "expo-router",

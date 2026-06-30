@@ -6,6 +6,8 @@ import { ClassCard } from '../../components/shared/ClassCard';
 import { Tabs } from '../../components/ui/Tabs';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
+import { Table } from '../../components/ui/Table';
+import { Badge } from '../../components/ui/Badge';
 import { useMyClassesAsTutor, useCompleteClass, useCancelClass, useRefundClass } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
 import { WorksheetUploadModal } from '../../features/worksheets/WorksheetUploadModal';
@@ -13,15 +15,23 @@ import { TutorRescheduleModal } from '../../features/classes/TutorCreateClassMod
 import type { ClassRecord } from '../../services/classes.service';
 
 const EMPTY_LABELS: Record<string, string> = {
+  ALL: 'No classes yet',
   SCHEDULED: 'No upcoming classes',
   LIVE: 'No classes in progress',
   COMPLETED: 'No completed classes',
   CANCELLED: 'No cancelled classes',
 };
 
+const STATUS_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'default'> = {
+  COMPLETED: 'success',
+  CANCELLED: 'danger',
+  LIVE: 'warning',
+  SCHEDULED: 'info',
+};
+
 export function TutorClassesPage() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('SCHEDULED');
+  const [activeTab, setActiveTab] = useState('ALL');
   const [cancelTarget, setCancelTarget] = useState<ClassRecord | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [refundTarget, setRefundTarget] = useState<ClassRecord | null>(null);
@@ -30,7 +40,8 @@ export function TutorClassesPage() {
   const [uploadType, setUploadType] = useState<'WORKSHEET' | 'ASSIGNMENT'>('WORKSHEET');
   const [rescheduleTarget, setRescheduleTarget] = useState<ClassRecord | null>(null);
 
-  const { data, isLoading } = useMyClassesAsTutor({ status: activeTab });
+  // "ALL" tab fetches every status; others filter by the tab.
+  const { data, isLoading } = useMyClassesAsTutor(activeTab === 'ALL' ? { limit: '100' } : { status: activeTab });
   const { data: liveData } = useMyClassesAsTutor({ status: 'LIVE', limit: '1' });
   const hasLive = (liveData?.total ?? 0) > 0;
 
@@ -50,9 +61,12 @@ export function TutorClassesPage() {
     .filter((s) => s.status === 'ACTIVE' || s.status === 'APPROVED')
     .map((s) => ({ publicId: s.publicId, name: s.displayName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim() || 'Student' }));
 
-  const classes = data?.items ?? [];
+  const classes = (data?.items ?? []).slice().sort(
+    (a, b) => new Date(b.scheduledStartUTC).getTime() - new Date(a.scheduledStartUTC).getTime(),
+  ); // newest → oldest
 
   const TABS = [
+    { key: 'ALL', label: 'All' },
     { key: 'SCHEDULED', label: 'Upcoming' },
     { key: 'LIVE', label: 'In Progress', indicator: hasLive },
     { key: 'COMPLETED', label: 'Completed' },
@@ -95,6 +109,42 @@ export function TutorClassesPage() {
         <div className="text-center py-12 text-gray-400 dark:text-gray-500">
           {EMPTY_LABELS[activeTab] ?? 'No classes found'}
         </div>
+      ) : activeTab === 'ALL' ? (
+        /* ── ALL: table view (newest → oldest) ── */
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+          <Table
+            keyField="publicId"
+            data={classes}
+            onRowClick={(c) => navigate(`/dashboard/tutor/classes/${c.publicId}`)}
+            columns={[
+              {
+                key: 'subject',
+                header: 'Class',
+                render: (c) => <span className="font-medium text-gray-900 dark:text-white">{c.subject || 'Class'}</span>,
+              },
+              {
+                key: 'classType',
+                header: 'Type',
+                render: (c) => <Badge variant="purple">{c.classType.replace(/_/g, ' ')}</Badge>,
+              },
+              {
+                key: 'scheduledStartUTC',
+                header: 'Date & Time',
+                render: (c) => (
+                  <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    {new Date(c.scheduledStartUTC).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </span>
+                ),
+              },
+              {
+                key: 'status',
+                header: 'Status',
+                render: (c) => <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>,
+              },
+            ]}
+            emptyMessage="No classes yet"
+          />
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {classes.map((cls) => (
@@ -115,30 +165,45 @@ export function TutorClassesPage() {
 
               {/* Worksheet/Assignment buttons for COMPLETED classes */}
               {cls.status === 'COMPLETED' && (
-                <div className="flex gap-2 px-5 pb-5 -mt-2 bg-white dark:bg-gray-800 rounded-b-xl border border-t-0 border-gray-200 dark:border-gray-700">
+                <div className="px-5 pb-5 -mt-2 bg-white dark:bg-gray-800 rounded-b-xl border border-t-0 border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={() => openUpload(cls, 'WORKSHEET')}
-                    className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg py-1.5 transition-colors"
+                    onClick={() => navigate(`/dashboard/tutor/classes/${cls.publicId}`)}
+                    className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
-                    <BookOpen className="h-3.5 w-3.5" /> Upload Worksheet
+                    View full details →
                   </button>
-                  <button
-                    onClick={() => openUpload(cls, 'ASSIGNMENT')}
-                    className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 hover:bg-violet-50 dark:hover:bg-violet-900/20 rounded-lg py-1.5 transition-colors"
-                  >
-                    <ClipboardList className="h-3.5 w-3.5" /> Upload Assignment
-                  </button>
-                  {cls.isRefunded ? (
-                    <span className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5">
-                      <RotateCcw className="h-3.5 w-3.5" /> Refunded
-                    </span>
-                  ) : (
+                  {/* Primary actions */}
+                  <div className="grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => { setRefundTarget(cls); setRefundReason(''); }}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg py-1.5 transition-colors"
+                      onClick={() => openUpload(cls, 'WORKSHEET')}
+                      className="flex items-center justify-center gap-1.5 text-xs font-semibold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/20 hover:bg-brand-100 dark:hover:bg-brand-900/40 rounded-lg py-2 transition-colors"
                     >
-                      <RotateCcw className="h-3.5 w-3.5" /> Refund
+                      <BookOpen className="h-3.5 w-3.5" /> Worksheet
                     </button>
+                    <button
+                      onClick={() => openUpload(cls, 'ASSIGNMENT')}
+                      className="flex items-center justify-center gap-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 rounded-lg py-2 transition-colors"
+                    >
+                      <ClipboardList className="h-3.5 w-3.5" /> Assignment
+                    </button>
+                  </div>
+
+                  {/* Refund — only for paid classes (demo/free move no money) */}
+                  {cls.classType !== 'DEMO' && cls.costCents > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                      {cls.isRefunded ? (
+                        <span className="flex w-full items-center justify-center gap-1.5 text-xs font-medium text-gray-400 py-1">
+                          <RotateCcw className="h-3.5 w-3.5" /> Refunded
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => { setRefundTarget(cls); setRefundReason(''); }}
+                          className="flex w-full items-center justify-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg py-1.5 transition-colors"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" /> Refund this class
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -193,7 +258,7 @@ export function TutorClassesPage() {
       >
         <div className="space-y-3">
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            This reverses the charge for a completed class — the student is refunded in full and your
+            This reverses the charge for a completed class the student is refunded in full and your
             earning for it is clawed back. This cannot be undone.
           </p>
           <textarea

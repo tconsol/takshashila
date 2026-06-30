@@ -82,4 +82,6 @@ export interface DebitWalletDto {
   referenceId?: string;
   referenceType?: string;
   metadata?: Record<string, unknown>;
+  /** Also decrement this sub-bucket (e.g. 'demoCreditsCents') alongside balance. */
+  bucketField?: 'demoCreditsCents' | 'purchasedCreditsCents' | 'bonusCreditsCents';
 }

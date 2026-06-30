@@ -7,10 +7,12 @@ import { logger } from './lib/logger';
 import { initSocketServer } from './sockets/socket.handler';
 import { auditService } from './modules/audit/audit.service';
 import { notificationService } from './modules/notifications/notification.service';
+import { verifySmtpConnection } from './lib/email-verifier';
+import { isFirebaseConfigured } from './lib/firebase-admin';
 
 // Background workers (email/notification/cleanup/slot-expiry) live in a separate
 // process by default (see worker.ts) so the web service can scale to zero on
-// Cloud Run — no always-on instance = no idle bill. Set RUN_WORKERS=true to also
+// Cloud Run no always-on instance = no idle bill. Set RUN_WORKERS=true to also
 // run them inside the web process (single-instance / local dev convenience).
 const RUN_WORKERS = process.env.RUN_WORKERS === 'true';
 
@@ -22,6 +24,14 @@ async function bootstrap() {
 
   void auditService;
   notificationService.setupEventListeners();
+  verifySmtpConnection();
+  logger.info(`Firebase Admin: ${isFirebaseConfigured() ? 'configured' : 'not configured (FCM push disabled)'}`);
+
+  // Stripe webhook crediting is only trustworthy when the signing secret is set
+  // (handler rejects unsigned/forged events). Warn loudly if it's missing in prod.
+  if (env.NODE_ENV === 'production' && !env.STRIPE_WEBHOOK_SECRET) {
+    logger.warn('STRIPE_WEBHOOK_SECRET is not set Stripe webhook events will be REJECTED. Set it before accepting card payments.');
+  }
 
   const httpServer = createServer(app);
   initSocketServer(httpServer);

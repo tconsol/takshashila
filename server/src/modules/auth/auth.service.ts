@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { userRepository } from '../users/user.repository';
 import { UserStatus } from '../users/user.types';
 import { getRedisClient } from '../../config/redis';
+import { invalidatePrefix } from '../../lib/cache';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -382,6 +383,8 @@ export class AuthService {
         { userPublicId: user.publicId, status: TutorStatus.REGISTERED, isDeleted: false },
         { $set: { status: TutorStatus.ACTIVE } },
       );
+      // Drop the browse cache so the newly-active tutor shows up immediately.
+      void invalidatePrefix('tutors:search:');
     }
 
     domainEvents.emit(DomainEvent.USER_EMAIL_VERIFIED, { userId: user.publicId });

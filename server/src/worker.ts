@@ -4,7 +4,7 @@
    the web service scale to zero on Cloud Run (no idle instance = no idle bill).
 
    Run: `npm run worker` (prod: `node dist/worker.js`).
-   Deploy: one small always-on instance, OR trigger periodically — see notes. */
+   Deploy: one small always-on instance, OR trigger periodically see notes. */
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { getRedisClient, disconnectRedis } from './config/redis';
 import { env } from './config/env';
@@ -28,10 +28,10 @@ async function bootstrap() {
   await scheduleCleanupJobs();
   startSlotExpiryJob();
 
-  logger.info(`Worker process started [${env.NODE_ENV}] — email · notification · cleanup · slot-expiry`);
+  logger.info(`Worker process started [${env.NODE_ENV}] email · notification · cleanup · slot-expiry`);
 
   const shutdown = async (signal: string) => {
-    logger.info(`${signal} received — shutting down worker`);
+    logger.info(`${signal} received shutting down worker`);
     try {
       await Promise.all(workers.map((w) => w.close()));
       await disconnectDatabase();

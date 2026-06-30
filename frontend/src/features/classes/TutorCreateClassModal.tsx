@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { CalendarPlus, Users, User, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { CalendarPlus, Users, User, RefreshCw, ChevronDown, ChevronUp, Wallet } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
+import { useNavigate } from 'react-router-dom';
 import { useTutorCreateClass, useTutorReschedule } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
 import { PLATFORM_FEE_CREDITS } from '../../lib/billing';
+import { useAuthStore } from '../../stores/auth.store';
 import type { ClassRecord } from '../../services/classes.service';
 
 type ClassType = 'DEMO' | 'ONE_ON_ONE' | 'GROUP' | 'RECURRING';
@@ -46,6 +48,16 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
   const [studentMode, setStudentMode] = useState<'all' | 'specific'>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showStudents, setShowStudents] = useState(false);
+  const [creditError, setCreditError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
+  const role = useAuthStore((s) => s.user?.role);
+  const walletPath = role === 'PRINCIPAL' ? '/dashboard/principal/wallet' : '/dashboard/tutor/wallet';
+
+  const goToBuyCredits = () => {
+    handleClose();
+    navigate(walletPath);
+  };
 
   const { mutateAsync: create, isPending } = useTutorCreateClass();
   const { data: studentsData } = useMyStudentsAsTutor({ limit: '200' });
@@ -81,22 +93,58 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
 
   const handleSubmit = async () => {
     if (!title.trim() || !startUTC || !endUTC) return;
-    await create({
-      title: title.trim(),
-      description: description.trim() || undefined,
-      classType: type,
-      startUTC: new Date(startUTC).toISOString(),
-      endUTC: new Date(endUTC).toISOString(),
-      recurrence,
-      recurrenceEndDate: recurrence !== 'NONE' && recurrenceEndDate
-        ? new Date(recurrenceEndDate).toISOString()
-        : undefined,
-      studentPublicIds: studentMode === 'all' ? [] : [...selected],
-    });
-    handleClose();
+    setCreditError(null);
+    try {
+      await create({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        classType: type,
+        startUTC: new Date(startUTC).toISOString(),
+        endUTC: new Date(endUTC).toISOString(),
+        recurrence,
+        recurrenceEndDate: recurrence !== 'NONE' && recurrenceEndDate
+          ? new Date(recurrenceEndDate).toISOString()
+          : undefined,
+        studentPublicIds: studentMode === 'all' ? [] : [...selected],
+      });
+      handleClose();
+    } catch (e) {
+      // 402 = not enough credits → surface the reason + offer to top up.
+      const err = e as { response?: { status?: number; data?: { message?: string } } };
+      if (err.response?.status === 402) {
+        setCreditError(err.response.data?.message ?? "You don't have enough credits to create this class.");
+      }
+      // other errors are toasted by the mutation's onError
+    }
   };
 
   return (
+    <>
+    {/* Insufficient-credits popup — fixed overlay above the create modal */}
+    {creditError && (
+      <div
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+        onClick={() => setCreditError(null)}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-slate-900"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/30">
+            <Wallet className="h-6 w-6" />
+          </div>
+          <h3 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">Not enough credits</h3>
+          <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">{creditError}</p>
+          <div className="mt-5 flex gap-2">
+            <Button variant="ghost" fullWidth onClick={() => setCreditError(null)}>Cancel</Button>
+            <Button variant="gradient" fullWidth onClick={goToBuyCredits}>
+              <Wallet className="h-4 w-4" /> Add credits
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
     <Modal
       open={open}
       onClose={handleClose}
@@ -117,7 +165,7 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
       }
     >
       <div className="space-y-5">
-        {/* Billing notice — tutor-created classes are free for students */}
+        {/* Billing notice tutor-created classes are free for students */}
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 dark:border-amber-800/40 dark:bg-amber-900/20">
           <p className="text-xs text-amber-700 dark:text-amber-300">
             <strong>Heads up:</strong> classes you create and invite students to are <strong>free for students</strong>.
@@ -303,6 +351,7 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
         </div>
       </div>
     </Modal>
+    </>
   );
 }
 

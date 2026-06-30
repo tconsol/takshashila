@@ -7,6 +7,7 @@ import {
   Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2, ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import brandLogo from '../../assets/brainbaseedulogo.png';
 import { useAuthStore } from '../../stores/auth.store';
 import { useSidebarBadges } from '../../hooks/use-sidebar-badges';
 import { useScheduleAlertsStore } from '../../stores/schedule-alerts.store';
@@ -196,16 +197,13 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
           collapsed ? 'justify-center' : 'justify-between px-4',
         )}>
           {collapsed ? (
-            <Link to="/" className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 hover:bg-white/30 transition-colors">
-              <GraduationCap className="h-5 w-5 text-white" />
+            <Link to="/" className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/95 p-1 hover:bg-white transition-colors">
+              <img src={brandLogo} alt="Brainbase Edu" className="h-full w-full object-contain" />
             </Link>
           ) : (
             <>
-              <Link to="/" className="flex flex-1 items-center gap-2.5 min-w-0">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/20">
-                  <GraduationCap className="h-4 w-4 text-white" />
-                </div>
-                <span className="truncate text-sm font-bold text-white tracking-tight">Brainbase Edu</span>
+              <Link to="/" className="flex flex-1 items-center min-w-0">
+                <img src={brandLogo} alt="Brainbase Edu" className="h-9 w-auto max-w-[150px] object-contain rounded-lg bg-white/95 px-2 py-1" />
               </Link>
               <button
                 onClick={onToggleCollapse}

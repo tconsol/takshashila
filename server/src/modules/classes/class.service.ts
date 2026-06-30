@@ -21,6 +21,9 @@ import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto, SaveRecordingDto, TutorCreateClassDto, TutorRescheduleDto } from './class.validators';
 
+// A completed demo class consumes 10 credits from the student's free demo-credit bucket.
+const DEMO_CLASS_COST_CENTS = 10 * 100;
+
 export class ClassService {
   async bookClass(
     studentUserPublicId: string,
@@ -129,15 +132,21 @@ export class ClassService {
     }
     if (!authorized) throw new AppError('Not authorized to join this class', 403);
 
-    // If already LIVE (or other terminal state), return as-is
-    if (cls.status !== ClassStatus.SCHEDULED) return cls;
+    // Terminal states — nothing to update.
+    if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED) return cls;
 
-    // Transition SCHEDULED → LIVE; if student joining, record their join time
-    const setFields: Record<string, unknown> = { status: ClassStatus.LIVE };
-    if (role === 'STUDENT') setFields.studentJoinedAt = new Date();
+    // Transition SCHEDULED → LIVE, and ALWAYS record the student's join time the
+    // first time they join — even if the tutor already started the class (LIVE).
+    // (Previously this early-returned for LIVE, so a student joining after the
+    //  tutor started was wrongly marked absent on completion.)
+    const setFields: Record<string, unknown> = {};
+    if (cls.status === ClassStatus.SCHEDULED) setFields.status = ClassStatus.LIVE;
+    if (role === 'STUDENT' && !cls.studentJoinedAt) setFields.studentJoinedAt = new Date();
+
+    if (Object.keys(setFields).length === 0) return cls; // already LIVE + already joined
 
     const updated = await ScheduledClassModel.findOneAndUpdate(
-      { publicId: classPublicId, status: ClassStatus.SCHEDULED, isDeleted: false },
+      { publicId: classPublicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] }, isDeleted: false },
       { $set: setFields },
       { new: true },
     ).lean();
@@ -186,13 +195,31 @@ export class ClassService {
 
     // ── Billing on completion ──────────────────────────────────────────────
     const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
+    const studentAttended = !!scheduled.studentJoinedAt;
 
-    if (scheduled.billingMode === BillingMode.TUTOR_INVITED) {
+    if (scheduled.classType === ClassType.DEMO) {
+      // A demo costs 10 credits, drawn from the student's free demo-credit bucket.
+      // No tutor payout (it's a trial). Only charged if the student attended.
+      if (studentAttended && studentProfileForEvent?.userPublicId) {
+        try {
+          await walletService.debitWallet({
+            ownerPublicId: studentProfileForEvent.userPublicId,
+            amountCents: DEMO_CLASS_COST_CENTS,
+            description: `Demo class: ${scheduled.title}`,
+            idempotencyKey: `demo-charge-${classPublicId}`,
+            referenceId: classPublicId,
+            referenceType: 'CLASS_COMPLETION',
+            bucketField: 'demoCreditsCents',
+          });
+        } catch {
+          // Insufficient demo credits — complete the class anyway.
+        }
+      }
+    } else if (scheduled.billingMode === BillingMode.TUTOR_INVITED) {
       // Tutor created + invited: students attend FREE. The tutor pays a flat
       // 2-credit platform fee PER ATTENDING STUDENT, and earns nothing.
       // tutorCreateClass writes one class doc per student, so completing each
       // attended doc charges 2 credits → e.g. 10 attendees = 20 credits.
-      const studentAttended = !!scheduled.studentJoinedAt;
       if (studentAttended && studentProfileForEvent?.userPublicId) {
         const tutorFeeCents = PLATFORM_FEE_CENTS * 2;
         try {
@@ -211,7 +238,6 @@ export class ClassService {
     } else {
       // Student-requested: charge student (rate + fee), pay tutor (rate − fee),
       // platform keeps the fee from both sides. Only if the student attended.
-      const studentAttended = !!scheduled.studentJoinedAt;
       if (scheduled.costCents > 0 && studentAttended && studentProfileForEvent?.userPublicId) {
         const studentChargeCents = scheduled.costCents + PLATFORM_FEE_CENTS;
         const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
@@ -357,7 +383,7 @@ export class ClassService {
         await walletService.refundWallet({
           ownerPublicId: tutorProfile.userPublicId,
           amountCents: PLATFORM_FEE_CENTS * 2,
-          description: `Refund — platform fee: ${scheduled.title}`,
+          description: `Refund platform fee: ${scheduled.title}`,
           idempotencyKey: `tutor-fee-refund-${classPublicId}`,
           referenceId: classPublicId,
           referenceType: 'CLASS_REFUND',
@@ -381,7 +407,7 @@ export class ClassService {
           referenceType: 'CLASS_REFUND',
         });
 
-        // 2) Claw back the tutor's earning (best-effort — may have been spent).
+        // 2) Claw back the tutor's earning (best-effort may have been spent).
         if (tutorEarningsCents > 0) {
           try {
             await walletService.reverseWallet({
@@ -393,7 +419,7 @@ export class ClassService {
               referenceType: 'CLASS_REFUND',
             });
           } catch {
-            // Tutor balance too low to claw back — platform absorbs the difference.
+            // Tutor balance too low to claw back platform absorbs the difference.
           }
         }
       }
@@ -526,6 +552,21 @@ export class ClassService {
         occurrences.push({ start: new Date(cur), end: new Date(cur + durationMs) });
         cur += stepMs;
         if (occurrences.length > 365) break; // safety cap
+      }
+    }
+
+    // The tutor pays a 2-credit platform fee per attending student on completion.
+    // Require enough balance up front so they can't create a class they can't fund.
+    const PER_STUDENT_FEE_CENTS = PLATFORM_FEE_CENTS * 2;
+    const billableCount = studentPublicIds.length * occurrences.length;
+    if (billableCount > 0) {
+      const requiredCents = billableCount * PER_STUDENT_FEE_CENTS;
+      const wallet = await walletService.getWallet(tutorProfile.userPublicId);
+      if (wallet.balanceCents < requiredCents) {
+        throw new AppError(
+          `You don't have enough credits to create this class. It needs ${requiredCents / 100} credits (2 per student) but your balance is ${wallet.balanceCents / 100}. Please top up your wallet.`,
+          402,
+        );
       }
     }
 

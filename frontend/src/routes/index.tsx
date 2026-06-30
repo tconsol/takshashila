@@ -56,6 +56,7 @@ import { PrincipalContentPage } from '../pages/principal/PrincipalContentPage';
 // Tutor pages
 import { TutorPrincipalsPage } from '../pages/tutor/TutorPrincipalsPage';
 import { TutorClassesPage } from '../pages/tutor/TutorClassesPage';
+import { ClassDetailPage } from '../pages/shared/ClassDetailPage';
 import { TutorSchedulePage } from '../pages/tutor/TutorSchedulePage';
 import { TutorStudentsPage } from '../pages/tutor/TutorStudentsPage';
 import { TutorAssignmentsPage } from '../pages/tutor/TutorAssignmentsPage';
@@ -172,7 +173,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/principal/content', element: <PrincipalContentPage /> },
         { path: '/dashboard/principal/analytics', element: <PrincipalAnalyticsPage /> },
         { path: '/dashboard/principal/wallet', element: <PrincipalWalletPage /> },
-        // Principal teaching — reuses tutor pages (principal acts as a tutor)
+        // Principal teaching reuses tutor pages (principal acts as a tutor)
         { path: '/dashboard/principal/teach/schedule', element: <TutorSchedulePage /> },
         { path: '/dashboard/principal/teach/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/principal/teach/classes/create', element: <TutorCreateClassPage /> },
@@ -196,6 +197,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/tutor/classes/create', element: <TutorCreateClassPage /> },
+        { path: '/dashboard/tutor/classes/:classId', element: <ClassDetailPage /> },
         { path: '/dashboard/tutor/schedule', element: <TutorSchedulePage /> },
         { path: '/dashboard/tutor/students', element: <TutorStudentsPage /> },
         { path: '/dashboard/tutor/assignments', element: <TutorAssignmentsPage /> },

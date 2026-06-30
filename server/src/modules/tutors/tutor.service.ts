@@ -66,7 +66,7 @@ export class TutorService {
   async getByUserPublicId(userPublicId: string): Promise<ITutorProfile> {
     let profile = await tutorRepository.findByUserPublicId(userPublicId);
     if (!profile) {
-      // Principals can also teach — auto-provision a tutor profile the first time
+      // Principals can also teach auto-provision a tutor profile the first time
       // they use any tutor-scoped action (schedule, classes, worksheets, etc).
       const user = await userRepository.findByPublicId(userPublicId);
       if (user?.role === 'PRINCIPAL') {
@@ -75,7 +75,7 @@ export class TutorService {
           subjects: [],
           languages: [],
         });
-        // Principal-tutor is trusted by default — active & verified so they can teach immediately.
+        // Principal-tutor is trusted by default active & verified so they can teach immediately.
         await tutorRepository.update(created.publicId, { status: TutorStatus.ACTIVE, isVerified: true });
         profile = await tutorRepository.findByPublicId(created.publicId);
       }
@@ -198,12 +198,19 @@ export class TutorService {
     const users = await userRepository.findManyByPublicIds(userPublicIds);
     const userMap = new Map(users.map((u) => [u.publicId, u]));
 
-    const hydrated = result.items.map((t) => {
+    // Drop orphan profiles (user deleted/missing) so ghosts never show in browse.
+    const hydrated = result.items.flatMap((t) => {
       const u = userMap.get(t.userPublicId);
-      return { ...t, displayName: u ? `${u.firstName} ${u.lastName}` : 'Unknown Tutor' };
+      if (!u || u.isDeleted) return [];
+      return [{ ...t, displayName: `${u.firstName} ${u.lastName}` }];
     });
 
-    return { ...result, items: hydrated };
+    const dropped = result.items.length - hydrated.length;
+    return {
+      ...result,
+      items: hydrated,
+      pagination: { ...result.pagination, total: Math.max(0, result.pagination.total - dropped) },
+    };
   }
 
   async getByPrincipal(
@@ -211,6 +218,14 @@ export class TutorService {
     query: PaginationQuery,
   ): Promise<PaginatedResult<ITutorProfile & { displayName: string; email: string }>> {
     const result = await tutorRepository.findByPrincipal(principalPublicId, query);
+    return this._hydrateWithUser(result);
+  }
+
+  /** Every tutor on the platform for admins. */
+  async getAll(
+    query: PaginationQuery,
+  ): Promise<PaginatedResult<ITutorProfile & { displayName: string; email: string }>> {
+    const result = await tutorRepository.findAll(query);
     return this._hydrateWithUser(result);
   }
 
@@ -238,15 +253,20 @@ export class TutorService {
     const userPublicIds = result.items.map((t) => t.userPublicId);
     const users = await userRepository.findManyByPublicIds(userPublicIds);
     const userMap = new Map(users.map((u) => [u.publicId, u]));
-    const hydrated = result.items.map((t) => {
+
+    // Drop orphan profiles (user deleted/missing) instead of rendering "Unknown Tutor".
+    const hydrated = result.items.flatMap((t) => {
       const u = userMap.get(t.userPublicId);
-      return {
-        ...t,
-        displayName: u ? `${u.firstName} ${u.lastName}` : 'Unknown Tutor',
-        email: u?.email ?? '',
-      };
+      if (!u || u.isDeleted) return [];
+      return [{ ...t, displayName: `${u.firstName} ${u.lastName}`, email: u.email }];
     });
-    return { ...result, items: hydrated };
+
+    const dropped = result.items.length - hydrated.length;
+    return {
+      ...result,
+      items: hydrated,
+      pagination: { ...result.pagination, total: Math.max(0, result.pagination.total - dropped) },
+    };
   }
 
   /**

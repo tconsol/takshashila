@@ -91,7 +91,7 @@ const TESTIMONIALS: Testimonial[] = [
     name: 'Ravi Shankar',
     role: 'Principal · Sunrise Learning Centre',
     avatar: 'RS',
-    text: "Onboarding tutors used to take weeks. With Brainbase Edu's invite system we added 15 new tutors in a single day. The support team was incredible throughout.",
+    text: "Onboarding tutors used to take weeks. With brainbaseedu's invite system we added 15 new tutors in a single day. The support team was incredible throughout.",
     rating: 5,
     verified: true,
     highlight: '15 new tutors added in a single day',

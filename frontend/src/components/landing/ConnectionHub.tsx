@@ -50,7 +50,7 @@ export function ConnectionHub() {
           <span className="absolute inset-0 animate-ping rounded-3xl bg-indigo-500/30" style={{ animationDuration: '2.5s' }} />
           <GraduationCap className="relative h-11 w-11 text-white" />
         </div>
-        <p className="mt-2 text-center text-sm font-extrabold text-slate-900">Brainbase Edu</p>
+        <p className="mt-2 text-center text-sm font-extrabold text-slate-900">brainbaseedu</p>
       </div>
 
       {/* Role nodes */}

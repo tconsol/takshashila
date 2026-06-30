@@ -114,7 +114,13 @@ export class AnalyticsService {
     return { tutors, students, classes, worksheets, assignments, worksheetSubmissions, assignmentSubmissions };
   }
 
-  async getTutorStats(tutorPublicId: string) {
+  async getTutorStats(tutorUserPublicId: string) {
+    // Classes store the tutor PROFILE id, not the user id — resolve it first.
+    const profile = await TutorProfileModel.findOne(
+      { userPublicId: tutorUserPublicId, isDeleted: false }, { publicId: 1 },
+    ).lean();
+    const tutorPublicId = profile?.publicId ?? '__none__';
+
     const [upcoming, completed, totalStudents] = await Promise.all([
       ScheduledClassModel.countDocuments({ tutorPublicId, status: ClassStatus.SCHEDULED }),
       ScheduledClassModel.countDocuments({ tutorPublicId, status: ClassStatus.COMPLETED }),

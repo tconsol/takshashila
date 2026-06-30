@@ -17,7 +17,7 @@ export interface Payment {
   currency: PaymentCurrency;
   status: string;
   createdAt: string;
-  /** Present for STRIPE orders — used to confirm the card payment. */
+  /** Present for STRIPE orders used to confirm the card payment. */
   clientSecret?: string;
 }
 

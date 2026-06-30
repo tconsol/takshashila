@@ -1,4 +1,4 @@
-/* Cache helper tests — verify read-through, TTL expiry and invalidation
+/* Cache helper tests verify read-through, TTL expiry and invalidation
    work via the in-memory fallback (Redis mocked to throw so the fallback path
    is exercised deterministically without a live Redis). */
 jest.mock('../../config/redis', () => ({

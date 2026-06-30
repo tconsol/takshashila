@@ -38,8 +38,25 @@ const app = express();
 
 app.set('trust proxy', 1);
 
+// This API serves only JSON (the SPA is hosted separately), so we can lock the
+// security headers down hard without breaking any rendered content. CSP for the
+// actual web pages must be set on the frontend host (see frontend/public/_headers).
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      'default-src': ["'none'"],
+      'frame-ancestors': ["'none'"], // clickjacking: API can't be framed
+      'base-uri': ["'none'"],
+      'form-action': ["'none'"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // SPA on another origin fetches this API
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  referrerPolicy: { policy: 'no-referrer' },
+  hsts: { maxAge: 15552000, includeSubDomains: true, preload: true }, // 180d HSTS
+  // helmet defaults also set: X-Content-Type-Options: nosniff, X-Frame-Options: DENY,
+  // X-DNS-Prefetch-Control, Origin-Agent-Cluster, etc.
 }));
 
 const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());

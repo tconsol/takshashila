@@ -1,4 +1,4 @@
-/* API smoke tests — exercise the real Express app end-to-end through HTTP.
+/* API smoke tests exercise the real Express app end-to-end through HTTP.
    These hit middleware that runs BEFORE the database (health, auth guards,
    request validation, 404 handling), so they verify the app is wired up
    correctly without needing a live MongoDB/Redis. */
@@ -7,7 +7,7 @@ import app from '../../app';
 
 const BASE = '/api/v1';
 
-describe('API smoke — wiring, auth guards, validation', () => {
+describe('API smoke wiring, auth guards, validation', () => {
   it('GET /health → 200 ok', async () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);

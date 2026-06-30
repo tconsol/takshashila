@@ -29,7 +29,7 @@ export const useThemeStore = create<ThemeStore>()(
       },
     }),
     {
-      name: 'Brainbase Edu-theme',
+      name: 'brainbaseedu-theme',
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {

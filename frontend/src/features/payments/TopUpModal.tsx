@@ -99,8 +99,8 @@ export function TopUpModal({ open, onClose }: Props) {
           key: config.razorpayKeyId,
           amount: order.amountCents,
           currency: order.currency,
-          name: 'Brainbase Edu',
-          description: `Wallet top-up — ${cfg.symbol}${amount}`,
+          name: 'brainbaseedu',
+          description: `Wallet top-up ${cfg.symbol}${amount}`,
           order_id: order.providerOrderId,
           theme: { color: '#6366f1' },
           handler: async (resp: RazorpayResponse) => {

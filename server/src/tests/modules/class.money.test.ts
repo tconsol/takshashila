@@ -38,7 +38,7 @@ function baseClass(over: Record<string, unknown> = {}) {
   };
 }
 
-describe('ClassService.completeClass — money flow', () => {
+describe('ClassService.completeClass money flow', () => {
   let debit: jest.SpyInstance;
   let credit: jest.SpyInstance;
   let recordCompleted: jest.SpyInstance;
@@ -132,7 +132,7 @@ describe('ClassService.completeClass — money flow', () => {
   });
 });
 
-describe('ClassService.refundClass — refund/reversal flow', () => {
+describe('ClassService.refundClass refund/reversal flow', () => {
   let refund: jest.SpyInstance;
   let reverse: jest.SpyInstance;
 
