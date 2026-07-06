@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Wallet, Gift, BookOpen, Star, Plus } from 'lucide-react';
+import { Coins, Gift, BookOpen, Star, Plus } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { TopUpModal } from '../../features/payments/TopUpModal';
+import { formatCredits } from '../../lib/billing';
 import { api } from '../../lib/axios';
 import { format } from 'date-fns';
 
@@ -36,7 +37,7 @@ const txTypeVariant: Record<string, 'success' | 'danger' | 'default'> = {
 };
 
 function centsToDisplay(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  return `${formatCredits(cents)} cr`;
 }
 
 export function StudentWalletPage() {
@@ -70,7 +71,7 @@ export function StudentWalletPage() {
         <StatsCard
           title="Total Balance"
           value={walletLoading ? '' : centsToDisplay(wallet?.balanceCents ?? 0)}
-          icon={<Wallet className="h-5 w-5 text-brand-600" />}
+          icon={<Coins className="h-5 w-5 text-brand-600" />}
         />
         <StatsCard
           title="Demo Credits"

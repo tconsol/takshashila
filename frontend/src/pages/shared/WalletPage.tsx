@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Wallet, TrendingUp, Gift, BookOpen, Star, Plus } from 'lucide-react';
+import { Coins, TrendingUp, Gift, BookOpen, Star, Plus } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { TopUpModal } from '../../features/payments/TopUpModal';
+import { formatCredits } from '../../lib/billing';
 import { api } from '../../lib/axios';
 
 interface WalletData {
@@ -49,7 +50,7 @@ const txTypeVariant: Record<string, TxVariant> = {
 };
 
 function centsToDisplay(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  return `${formatCredits(cents)} cr`;
 }
 
 interface WalletPageProps {
@@ -93,7 +94,7 @@ export function WalletPage({ title = 'Wallet', subtitle = 'Balance and transacti
         <StatsCard
           title="Total Balance"
           value={walletLoading ? '' : centsToDisplay(wallet?.balanceCents ?? 0)}
-          icon={<Wallet className="h-5 w-5 text-brand-600" />}
+          icon={<Coins className="h-5 w-5 text-brand-600" />}
         />
         {showEarnings ? (
           <StatsCard

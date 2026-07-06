@@ -536,6 +536,20 @@ export class ClassService {
       studentPublicIds = allStudents.map((s) => s.publicId);
     }
 
+    // Native live room fits up to 10 students (+ tutor + linked principal = 12).
+    // Larger groups must run on an external Google Meet / Zoom link.
+    const MAX_NATIVE_GROUP_STUDENTS = 10;
+    const externalUrl = dto.meetingUrl?.trim() || undefined;
+    if (studentPublicIds.length > MAX_NATIVE_GROUP_STUDENTS && !externalUrl) {
+      throw new AppError(
+        `This class has ${studentPublicIds.length} students. The in-app room supports up to ${MAX_NATIVE_GROUP_STUDENTS}. Add a Google Meet or Zoom link to host a larger group.`,
+        400,
+      );
+    }
+    const meetingProvider = externalUrl
+      ? (dto.meetingProvider ?? (/zoom/i.test(externalUrl) ? 'zoom' : 'google_meet'))
+      : 'native';
+
     // Build list of occurrences
     const occurrences: Array<{ start: Date; end: Date }> = [];
     const startMs = new Date(dto.startUTC).getTime();
@@ -593,6 +607,8 @@ export class ClassService {
           description: dto.description,
           costCents: 0,
           billingMode: BillingMode.TUTOR_INVITED,
+          meetingUrl: externalUrl,
+          meetingProvider,
           idempotencyKey: uuidv4(),
           isDeleted: false,
         });

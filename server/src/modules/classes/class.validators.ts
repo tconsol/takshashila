@@ -50,6 +50,10 @@ export const tutorCreateClassSchema = z.object({
   recurrenceEndDate: z.string().datetime().optional(),
   // empty array = all students; list of publicIds = specific students
   studentPublicIds: z.array(z.string()).default([]),
+  // For large groups (>10 students) the native room can't fit everyone, so the
+  // tutor supplies an external Google Meet / Zoom link instead.
+  meetingUrl: z.string().url().max(500).optional().or(z.literal('')),
+  meetingProvider: z.enum(['zoom', 'google_meet', 'native']).optional(),
 });
 
 export const tutorRescheduleSchema = z.object({

@@ -14,6 +14,7 @@ function mapClass(raw: any): ClassRecord {
     scheduledStartUTC: raw.scheduledStartUTC ?? raw.startUTC ?? '',
     scheduledEndUTC: raw.scheduledEndUTC ?? raw.endUTC ?? '',
     meetingUrl: raw.meetingUrl,
+    meetingProvider: raw.meetingProvider,
     costCents: raw.costCents ?? 0,
     notes: raw.notes ?? raw.description,
     isRefunded: raw.isRefunded ?? false,
@@ -47,6 +48,8 @@ export interface TutorCreateClassDto {
   recurrence: 'NONE' | 'DAILY' | 'WEEKLY';
   recurrenceEndDate?: string;
   studentPublicIds: string[];
+  meetingUrl?: string;
+  meetingProvider?: 'zoom' | 'google_meet' | 'native';
 }
 
 export interface TutorRescheduleDto {
@@ -65,6 +68,7 @@ export interface ClassRecord {
   scheduledStartUTC: string;
   scheduledEndUTC: string;
   meetingUrl?: string;
+  meetingProvider?: 'zoom' | 'google_meet' | 'native';
   costCents: number;
   notes?: string;
   isRefunded?: boolean;

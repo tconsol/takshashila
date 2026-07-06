@@ -40,7 +40,10 @@ export function TutorCreateClassPage() {
   const [studentMode, setStudentMode] = useState<'all' | 'specific'>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showStudents, setShowStudents] = useState(false);
+  const [meetingUrl, setMeetingUrl] = useState('');
   const [creditError, setCreditError] = useState<string | null>(null);
+
+  const MAX_NATIVE_STUDENTS = 10;
 
   const role = useAuthStore((s) => s.user?.role);
   const walletPath = role === 'PRINCIPAL' ? '/dashboard/principal/wallet' : '/dashboard/tutor/wallet';
@@ -61,11 +64,16 @@ export function TutorCreateClassPage() {
       return next;
     });
 
+  const studentCount = studentMode === 'all' ? students.length : selected.size;
+  const exceedsNative = studentCount > MAX_NATIVE_STUDENTS;
+  const showMeetingField = type === 'GROUP' || type === 'RECURRING' || exceedsNative;
+
   const canSubmit =
     title.trim().length > 0 &&
     startUTC.length > 0 &&
     endUTC.length > 0 &&
-    new Date(endUTC) > new Date(startUTC);
+    new Date(endUTC) > new Date(startUTC) &&
+    (!exceedsNative || meetingUrl.trim().length > 0); // big groups need an external link
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -83,6 +91,7 @@ export function TutorCreateClassPage() {
             ? new Date(recurrenceEndDate).toISOString()
             : undefined,
         studentPublicIds: studentMode === 'all' ? [] : [...selected],
+        meetingUrl: meetingUrl.trim() || undefined,
       });
       navigate('/dashboard/tutor/classes');
     } catch (e) {
@@ -309,6 +318,27 @@ export function TutorCreateClassPage() {
             </div>
           )}
         </div>
+
+        {/* External meeting link (for big groups the native room can't fit) */}
+        {showMeetingField && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Google Meet / Zoom link {exceedsNative && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type="url"
+              value={meetingUrl}
+              onChange={(e) => setMeetingUrl(e.target.value)}
+              placeholder="https://meet.google.com/…  or  https://zoom.us/j/…"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p className={`mt-1 text-xs ${exceedsNative ? 'text-red-500' : 'text-gray-400'}`}>
+              {exceedsNative
+                ? `You have ${studentCount} students. The in-app room fits up to ${MAX_NATIVE_STUDENTS} — add a Meet/Zoom link to host them. Students will see a "Join" button that opens it.`
+                : `Optional. Up to ${MAX_NATIVE_STUDENTS} students can use the in-app room (no link needed). Add a link to use Google Meet / Zoom instead.`}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Actions */}

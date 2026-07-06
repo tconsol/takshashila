@@ -47,7 +47,15 @@ export function ClassCard({ cls, perspective, onAction, ratedClassIds }: ClassCa
 
   const minutesUntilStart = start ? Math.ceil((start.getTime() - now) / 60_000) : null;
 
+  // Classes with an external Google Meet / Zoom link open in a new tab; others
+  // use the native in-app room.
+  const externalUrl = cls.meetingProvider && cls.meetingProvider !== 'native' ? cls.meetingUrl : undefined;
+
   function handleJoin() {
+    if (externalUrl) {
+      window.open(externalUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
     navigate(`/class/${cls.publicId}`);
   }
 
@@ -100,7 +108,9 @@ export function ClassCard({ cls, perspective, onAction, ratedClassIds }: ClassCa
               onClick={handleJoin}
               className="flex-1 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg py-1.5 transition-colors"
             >
-              {isInProgress ? 'Join Now' : 'Join Class'}
+              {externalUrl
+                ? `Join on ${cls.meetingProvider === 'zoom' ? 'Zoom' : 'Google Meet'} ↗`
+                : isInProgress ? 'Join Now' : 'Join Class'}
             </button>
           ) : (
             <button

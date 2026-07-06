@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { Wallet, Loader2 } from 'lucide-react';
+import { Coins, Loader2, Lock, CheckCircle2, XCircle } from 'lucide-react';
+import { Confetti } from '../../components/games/Confetti';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
@@ -32,11 +34,19 @@ function loadRazorpay(): Promise<boolean> {
   });
 }
 
-// Presets + symbol per currency. amountCents = amount × 100 (dollars→cents / rupees→paise).
-const CONFIG: Record<PaymentCurrency, { symbol: string; presets: number[]; default: number; provider: 'STRIPE' | 'RAZORPAY' }> = {
-  USD: { symbol: '$', presets: [5, 10, 25, 50], default: 10, provider: 'STRIPE' },
-  INR: { symbol: '₹', presets: [200, 500, 1000, 2500], default: 500, provider: 'RAZORPAY' },
-};
+// 1 credit = $1. INR price = credits × live USD→INR rate (fetched from the API).
+// FALLBACK_RATE is only used until the live rate loads / if it's unavailable.
+const FALLBACK_RATE = 94.637;
+const CREDIT_PRESETS = [10, 25, 50, 100];
+
+const PROVIDER: Record<PaymentCurrency, 'STRIPE' | 'RAZORPAY'> = { USD: 'STRIPE', INR: 'RAZORPAY' };
+
+/** Human price label (display only — the server computes the real charge). */
+function priceLabel(credits: number, currency: PaymentCurrency, rate: number): string {
+  return currency === 'USD'
+    ? `$${credits.toLocaleString('en-US')}`
+    : `₹${(credits * rate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
 
 interface Props {
   open: boolean;
@@ -47,45 +57,59 @@ export function TopUpModal({ open, onClose }: Props) {
   const qc = useQueryClient();
   const toast = useToast();
   const [currency, setCurrency] = useState<PaymentCurrency>('USD');
-  const [amount, setAmount] = useState(CONFIG.USD.default);
+  const [credits, setCredits] = useState(10);
   const [busy, setBusy] = useState(false);
+  const [rate, setRate] = useState(FALLBACK_RATE);
+  const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Stripe card step
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [stripePublicId, setStripePublicId] = useState<string | null>(null);
 
-  const cfg = CONFIG[currency];
+  // Load the live USD→INR rate when the modal opens (server-cached daily).
+  useEffect(() => {
+    if (!open) return;
+    paymentsService.getConfig()
+      .then((c) => { if (c.usdInrRate > 0) setRate(c.usdInrRate); })
+      .catch(() => { /* keep fallback */ });
+  }, [open]);
 
-  const pickCurrency = (c: PaymentCurrency) => {
-    setCurrency(c);
-    setAmount(CONFIG[c].default);
-  };
+  const provider = PROVIDER[currency];
+  const price = priceLabel(credits, currency, rate);
 
   const reset = () => {
     setStripePromise(null);
     setClientSecret(null);
     setStripePublicId(null);
+    setResult(null);
     setBusy(false);
   };
-
   const handleClose = () => { reset(); onClose(); };
 
-  const finish = async (msg: string) => {
+  // Show the animated success screen, refresh the wallet, then auto-close.
+  const finish = async () => {
     await qc.invalidateQueries({ queryKey: ['wallet'] });
-    toast.success('Credits added!', msg);
-    handleClose();
+    setBusy(false);
+    setResult({ type: 'success', message: `${credits} credits added to your wallet.` });
+    setTimeout(handleClose, 2400);
+  };
+
+  // Show the animated failure screen (user can retry or close).
+  const fail = (message: string) => {
+    setBusy(false);
+    setResult({ type: 'error', message });
   };
 
   const handlePay = async () => {
-    if (amount <= 0) return;
+    if (credits <= 0) return;
     setBusy(true);
-    const amountCents = Math.round(amount * 100);
+    const creditsCents = credits * 100;            // wallet value; server derives the charge
     try {
       const config = await paymentsService.getConfig();
 
       // ── INR → Razorpay popup ───────────────────────────────────────────────
-      if (cfg.provider === 'RAZORPAY') {
+      if (provider === 'RAZORPAY') {
         if (!config.razorpayKeyId) {
           toast.error('Payments unavailable', 'Razorpay is not configured. Try USD, or contact support.');
           setBusy(false);
@@ -94,13 +118,13 @@ export function TopUpModal({ open, onClose }: Props) {
         const ok = await loadRazorpay();
         if (!ok) { toast.error('Could not load Razorpay', 'Check your connection and retry.'); setBusy(false); return; }
 
-        const order = await paymentsService.createOrder({ amountCents, currency: 'INR', provider: 'RAZORPAY' });
+        const order = await paymentsService.createOrder({ creditsCents, currency: 'INR', provider: 'RAZORPAY' });
         const rzp = new window.Razorpay!({
           key: config.razorpayKeyId,
           amount: order.amountCents,
           currency: order.currency,
-          name: 'brainbaseedu',
-          description: `Wallet top-up ${cfg.symbol}${amount}`,
+          name: 'Brainbase Edu',
+          description: `${credits} credits`,
           order_id: order.providerOrderId,
           theme: { color: '#6366f1' },
           handler: async (resp: RazorpayResponse) => {
@@ -110,10 +134,9 @@ export function TopUpModal({ open, onClose }: Props) {
                 providerPaymentId: resp.razorpay_payment_id,
                 providerSignature: resp.razorpay_signature,
               });
-              await finish(`${cfg.symbol}${amount} added to your wallet.`);
+              await finish();
             } catch {
-              toast.error('Verification failed', 'Payment captured but not verified. Contact support if charged.');
-              setBusy(false);
+              fail('Payment captured but not verified. Contact support if you were charged.');
             }
           },
           modal: { ondismiss: () => setBusy(false) },
@@ -128,7 +151,7 @@ export function TopUpModal({ open, onClose }: Props) {
         setBusy(false);
         return;
       }
-      const order = await paymentsService.createOrder({ amountCents, currency: 'USD', provider: 'STRIPE' });
+      const order = await paymentsService.createOrder({ creditsCents, currency: 'USD', provider: 'STRIPE' });
       if (!order.clientSecret) {
         toast.error('Top-up failed', 'Could not initialize the card payment.');
         setBusy(false);
@@ -152,88 +175,106 @@ export function TopUpModal({ open, onClose }: Props) {
       open={open}
       onClose={handleClose}
       title="Add Credits"
-      size="sm"
+      size="md"
       footer={
-        inStripeStep ? undefined : (
+        result || inStripeStep ? undefined : (
           <>
             <Button variant="ghost" onClick={handleClose} disabled={busy}>Cancel</Button>
-            <Button variant="gradient" onClick={handlePay} loading={busy} disabled={amount <= 0}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
-              Pay {cfg.symbol}{amount}
+            <Button variant="gradient" onClick={handlePay} loading={busy} disabled={credits <= 0}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coins className="h-4 w-4" />}
+              Pay {price}
             </Button>
           </>
         )
       }
     >
-      {inStripeStep ? (
+      {result ? (
+        <ResultScreen
+          type={result.type}
+          message={result.message}
+          onRetry={() => setResult(null)}
+          onClose={handleClose}
+        />
+      ) : inStripeStep ? (
         <Elements stripe={stripePromise!} options={{ clientSecret: clientSecret! }}>
           <StripeCardForm
-            amountLabel={`${cfg.symbol}${amount}`}
+            priceLabel={price}
             onSuccess={async (intentId) => {
               await paymentsService.verify({ publicId: stripePublicId!, providerPaymentId: intentId });
-              await finish(`${cfg.symbol}${amount} added to your wallet.`);
+              await finish();
             }}
-            onError={(m) => toast.error('Payment failed', m)}
+            onError={(m) => fail(m)}
             onBack={reset}
           />
         </Elements>
       ) : (
         <div className="space-y-4">
-          {/* Currency */}
+          {/* Currency / payment method */}
           <div>
-            <p className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">Currency</p>
+            <p className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">Pay with</p>
             <div className="flex gap-2">
               {(['USD', 'INR'] as PaymentCurrency[]).map((c) => (
                 <button
                   key={c}
                   type="button"
-                  onClick={() => pickCurrency(c)}
+                  onClick={() => setCurrency(c)}
                   className={`flex-1 rounded-xl border-2 py-2 text-sm font-semibold transition-all ${
                     currency === c
                       ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
                       : 'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400'
                   }`}
                 >
-                  {CONFIG[c].symbol} {c}
+                  {c === 'USD' ? '$ USD' : '₹ INR'}
                   <span className="ml-1 text-[11px] font-normal text-gray-400">
-                    · {CONFIG[c].provider === 'STRIPE' ? 'Stripe' : 'Razorpay'}
+                    · {PROVIDER[c] === 'STRIPE' ? 'Stripe' : 'Razorpay'}
                   </span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Amount presets */}
-          <div className="grid grid-cols-4 gap-2">
-            {cfg.presets.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setAmount(p)}
-                className={`rounded-xl border-2 py-2.5 text-sm font-semibold transition-all ${
-                  amount === p
-                    ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
-                    : 'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400'
-                }`}
-              >
-                {cfg.symbol}{p}
-              </button>
-            ))}
+          {/* Credit presets */}
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">Credits</p>
+            <div className="grid grid-cols-4 gap-2">
+              {CREDIT_PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setCredits(p)}
+                  className={`flex flex-col items-center rounded-xl border-2 py-2 transition-all ${
+                    credits === p
+                      ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
+                      : 'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400'
+                  }`}
+                >
+                  <span className="flex items-center gap-1 text-sm font-bold"><Coins className="h-3.5 w-3.5" />{p}</span>
+                  <span className="text-[10px] text-gray-400">{priceLabel(p, currency, rate)}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Custom amount ({cfg.symbol})</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Custom amount (credits)</label>
             <input
               type="number"
               min={1}
-              value={amount}
-              onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))}
+              value={credits}
+              onChange={(e) => setCredits(Math.max(0, Math.floor(Number(e.target.value))))}
               className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
             />
           </div>
 
-          <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-            Secure payment via {cfg.provider === 'STRIPE' ? 'Stripe' : 'Razorpay'}. Credits are added once payment is confirmed.
+          {/* Summary */}
+          <div className="flex items-center justify-between rounded-xl bg-brand-50 px-3.5 py-2.5 dark:bg-brand-900/20">
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-700 dark:text-brand-300">
+              <Coins className="h-4 w-4" /> {credits} credits
+            </span>
+            <span className="text-sm font-bold text-brand-700 dark:text-brand-300">{price}</span>
+          </div>
+          <p className="text-[11px] text-gray-400">
+            1 credit = $1. INR is charged at the live rate (₹{rate.toFixed(2)}/credit). Credits are added once payment is confirmed.
           </p>
         </div>
       )}
@@ -241,14 +282,63 @@ export function TopUpModal({ open, onClose }: Props) {
   );
 }
 
+// ── Animated success / failure result ───────────────────────────────────────
+function ResultScreen({
+  type,
+  message,
+  onRetry,
+  onClose,
+}: {
+  type: 'success' | 'error';
+  message: string;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  const ok = type === 'success';
+  return (
+    <div className="relative flex flex-col items-center gap-4 py-6 text-center">
+      {ok && <Confetti count={28} />}
+
+      <motion.div
+        initial={{ scale: 0, rotate: ok ? -30 : 0 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 14 }}
+        className={`flex h-20 w-20 items-center justify-center rounded-full ${
+          ok ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-100 text-rose-500 dark:bg-rose-900/30'
+        }`}
+      >
+        {ok
+          ? <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.15, type: 'spring', stiffness: 300 }}><CheckCircle2 className="h-11 w-11" /></motion.span>
+          : <motion.span animate={{ x: [0, -6, 6, -4, 4, 0] }} transition={{ duration: 0.45, delay: 0.1 }}><XCircle className="h-11 w-11" /></motion.span>}
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+          {ok ? 'Payment successful!' : 'Payment failed'}
+        </h3>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{message}</p>
+      </motion.div>
+
+      {ok ? (
+        <p className="text-xs text-slate-400">Closing…</p>
+      ) : (
+        <div className="mt-1 flex w-full gap-2">
+          <Button variant="ghost" fullWidth onClick={onClose}>Close</Button>
+          <Button variant="gradient" fullWidth onClick={onRetry}>Try again</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Stripe card form (rendered inside <Elements>) ────────────────────────────
 function StripeCardForm({
-  amountLabel,
+  priceLabel,
   onSuccess,
   onError,
   onBack,
 }: {
-  amountLabel: string;
+  priceLabel: string;
   onSuccess: (intentId: string) => Promise<void>;
   onError: (msg: string) => void;
   onBack: () => void;
@@ -280,11 +370,25 @@ function StripeCardForm({
 
   return (
     <div className="space-y-4">
-      <PaymentElement />
+      {/* Amount header */}
+      <div className="flex items-center justify-between rounded-xl bg-brand-50 px-4 py-3 dark:bg-brand-900/20">
+        <span className="text-sm font-medium text-brand-700 dark:text-brand-300">Amount to pay</span>
+        <span className="text-lg font-extrabold text-brand-700 dark:text-brand-300">{priceLabel}</span>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 p-3.5 dark:border-slate-700">
+        <PaymentElement options={{ layout: 'tabs' }} />
+      </div>
+
+      <p className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+        <Lock className="h-3 w-3" /> Payments are secured & encrypted by Stripe
+      </p>
+
       <div className="flex gap-2">
         <Button variant="ghost" onClick={onBack} disabled={busy} fullWidth>Back</Button>
         <Button variant="gradient" onClick={submit} loading={busy} disabled={!stripe} fullWidth>
-          Pay {amountLabel}
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+          Pay {priceLabel}
         </Button>
       </div>
     </div>

@@ -10,7 +10,8 @@ const paymentSchema = new Schema<IPayment>(
     provider: { type: String, enum: Object.values(PaymentProvider), required: true },
     providerOrderId: { type: String, required: true, index: true },
     providerPaymentId: { type: String },
-    amountCents: { type: Number, required: true, min: 1 },
+    amountCents: { type: Number, required: true, min: 1 }, // amount CHARGED in the payment currency's smallest unit
+    creditsCents: { type: Number },                         // wallet value to credit (1 credit = 100 cents); independent of currency
     currency: { type: String, enum: Object.values(PaymentCurrency), required: true },
     status: { type: String, enum: Object.values(PaymentStatus), default: PaymentStatus.CREATED },
     metadata: { type: Schema.Types.Mixed },

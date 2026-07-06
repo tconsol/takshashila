@@ -6,6 +6,7 @@ export type PaymentCurrency = 'INR' | 'USD';
 export interface PaymentConfig {
   stripePublishableKey: string;
   razorpayKeyId: string;
+  usdInrRate: number;
 }
 
 export interface Payment {
@@ -22,7 +23,7 @@ export interface Payment {
 }
 
 export interface CreateOrderDto {
-  amountCents: number;
+  creditsCents: number;            // wallet value requested (1 credit = 100 cents); server derives the charge
   currency: PaymentCurrency;
   provider: PaymentProvider;
 }

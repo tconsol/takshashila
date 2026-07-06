@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
-  Video, BookOpen, BarChart3, Wallet, ArrowUpRight, Plus,
+  Video, BookOpen, BarChart3, Coins, ArrowUpRight, Plus,
   Sparkles, Target, GraduationCap, Star, MessageSquare, Flame, Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -127,8 +127,8 @@ const popIn = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const formatINR = (cents: number) =>
-  `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+const formatCreditsLabel = (cents: number) =>
+  `${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })} cr`;
 
 const TIPS = [
   'Consistency beats intensity show up every day! 🎯',
@@ -273,8 +273,8 @@ export function StudentDashboard() {
           },
           {
             title: 'Wallet Balance',
-            value: formatINR(walletAnim),
-            icon: <Wallet className="h-5 w-5" />,
+            value: formatCreditsLabel(walletAnim),
+            icon: <Coins className="h-5 w-5" />,
             ring: 'from-emerald-500 to-teal-500',
             tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300',
             hint: 'Credits available',
