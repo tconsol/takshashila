@@ -72,7 +72,11 @@ export const resendVerificationSchema = z.object({
 });
 
 export const googleAuthSchema = z.object({
-  idToken: z.string().min(1, 'Google idToken is required'),
+  idToken: z.string().min(1).optional(),   // native (mobile) flow
+  code: z.string().min(1).optional(),      // web auth-code popup flow
+}).refine((d) => !!d.idToken || !!d.code, {
+  message: 'Provide a Google idToken or authorization code',
+  path: ['idToken'],
 });
 
 export const acceptInviteSchema = z.object({

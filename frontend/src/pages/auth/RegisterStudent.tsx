@@ -126,7 +126,7 @@ export function RegisterStudentPage() {
         </div>
       </div>
 
-      <GoogleSignInButton text="signup_with" />
+      <GoogleSignInButton label="Sign up with Google" />
 
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
         Already have an account?{' '}

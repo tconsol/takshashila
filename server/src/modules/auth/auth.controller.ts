@@ -59,7 +59,10 @@ export class AuthController {
 
   async googleAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await authService.loginWithGoogle(req.body.idToken, getDeviceInfo(req));
+      const result = await authService.loginWithGoogle(
+        { idToken: req.body.idToken, code: req.body.code },
+        getDeviceInfo(req),
+      );
       setAuthCookies(res, result.accessToken, result.refreshToken);
       sendSuccess(res, result, 'Login successful');
     } catch (error) {

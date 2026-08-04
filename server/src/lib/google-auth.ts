@@ -28,6 +28,25 @@ export interface GoogleIdentity {
 const client = new OAuth2Client();
 
 /**
+ * Exchange a Google authorization code (from the web auth-code popup flow) for an
+ * ID token. Uses the special 'postmessage' redirect that @react-oauth/google's
+ * popup flow expects. Requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET.
+ */
+export async function exchangeGoogleCode(code: string): Promise<string> {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    throw new AppError('Google sign-in is not configured on the server', 503);
+  }
+  const oauth2 = new OAuth2Client(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, 'postmessage');
+  try {
+    const { tokens } = await oauth2.getToken(code);
+    if (!tokens.id_token) throw new Error('no id_token in response');
+    return tokens.id_token;
+  } catch {
+    throw new AppError('Could not verify Google authorization code', 401);
+  }
+}
+
+/**
  * Verify a Google ID token (from web or native Sign-in) and return the identity.
  * Throws AppError(401) on any invalid/expired/untrusted token.
  */

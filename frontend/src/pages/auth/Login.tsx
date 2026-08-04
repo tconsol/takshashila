@@ -107,7 +107,7 @@ export function LoginPage() {
         </div>
       </div>
 
-      <GoogleSignInButton text="signin_with" />
+      <GoogleSignInButton label="Sign in with Google" />
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>

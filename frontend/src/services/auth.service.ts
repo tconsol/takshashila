@@ -21,8 +21,8 @@ export const authService = {
     return res.data.data;
   },
 
-  async googleAuth(idToken: string) {
-    const res = await api.post<ApiResponse<{ user: User } & TokenPair>>('/auth/google', { idToken });
+  async googleAuth(payload: { idToken?: string; code?: string }) {
+    const res = await api.post<ApiResponse<{ user: User } & TokenPair>>('/auth/google', payload);
     return res.data.data;
   },
 
