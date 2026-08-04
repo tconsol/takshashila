@@ -6,6 +6,7 @@ import { StudentProfileModel } from '../students/student.model';
 import { PrincipalProfileModel } from '../principals/principal.model';
 import { ParentProfileModel } from '../parents/parent.model';
 import { userRepository } from '../users/user.repository';
+import { sendExpoPush } from '../../lib/expo-push';
 import { Role } from '../../constants/roles';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
@@ -214,7 +215,35 @@ export class ChatService {
       },
     );
 
+    // Fire-and-forget push to the recipient's mobile devices (works even when the
+    // app is backgrounded and the socket is disconnected).
+    void this._pushToRecipient(recipientPublicId, senderPublicId, preview, conversationPublicId);
+
     return message.toObject();
+  }
+
+  private async _pushToRecipient(
+    recipientPublicId: string,
+    senderPublicId: string,
+    preview: string,
+    conversationPublicId: string,
+  ): Promise<void> {
+    try {
+      const [recipient, sender] = await Promise.all([
+        userRepository.findByPublicId(recipientPublicId),
+        userRepository.findByPublicId(senderPublicId),
+      ]);
+      const tokens = recipient?.pushTokens ?? [];
+      if (tokens.length === 0) return;
+      const senderName = sender ? `${sender.firstName} ${sender.lastName}`.trim() : 'New message';
+      await sendExpoPush(tokens, {
+        title: senderName || 'New message',
+        body: preview || 'Sent you a message',
+        data: { type: 'chat', conversationPublicId },
+      });
+    } catch {
+      /* best-effort */
+    }
   }
 
   async markRead(conversationPublicId: string, userPublicId: string): Promise<void> {

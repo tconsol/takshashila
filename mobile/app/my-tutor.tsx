@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { chatService } from '../services/chat.service';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -148,6 +150,22 @@ export default function MyTutorScreen() {
             color="#D97706"
           />
         </Card>
+
+        {/* Message tutor */}
+        <TouchableOpacity
+          onPress={async () => {
+            try {
+              const conv = await chatService.startConversation(tutor.publicId, 'TUTOR');
+              router.push({ pathname: '/chat/[conversationId]', params: { conversationId: conv.publicId, name: tutor.displayName } });
+            } catch {
+              Alert.alert('Error', 'Could not start the conversation.');
+            }
+          }}
+          className="mb-4 flex-row items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3.5"
+        >
+          <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
+          <Text className="text-base font-bold text-white">Message tutor</Text>
+        </TouchableOpacity>
 
         {/* Subjects */}
         {tutor.subjects?.length > 0 && (

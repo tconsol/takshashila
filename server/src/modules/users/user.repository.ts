@@ -54,6 +54,14 @@ export class UserRepository {
     ).lean();
   }
 
+  async addPushToken(publicId: string, token: string): Promise<void> {
+    await UserModel.updateOne({ publicId, isDeleted: false }, { $addToSet: { pushTokens: token } });
+  }
+
+  async removePushToken(publicId: string, token: string): Promise<void> {
+    await UserModel.updateOne({ publicId }, { $pull: { pushTokens: token } });
+  }
+
   async softDelete(publicId: string, deletedBy: string): Promise<IUser | null> {
     return UserModel.findOneAndUpdate(
       { publicId },

@@ -31,6 +31,7 @@ export interface IUser {
   lastLoginAt?: Date;
   lastLoginIp?: string;
   loginCount: number;
+  pushTokens?: string[];
   isDeleted: boolean;
   deletedAt?: Date;
   deletedBy?: string;

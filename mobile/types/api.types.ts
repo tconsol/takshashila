@@ -44,7 +44,8 @@ export interface StudentProfile {
 }
 
 export type ClassStatus =
-  | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
+  | 'SCHEDULED' | 'LIVE' | 'IN_PROGRESS' | 'COMPLETED'
+  | 'CANCELLED' | 'MISSED' | 'NO_SHOW' | 'RESCHEDULED' | 'FAILED';
 
 export type ClassType = 'DEMO' | 'ONE_ON_ONE' | 'GROUP' | 'RECURRING';
 

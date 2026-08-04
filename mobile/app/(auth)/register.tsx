@@ -6,11 +6,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { GoogleSignInButton } from '../../components/GoogleSignInButton';
 import { authService } from '../../services/auth.service';
 
 export default function RegisterScreen() {
@@ -23,9 +27,24 @@ export default function RegisterScreen() {
     confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
 
   function update(field: keyof typeof form) {
     return (value: string) => setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleResend() {
+    if (!registeredEmail) return;
+    setResending(true);
+    try {
+      await authService.resendVerification(registeredEmail);
+      Alert.alert('Email sent', 'We sent another verification link. Check your inbox and spam folder.');
+    } catch {
+      Alert.alert('Could not resend', 'Please try again in a moment.');
+    } finally {
+      setResending(false);
+    }
   }
 
   async function handleRegister() {
@@ -52,11 +71,7 @@ export default function RegisterScreen() {
         phone: form.phone.trim() || undefined,
         role: 'STUDENT',
       });
-      Alert.alert(
-        'Account Created',
-        'Please check your email to verify your account, then sign in.',
-        [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }],
-      );
+      setRegisteredEmail(form.email.trim().toLowerCase());
     } catch (err: unknown) {
       Alert.alert(
         'Registration Failed',
@@ -65,6 +80,47 @@ export default function RegisterScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (registeredEmail) {
+    return (
+      <SafeAreaView className="flex-1 bg-background">
+        <View className="flex-1 justify-center px-6">
+          <View className="items-center">
+            <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+              <Ionicons name="mail-open" size={40} color="#059669" />
+            </View>
+            <Text className="text-2xl font-bold text-slate-900">Check your email</Text>
+            <Text className="mt-2 text-center text-sm text-slate-500">
+              We sent a verification link to{'\n'}
+              <Text className="font-semibold text-slate-700">{registeredEmail}</Text>.{'\n'}
+              Click it, then sign in.
+            </Text>
+
+            <TouchableOpacity
+              onPress={handleResend}
+              disabled={resending}
+              className="mt-6 w-full flex-row items-center justify-center gap-2 rounded-2xl border border-indigo-200 py-3.5"
+            >
+              {resending ? <ActivityIndicator size="small" color="#6366F1" /> : (
+                <>
+                  <Ionicons name="refresh" size={18} color="#6366F1" />
+                  <Text className="text-[15px] font-semibold text-indigo-600">Resend email</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => router.replace('/(auth)/login')} className="mt-3 w-full rounded-2xl bg-indigo-600 py-3.5">
+              <Text className="text-center text-[15px] font-bold text-white">Go to login</Text>
+            </TouchableOpacity>
+
+            <Text className="mt-5 text-center text-xs text-slate-400">
+              Didn't get it? Check your spam folder or resend.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -145,6 +201,15 @@ export default function RegisterScreen() {
           >
             Create Account
           </Button>
+
+          {/* Divider */}
+          <View className="flex-row items-center my-5">
+            <View className="flex-1 h-px bg-gray-200" />
+            <Text className="mx-3 text-xs font-medium text-gray-400">OR</Text>
+            <View className="flex-1 h-px bg-gray-200" />
+          </View>
+
+          <GoogleSignInButton label="Sign up with Google" />
 
           <View className="flex-row items-center justify-center mt-6 gap-1">
             <Text className="text-muted">Already have an account?</Text>

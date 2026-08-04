@@ -28,6 +28,24 @@ router.patch('/me', async (req: AuthRequest, res: Response, next: NextFunction) 
   } catch (e) { next(e); }
 });
 
+// ─── Mobile push token register / unregister ─────────────────────────────────
+router.post('/me/push-token', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const token = String(req.body?.token ?? '').trim();
+    if (!token) { sendSuccess(res, null, 'No token'); return; }
+    await userRepository.addPushToken(req.user!.publicId, token);
+    sendSuccess(res, null, 'Push token registered');
+  } catch (e) { next(e); }
+});
+
+router.delete('/me/push-token', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const token = String(req.body?.token ?? '').trim();
+    if (token) await userRepository.removePushToken(req.user!.publicId, token);
+    sendSuccess(res, null, 'Push token removed');
+  } catch (e) { next(e); }
+});
+
 // ─── Admin-only search across all users ──────────────────────────────────────
 router.get('/search', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.SUPPORT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

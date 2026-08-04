@@ -114,6 +114,22 @@ export default function MoreScreen() {
           />
         </Section>
 
+        {/* Learning section */}
+        <Section title="Learning">
+          <ListItem icon="library-outline" iconTint="indigo" title="Study Schedule" subtitle="Your upcoming sessions" onPress={() => router.push('/(student)/schedule')} />
+          <Divider />
+          <ListItem icon="folder-open-outline" iconTint="violet" title="Resources" subtitle="Study materials from your tutor" onPress={() => router.push('/resources')} />
+          <Divider />
+          <ListItem icon="stats-chart-outline" iconTint="emerald" title="My Progress" subtitle="Attendance & performance" onPress={() => router.push('/progress')} />
+        </Section>
+
+        {/* People section */}
+        <Section title="People">
+          <ListItem icon="business-outline" iconTint="violet" title="My Organization" subtitle="Your institution & principal" onPress={() => router.push('/organization')} />
+          <Divider />
+          <ListItem icon="people-outline" iconTint="indigo" title="Parent Requests" subtitle="Approve parent link requests" onPress={() => router.push('/parent-requests')} />
+        </Section>
+
         {/* Profile details */}
         <Section title="Profile">
           <DetailRow icon="mail-outline" label="Email" value={user?.email} />

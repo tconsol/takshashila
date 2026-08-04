@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { userRepository } from '../users/user.repository';
 import { UserStatus } from '../users/user.types';
+import type { IUser } from '../users/user.types';
 import { getRedisClient } from '../../config/redis';
 import { invalidatePrefix } from '../../lib/cache';
 import {
@@ -227,6 +228,18 @@ export class AuthService {
       }
     }
 
+    return this._issueSession(user, device);
+  }
+
+  /**
+   * Mint access/refresh tokens, persist the session in Redis, record the login,
+   * and return the token pair plus the sanitized user. Shared by password login
+   * and Google sign-in.
+   */
+  private async _issueSession(
+    user: IUser,
+    device: DeviceInfo,
+  ): Promise<TokenPair & { user: object }> {
     const sessionId = generateSessionId();
     const payload = buildTokenPayload(user._id.toString(), user.publicId, user.role, sessionId);
 
@@ -265,6 +278,116 @@ export class AuthService {
     const { passwordHash: _, ...publicUser } = user;
 
     return { accessToken, refreshToken, user: publicUser };
+  }
+
+  /**
+   * Sign in (or sign up) with a verified Google ID token. New accounts are created
+   * as STUDENT, pre-verified (Google already vetted the email), and get a wallet +
+   * student profile just like a normal registration.
+   */
+  async loginWithGoogle(idToken: string, device: DeviceInfo): Promise<TokenPair & { user: object }> {
+    const { verifyGoogleIdToken } = await import('../../lib/google-auth');
+    const identity = await verifyGoogleIdToken(idToken);
+
+    if (!identity.emailVerified) {
+      throw new AuthenticationError('Your Google email is not verified.');
+    }
+
+    let user = await userRepository.findByEmail(identity.email, true);
+
+    if (user) {
+      if (user.isDeleted) throw new AuthenticationError('This account has been deactivated');
+      if (user.status === UserStatus.SUSPENDED) {
+        throw new AuthenticationError('Your account has been suspended. Please contact support.');
+      }
+      // First Google login for an unverified/pending account activates it.
+      if (!user.emailVerified || user.status === UserStatus.PENDING_VERIFICATION) {
+        await userRepository.update(user.publicId, {
+          emailVerified: true,
+          status: UserStatus.ACTIVE,
+          emailVerificationToken: undefined,
+          emailVerificationExpiry: undefined,
+        });
+        user = { ...user, emailVerified: true, status: UserStatus.ACTIVE };
+      }
+    } else {
+      // No account yet → provision a fresh STUDENT. A random password hash keeps
+      // the field required; the user signs in only via Google unless they reset it.
+      const randomSecret = crypto.randomBytes(48).toString('hex');
+      const passwordHash = await argon2.hash(randomSecret, {
+        type: argon2.argon2id,
+        memoryCost: 65536,
+        timeCost: 3,
+        parallelism: 1,
+      });
+
+      const created = await userRepository.create({
+        publicId: uuidv4(),
+        email: identity.email,
+        passwordHash,
+        firstName: identity.firstName,
+        lastName: identity.lastName || '-',
+        role: 'STUDENT',
+        status: UserStatus.ACTIVE,
+        avatarUrl: identity.picture,
+        timezone: 'UTC',
+        emailVerified: true,
+        twoFAEnabled: false,
+        loginCount: 0,
+        isDeleted: false,
+      });
+
+      try { await walletService.getOrCreateWallet(created.publicId); } catch { /* non-fatal */ }
+      try {
+        await StudentProfileModel.create({
+          publicId: uuidv4(),
+          userPublicId: created.publicId,
+          previousTutorPublicIds: [],
+          status: StudentStatus.PENDING_APPROVAL,
+          demoClassesUsed: 0,
+          demoClassTakenWith: [],
+          totalClassesAttended: 0,
+          totalClassesCancelled: 0,
+          totalClassesMissed: 0,
+          totalClassesBooked: 0,
+          attendanceRate: 0,
+          invitedBy: created.publicId,
+          isDeleted: false,
+        });
+      } catch (err) {
+        console.warn('[auth] Could not create student profile for Google user:', (err as Error).message);
+      }
+
+      // Re-fetch with sensitive fields so _issueSession has passwordHash to strip.
+      user = await userRepository.findByEmail(identity.email, true);
+    }
+
+    if (!user) throw new AuthenticationError('Could not sign in with Google');
+    return this._issueSession(user, device);
+  }
+
+  /**
+   * Re-send the verification email for a not-yet-verified account. Always resolves
+   * (no account enumeration); regenerates the token so old links stop working.
+   */
+  async resendVerification(email: string): Promise<void> {
+    const user = await userRepository.findByEmail(email);
+    if (!user || user.emailVerified || user.status !== UserStatus.PENDING_VERIFICATION) return;
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await userRepository.update(user.publicId, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiry: verificationExpiry,
+    });
+
+    domainEvents.emit(DomainEvent.USER_REGISTERED, {
+      userId: user.publicId,
+      email: user.email,
+      role: user.role,
+      verificationToken,
+    });
   }
 
   async refreshTokens(refreshToken: string): Promise<TokenPair> {

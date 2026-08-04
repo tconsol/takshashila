@@ -31,6 +31,14 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().default('noreply@brainbaseedu.com'),
 
+  // ── Google OAuth (Sign in with Google) ──────────────────────────────────────
+  // idTokens are verified against ANY configured client id below (web/android/ios),
+  // so a single /auth/google endpoint serves web + native sign-in.
+  GOOGLE_CLIENT_ID: z.string().optional(),          // web OAuth client id
+  GOOGLE_CLIENT_SECRET: z.string().optional(),       // web OAuth client secret
+  GOOGLE_ANDROID_CLIENT_ID: z.string().optional(),
+  GOOGLE_IOS_CLIENT_ID: z.string().optional(),
+
   GCP_PROJECT_ID: z.string().optional(),
   GCP_BUCKET_NAME: z.string().optional(),
   GCP_PRIVATE_KEY_ID: z.string().optional(),

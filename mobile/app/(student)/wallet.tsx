@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, FlatList, RefreshControl } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
@@ -16,8 +17,9 @@ const TX_STYLE: Record<TransactionType, { bg: string; fg: string; icon: keyof ty
   REFUND: { bg: '#E0F2FE', fg: '#0284C7', icon: 'refresh' },
 };
 
+// Amounts are credits (1 credit = 100 cents), shown as "N cr" — not a currency.
 function rs(cents: number) {
-  return `₹${(cents / 100).toFixed(0)}`;
+  return `${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })} cr`;
 }
 
 function TransactionItem({ item }: { item: LedgerEntry }) {
@@ -118,12 +120,13 @@ export default function WalletScreen() {
               <Text className="text-white/70 text-xs font-semibold uppercase tracking-wide">
                 Available balance
               </Text>
-              <Text className="text-white text-4xl font-bold mt-2">
-                {rs(wallet?.balanceCents ?? 0)}
-              </Text>
-              <Text className="text-white/60 text-xs mt-1">
-                {wallet?.currency ?? 'INR'}
-              </Text>
+              <View className="mt-2 flex-row items-center gap-2">
+                <Ionicons name="pricetags" size={26} color="#fff" />
+                <Text className="text-white text-4xl font-bold">
+                  {rs(wallet?.balanceCents ?? 0)}
+                </Text>
+              </View>
+              <Text className="text-white/60 text-xs mt-1">credits</Text>
 
               {/* Credit breakdown */}
               <View
@@ -150,6 +153,15 @@ export default function WalletScreen() {
                 </View>
               </View>
             </View>
+
+            {/* Add credits */}
+            <TouchableOpacity
+              onPress={() => router.push('/buy-credits')}
+              className="mb-5 flex-row items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-4"
+            >
+              <Ionicons name="add-circle" size={20} color="#fff" />
+              <Text className="text-base font-bold text-white">Add Credits</Text>
+            </TouchableOpacity>
 
             {/* Quick stats */}
             <View className="flex-row gap-3 mb-5">

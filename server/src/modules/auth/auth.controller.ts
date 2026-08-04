@@ -57,6 +57,25 @@ export class AuthController {
     }
   }
 
+  async googleAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await authService.loginWithGoogle(req.body.idToken, getDeviceInfo(req));
+      setAuthCookies(res, result.accessToken, result.refreshToken);
+      sendSuccess(res, result, 'Login successful');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async resendVerification(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await authService.resendVerification(req.body.email);
+      sendSuccess(res, null, 'If an unverified account with that email exists, a new verification link has been sent.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async logout(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       await authService.logout(req.user!.sessionId, req.user!.publicId);

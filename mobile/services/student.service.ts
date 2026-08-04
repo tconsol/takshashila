@@ -10,4 +10,8 @@ export const studentService = {
 
   declineInvite: (): Promise<void> =>
     api.post('/students/me/decline-invite').then(() => undefined),
+
+  getMyPrincipal: (): Promise<
+    { publicId: string; organizationName?: string; firstName: string; lastName: string; email?: string } | null
+  > => api.get('/students/me/principal').then((r) => r.data?.data ?? null),
 };

@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, Alert, Linking, Modal, TextInput, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router, type Href } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
@@ -17,10 +17,14 @@ import type { ClassStatus } from '../../types/api.types';
 
 const STATUS_BADGE: Record<ClassStatus, { label: string; variant: 'success' | 'warning' | 'error' | 'info' | 'neutral' }> = {
   SCHEDULED:   { label: 'Scheduled',  variant: 'info' },
+  LIVE:        { label: 'Live Now',   variant: 'success' },
   IN_PROGRESS: { label: 'Live Now',   variant: 'success' },
   COMPLETED:   { label: 'Completed',  variant: 'neutral' },
   CANCELLED:   { label: 'Cancelled',  variant: 'error' },
+  MISSED:      { label: 'Missed',     variant: 'warning' },
   NO_SHOW:     { label: 'No Show',    variant: 'warning' },
+  RESCHEDULED: { label: 'Rescheduled', variant: 'info' },
+  FAILED:      { label: 'Failed',     variant: 'error' },
 };
 
 function InfoRow({ icon, label, value, color = '#6366F1' }: {
@@ -95,6 +99,9 @@ export default function ClassDetailScreen() {
   const badge = STATUS_BADGE[cls.status] ?? { label: cls.status, variant: 'neutral' as const };
   const cost = cls.costCents > 0 ? `₹${(cls.costCents / 100).toFixed(0)}` : 'Free';
   const isRated = (ratedIds ?? []).includes(classId);
+  const isLive = cls.status === 'LIVE' || cls.status === 'IN_PROGRESS';
+  const canJoin = isLive || (cls.status === 'SCHEDULED' && differenceInMinutes(start, new Date()) <= 15);
+  const enterRoom = () => router.push(`/room/${classId}` as Href);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
@@ -148,23 +155,27 @@ export default function ClassDetailScreen() {
 
         {/* Actions */}
         <View className="gap-3">
-          {cls.status === 'IN_PROGRESS' && cls.meetingUrl && (
-            <Button
-              variant="secondary"
-              size="lg"
-              onPress={() => Linking.openURL(cls.meetingUrl!)}
+          {canJoin && (
+            <TouchableOpacity
+              onPress={enterRoom}
+              activeOpacity={0.9}
+              className="flex-row items-center justify-center gap-2 rounded-3xl py-4"
+              style={{ backgroundColor: isLive ? '#059669' : '#6366F1', shadowColor: isLive ? '#059669' : '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 }}
             >
-              Join class now
-            </Button>
+              <Ionicons name="videocam" size={20} color="#fff" />
+              <Text className="text-base font-bold text-white">
+                {isLive ? 'Join live class' : 'Enter class'}
+              </Text>
+            </TouchableOpacity>
           )}
 
-          {cls.status === 'SCHEDULED' && cls.meetingUrl && (
+          {cls.meetingUrl && (
             <Button
               variant="outline"
-              size="lg"
+              size="md"
               onPress={() => Linking.openURL(cls.meetingUrl!)}
             >
-              Open meeting link
+              Open external meeting link
             </Button>
           )}
 
