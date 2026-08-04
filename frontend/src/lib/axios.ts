@@ -44,14 +44,22 @@ api.interceptors.request.use((config) => {
 
 // ── Response interceptor handle unexpected 401s ────────────────────────────
 
+// Public auth endpoints: a 401/failure here is the login attempt itself failing,
+// NOT an expired session — must not trigger the global auto-logout redirect,
+// otherwise the component never sees the real error.
+const PUBLIC_AUTH_ENDPOINTS = [
+  '/auth/login', '/auth/refresh', '/auth/google', '/auth/register',
+  '/auth/resend-verification', '/auth/verify-email', '/auth/forgot-password',
+  '/auth/reset-password', '/auth/accept-invite',
+];
+
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    const isAuthEndpoint =
-      error.config?.url?.includes('/auth/login') ||
-      error.config?.url?.includes('/auth/refresh');
+    const url: string = error.config?.url ?? '';
+    const isPublicAuth = PUBLIC_AUTH_ENDPOINTS.some((p) => url.includes(p));
 
-    if (error.response?.status === 401 && !isAuthEndpoint) {
+    if (error.response?.status === 401 && !isPublicAuth) {
       logout();
     }
 

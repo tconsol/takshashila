@@ -24,7 +24,7 @@
   # CSP is shipped Report-Only first. Watch the browser console for violations
   # against Stripe / Razorpay / Firebase / Agora / GCS, then switch the header
   # name to "Content-Security-Policy" (remove -Report-Only) to ENFORCE it.
-  Header always set Content-Security-Policy-Report-Only "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://storage.googleapis.com https://*.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://js.stripe.com https://checkout.razorpay.com https://*.gstatic.com; frame-src https://js.stripe.com https://hooks.stripe.com https://api.razorpay.com https://checkout.razorpay.com; connect-src 'self' https: wss:; worker-src 'self' blob:"
+  Header always set Content-Security-Policy-Report-Only "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://storage.googleapis.com https://*.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://js.stripe.com https://checkout.razorpay.com https://*.gstatic.com https://accounts.google.com; frame-src https://js.stripe.com https://hooks.stripe.com https://api.razorpay.com https://checkout.razorpay.com https://accounts.google.com; connect-src 'self' https: wss:; worker-src 'self' blob:"
 </IfModule>
 
 # ─── Block server-side scripts (this is a static SPA none should ever run) ──

@@ -1,6 +1,7 @@
 import { OAuth2Client } from 'google-auth-library';
 import { env } from '../config/env';
 import { AppError } from '../utils/error';
+import { logger } from './logger';
 
 // All configured Google client ids are accepted as valid audiences, so one
 // endpoint serves web + Android + iOS sign-in (each platform gets its own id).
@@ -39,9 +40,10 @@ export async function exchangeGoogleCode(code: string): Promise<string> {
   const oauth2 = new OAuth2Client(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, 'postmessage');
   try {
     const { tokens } = await oauth2.getToken(code);
-    if (!tokens.id_token) throw new Error('no id_token in response');
+    if (!tokens.id_token) throw new Error('no id_token in token response');
     return tokens.id_token;
-  } catch {
+  } catch (err) {
+    logger.error('Google code exchange failed', { error: (err as Error).message });
     throw new AppError('Could not verify Google authorization code', 401);
   }
 }
@@ -60,7 +62,13 @@ export async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdenti
   try {
     const ticket = await client.verifyIdToken({ idToken, audience });
     payload = ticket.getPayload();
-  } catch {
+  } catch (err) {
+    // Most common cause: the token's `aud` (the web client id used by the browser)
+    // is not one of the configured GOOGLE_*_CLIENT_ID values on the server.
+    logger.error('Google idToken verification failed', {
+      error: (err as Error).message,
+      configuredAudiences: audience,
+    });
     throw new AppError('Invalid Google token', 401);
   }
 
