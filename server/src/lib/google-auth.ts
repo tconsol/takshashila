@@ -85,3 +85,65 @@ export async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdenti
     picture: payload.picture,
   };
 }
+
+/**
+ * Verify a Google OAuth **access token** (from the web implicit popup flow) and
+ * return the identity. Security: the token's audience (`aud`) MUST be one of our
+ * configured client ids, so a token minted for another app is rejected. Profile
+ * name/picture are fetched best-effort from the userinfo endpoint.
+ */
+export async function verifyGoogleAccessToken(accessToken: string): Promise<GoogleIdentity> {
+  const audience = allowedAudiences();
+  if (audience.length === 0) {
+    throw new AppError('Google sign-in is not configured on the server', 503);
+  }
+
+  let info;
+  try {
+    // Authoritative: tokeninfo returns the token's audience + email.
+    info = await client.getTokenInfo(accessToken);
+  } catch (err) {
+    logger.error('Google accessToken introspection failed', { error: (err as Error).message });
+    throw new AppError('Invalid Google token', 401);
+  }
+
+  if (!info.aud || !audience.includes(info.aud)) {
+    logger.error('Google accessToken audience mismatch', {
+      tokenAud: info.aud,
+      configuredAudiences: audience,
+    });
+    throw new AppError('Invalid Google token', 401);
+  }
+  if (!info.email) {
+    throw new AppError('Google token did not contain an email (missing email scope)', 401);
+  }
+
+  // Best-effort: enrich with given/family name + picture from userinfo.
+  let firstName = info.email.split('@')[0];
+  let lastName = '';
+  let picture: string | undefined;
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (res.ok) {
+      const profile = (await res.json()) as {
+        given_name?: string; family_name?: string; name?: string; picture?: string;
+      };
+      firstName = profile.given_name ?? profile.name ?? firstName;
+      lastName = profile.family_name ?? '';
+      picture = profile.picture;
+    }
+  } catch {
+    // keep the email-derived name
+  }
+
+  return {
+    googleId: info.sub ?? info.email,
+    email: info.email.toLowerCase(),
+    emailVerified: info.email_verified ?? true,
+    firstName,
+    lastName,
+    picture,
+  };
+}

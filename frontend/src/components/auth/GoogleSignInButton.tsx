@@ -24,10 +24,14 @@ function GoogleGlyph() {
 export function GoogleSignInButton({ label = 'Continue with Google' }: { label?: string }) {
   const googleAuth = useGoogleAuth();
 
+  // Implicit flow → popup consent returns an access_token (no client secret / no
+  // GSI iframe). The server verifies its audience before trusting it.
   const login = useGoogleLogin({
-    flow: 'auth-code',
     onSuccess: (resp) => {
-      if (resp.code) googleAuth.mutate({ code: resp.code });
+      if (resp.access_token) googleAuth.mutate({ accessToken: resp.access_token });
+    },
+    onError: () => {
+      // popup closed / denied — nothing to do; button re-enables.
     },
   });
 

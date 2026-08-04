@@ -331,14 +331,20 @@ export class AuthService {
    * student profile just like a normal registration.
    */
   async loginWithGoogle(
-    input: { idToken?: string; code?: string },
+    input: { idToken?: string; code?: string; accessToken?: string },
     device: DeviceInfo,
   ): Promise<TokenPair & { user: object }> {
-    const { verifyGoogleIdToken, exchangeGoogleCode } = await import('../../lib/google-auth');
-    // Web sends an auth `code` (exchanged server-side); native sends an `idToken`.
-    const idToken = input.idToken ?? (input.code ? await exchangeGoogleCode(input.code) : null);
-    if (!idToken) throw new AuthenticationError('Missing Google credentials');
-    const identity = await verifyGoogleIdToken(idToken);
+    const { verifyGoogleIdToken, verifyGoogleAccessToken, exchangeGoogleCode } = await import('../../lib/google-auth');
+    // Web implicit flow sends an `accessToken`; web code flow sends `code`;
+    // native sends an `idToken`. Resolve whichever we got into a Google identity.
+    let identity;
+    if (input.accessToken) {
+      identity = await verifyGoogleAccessToken(input.accessToken);
+    } else {
+      const idToken = input.idToken ?? (input.code ? await exchangeGoogleCode(input.code) : null);
+      if (!idToken) throw new AuthenticationError('Missing Google credentials');
+      identity = await verifyGoogleIdToken(idToken);
+    }
 
     if (!identity.emailVerified) {
       throw new AuthenticationError('Your Google email is not verified.');

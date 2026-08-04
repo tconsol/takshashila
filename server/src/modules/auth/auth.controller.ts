@@ -60,7 +60,7 @@ export class AuthController {
   async googleAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await authService.loginWithGoogle(
-        { idToken: req.body.idToken, code: req.body.code },
+        { idToken: req.body.idToken, code: req.body.code, accessToken: req.body.accessToken },
         getDeviceInfo(req),
       );
       setAuthCookies(res, result.accessToken, result.refreshToken);

@@ -35,7 +35,7 @@ export function useGoogleAuth() {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: (payload: { idToken?: string; code?: string }) => authService.googleAuth(payload),
+    mutationFn: (payload: { idToken?: string; code?: string; accessToken?: string }) => authService.googleAuth(payload),
     onSuccess: (result) => {
       setAuth(result.user, result.accessToken);
       localStorage.setItem('refreshToken', result.refreshToken);

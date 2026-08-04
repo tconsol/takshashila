@@ -72,10 +72,11 @@ export const resendVerificationSchema = z.object({
 });
 
 export const googleAuthSchema = z.object({
-  idToken: z.string().min(1).optional(),   // native (mobile) flow
-  code: z.string().min(1).optional(),      // web auth-code popup flow
-}).refine((d) => !!d.idToken || !!d.code, {
-  message: 'Provide a Google idToken or authorization code',
+  idToken: z.string().min(1).optional(),      // native (mobile) flow
+  code: z.string().min(1).optional(),         // web auth-code popup flow
+  accessToken: z.string().min(1).optional(),  // web implicit popup flow
+}).refine((d) => !!d.idToken || !!d.code || !!d.accessToken, {
+  message: 'Provide a Google idToken, access token, or authorization code',
   path: ['idToken'],
 });
 
