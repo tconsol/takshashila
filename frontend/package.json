@@ -15,6 +15,7 @@
     "@excalidraw/excalidraw": "^0.18.1",
     "@hookform/resolvers": "^3.3.2",
     "@lottiefiles/dotlottie-react": "^0.19.2",
+    "@react-oauth/google": "^0.13.5",
     "@stripe/react-stripe-js": "^2.9.0",
     "@stripe/stripe-js": "^3.5.0",
     "@tanstack/react-query": "^5.13.4",

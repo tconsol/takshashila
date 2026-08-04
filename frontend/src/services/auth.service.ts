@@ -21,6 +21,15 @@ export const authService = {
     return res.data.data;
   },
 
+  async googleAuth(idToken: string) {
+    const res = await api.post<ApiResponse<{ user: User } & TokenPair>>('/auth/google', { idToken });
+    return res.data.data;
+  },
+
+  async resendVerification(email: string) {
+    await api.post('/auth/resend-verification', { email });
+  },
+
   async getMe() {
     const res = await api.get<ApiResponse<User>>('/auth/me');
     return res.data.data;

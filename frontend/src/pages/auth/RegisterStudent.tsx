@@ -9,6 +9,7 @@ import { authService } from '../../services/auth.service';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
 import { GRADE_OPTIONS, GRADE_LIST } from '../../constants/grades';
 
 const schema = z.object({
@@ -117,6 +118,15 @@ export function RegisterStudentPage() {
           Create Student Account
         </Button>
       </form>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
+        <div className="relative flex justify-center">
+          <span className="bg-white dark:bg-slate-900 px-3 text-xs text-slate-400">or</span>
+        </div>
+      </div>
+
+      <GoogleSignInButton text="signup_with" />
 
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
         Already have an account?{' '}
