@@ -5,7 +5,7 @@ import { tutorService } from '../tutors/tutor.service';
 import { studentService } from '../students/student.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 import { NotFoundError, AppError } from '../../utils/error';
-import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
+import { RtcTokenBuilder, RtcRole } from 'agora-token';
 import { env } from '../../config/env';
 import { ScheduledClassModel } from '../schedules/schedule.model';
 import { TutorProfileModel } from '../tutors/tutor.model';
@@ -168,7 +168,8 @@ export class ClassController {
         classId,   // channel name = classPublicId
         0,         // uid 0 = auto-assign
         RtcRole.PUBLISHER,
-        expireTime,
+        env.AGORA_TOKEN_EXPIRE_SECONDS, // token expire (seconds)
+        env.AGORA_TOKEN_EXPIRE_SECONDS, // privilege expire (seconds)
       );
 
       sendSuccess(res, {
