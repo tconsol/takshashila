@@ -1,14 +1,37 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode, type ComponentType } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { ProtectedRoute } from './protected-route';
 import { Spinner } from '../components/ui/Loading';
 
+// Dynamic-import chunks can fail to load after a new deploy (old hashed filename
+// gone) or when a browser extension hijacks the import. Recover by reloading once.
+function lazyWithRetry<T extends { default: ComponentType<unknown> }>(
+  factory: () => Promise<T>,
+) {
+  const KEY = 'chunk-reload-once';
+  return lazy(async () => {
+    try {
+      const mod = await factory();
+      sessionStorage.removeItem(KEY); // loaded fine → allow a future retry
+      return mod;
+    } catch (err) {
+      if (!sessionStorage.getItem(KEY)) {
+        sessionStorage.setItem(KEY, '1');
+        window.location.reload();
+        // Never resolves — the reload takes over.
+        return await new Promise<T>(() => {});
+      }
+      throw err;
+    }
+  });
+}
+
 // Heavy, self-contained routes are code-split so they don't bloat the initial bundle.
-const LandingPage = lazy(() => import('../pages/LandingPage').then((m) => ({ default: m.LandingPage })));
-const StudentGamesPage = lazy(() => import('../pages/student/StudentGamesPage').then((m) => ({ default: m.StudentGamesPage })));
-const ClassRoomPage = lazy(() => import('../features/live-class/ClassRoomPage').then((m) => ({ default: m.ClassRoomPage })));
+const LandingPage = lazyWithRetry(() => import('../pages/LandingPage').then((m) => ({ default: m.LandingPage })));
+const StudentGamesPage = lazyWithRetry(() => import('../pages/student/StudentGamesPage').then((m) => ({ default: m.StudentGamesPage })));
+const ClassRoomPage = lazyWithRetry(() => import('../features/live-class/ClassRoomPage').then((m) => ({ default: m.ClassRoomPage })));
 
 const lazyEl = (node: ReactNode): ReactNode => (
   <Suspense fallback={<div className="flex h-screen items-center justify-center"><Spinner /></div>}>{node}</Suspense>

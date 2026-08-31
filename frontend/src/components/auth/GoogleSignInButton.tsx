@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useGoogleAuth } from '../../hooks/use-auth';
 
@@ -15,46 +16,74 @@ function GoogleGlyph() {
 }
 
 /**
- * "Continue with Google" using the OAuth **auth-code popup** flow. This opens the
- * standard Google consent popup and returns an authorization code that our server
- * exchanges + verifies — avoiding the GSI One-Tap iframe (the blank
- * accounts.google.com/gsi/transform popup). Renders nothing when the client id
- * isn't configured.
+ * "Continue with Google" — implicit popup flow. Returns an access_token that the
+ * server verifies (audience-checked) and exchanges for our own session.
+ * Instrumented so the failing step is visible in the console + on screen.
  */
 export function GoogleSignInButton({ label = 'Continue with Google' }: { label?: string }) {
   const googleAuth = useGoogleAuth();
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  // Implicit flow → popup consent returns an access_token (no client secret / no
-  // GSI iframe). The server verifies its audience before trusting it.
   const login = useGoogleLogin({
+    // MUST request email + profile, else the access token carries no email and the
+    // server can't identify the user.
+    scope: 'openid email profile',
     onSuccess: (resp) => {
-      if (resp.access_token) googleAuth.mutate({ accessToken: resp.access_token });
+      console.info('[google] popup success, got access_token:', !!resp.access_token);
+      setLocalError(null);
+      if (resp.access_token) {
+        googleAuth.mutate({ accessToken: resp.access_token });
+      } else {
+        setLocalError('Google did not return an access token.');
+      }
     },
-    onError: () => {
-      // popup closed / denied — nothing to do; button re-enables.
+    onError: (err) => {
+      console.error('[google] OAuth error', err);
+      setLocalError(err?.error_description || err?.error || 'Google sign-in was cancelled or failed.');
+    },
+    // Popup blocked / failed to open / unexpected — the callback the SDK uses when
+    // the failure isn't a normal OAuth error (very common cause: popup blocker).
+    onNonOAuthError: (err) => {
+      console.error('[google] non-OAuth error', err);
+      setLocalError(
+        err?.type === 'popup_failed_to_open'
+          ? 'Popup was blocked. Allow popups for this site and try again.'
+          : err?.type === 'popup_closed'
+          ? 'Popup closed before finishing.'
+          : 'Google sign-in could not start.',
+      );
     },
   });
 
-  if (!CLIENT_ID) return null;
+  if (!CLIENT_ID) {
+    // Surface the misconfiguration instead of silently rendering nothing.
+    return (
+      <p className="text-center text-xs font-medium text-amber-600">
+        Google sign-in unavailable: VITE_GOOGLE_CLIENT_ID is not set.
+      </p>
+    );
+  }
 
   const serverError =
     googleAuth.isError && googleAuth.error instanceof Error
       ? (googleAuth.error as { response?: { data?: { message?: string } } }).response?.data?.message ||
-        'Google sign-in failed'
+        'Google sign-in failed on the server.'
       : null;
+
+  const error = serverError || localError;
 
   return (
     <div className="space-y-2">
       <button
         type="button"
-        onClick={() => login()}
+        onClick={() => { setLocalError(null); login(); }}
         disabled={googleAuth.isPending}
         className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 hover:shadow-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
       >
         <GoogleGlyph />
         {googleAuth.isPending ? 'Signing in…' : label}
       </button>
-      {serverError && <p className="text-center text-xs font-medium text-rose-600">{serverError}</p>}
+      {error && <p className="text-center text-xs font-medium text-rose-600">{error}</p>}
     </div>
   );
 }

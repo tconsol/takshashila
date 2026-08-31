@@ -98,15 +98,15 @@ export async function verifyGoogleAccessToken(accessToken: string): Promise<Goog
     throw new AppError('Google sign-in is not configured on the server', 503);
   }
 
+  // 1) Security check: the token's audience MUST be one of our client ids, so a
+  //    token minted for a different app can't be replayed here.
   let info;
   try {
-    // Authoritative: tokeninfo returns the token's audience + email.
     info = await client.getTokenInfo(accessToken);
   } catch (err) {
     logger.error('Google accessToken introspection failed', { error: (err as Error).message });
     throw new AppError('Invalid Google token', 401);
   }
-
   if (!info.aud || !audience.includes(info.aud)) {
     logger.error('Google accessToken audience mismatch', {
       tokenAud: info.aud,
@@ -114,36 +114,35 @@ export async function verifyGoogleAccessToken(accessToken: string): Promise<Goog
     });
     throw new AppError('Invalid Google token', 401);
   }
-  if (!info.email) {
-    throw new AppError('Google token did not contain an email (missing email scope)', 401);
-  }
 
-  // Best-effort: enrich with given/family name + picture from userinfo.
-  let firstName = info.email.split('@')[0];
-  let lastName = '';
-  let picture: string | undefined;
+  // 2) Identity: userinfo is the canonical source for email + profile. Requires the
+  //    token to carry the email/profile scope (the client requests it).
+  type GoogleProfile = {
+    sub?: string; email?: string; email_verified?: boolean;
+    given_name?: string; family_name?: string; name?: string; picture?: string;
+  };
+  let profile: GoogleProfile = {};
   try {
     const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (res.ok) {
-      const profile = (await res.json()) as {
-        given_name?: string; family_name?: string; name?: string; picture?: string;
-      };
-      firstName = profile.given_name ?? profile.name ?? firstName;
-      lastName = profile.family_name ?? '';
-      picture = profile.picture;
-    }
-  } catch {
-    // keep the email-derived name
+    if (res.ok) profile = (await res.json()) as GoogleProfile;
+    else logger.error('Google userinfo request failed', { status: res.status });
+  } catch (err) {
+    logger.error('Google userinfo fetch error', { error: (err as Error).message });
+  }
+
+  const email = (profile.email ?? info.email)?.toLowerCase();
+  if (!email) {
+    throw new AppError('Google account did not share an email (missing email scope)', 401);
   }
 
   return {
-    googleId: info.sub ?? info.email,
-    email: info.email.toLowerCase(),
-    emailVerified: info.email_verified ?? true,
-    firstName,
-    lastName,
-    picture,
+    googleId: profile.sub ?? info.sub ?? email,
+    email,
+    emailVerified: profile.email_verified ?? info.email_verified ?? true,
+    firstName: profile.given_name ?? profile.name ?? email.split('@')[0],
+    lastName: profile.family_name ?? '',
+    picture: profile.picture,
   };
 }
