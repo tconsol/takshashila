@@ -1,7 +1,9 @@
 ﻿import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { Trash2 } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
+import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Tabs } from '../../components/ui/Tabs';
@@ -48,6 +50,7 @@ const TABS = [
 export function SupportTicketsPage() {
   const [activeTab, setActiveTab] = useState('OPEN');
   const [selected, setSelected] = useState<SupportTicket | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SupportTicket | null>(null);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -62,6 +65,17 @@ export function SupportTicketsPage() {
       api.patch(`/support/tickets/${publicId}`, { status }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['support', 'tickets'] });
+      setSelected(null);
+    },
+  });
+
+  const {
+    mutate: deleteTicket, isPending: deleting, error: deleteError, reset: resetDelete,
+  } = useMutation({
+    mutationFn: (publicId: string) => api.delete(`/support/tickets/${publicId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['support', 'tickets'] });
+      setDeleteTarget(null);
       setSelected(null);
     },
   });
@@ -149,6 +163,15 @@ export function SupportTicketsPage() {
                 Close
               </Button>
             )}
+            {selected && (
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => { resetDelete(); setDeleteTarget(selected); }}
+              >
+                <Trash2 className="h-3 w-3" /> Delete
+              </Button>
+            )}
           </div>
         }
       >
@@ -167,6 +190,22 @@ export function SupportTicketsPage() {
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete ticket"
+        message={
+          deleteTarget
+            ? `"${deleteTarget.subject}" and its message thread will be removed. Prefer closing a ticket over deleting it — closing keeps the history.`
+            : ''
+        }
+        confirmLabel="Delete ticket"
+        confirmPhrase="DELETE"
+        loading={deleting}
+        error={deleteError ? (deleteError as Error).message : undefined}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteTicket(deleteTarget.publicId)}
+      />
     </div>
   );
 }

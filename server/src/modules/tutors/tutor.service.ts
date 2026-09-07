@@ -13,6 +13,7 @@ import { UserStatus } from '../users/user.types';
 import { DomainEvent } from '../../constants/events';
 import type { UpdateTutorProfileDto } from './tutor.validators';
 import { PrincipalProfileModel } from '../principals/principal.model';
+import { settingsService } from '../settings/settings.service';
 
 export class TutorService {
   async createProfile(
@@ -32,7 +33,7 @@ export class TutorService {
       subjects: data.subjects || [],
       languages: data.languages || [],
       hourlyRateCents: data.hourlyRateCents || 0,
-      commissionRatePercent: 20,
+      commissionRatePercent: (await settingsService.get()).defaultTutorCommissionRatePercent,
       bio: data.bio,
       qualifications: data.qualifications || [],
       timezone: data.timezone || 'UTC',
@@ -324,7 +325,7 @@ export class TutorService {
       subjects: params.subjects ?? [],
       languages: [],
       hourlyRateCents: params.hourlyRateCents ?? 0,
-      commissionRatePercent: 20,
+      commissionRatePercent: (await settingsService.get()).defaultTutorCommissionRatePercent,
       qualifications: [],
       timezone: 'UTC',
       trustScore: 50,

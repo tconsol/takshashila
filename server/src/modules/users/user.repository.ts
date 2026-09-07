@@ -4,6 +4,31 @@ import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import type { Role } from '../../constants/roles';
 
+export interface DirectoryFilters {
+  role?: Role;
+  status?: string;
+  q?: string;
+  /** Deletion is soft, so an admin needs to see and restore the tail. */
+  deleted?: 'exclude' | 'include' | 'only';
+}
+
+function buildDirectoryFilter(filters: DirectoryFilters): Record<string, unknown> {
+  const filter: Record<string, unknown> = {};
+
+  if (filters.deleted === 'only') filter.isDeleted = true;
+  else if (filters.deleted !== 'include') filter.isDeleted = false;
+
+  if (filters.role) filter.role = filters.role;
+  if (filters.status) filter.status = filters.status;
+  if (filters.q && filters.q.trim().length >= 2) {
+    const escaped = filters.q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'i');
+    filter.$or = [{ firstName: regex }, { lastName: regex }, { email: regex }, { studentId: regex }];
+  }
+
+  return filter;
+}
+
 export class UserRepository {
   async create(dto: Omit<IUser, '_id' | 'createdAt' | 'updatedAt'>): Promise<IUser> {
     const user = await UserModel.create(dto);
@@ -71,8 +96,19 @@ export class UserRepository {
   }
 
   async findAllByRole(role: Role, query: PaginationQuery): Promise<PaginatedResult<IUser>> {
+    return this.findAll({ role }, query);
+  }
+
+  /**
+   * Admin directory listing. Every filter is optional so an unfiltered call
+   * returns the whole (non-deleted) user base rather than an empty list.
+   */
+  async findAll(
+    filters: DirectoryFilters,
+    query: PaginationQuery,
+  ): Promise<PaginatedResult<IUser>> {
     const { page, limit, skip, sortBy, sortOrder } = parsePaginationQuery(query);
-    const filter = { role, isDeleted: false };
+    const filter = buildDirectoryFilter(filters);
 
     const [items, total] = await Promise.all([
       UserModel.find(filter).sort({ [sortBy]: sortOrder } as Record<string, 1 | -1>).skip(skip).limit(limit).lean(),
@@ -80,6 +116,39 @@ export class UserRepository {
     ]);
 
     return buildPaginatedResult(items, total, page, limit);
+  }
+
+  /**
+   * Export path. `parsePaginationQuery` caps a page at 100 rows, which would
+   * silently truncate a CSV, so this bypasses it with its own explicit bound.
+   */
+  async findAllForExport(filters: DirectoryFilters, limit: number): Promise<IUser[]> {
+    return UserModel.find(buildDirectoryFilter(filters))
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Math.max(1, limit), 20_000))
+      .lean();
+  }
+
+  /** Counts grouped by role and by status, for admin dashboards. */
+  async countsByRoleAndStatus(): Promise<{
+    byRole: { role: string; count: number }[];
+    byStatus: { status: string; count: number }[];
+  }> {
+    const [byRole, byStatus] = await Promise.all([
+      UserModel.aggregate([
+        { $match: { isDeleted: false } },
+        { $group: { _id: '$role', count: { $sum: 1 } } },
+      ]),
+      UserModel.aggregate([
+        { $match: { isDeleted: false } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    return {
+      byRole: byRole.map((r: { _id: string; count: number }) => ({ role: r._id, count: r.count })),
+      byStatus: byStatus.map((s: { _id: string; count: number }) => ({ status: s._id, count: s.count })),
+    };
   }
 
   async searchAll(q: string, limit = 30): Promise<IUser[]> {

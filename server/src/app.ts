@@ -7,6 +7,8 @@ import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { requestLogger } from './middlewares/requestLogger.middleware';
 import { globalRateLimiter } from './middlewares/rateLimit.middleware';
+import { maintenanceMiddleware } from './middlewares/maintenance.middleware';
+import { metricsMiddleware } from './middlewares/metrics.middleware';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware';
 
 import authRoutes from './modules/auth/auth.routes';
@@ -25,6 +27,8 @@ import { notificationRouter } from './modules/notifications/notification.routes'
 import { paymentRouter } from './modules/payments/payment.routes';
 import { supportRouter } from './modules/support/support.routes';
 import { analyticsRouter } from './modules/analytics/analytics.routes';
+import { settingsRouter } from './modules/settings/settings.routes';
+import { systemRouter } from './modules/system/system.routes';
 import { chatRouter } from './modules/chat/chat.routes';
 import { ratingRouter } from './modules/ratings/rating.routes';
 import parentRoutes from './modules/parents/parent.routes';
@@ -78,9 +82,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser(env.COOKIE_SECRET));
 app.use(requestLogger);
+app.use(metricsMiddleware);
 app.use(globalRateLimiter);
 
 const API_BASE = `/api/${env.API_VERSION}`;
+
+// Holds back writes while maintenance mode is on; reads and admins pass through.
+app.use(API_BASE, maintenanceMiddleware);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 app.get('/health/db', async (_req, res) => {
@@ -116,6 +124,8 @@ app.use(`${API_BASE}/support`, supportRouter);
 app.use(`${API_BASE}/chat`, chatRouter);
 app.use(`${API_BASE}/ratings`, ratingRouter);
 app.use(`${API_BASE}/analytics`, analyticsRouter);
+app.use(`${API_BASE}/settings`, settingsRouter);
+app.use(`${API_BASE}/system`, systemRouter);
 app.use(`${API_BASE}/parents`, parentRoutes);
 app.use(`${API_BASE}/worksheets`, worksheetRoutes);
 app.use(`${API_BASE}/join-requests`, joinRequestRoutes);

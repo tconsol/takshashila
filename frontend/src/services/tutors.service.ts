@@ -82,4 +82,7 @@ export const tutorsService = {
 
   suspend: (publicId: string, reason: string) =>
     api.post<{ data: TutorProfile }>(`/tutors/${publicId}/suspend`, { reason }).then((r) => r.data.data),
+
+  reactivate: (publicId: string) =>
+    api.post<{ data: TutorProfile }>(`/tutors/${publicId}/reactivate`).then((r) => r.data.data),
 };

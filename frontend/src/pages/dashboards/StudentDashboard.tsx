@@ -8,7 +8,7 @@ import {
 import { Link } from 'react-router-dom';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuthStore } from '../../stores/auth.store';
-import { PageHeader } from '../../components/shared/PageHeader';
+import { DashboardHero } from '../../components/shared/DashboardHero';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -202,31 +202,19 @@ export function StudentDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Greeting banner */}
-      <motion.div
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-brand-500 via-violet-500 to-indigo-500 px-5 py-4 shadow-lg shadow-brand-500/20"
-      >
-        <div>
-          <p className="text-lg font-bold text-white">
-            {greeting.emoji} {greeting.text}
-          </p>
-          <p className="mt-0.5 text-sm text-white/80">{tip}</p>
-        </div>
-        <Link to="/dashboard/student/tutors">
-          <Button size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30 border shrink-0">
-            <Plus className="h-4 w-4" /> Book a class
-          </Button>
-        </Link>
-      </motion.div>
-
-      <PageHeader
+      <DashboardHero
+        role="STUDENT"
         eyebrow="My Learning"
-        title="Dashboard"
-        description="Your classes, progress and credits at a glance."
-        icon={<Sparkles className="h-5 w-5" />}
+        title={`${greeting.emoji} ${greeting.text}`}
+        description={tip}
+        icon={<Sparkles className="h-6 w-6" />}
+        actions={
+          <Link to="/dashboard/student/tutors">
+            <Button size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30 border shrink-0">
+              <Plus className="h-4 w-4" /> Book a class
+            </Button>
+          </Link>
+        }
       />
 
       <LiveClassBanner />

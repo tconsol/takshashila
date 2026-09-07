@@ -63,6 +63,12 @@ import { SuperAdminAdminsPage } from '../pages/superadmin/SuperAdminAdminsPage';
 import { SuperAdminAnalyticsPage } from '../pages/superadmin/SuperAdminAnalyticsPage';
 import { SuperAdminAuditPage } from '../pages/superadmin/SuperAdminAuditPage';
 import { SuperAdminSettingsPage } from '../pages/superadmin/SuperAdminSettingsPage';
+import { SuperAdminSystemPage } from '../pages/superadmin/SuperAdminSystemPage';
+import { UserDirectoryPage } from '../pages/shared/UserDirectoryPage';
+import { PrincipalsDirectoryPage } from '../pages/shared/PrincipalsDirectoryPage';
+import { TutorsDirectoryPage } from '../pages/shared/TutorsDirectoryPage';
+import { StudentsDirectoryPage } from '../pages/shared/StudentsDirectoryPage';
+import { FinanceOpsPage } from '../pages/shared/FinanceOpsPage';
 
 // Admin pages
 import { AdminPrincipalsPage } from '../pages/admin/AdminPrincipalsPage';
@@ -161,8 +167,14 @@ export const router = createBrowserRouter([
       children: [
         { path: '/dashboard/super-admin', element: <SuperAdminDashboard /> },
         { path: '/dashboard/super-admin/admins', element: <SuperAdminAdminsPage /> },
+        { path: '/dashboard/super-admin/users', element: <UserDirectoryPage /> },
+        { path: '/dashboard/super-admin/principals', element: <PrincipalsDirectoryPage /> },
+        { path: '/dashboard/super-admin/tutors', element: <TutorsDirectoryPage /> },
+        { path: '/dashboard/super-admin/students', element: <StudentsDirectoryPage /> },
+        { path: '/dashboard/super-admin/finance', element: <FinanceOpsPage /> },
         { path: '/dashboard/super-admin/analytics', element: <SuperAdminAnalyticsPage /> },
         { path: '/dashboard/super-admin/audit', element: <SuperAdminAuditPage /> },
+        { path: '/dashboard/super-admin/system', element: <SuperAdminSystemPage /> },
         { path: '/dashboard/super-admin/settings', element: <SuperAdminSettingsPage /> },
       ],
     }],
@@ -175,8 +187,15 @@ export const router = createBrowserRouter([
       element: <DashboardLayout />,
       children: [
         { path: '/dashboard/admin', element: <AdminDashboard /> },
-        { path: '/dashboard/admin/principals', element: <AdminPrincipalsPage /> },
-        { path: '/dashboard/admin/tutors', element: <PrincipalTutorsPage /> },
+        { path: '/dashboard/admin/users', element: <UserDirectoryPage /> },
+        { path: '/dashboard/admin/principals', element: <PrincipalsDirectoryPage /> },
+        { path: '/dashboard/admin/tutors', element: <TutorsDirectoryPage /> },
+        { path: '/dashboard/admin/students', element: <StudentsDirectoryPage /> },
+        { path: '/dashboard/admin/finance', element: <FinanceOpsPage /> },
+        { path: '/dashboard/admin/audit', element: <SuperAdminAuditPage /> },
+        // Approval queues keep their own workflow-shaped screens.
+        { path: '/dashboard/admin/principals/approvals', element: <AdminPrincipalsPage /> },
+        { path: '/dashboard/admin/tutors/approvals', element: <PrincipalTutorsPage /> },
         { path: '/dashboard/admin/analytics', element: <AdminAnalyticsPage /> },
         { path: '/dashboard/admin/support', element: <SupportTicketsPage /> },
       ],

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BookOpen, Calendar, Wallet, Settings,
   BarChart3, Shield, Headphones, GraduationCap, LogOut,
   UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText, Building2,
-  Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2, ChevronRight,
+  Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2, ChevronRight, Server,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import brandLogo from '../../assets/brainbaseedulogo.png';
@@ -27,17 +27,27 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   SUPER_ADMIN: [
     { label: 'Overview',    href: '/dashboard/super-admin',          icon: LayoutDashboard },
     { label: 'Admins',      href: '/dashboard/super-admin/admins',   icon: Shield },
+    { label: 'Users',       href: '/dashboard/super-admin/users',    icon: Users },
+    { label: 'Principals',  href: '/dashboard/super-admin/principals', icon: Building2 },
+    { label: 'Tutors',      href: '/dashboard/super-admin/tutors',   icon: GraduationCap },
+    { label: 'Students',    href: '/dashboard/super-admin/students', icon: UserCheck },
     { label: 'Analytics',   href: '/dashboard/super-admin/analytics',icon: BarChart3 },
+    { label: 'Finance',     href: '/dashboard/super-admin/finance',  icon: Wallet },
     { label: 'Audit Logs',  href: '/dashboard/super-admin/audit',    icon: BookOpen },
+    { label: 'System',      href: '/dashboard/super-admin/system',   icon: Server },
     { label: 'Settings',    href: '/dashboard/super-admin/settings', icon: Settings },
     { label: 'Messages',    href: '/chat',                            icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Profile',     href: '/profile',                        icon: UserCircle },
   ],
   ADMIN: [
     { label: 'Overview',    href: '/dashboard/admin',             icon: LayoutDashboard },
-    { label: 'Principals',  href: '/dashboard/admin/principals',  icon: Users,          badgeKey: 'principals' },
+    { label: 'Users',       href: '/dashboard/admin/users',       icon: Users },
+    { label: 'Principals',  href: '/dashboard/admin/principals',  icon: Building2,      badgeKey: 'principals' },
     { label: 'Tutors',      href: '/dashboard/admin/tutors',      icon: GraduationCap,  badgeKey: 'tutors' },
+    { label: 'Students',    href: '/dashboard/admin/students',    icon: UserCheck },
     { label: 'Analytics',   href: '/dashboard/admin/analytics',   icon: BarChart3 },
+    { label: 'Finance',     href: '/dashboard/admin/finance',     icon: Wallet },
+    { label: 'Audit Logs',  href: '/dashboard/admin/audit',       icon: BookOpen },
     { label: 'Support',     href: '/dashboard/admin/support',     icon: Headphones,     badgeKey: 'support' },
     { label: 'Messages',    href: '/chat',                        icon: MessageSquare,  badgeKey: 'messages' },
     { label: 'Profile',     href: '/profile',                     icon: UserCircle },

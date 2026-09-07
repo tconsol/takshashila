@@ -37,6 +37,7 @@ import { TutorProfileModel } from '../tutors/tutor.model';
 import { TutorStatus } from '../tutors/tutor.types';
 import { StudentProfileModel } from '../students/student.model';
 import { StudentStatus } from '../students/student.types';
+import { settingsService } from '../settings/settings.service';
 
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -132,6 +133,7 @@ export class AuthService {
       try {
         const exists = await TutorProfileModel.findOne({ userPublicId, isDeleted: false }).lean();
         if (!exists) {
+          const settings = await settingsService.get();
           await TutorProfileModel.create({
             publicId: uuidv4(),
             userPublicId,
@@ -139,7 +141,7 @@ export class AuthService {
             subjects: dto.subjects ?? [],
             languages: dto.languages ?? [],
             hourlyRateCents: 0,
-            commissionRatePercent: 20,
+            commissionRatePercent: settings.defaultTutorCommissionRatePercent,
             bio: dto.bio,
             qualifications: dto.qualifications ?? [],
             timezone: dto.timezone || 'UTC',
@@ -163,11 +165,12 @@ export class AuthService {
       try {
         const exists = await PrincipalProfileModel.findOne({ userPublicId, isDeleted: false }).lean();
         if (!exists) {
+          const settings = await settingsService.get();
           await PrincipalProfileModel.create({
             publicId: uuidv4(),
             userPublicId,
             status: PrincipalStatus.PENDING_APPROVAL,
-            commissionRatePercent: 15,
+            commissionRatePercent: settings.defaultPrincipalCommissionRatePercent,
             totalTutors: 0,
             totalStudents: 0,
             totalRevenueCents: 0,

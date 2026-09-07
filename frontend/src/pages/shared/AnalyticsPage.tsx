@@ -20,10 +20,11 @@ interface PlatformStats {
 
 interface RecentClass {
   publicId: string;
-  subject: string;
+  title: string;
   status: string;
-  scheduledStartUTC: string;
+  startUTC: string;
   costCents: number;
+  durationMinutes: number;
 }
 
 type StatusVariant = 'success' | 'warning' | 'danger' | 'info' | 'default';
@@ -66,7 +67,7 @@ export function AnalyticsPage({ role, title = 'Analytics' }: AnalyticsPageProps)
 
   const { data: recentClasses = [], isLoading: classesLoading } = useQuery<RecentClass[]>({
     queryKey: ['analytics', 'recent-classes', role],
-    queryFn: () => api.get(classesEndpoint).then((r) => r.data?.recentClasses ?? r.data?.items ?? []),
+    queryFn: () => api.get(classesEndpoint).then((r) => r.data?.recentClasses ?? r.data?.recentClassesList ?? []),
     retry: false,
   });
 
@@ -108,9 +109,9 @@ export function AnalyticsPage({ role, title = 'Analytics' }: AnalyticsPageProps)
           <Table
             columns={[
               {
-                key: 'subject',
-                header: 'Subject',
-                render: (c) => <span className="font-medium text-gray-800 dark:text-gray-200">{c.subject}</span>,
+                key: 'title',
+                header: 'Class',
+                render: (c) => <span className="font-medium text-gray-800 dark:text-gray-200">{c.title}</span>,
               },
               {
                 key: 'status',
@@ -118,9 +119,14 @@ export function AnalyticsPage({ role, title = 'Analytics' }: AnalyticsPageProps)
                 render: (c) => <Badge variant={classStatusVariant[c.status] ?? 'default'}>{c.status}</Badge>,
               },
               {
-                key: 'scheduledStartUTC',
+                key: 'startUTC',
                 header: 'Date',
-                render: (c) => format(new Date(c.scheduledStartUTC), 'MMM d, yyyy h:mm a'),
+                render: (c) => format(new Date(c.startUTC), 'MMM d, yyyy h:mm a'),
+              },
+              {
+                key: 'durationMinutes',
+                header: 'Duration',
+                render: (c) => `${c.durationMinutes} min`,
               },
               {
                 key: 'costCents',

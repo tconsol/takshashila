@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { classController } from './class.controller';
+import { classService } from './class.service';
+import { sendPaginated } from '../../utils/response';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/permission.middleware';
 import { validate } from '../../middlewares/validation.middleware';
@@ -22,6 +24,23 @@ router.get('/my/principal', requireRole(Role.PRINCIPAL), classController.getLive
 router.get('/my/tutor', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(classQuerySchema, 'query'), classController.getMyClassesAsTutor.bind(classController));
 router.get('/my/student', requireRole(Role.STUDENT), validate(classQuerySchema, 'query'), classController.getMyClassesAsStudent.bind(classController));
 router.post('/book', requireRole(Role.STUDENT), validate(bookClassSchema), classController.bookClass.bind(classController));
+// Platform-wide class listing for admin finance/ops screens.
+router.get('/admin/list', requireRole(Role.SUPER_ADMIN, Role.ADMIN), async (req, res, next) => {
+  try {
+    const { status, refundable, refunded, days, ...pagination } = req.query as Record<string, string>;
+    const result = await classService.listForAdmin(
+      {
+        status,
+        refundable: refundable === 'true',
+        refunded: refunded === undefined ? undefined : refunded === 'true',
+        days: days ? Number(days) : undefined,
+      },
+      pagination,
+    );
+    sendPaginated(res, result, 'Classes fetched');
+  } catch (e) { next(e); }
+});
+
 router.get('/:classId', classController.getByPublicId.bind(classController));
 router.post('/:classId/join', classController.joinClass.bind(classController));
 router.post('/:classId/start', requireRole(Role.TUTOR, Role.PRINCIPAL), classController.startClass.bind(classController));

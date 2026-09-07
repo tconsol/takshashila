@@ -706,6 +706,71 @@ export class ClassService {
     ).lean();
     return updated!;
   }
+
+  /**
+   * Platform-wide class listing for the admin finance screen. `refundable` narrows
+   * to the only classes `refundClass` will accept: completed, paid and not already
+   * refunded — so the UI never offers a button that is going to 409.
+   */
+  async listForAdmin(
+    filters: { status?: string; refundable?: boolean; refunded?: boolean; days?: number },
+    query: PaginationQuery,
+  ) {
+    const { page, limit, skip } = parsePaginationQuery(query);
+
+    const filter: Record<string, unknown> = { isDeleted: false };
+    if (filters.refundable) {
+      filter.status = ClassStatus.COMPLETED;
+      filter.isRefunded = false;
+      filter.costCents = { $gt: 0 };
+    } else {
+      if (filters.status) filter.status = filters.status;
+      if (filters.refunded !== undefined) filter.isRefunded = filters.refunded;
+    }
+    if (filters.days) {
+      filter.startUTC = { $gte: new Date(Date.now() - filters.days * 24 * 60 * 60 * 1000) };
+    }
+
+    const [items, total] = await Promise.all([
+      ScheduledClassModel.find(filter).sort({ startUTC: -1 }).skip(skip).limit(limit).lean(),
+      ScheduledClassModel.countDocuments(filter),
+    ]);
+
+    // Rows key off profile ids; resolve both sides to names so the table is usable.
+    const tutorIds = [...new Set(items.map((c) => c.tutorPublicId))];
+    const studentIds = [...new Set(items.map((c) => c.studentPublicId))];
+
+    const [tutorProfiles, studentProfiles] = await Promise.all([
+      TutorProfileModel.find({ publicId: { $in: tutorIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+      StudentProfileModel.find({ publicId: { $in: studentIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+    ]);
+
+    const { UserModel } = await import('../users/user.model');
+    const userIds = [
+      ...tutorProfiles.map((p) => p.userPublicId),
+      ...studentProfiles.map((p) => p.userPublicId),
+    ];
+    const users = await UserModel.find(
+      { publicId: { $in: userIds } },
+      { publicId: 1, firstName: 1, lastName: 1 },
+    ).lean();
+
+    const nameByUserId = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`]));
+    const tutorNameByProfile = new Map(
+      tutorProfiles.map((p) => [p.publicId, nameByUserId.get(p.userPublicId) ?? 'Unknown tutor']),
+    );
+    const studentNameByProfile = new Map(
+      studentProfiles.map((p) => [p.publicId, nameByUserId.get(p.userPublicId) ?? 'Unknown student']),
+    );
+
+    const hydrated = items.map((c) => ({
+      ...c,
+      tutorName: tutorNameByProfile.get(c.tutorPublicId) ?? 'Unknown tutor',
+      studentName: studentNameByProfile.get(c.studentPublicId) ?? 'Unknown student',
+    }));
+
+    return buildPaginatedResult(hydrated, total, page, limit);
+  }
 }
 
 export const classService = new ClassService();

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Coins, TrendingUp, Gift, BookOpen, Star, Plus } from 'lucide-react';
+import { Coins, TrendingUp, Gift, BookOpen, Star, Plus, Banknote } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
+import { PayoutRequestModal } from '../../components/shared/PayoutRequestModal';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -59,10 +60,19 @@ interface WalletPageProps {
   showEarnings?: boolean;
   /** Allow buying credits. Off for roles that only earn (e.g. tutors). */
   allowTopUp?: boolean;
+  /** Allow withdrawing earnings. On for the roles that can be paid out. */
+  allowPayout?: boolean;
 }
 
-export function WalletPage({ title = 'Wallet', subtitle = 'Balance and transaction history', showEarnings = false, allowTopUp = true }: WalletPageProps) {
+export function WalletPage({
+  title = 'Wallet',
+  subtitle = 'Balance and transaction history',
+  showEarnings = false,
+  allowTopUp = true,
+  allowPayout = false,
+}: WalletPageProps) {
   const [topUpOpen, setTopUpOpen] = useState(false);
+  const [payoutOpen, setPayoutOpen] = useState(false);
   const { data: wallet, isLoading: walletLoading } = useQuery<WalletData>({
     queryKey: ['wallet', 'me'],
     queryFn: () => api.get('/wallets/me').then((r) => r.data.data),
@@ -81,14 +91,28 @@ export function WalletPage({ title = 'Wallet', subtitle = 'Balance and transacti
         title={title}
         subtitle={subtitle}
         actions={
-          allowTopUp ? (
-            <Button variant="gradient" onClick={() => setTopUpOpen(true)}>
-              <Plus className="h-4 w-4" /> Add Credits
-            </Button>
-          ) : undefined
+          <div className="flex gap-2">
+            {allowPayout && (
+              <Button variant="outline" onClick={() => setPayoutOpen(true)}>
+                <Banknote className="h-4 w-4" /> Request Payout
+              </Button>
+            )}
+            {allowTopUp && (
+              <Button variant="gradient" onClick={() => setTopUpOpen(true)}>
+                <Plus className="h-4 w-4" /> Add Credits
+              </Button>
+            )}
+          </div>
         }
       />
       {allowTopUp && <TopUpModal open={topUpOpen} onClose={() => setTopUpOpen(false)} />}
+      {allowPayout && (
+        <PayoutRequestModal
+          open={payoutOpen}
+          onClose={() => setPayoutOpen(false)}
+          withdrawableCents={wallet?.earnedCreditsCents ?? 0}
+        />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard

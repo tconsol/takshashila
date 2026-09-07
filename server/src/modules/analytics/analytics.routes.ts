@@ -44,6 +44,16 @@ router.get('/platform/attendance', requireRole(Role.SUPER_ADMIN, Role.ADMIN), as
   } catch (e) { next(e); }
 });
 
+router.get('/platform/students', requireRole(Role.SUPER_ADMIN, Role.ADMIN), async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try { res.json(await analyticsService.getStudentBreakdown()); } catch (e) { next(e); }
+});
+
+router.get('/platform/growth', requireRole(Role.SUPER_ADMIN, Role.ADMIN), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    res.json(await analyticsService.getGrowth(Number(req.query.days ?? 90)));
+  } catch (e) { next(e); }
+});
+
 router.get('/super-admin/overview', requireRole(Role.SUPER_ADMIN), async (_req: AuthRequest, res: Response, next: NextFunction) => {
   try { res.json(await analyticsService.getSuperAdminDashboard()); } catch (e) { next(e); }
 });

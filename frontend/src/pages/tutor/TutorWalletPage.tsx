@@ -6,6 +6,7 @@ export function TutorWalletPage() {
       title="My Wallet"
       subtitle="Earnings, credits and transaction history"
       showEarnings
+      allowPayout
     />
   );
 }

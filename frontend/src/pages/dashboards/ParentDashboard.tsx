@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Users, BookOpen, CalendarDays, BarChart3, ArrowUpRight, UserPlus } from 'lucide-react';
-import { PageHeader } from '../../components/shared/PageHeader';
+import { DashboardHero } from '../../components/shared/DashboardHero';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -115,32 +115,39 @@ export function ParentDashboard() {
   const { data: children = [], isLoading } = useParentChildren();
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <PageHeader
+    <div className="space-y-6">
+      <DashboardHero
+        role="PARENT"
+        eyebrow="Family"
         title={`Welcome, ${user?.firstName ?? 'Parent'}`}
-        subtitle="Monitor your children's learning progress"
+        description="Monitor your children's learning progress, attendance and upcoming classes."
+        icon={<Users className="h-6 w-6" />}
       />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatsCard
+          index={0}
           title="Children Linked"
           value={children.length}
-          icon={<Users className="h-5 w-5 text-brand-600" />}
+          accent="sky"
+          icon={<Users className="h-5 w-5" />}
         />
         <StatsCard
+          index={1}
           title="Total Classes Attended"
           value={children.reduce((s, c) => s + (c.totalClassesAttended ?? 0), 0)}
-          icon={<CalendarDays className="h-5 w-5 text-green-600" />}
-          iconBg="bg-green-50 dark:bg-green-900/20"
+          accent="green"
+          icon={<CalendarDays className="h-5 w-5" />}
         />
         <StatsCard
+          index={2}
           title="Avg Attendance Rate"
           value={children.length > 0
             ? `${Math.round(children.reduce((s, c) => s + (c.attendanceRate ?? 0), 0) / children.length)}%`
             : ''}
-          icon={<BarChart3 className="h-5 w-5 text-violet-600" />}
-          iconBg="bg-violet-50 dark:bg-violet-900/20"
+          accent="violet"
+          icon={<BarChart3 className="h-5 w-5" />}
         />
       </div>
 

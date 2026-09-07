@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -13,17 +14,19 @@ interface StatsCardProps {
   hint?: string;
   iconBg?: string;
   className?: string;
+  /** Stagger position when several StatsCards render together (0-based). */
+  index?: number;
 }
 
-const accents: Record<Accent, { iconBg: string; iconText: string; strip: string }> = {
-  brand:  { iconBg: 'bg-indigo-100',   iconText: 'text-indigo-600',  strip: 'bg-indigo-500' },
-  green:  { iconBg: 'bg-emerald-100',  iconText: 'text-emerald-600', strip: 'bg-emerald-500' },
-  violet: { iconBg: 'bg-violet-100',   iconText: 'text-violet-600',  strip: 'bg-violet-500' },
-  amber:  { iconBg: 'bg-amber-100',    iconText: 'text-amber-600',   strip: 'bg-amber-500' },
-  rose:   { iconBg: 'bg-rose-100',     iconText: 'text-rose-600',    strip: 'bg-rose-500' },
-  sky:    { iconBg: 'bg-sky-100',      iconText: 'text-sky-600',     strip: 'bg-sky-500' },
-  pink:   { iconBg: 'bg-pink-100',     iconText: 'text-pink-600',    strip: 'bg-pink-500' },
-  orange: { iconBg: 'bg-orange-100',   iconText: 'text-orange-600',  strip: 'bg-orange-500' },
+const accents: Record<Accent, { chip: string; glow: string; blob: string }> = {
+  brand:  { chip: 'from-indigo-500 to-blue-600',   glow: 'shadow-indigo-500/25',  blob: 'bg-indigo-400' },
+  green:  { chip: 'from-emerald-500 to-teal-600',  glow: 'shadow-emerald-500/25', blob: 'bg-emerald-400' },
+  violet: { chip: 'from-violet-500 to-purple-600', glow: 'shadow-violet-500/25',  blob: 'bg-violet-400' },
+  amber:  { chip: 'from-amber-400 to-orange-500',  glow: 'shadow-amber-500/25',   blob: 'bg-amber-400' },
+  rose:   { chip: 'from-rose-500 to-pink-600',     glow: 'shadow-rose-500/25',    blob: 'bg-rose-400' },
+  sky:    { chip: 'from-sky-500 to-blue-600',      glow: 'shadow-sky-500/25',     blob: 'bg-sky-400' },
+  pink:   { chip: 'from-pink-500 to-fuchsia-600',  glow: 'shadow-pink-500/25',    blob: 'bg-pink-400' },
+  orange: { chip: 'from-orange-500 to-red-500',    glow: 'shadow-orange-500/25',  blob: 'bg-orange-400' },
 };
 
 function inferAccent(iconBg?: string): Accent {
@@ -38,55 +41,64 @@ function inferAccent(iconBg?: string): Accent {
   return 'brand';
 }
 
-export function StatsCard({ title, value, change, icon, accent, iconBg, hint, className }: StatsCardProps) {
+export function StatsCard({ title, value, change, icon, accent, iconBg, hint, className, index = 0 }: StatsCardProps) {
   const a = accents[accent ?? inferAccent(iconBg)];
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 24, delay: index * 0.06 }}
       className={cn(
-        'group relative overflow-hidden rounded-2xl bg-white border border-slate-200/80 shadow-card p-5',
-        'transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5',
+        'group relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white p-5',
+        'shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-all duration-300',
+        'hover:-translate-y-1 hover:shadow-xl hover:border-slate-200',
+        'dark:border-slate-800 dark:bg-slate-900',
         className,
       )}
     >
-      {/* Colored top strip */}
-      <div className={cn('absolute top-0 left-0 right-0 h-1 rounded-t-2xl', a.strip)} />
+      {/* Soft glow blob, top-right — depth without a solid color block */}
+      <div
+        className={cn(
+          'pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full opacity-[0.10] blur-2xl transition-opacity duration-300 group-hover:opacity-[0.18]',
+          a.blob,
+        )}
+      />
 
-      <div className="flex items-start justify-between gap-3 pt-1">
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">{value}</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{title}</p>
+          <p className="mt-2 text-[28px] font-extrabold leading-none tracking-tight text-slate-900 tabular-nums dark:text-white">
+            {value}
+          </p>
           {hint && !change && (
-            <p className="mt-1.5 text-xs text-slate-400">{hint}</p>
+            <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">{hint}</p>
           )}
           {change && (
             <div
               className={cn(
-                'mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
+                'mt-2.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
                 change.positive
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-rose-100 text-rose-600',
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : 'bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
               )}
             >
-              {change.positive ? (
-                <TrendingUp className="h-3 w-3" />
-              ) : (
-                <TrendingDown className="h-3 w-3" />
-              )}
+              {change.positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               {change.value}
             </div>
           )}
         </div>
         <div
           className={cn(
-            'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-110',
-            a.iconBg,
-            a.iconText,
+            'relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg',
+            'transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3',
+            a.chip,
+            a.glow,
           )}
         >
           {icon}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -70,6 +70,14 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.MANAGE_TICKETS,
     Permission.ESCALATE_TICKETS,
     Permission.MANAGE_TUTORS,
+    // Admins run the platform-wide people directories, so they need the same
+    // read/write reach over tutor and student records that a principal has
+    // inside their own institution. CREATE_ADMIN stays super-admin only.
+    Permission.CREATE_TUTOR,
+    Permission.VIEW_TUTOR_ANALYTICS,
+    Permission.VIEW_TUTOR_REVENUE,
+    Permission.CREATE_STUDENT,
+    Permission.MANAGE_STUDENTS,
   ],
 
   PRINCIPAL: [

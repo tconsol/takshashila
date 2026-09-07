@@ -10,6 +10,7 @@ import { userRepository } from '../users/user.repository';
 import { ConflictError, NotFoundError, AppError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { settingsService } from '../settings/settings.service';
 
 export interface JoinRequestWithDetails extends IJoinRequest {
   tutorName: string;
@@ -35,7 +36,8 @@ export class JoinRequestService {
         publicId: uuidv4(),
         userPublicId: tutorUserPublicId,
         status: TutorStatus.REGISTERED,
-        subjects: [], languages: [], hourlyRateCents: 0, commissionRatePercent: 20,
+        subjects: [], languages: [], hourlyRateCents: 0,
+        commissionRatePercent: (await settingsService.get()).defaultTutorCommissionRatePercent,
         qualifications: [], timezone: 'UTC', trustScore: 50, totalStudents: 0,
         totalClassesCompleted: 0, totalClassesCancelled: 0, totalEarningsCents: 0,
         rating: 0, ratingCount: 0, isVerified: false, isDeleted: false,
@@ -111,7 +113,8 @@ export class JoinRequestService {
         publicId: uuidv4(),
         userPublicId: targetUser.publicId,
         status: TutorStatus.REGISTERED,
-        subjects: [], languages: [], hourlyRateCents: 0, commissionRatePercent: 20,
+        subjects: [], languages: [], hourlyRateCents: 0,
+        commissionRatePercent: (await settingsService.get()).defaultTutorCommissionRatePercent,
         qualifications: [], timezone: 'UTC', trustScore: 50, totalStudents: 0,
         totalClassesCompleted: 0, totalClassesCancelled: 0, totalEarningsCents: 0,
         rating: 0, ratingCount: 0, isVerified: false, isDeleted: false,
@@ -321,7 +324,7 @@ export class JoinRequestService {
         subjects: [],
         languages: [],
         hourlyRateCents: 0,
-        commissionRatePercent: 20,
+        commissionRatePercent: (await settingsService.get()).defaultTutorCommissionRatePercent,
         qualifications: [],
         timezone: 'UTC',
         trustScore: 50,

@@ -16,28 +16,49 @@ import { TicketStatus, TicketPriority } from '../support/support.types';
 
 export class AnalyticsService {
   async getPlatformOverview() {
-    const [totalUsers, totalClasses, totalRevenueCents, activeStudents, activeTutors] = await Promise.all([
+    const [
+      totalUsers, totalClasses, completedClasses, totalRevenueCents,
+      totalStudents, totalTutors, totalPrincipals, totalParents,
+      activeUsers, activeStudents, activeTutors,
+    ] = await Promise.all([
       UserModel.countDocuments({ isDeleted: false }),
       ScheduledClassModel.countDocuments({ isDeleted: false }),
+      ScheduledClassModel.countDocuments({ status: ClassStatus.COMPLETED, isDeleted: false }),
       WalletTransactionModel.aggregate([
         { $match: { type: TransactionType.CREDIT } },
         { $group: { _id: null, total: { $sum: '$amountCents' } } },
       ]).then((r) => r[0]?.total ?? 0),
+      UserModel.countDocuments({ role: Role.STUDENT, isDeleted: false }),
+      UserModel.countDocuments({ role: Role.TUTOR, isDeleted: false }),
+      UserModel.countDocuments({ role: Role.PRINCIPAL, isDeleted: false }),
+      UserModel.countDocuments({ role: Role.PARENT, isDeleted: false }),
+      UserModel.countDocuments({ status: 'ACTIVE', isDeleted: false }),
       UserModel.countDocuments({ role: Role.STUDENT, status: 'ACTIVE', isDeleted: false }),
       UserModel.countDocuments({ role: Role.TUTOR, status: 'ACTIVE', isDeleted: false }),
     ]);
 
-    return { totalUsers, totalClasses, totalRevenueCents, activeStudents, activeTutors };
+    return {
+      totalUsers, totalClasses, completedClasses, totalRevenueCents,
+      totalStudents, totalTutors, totalPrincipals, totalParents,
+      activeUsers, activeStudents, activeTutors,
+    };
   }
 
   async getClassStats(periodDays = 30) {
     const since = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
-    const [completed, cancelled, booked] = await Promise.all([
+    const [completed, cancelled, booked, recentClasses] = await Promise.all([
       ScheduledClassModel.countDocuments({ status: ClassStatus.COMPLETED, createdAt: { $gte: since } }),
       ScheduledClassModel.countDocuments({ status: ClassStatus.CANCELLED, createdAt: { $gte: since } }),
       ScheduledClassModel.countDocuments({ createdAt: { $gte: since } }),
+      ScheduledClassModel.find(
+        { createdAt: { $gte: since }, isDeleted: false },
+        { publicId: 1, title: 1, status: 1, startUTC: 1, costCents: 1, durationMinutes: 1 },
+      )
+        .sort({ startUTC: -1 })
+        .limit(20)
+        .lean(),
     ]);
-    return { completed, cancelled, booked, periodDays };
+    return { completed, cancelled, booked, periodDays, recentClasses };
   }
 
   async getRevenueByPeriod(periodDays = 30) {
@@ -57,12 +78,47 @@ export class AnalyticsService {
   }
 
   async getTopTutors(limit = 10) {
-    return ScheduledClassModel.aggregate([
-      { $match: { status: ClassStatus.COMPLETED } },
-      { $group: { _id: '$tutorPublicId', classesCompleted: { $sum: 1 } } },
+    const rows = await ScheduledClassModel.aggregate([
+      { $match: { status: ClassStatus.COMPLETED, isDeleted: false } },
+      {
+        $group: {
+          _id: '$tutorPublicId',
+          classesCompleted: { $sum: 1 },
+          revenueCents: { $sum: '$costCents' },
+        },
+      },
       { $sort: { classesCompleted: -1 } },
       { $limit: limit },
     ]);
+
+    // Classes key off the tutor PROFILE id; resolve through to the user for names.
+    const profileIds = rows.map((r: { _id: string }) => r._id);
+    const profiles = await TutorProfileModel.find(
+      { publicId: { $in: profileIds } },
+      { publicId: 1, userPublicId: 1, rating: 1, subjects: 1 },
+    ).lean();
+    const userIds = profiles.map((p) => p.userPublicId);
+    const users = await UserModel.find(
+      { publicId: { $in: userIds } },
+      { publicId: 1, firstName: 1, lastName: 1, avatarUrl: 1 },
+    ).lean();
+
+    const userByPublicId = new Map(users.map((u) => [u.publicId, u]));
+    const profileByPublicId = new Map(profiles.map((p) => [p.publicId, p]));
+
+    return rows.map((r: { _id: string; classesCompleted: number; revenueCents: number }) => {
+      const profile = profileByPublicId.get(r._id);
+      const user = profile ? userByPublicId.get(profile.userPublicId) : undefined;
+      return {
+        tutorPublicId: r._id,
+        name: user ? `${user.firstName} ${user.lastName}` : 'Unknown tutor',
+        avatarUrl: user?.avatarUrl,
+        subjects: profile?.subjects ?? [],
+        rating: profile?.rating ?? 0,
+        classesCompleted: r.classesCompleted,
+        revenueCents: r.revenueCents ?? 0,
+      };
+    });
   }
 
   async getAssignmentStats(periodDays = 30) {
@@ -89,6 +145,101 @@ export class AnalyticsService {
     ]);
     const { total = 0, present = 0 } = result[0] ?? {};
     return { total, present, rate: total > 0 ? Math.round((present / total) * 100) : 0 };
+  }
+
+  /** Student cohort breakdown for the admin dashboards. */
+  async getStudentBreakdown() {
+    const [total, byStatusRaw, byGradeRaw, withTutor, aggregates] = await Promise.all([
+      StudentProfileModel.countDocuments({ isDeleted: false }),
+      StudentProfileModel.aggregate([
+        { $match: { isDeleted: false } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      StudentProfileModel.aggregate([
+        { $match: { isDeleted: false } },
+        { $group: { _id: { $ifNull: ['$grade', 'Unspecified'] }, count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 12 },
+      ]),
+      StudentProfileModel.countDocuments({
+        isDeleted: false,
+        tutorPublicId: { $exists: true, $nin: [null, ''] },
+      }),
+      StudentProfileModel.aggregate([
+        { $match: { isDeleted: false } },
+        {
+          $group: {
+            _id: null,
+            avgAttendanceRate: { $avg: '$attendanceRate' },
+            totalClassesAttended: { $sum: '$totalClassesAttended' },
+            totalClassesMissed: { $sum: '$totalClassesMissed' },
+            totalClassesBooked: { $sum: '$totalClassesBooked' },
+            demoClassesUsed: { $sum: '$demoClassesUsed' },
+          },
+        },
+      ]),
+    ]);
+
+    const agg = aggregates[0] ?? {};
+
+    return {
+      total,
+      withTutor,
+      withoutTutor: total - withTutor,
+      byStatus: byStatusRaw.map((s: { _id: string; count: number }) => ({ status: s._id, count: s.count })),
+      byGrade: byGradeRaw.map((g: { _id: string; count: number }) => ({ grade: g._id, count: g.count })),
+      avgAttendanceRate: Math.round(agg.avgAttendanceRate ?? 0),
+      totalClassesAttended: agg.totalClassesAttended ?? 0,
+      totalClassesMissed: agg.totalClassesMissed ?? 0,
+      totalClassesBooked: agg.totalClassesBooked ?? 0,
+      demoClassesUsed: agg.demoClassesUsed ?? 0,
+    };
+  }
+
+  /** Daily signups per role over a window — the trend the dashboards were missing. */
+  async getGrowth(periodDays = 90) {
+    const since = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
+
+    const rows = await UserModel.aggregate([
+      { $match: { isDeleted: false, createdAt: { $gte: since } } },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            role: '$role',
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { '_id.date': 1 } },
+    ]);
+
+    // Collapse into one entry per day with a per-role map the client can chart directly.
+    const byDate = new Map<string, { date: string; total: number; byRole: Record<string, number> }>();
+    for (const r of rows as { _id: { date: string; role: string }; count: number }[]) {
+      const entry = byDate.get(r._id.date) ?? { date: r._id.date, total: 0, byRole: {} };
+      entry.byRole[r._id.role] = (entry.byRole[r._id.role] ?? 0) + r.count;
+      entry.total += r.count;
+      byDate.set(r._id.date, entry);
+    }
+
+    const series = [...byDate.values()];
+    const previousWindowStart = new Date(since.getTime() - periodDays * 24 * 60 * 60 * 1000);
+    const [currentTotal, previousTotal] = await Promise.all([
+      UserModel.countDocuments({ isDeleted: false, createdAt: { $gte: since } }),
+      UserModel.countDocuments({ isDeleted: false, createdAt: { $gte: previousWindowStart, $lt: since } }),
+    ]);
+
+    return {
+      periodDays,
+      series,
+      currentTotal,
+      previousTotal,
+      changePercent: previousTotal > 0
+        ? Math.round(((currentTotal - previousTotal) / previousTotal) * 100)
+        : null,
+    };
   }
 
   async getPrincipalStats(principalPublicId: string) {
@@ -235,7 +386,13 @@ export class AnalyticsService {
     };
   }
 
-  async getStudentStats(studentPublicId: string) {
+  async getStudentStats(studentUserPublicId: string) {
+    // Classes and attendance store the student PROFILE id, not the user id.
+    const profile = await StudentProfileModel.findOne(
+      { userPublicId: studentUserPublicId, isDeleted: false }, { publicId: 1 },
+    ).lean();
+    const studentPublicId = profile?.publicId ?? '__none__';
+
     const [upcoming, completed, submissions] = await Promise.all([
       ScheduledClassModel.countDocuments({ studentPublicId, status: ClassStatus.SCHEDULED }),
       ScheduledClassModel.countDocuments({ studentPublicId, status: ClassStatus.COMPLETED }),

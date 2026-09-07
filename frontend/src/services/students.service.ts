@@ -163,5 +163,8 @@ export const studentsService = {
   getMyPrincipal: () =>
     api.get<{ data: { publicId: string; organizationName?: string; firstName: string; lastName: string } | null }>('/students/me/principal')
       .then((r) => r.data.data ?? null),
+
+  reject: (studentPublicId: string, reason?: string) =>
+    api.post<{ data: StudentProfile }>(`/students/${studentPublicId}/reject`, { reason }).then((r) => r.data.data),
 };
 

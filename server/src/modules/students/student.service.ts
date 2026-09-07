@@ -17,6 +17,7 @@ import type { CreateStudentByTutorDto, InviteExistingStudentDto, CreateStudentBy
 import { PrincipalProfileModel } from '../principals/principal.model';
 import { ParentProfileModel } from '../parents/parent.model';
 import { enqueueEmail } from '../../queues/email.queue';
+import { settingsService } from '../settings/settings.service';
 
 function buildWelcomeEmail(opts: {
   firstName: string;
@@ -41,8 +42,7 @@ function buildWelcomeEmail(opts: {
   `;
 }
 
-const MAX_DEMO_CLASSES = 3;
-const DEMO_CREDITS_PER_CLASS_CENTS = 100_00;
+// Demo-class limits now live in platform settings (settingsService.get()).
 
 async function generateStudentId(firstName: string, lastName: string): Promise<string> {
   const f = (firstName[0] || 'x').toLowerCase().replace(/[^a-z]/, 'x');
@@ -764,7 +764,8 @@ export class StudentService {
   async canUseDemoCredit(userPublicId: string, tutorPublicId: string): Promise<boolean> {
     const profile = await studentRepository.findByUserPublicId(userPublicId);
     if (!profile) return false;
-    if (profile.demoClassesUsed >= MAX_DEMO_CLASSES) return false;
+    const { maxDemoClasses } = await settingsService.get();
+    if (profile.demoClassesUsed >= maxDemoClasses) return false;
     if (profile.demoClassTakenWith.includes(tutorPublicId)) return false;
     return true;
   }
