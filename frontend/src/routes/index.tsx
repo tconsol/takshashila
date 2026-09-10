@@ -71,6 +71,7 @@ import { StudentsDirectoryPage } from '../pages/shared/StudentsDirectoryPage';
 import { FinanceOpsPage } from '../pages/shared/FinanceOpsPage';
 import { BroadcastPage } from '../pages/shared/BroadcastPage';
 import { ClassesExplorerPage } from '../pages/shared/ClassesExplorerPage';
+import { OversightPage } from '../pages/shared/OversightPage';
 
 // Admin pages
 import { AdminPrincipalsPage } from '../pages/admin/AdminPrincipalsPage';
@@ -176,6 +177,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/super-admin/finance', element: <FinanceOpsPage /> },
         { path: '/dashboard/super-admin/classes', element: <ClassesExplorerPage /> },
         { path: '/dashboard/super-admin/broadcast', element: <BroadcastPage /> },
+        { path: '/dashboard/super-admin/oversight', element: <OversightPage /> },
         { path: '/dashboard/super-admin/analytics', element: <SuperAdminAnalyticsPage /> },
         { path: '/dashboard/super-admin/audit', element: <SuperAdminAuditPage /> },
         { path: '/dashboard/super-admin/system', element: <SuperAdminSystemPage /> },
@@ -200,6 +202,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/admin/system', element: <SuperAdminSystemPage /> },
         { path: '/dashboard/admin/classes', element: <ClassesExplorerPage /> },
         { path: '/dashboard/admin/broadcast', element: <BroadcastPage /> },
+        { path: '/dashboard/admin/oversight', element: <OversightPage /> },
         // Approval queues keep their own workflow-shaped screens.
         { path: '/dashboard/admin/principals/approvals', element: <AdminPrincipalsPage /> },
         { path: '/dashboard/admin/tutors/approvals', element: <PrincipalTutorsPage /> },

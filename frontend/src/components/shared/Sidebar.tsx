@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BookOpen, Calendar, Wallet, Settings,
   BarChart3, Shield, Headphones, GraduationCap, LogOut,
   UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText, Building2,
-  Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2, ChevronRight, Server, Megaphone,
+  Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2, ChevronRight, Server, Megaphone, ShieldAlert,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import brandLogo from '../../assets/brainbaseedulogo.png';
@@ -34,6 +34,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Classes',     href: '/dashboard/super-admin/classes',  icon: Video },
     { label: 'Analytics',   href: '/dashboard/super-admin/analytics',icon: BarChart3 },
     { label: 'Announcements', href: '/dashboard/super-admin/broadcast', icon: Megaphone },
+    { label: 'Oversight',   href: '/dashboard/super-admin/oversight', icon: ShieldAlert },
     { label: 'Finance',     href: '/dashboard/super-admin/finance',  icon: Wallet },
     { label: 'Audit Logs',  href: '/dashboard/super-admin/audit',    icon: BookOpen },
     { label: 'System',      href: '/dashboard/super-admin/system',   icon: Server },
@@ -50,6 +51,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Classes',     href: '/dashboard/admin/classes',     icon: Video },
     { label: 'Analytics',   href: '/dashboard/admin/analytics',   icon: BarChart3 },
     { label: 'Announcements', href: '/dashboard/admin/broadcast', icon: Megaphone },
+    { label: 'Oversight',   href: '/dashboard/admin/oversight',   icon: ShieldAlert },
     { label: 'Finance',     href: '/dashboard/admin/finance',     icon: Wallet },
     { label: 'Audit Logs',  href: '/dashboard/admin/audit',       icon: BookOpen },
     { label: 'System',      href: '/dashboard/admin/system',      icon: Server },

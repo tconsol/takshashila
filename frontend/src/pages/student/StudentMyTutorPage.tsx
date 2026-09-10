@@ -2,6 +2,7 @@ import { GraduationCap, Star, MessageSquare, BookOpen, Users, Clock, CheckCircle
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
+import { Badge } from '../../components/ui/Badge';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { useMyStudentProfile, useMyTutor, useAcceptInvite, useDeclineInvite } from '../../hooks/use-students';
@@ -64,25 +65,54 @@ export function StudentMyTutorPage() {
         }
       />
 
-      {/* Pending invite banner */}
+      {/* Requests — a real section rather than a banner, so a pending invitation
+          reads as something to act on and carries who sent it and why. */}
       {isPendingInvite && (
-        <div className="flex items-center gap-4 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-5 py-4">
-          <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Tutor invitation pending</p>
-            <p className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">
-              {tutor?.displayName ?? 'A tutor'} has invited you to join their classroom.
-            </p>
+        <section>
+          <div className="ruled-heading mb-3">
+            <h2 className="text-base font-semibold text-ink">Requests</h2>
+            <Badge variant="warning" tone="soft" dot>1 awaiting you</Badge>
           </div>
-          <div className="flex gap-2 flex-shrink-0">
-            <Button size="sm" variant="outline" onClick={() => declineInvite()} loading={declining}>
-              Decline
-            </Button>
-            <Button size="sm" onClick={() => acceptInvite()} loading={accepting}>
-              Accept
-            </Button>
-          </div>
-        </div>
+
+          <Card className="border-warn/40 bg-warn-wash">
+            <CardContent className="p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-4">
+                  <Avatar name={tutor?.displayName ?? 'Tutor'} size="lg" />
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold text-ink">
+                      {tutor?.displayName ?? 'A tutor'} wants to add you as their student
+                    </p>
+                    <p className="mt-1 text-sm text-ink-2">
+                      Accepting connects your account to their classroom — they will be able to
+                      schedule classes, set homework and record your attendance.
+                    </p>
+                    {tutor?.subjects && tutor.subjects.length > 0 && (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        {tutor.subjects.slice(0, 4).map((subject) => (
+                          <Badge key={subject} variant="info" tone="soft">{subject}</Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-shrink-0 gap-2">
+                  <Button variant="outline" onClick={() => declineInvite()} loading={declining}>
+                    Decline
+                  </Button>
+                  <Button onClick={() => acceptInvite()} loading={accepting}>
+                    <CheckCircle className="h-4 w-4" /> Accept
+                  </Button>
+                </div>
+              </div>
+
+              <p className="mt-3 border-t border-warn/30 pt-3 text-xs text-ink-muted">
+                Declining lets the tutor know, and frees them to invite you again later.
+              </p>
+            </CardContent>
+          </Card>
+        </section>
       )}
 
       {tutor ? (
