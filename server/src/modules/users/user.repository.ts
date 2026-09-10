@@ -43,8 +43,17 @@ export class UserRepository {
     return UserModel.findOne({ publicId, isDeleted: false }).lean();
   }
 
-  async findByEmail(email: string, withSensitive = false): Promise<IUser | null> {
-    const query = UserModel.findOne({ email: email.toLowerCase(), isDeleted: false });
+  /**
+   * `includeDeleted` matters because the email unique index is global, not
+   * partial on isDeleted: a soft-deleted row still occupies the address. Callers
+   * that are about to CREATE must look with it on, or the insert dies on a
+   * duplicate-key error instead of reporting a deactivated account.
+   */
+  async findByEmail(email: string, withSensitive = false, includeDeleted = false): Promise<IUser | null> {
+    const filter: Record<string, unknown> = { email: email.toLowerCase() };
+    if (!includeDeleted) filter.isDeleted = false;
+
+    const query = UserModel.findOne(filter);
     if (withSensitive) {
       query.select('+passwordHash +emailVerificationToken +emailVerificationExpiry +passwordResetToken +passwordResetExpiry');
     }

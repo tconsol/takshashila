@@ -1,67 +1,108 @@
-# Hostinger (Apache/LiteSpeed) config for the built SPA.
-# Lives in frontend/public/ → Vite copies it to the build root → deploy with dist/.
+# ==========================================================
+# Disable Directory Listing
+# ==========================================================
+Options -Indexes
 
-# ─── SPA client-side routing: serve index.html for non-file routes ───────────
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  # If the request is not an existing file or directory, fall back to index.html
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule ^ index.html [L]
-</IfModule>
-
-# ─── Security headers ────────────────────────────────────────────────────────
+# ==========================================================
+# Security Headers
+# ==========================================================
 <IfModule mod_headers.c>
-  Header always set X-Frame-Options "DENY"
-  Header always set X-Content-Type-Options "nosniff"
-  Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set Permissions-Policy "camera=(self), microphone=(self), geolocation=(), payment=(self), usb=()"
-  Header always set Cross-Origin-Opener-Policy "same-origin"
-  # HSTS only meaningful over HTTPS (Hostinger serves HTTPS). 180 days.
-  Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains"
 
-  # CSP is shipped Report-Only first. Watch the browser console for violations
-  # against Stripe / Razorpay / Firebase / Agora / GCS, then switch the header
-  # name to "Content-Security-Policy" (remove -Report-Only) to ENFORCE it.
-  Header always set Content-Security-Policy-Report-Only "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://storage.googleapis.com https://*.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://js.stripe.com https://checkout.razorpay.com https://*.gstatic.com https://accounts.google.com; frame-src https://js.stripe.com https://hooks.stripe.com https://api.razorpay.com https://checkout.razorpay.com https://accounts.google.com; connect-src 'self' https: wss:; worker-src 'self' blob:"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" env=HTTPS
+
 </IfModule>
 
-# ─── Block server-side scripts (this is a static SPA none should ever run) ──
-# Stops execution/access of any .php (or other script) that gets uploaded or
-# injected into the web root.
-<FilesMatch "\.(php|php[0-9]?|phtml|phps|pht|phar|pl|py|cgi|sh|lua|asp|aspx|jsp)$">
-  <IfModule mod_authz_core.c>
+# ==========================================================
+# Enable Compression
+# ==========================================================
+<IfModule mod_deflate.c>
+
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE image/svg+xml
+
+</IfModule>
+
+# ==========================================================
+# Browser Cache
+# ==========================================================
+<IfModule mod_expires.c>
+
+    ExpiresActive On
+
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+
+    ExpiresByType text/html "access plus 0 seconds"
+
+</IfModule>
+
+# ==========================================================
+# Block Sensitive Files
+# ==========================================================
+
+<FilesMatch "^(\.env|\.git|composer\.(json|lock)|package(-lock)?\.json|yarn\.lock|pnpm-lock\.yaml|vite\.config.*|tsconfig.*|README.*|LICENSE.*)$">
     Require all denied
-  </IfModule>
-  <IfModule !mod_authz_core.c>
-    Order allow,deny
-    Deny from all
-  </IfModule>
 </FilesMatch>
 
-# Disable the PHP engine entirely (defence-in-depth if a handler is still mapped)
-<IfModule mod_php.c>
-  php_admin_flag engine off
-</IfModule>
-<IfModule mod_php7.c>
-  php_admin_flag engine off
-</IfModule>
-<IfModule mod_php8.c>
-  php_admin_flag engine off
-</IfModule>
-<IfModule lsapi_module>
-  php_admin_flag engine off
-</IfModule>
-RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .phps
-RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8
+# ==========================================================
+# Block Hidden Files
+# ==========================================================
 
-# ─── Cache hashed assets aggressively; never cache index.html ────────────────
-<IfModule mod_headers.c>
-  <FilesMatch "\.(js|css|woff2?|png|jpg|jpeg|gif|svg|webp|ico)$">
-    Header set Cache-Control "public, max-age=31536000, immutable"
-  </FilesMatch>
-  <FilesMatch "index\.html$">
-    Header set Cache-Control "no-cache, no-store, must-revalidate"
-  </FilesMatch>
-</IfModule>
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# ==========================================================
+# Block PHP Execution
+# Your React app does NOT use PHP
+# ==========================================================
+
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phar)$">
+    Require all denied
+</FilesMatch>
+
+# ==========================================================
+# Disable TRACE Method
+# ==========================================================
+
+RewriteEngine On
+
+RewriteCond %{REQUEST_METHOD} ^TRACE
+RewriteRule .* - [F]
+
+# ==========================================================
+# React / Vite Routing
+# ==========================================================
+
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^ index.html [L]
+
+# ==========================================================
+# Custom Error Pages
+# ==========================================================
+
+ErrorDocument 404 /index.html

@@ -44,12 +44,16 @@ export function GoogleSignInButton({ label = 'Continue with Google' }: { label?:
     // Popup blocked / failed to open / unexpected — the callback the SDK uses when
     // the failure isn't a normal OAuth error (very common cause: popup blocker).
     onNonOAuthError: (err) => {
-      console.error('[google] non-OAuth error', err);
+      console.error('[google] non-OAuth error', err, 'origin:', window.location.origin);
+      // Google reports an unauthorized origin as a plain `popup_closed`: it
+      // renders "Access blocked / redirect_uri_mismatch" inside the popup and
+      // the popup dies without calling back. Say so, since the bare message
+      // sends people hunting for a popup blocker instead.
       setLocalError(
         err?.type === 'popup_failed_to_open'
           ? 'Popup was blocked. Allow popups for this site and try again.'
           : err?.type === 'popup_closed'
-          ? 'Popup closed before finishing.'
+          ? `Sign-in did not complete. If you did not close the window, add "${window.location.origin}" to the Authorized JavaScript origins of this Google OAuth client.`
           : 'Google sign-in could not start.',
       );
     },

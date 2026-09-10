@@ -4,6 +4,15 @@ import { sendError } from '../utils/response';
 import { logger } from '../lib/logger';
 import { env } from '../config/env';
 
+interface MongoDuplicateKeyError extends Error {
+  code?: number;
+  keyPattern?: Record<string, unknown>;
+}
+
+function isDuplicateKeyError(err: Error): boolean {
+  return (err as MongoDuplicateKeyError).code === 11000;
+}
+
 export function errorMiddleware(
   err: Error,
   req: Request,
@@ -21,6 +30,16 @@ export function errorMiddleware(
       });
     }
     sendError(res, err.message, err.statusCode, err.errors);
+    return;
+  }
+
+  // A unique-index collision is a client-resolvable conflict, not a server
+  // fault. Unmapped it surfaces as a bare 500 with no message in production,
+  // which is unreadable for the caller and indistinguishable from a real crash.
+  if (isDuplicateKeyError(err)) {
+    const field = Object.keys((err as MongoDuplicateKeyError).keyPattern ?? {})[0];
+    logger.warn('Duplicate key', { field, path: req.path, method: req.method });
+    sendError(res, field ? `That ${field} is already in use` : 'That value is already in use', 409);
     return;
   }
 

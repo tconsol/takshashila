@@ -353,7 +353,9 @@ export class AuthService {
       throw new AuthenticationError('Your Google email is not verified.');
     }
 
-    let user = await userRepository.findByEmail(identity.email, true);
+    // Include soft-deleted rows: the address is still taken by the unique index,
+    // so creating over one fails. The isDeleted guard below is the real answer.
+    let user = await userRepository.findByEmail(identity.email, true, true);
 
     if (user) {
       if (user.isDeleted) throw new AuthenticationError('This account has been deactivated');
