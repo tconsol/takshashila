@@ -35,6 +35,10 @@ type Handler = (payload: unknown) => void;
 /** One id per tab so two tabs never share a connection lease. */
 const TAB_ID = Math.random().toString(36).slice(2, 10);
 
+/** Long enough to cover a multi-channel fan-out, short enough that a genuine
+ *  repeat of the same event still gets through. */
+const DEDUPE_WINDOW_MS = 1500;
+
 class RealtimeManager {
   private pusher: Pusher | null = null;
   private channels: Channel[] = [];
@@ -135,7 +139,38 @@ class RealtimeManager {
     };
   }
 
+  /**
+   * A server emit addresses several rooms at once (`user:abc` + `role:ADMIN`).
+   * Socket.IO collapses that to one delivery per socket; Pusher does not — it
+   * triggers each channel independently, so a client subscribed to both receives
+   * the same payload twice and fires two toasts. Drop a repeat of the same
+   * event+payload inside a short window.
+   */
+  private recentlyDispatched = new Map<string, number>();
+
+  private isDuplicate(event: string, payload: unknown): boolean {
+    let key: string;
+    try {
+      key = `${event}:${JSON.stringify(payload)}`;
+    } catch {
+      return false; // Unserialisable payload — let it through rather than guess.
+    }
+
+    const now = Date.now();
+    const last = this.recentlyDispatched.get(key);
+    if (last !== undefined && now - last < DEDUPE_WINDOW_MS) return true;
+
+    this.recentlyDispatched.set(key, now);
+    if (this.recentlyDispatched.size > 200) {
+      for (const [k, at] of this.recentlyDispatched) {
+        if (now - at >= DEDUPE_WINDOW_MS) this.recentlyDispatched.delete(k);
+      }
+    }
+    return false;
+  }
+
   private dispatch(event: string, payload: unknown): void {
+    if (this.isDuplicate(event, payload)) return;
     this.handlers.get(event)?.forEach((handler) => {
       try {
         handler(payload);

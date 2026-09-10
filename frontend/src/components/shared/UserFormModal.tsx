@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { adminUsersService } from '../../services/admin-users.service';
+import { TIMEZONE_OPTIONS } from '../../constants/timezones';
 
 type Mode = 'create' | 'edit';
 
@@ -207,9 +208,10 @@ export function UserFormModal({
                 value={account.phone ?? ''}
                 onChange={(e) => setAccount((a) => ({ ...a, phone: e.target.value }))}
               />
-              <Input
+              <Select
                 label="Timezone"
-                value={account.timezone ?? ''}
+                options={TIMEZONE_OPTIONS}
+                value={account.timezone ?? 'UTC'}
                 onChange={(e) => setAccount((a) => ({ ...a, timezone: e.target.value }))}
               />
               {isEdit ? (

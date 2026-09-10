@@ -6,7 +6,7 @@ import { BookClassModal } from '../../components/shared/BookClassModal';
 import { Tabs } from '../../components/ui/Tabs';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { useMyClassesAsStudent, useCancelClass } from '../../hooks/use-classes';
+import { useMyClassesAsStudent, useCancelClass, LIVE_STATUS_POLL } from '../../hooks/use-classes';
 import { useTutorSearch } from '../../hooks/use-tutors';
 import { useTabActivity } from '../../hooks/use-tab-activity';
 import type { ClassRecord } from '../../services/classes.service';
@@ -37,15 +37,16 @@ export function StudentClassesPage() {
   const [activeTab, setActiveTab] = useState('ALL');
   const [showFindTutor, setShowFindTutor] = useState(false);
 
-  const { data: liveData } = useMyClassesAsStudent({ status: 'LIVE', limit: '1' });
+  const poll = { refetchInterval: LIVE_STATUS_POLL };
+  const { data: liveData } = useMyClassesAsStudent({ status: 'LIVE', limit: '1' }, poll);
   const hasLive = (liveData?.total ?? 0) > 0;
 
   // Lightweight counts per status (independent of the active tab) so a status
   // change — e.g. a class moving into Completed — lights up that tab even
   // while viewing a different one.
-  const { data: scheduledCount } = useMyClassesAsStudent({ status: 'SCHEDULED', limit: '1' });
-  const { data: completedCount } = useMyClassesAsStudent({ status: 'COMPLETED', limit: '1' });
-  const { data: cancelledCount } = useMyClassesAsStudent({ status: 'CANCELLED', limit: '1' });
+  const { data: scheduledCount } = useMyClassesAsStudent({ status: 'SCHEDULED', limit: '1' }, poll);
+  const { data: completedCount } = useMyClassesAsStudent({ status: 'COMPLETED', limit: '1' }, poll);
+  const { data: cancelledCount } = useMyClassesAsStudent({ status: 'CANCELLED', limit: '1' }, poll);
   const { dirty, markSeen } = useTabActivity(
     { SCHEDULED: scheduledCount?.total, COMPLETED: completedCount?.total, CANCELLED: cancelledCount?.total },
     activeTab,

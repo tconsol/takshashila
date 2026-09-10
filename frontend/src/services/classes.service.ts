@@ -97,27 +97,35 @@ export interface PaginatedClasses {
   totalPages: number;
 }
 
+/**
+ * The API nests counts under `pagination`; this type exposes them flat. Callers
+ * read `.total` to drive tab indicators, so the lift has to happen here — a
+ * spread of the raw body leaves `total` undefined and every indicator dead.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapPage(raw: any): PaginatedClasses {
+  const pagination = raw?.pagination ?? {};
+  return {
+    items: (raw?.items ?? []).map(mapClass),
+    total: pagination.total ?? 0,
+    page: pagination.page ?? 1,
+    limit: pagination.limit ?? 0,
+    totalPages: pagination.totalPages ?? 0,
+  };
+}
+
 export const classesService = {
   book: (dto: BookClassDto) =>
     api.post('/classes/book', dto).then((r) => mapClass(r.data.data)),
 
   getMyAsTutor: (params?: Record<string, string>) =>
-    api.get('/classes/my/tutor', { params }).then((r) => ({
-      ...r.data.data,
-      items: (r.data.data?.items ?? []).map(mapClass),
-    } as PaginatedClasses)),
+    api.get('/classes/my/tutor', { params }).then((r) => mapPage(r.data.data)),
 
   getMyAsStudent: (params?: Record<string, string>) =>
-    api.get('/classes/my/student', { params }).then((r) => ({
-      ...r.data.data,
-      items: (r.data.data?.items ?? []).map(mapClass),
-    } as PaginatedClasses)),
+    api.get('/classes/my/student', { params }).then((r) => mapPage(r.data.data)),
 
   getMyAsPrincipal: (params?: Record<string, string>) =>
-    api.get('/classes/my/principal', { params }).then((r) => ({
-      ...r.data.data,
-      items: (r.data.data?.items ?? []).map(mapClass),
-    } as PaginatedClasses)),
+    api.get('/classes/my/principal', { params }).then((r) => mapPage(r.data.data)),
 
   getById: (classId: string) =>
     api.get(`/classes/${classId}`).then((r) => mapClass(r.data.data)),

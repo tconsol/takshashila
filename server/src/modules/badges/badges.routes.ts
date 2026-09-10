@@ -15,9 +15,21 @@ import { TicketStatus } from '../support/support.types';
 import { chatService } from '../chat/chat.service';
 import { WorksheetModel, WorksheetSubmissionModel } from '../worksheets/worksheet.model';
 import { WorksheetStatus } from '../worksheets/worksheet.types';
+import { ScheduledClassModel } from '../schedules/schedule.model';
+import { ClassStatus } from '../schedules/schedule.types';
+import { AssignmentModel, SubmissionModel } from '../assignments/assignment.model';
+import { AssignmentStatus, SubmissionStatus } from '../assignments/assignment.types';
+import { ResourceModel } from '../resources/resource.model';
 
 const router = Router();
 router.use(authMiddleware);
+
+/** Classes still ahead of the viewer — the "something landed on my calendar"
+ *  signal for both sides of a booking. */
+const OPEN_CLASS_FILTER = {
+  status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+  isDeleted: false,
+};
 
 router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -58,6 +70,12 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
           isDeleted: false,
         });
         if (pendingStudents > 0) badges['students'] = pendingStudents;
+
+        const openClasses = await ScheduledClassModel.countDocuments({
+          tutorPublicId: { $in: tutorPublicIds },
+          ...OPEN_CLASS_FILTER,
+        });
+        if (openClasses > 0) badges['classes'] = openClasses;
       }
     }
 
@@ -78,16 +96,45 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
           status: WorksheetStatus.PUBLISHED,
           isDeleted: false,
         });
-        const newSubmissions = await WorksheetSubmissionModel.countDocuments({
-          worksheetPublicId: { $in: tutorWorksheetIds },
+        const [newSubmissions, pendingStudents, openClasses, tutorAssignmentIds] = await Promise.all([
+          WorksheetSubmissionModel.countDocuments({
+            worksheetPublicId: { $in: tutorWorksheetIds },
+            isDeleted: false,
+          }),
+          StudentProfileModel.countDocuments({
+            tutorPublicId: tutorProfile.publicId,
+            status: StudentStatus.PENDING_APPROVAL,
+            isDeleted: false,
+          }),
+          ScheduledClassModel.countDocuments({
+            tutorPublicId: tutorProfile.publicId,
+            ...OPEN_CLASS_FILTER,
+          }),
+          AssignmentModel.distinct('publicId', {
+            tutorPublicId: tutorProfile.publicId,
+            status: AssignmentStatus.PUBLISHED,
+            isDeleted: false,
+          }),
+        ]);
+        if (newSubmissions > 0) badges['worksheets'] = newSubmissions;
+        if (pendingStudents > 0) badges['students'] = pendingStudents;
+        if (openClasses > 0) badges['classes'] = openClasses;
+
+        // Work handed back by students that nobody has graded yet.
+        const ungraded = await SubmissionModel.countDocuments({
+          assignmentPublicId: { $in: tutorAssignmentIds },
+          status: { $in: [SubmissionStatus.SUBMITTED, SubmissionStatus.LATE] },
           isDeleted: false,
         });
-        if (newSubmissions > 0) badges['worksheets'] = newSubmissions;
+        if (ungraded > 0) badges['assignments'] = ungraded;
       }
     }
 
     if (role === 'STUDENT') {
-      const studentProfile = await StudentProfileModel.findOne({ userPublicId: publicId, isDeleted: false }, { publicId: 1 }).lean();
+      const studentProfile = await StudentProfileModel.findOne(
+        { userPublicId: publicId, isDeleted: false },
+        { publicId: 1, tutorPublicId: 1 },
+      ).lean();
       if (studentProfile) {
         const filter = {
           $or: [
@@ -104,6 +151,21 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
         });
         const pending = Math.max(0, totalAssigned - submitted);
         if (pending > 0) badges['worksheets'] = pending;
+
+        const openClasses = await ScheduledClassModel.countDocuments({
+          studentPublicId: studentProfile.publicId,
+          ...OPEN_CLASS_FILTER,
+        });
+        if (openClasses > 0) badges['classes'] = openClasses;
+
+        // Material the tutor has shared. Only meaningful once a tutor is linked.
+        if (studentProfile.tutorPublicId) {
+          const sharedResources = await ResourceModel.countDocuments({
+            tutorPublicId: studentProfile.tutorPublicId,
+            isDeleted: false,
+          });
+          if (sharedResources > 0) badges['resources'] = sharedResources;
+        }
       }
     }
 

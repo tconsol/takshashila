@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, useCallback, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -24,6 +25,17 @@ export interface SelectProps {
   searchThreshold?: number;
 }
 
+interface PanelPosition {
+  left: number;
+  width: number;
+  /** Exactly one of these is set — the other side is left to `auto`. */
+  top?: number;
+  bottom?: number;
+  maxHeight: number;
+}
+
+const VIEWPORT_GAP = 8;
+
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   function Select(
     {
@@ -48,6 +60,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const inputId = id ?? uid;
 
     const [isOpen, setIsOpen] = useState(false);
+    /** Viewport coordinates for the portalled panel. The panel can't live next
+     *  to the trigger: inside a Modal the scroll container clips it. So it is
+     *  portalled to <body> and positioned by hand against the trigger's rect. */
+    const [panelPos, setPanelPos] = useState<PanelPosition | null>(null);
     const [search, setSearch] = useState('');
     const [internalValue, setInternalValue] = useState<string>(
       controlledValue ?? defaultValue ?? '',
@@ -55,6 +71,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const [focusedIdx, setFocusedIdx] = useState(-1);
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
     const hiddenSelectRef = useRef<HTMLSelectElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
@@ -66,10 +83,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     useEffect(() => {
       if (!isOpen) return;
       const handler = (e: MouseEvent) => {
-        if (!containerRef.current?.contains(e.target as Node)) {
-          setIsOpen(false);
-          setSearch('');
-        }
+        const target = e.target as Node;
+        if (containerRef.current?.contains(target)) return;
+        if (panelRef.current?.contains(target)) return;
+        setIsOpen(false);
+        setSearch('');
       };
       document.addEventListener('mousedown', handler);
       return () => document.removeEventListener('mousedown', handler);
@@ -90,6 +108,50 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       },
       [ref],
     );
+
+    /**
+     * Below is preferred; above only wins when below is both too tight for the
+     * panel AND actually roomier. Measured before the panel paints so it never
+     * flashes open on the wrong side and then jumps.
+     */
+    const measure = useCallback(() => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const searchBarHeight = options.length > searchThreshold ? 44 : 0;
+      const desired = Math.min(224, options.length * 36 + 8) + searchBarHeight + 2;
+      const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_GAP;
+      const spaceAbove = rect.top - VIEWPORT_GAP;
+      const dropUp = spaceBelow < desired && spaceAbove > spaceBelow;
+
+      setPanelPos({
+        left: rect.left,
+        width: rect.width,
+        ...(dropUp
+          ? { bottom: window.innerHeight - rect.top + 4 }
+          : { top: rect.bottom + 4 }),
+        maxHeight: Math.max(96, Math.min(desired, dropUp ? spaceAbove : spaceBelow)),
+      });
+    }, [options.length, searchThreshold]);
+
+    const openDropdown = () => {
+      if (disabled) return;
+      if (!isOpen) measure();
+      setIsOpen((v) => !v);
+    };
+
+    /* The panel is fixed-positioned outside the trigger's scroll container, so
+       it has to be re-anchored whenever anything under it scrolls or resizes. */
+    useEffect(() => {
+      if (!isOpen) return;
+      const reanchor = () => measure();
+      window.addEventListener('scroll', reanchor, true);
+      window.addEventListener('resize', reanchor);
+      return () => {
+        window.removeEventListener('scroll', reanchor, true);
+        window.removeEventListener('resize', reanchor);
+      };
+    }, [isOpen, measure]);
 
     const showSearch = options.length > searchThreshold;
     const filtered = search
@@ -125,7 +187,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       if (!isOpen) {
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
           e.preventDefault();
-          setIsOpen(true);
+          openDropdown();
         }
         return;
       }
@@ -176,7 +238,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         <button
           type="button"
           id={`${inputId}-trigger`}
-          onClick={() => !disabled && setIsOpen((v) => !v)}
+          onClick={openDropdown}
           onKeyDown={handleKeyDown}
           disabled={disabled}
           aria-haspopup="listbox"
@@ -198,15 +260,22 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <ChevronDown className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-ink-faint transition-transform duration-150', isOpen && 'rotate-180')} />
         </button>
 
-        {isOpen && (
+        {isOpen && panelPos && createPortal(
           <div
-            className="absolute z-50 mt-1 w-full overflow-hidden rounded border border-rule-strong bg-surface shadow-pop"
-            style={{ maxWidth: containerRef.current?.offsetWidth }}
+            ref={panelRef}
+            className="fixed z-[60] flex flex-col overflow-hidden rounded border border-rule-strong bg-surface shadow-pop"
+            style={{
+              left: panelPos.left,
+              width: panelPos.width,
+              top: panelPos.top,
+              bottom: panelPos.bottom,
+              maxHeight: panelPos.maxHeight,
+            }}
             role="listbox"
             onKeyDown={handleKeyDown}
           >
             {showSearch && (
-              <div className="border-b border-rule p-1.5">
+              <div className="shrink-0 border-b border-rule p-1.5">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
                   <input
@@ -220,7 +289,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                 </div>
               </div>
             )}
-            <ul ref={listRef} className="max-h-56 overflow-y-auto py-1">
+            <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto py-1">
               {filtered.length === 0 ? (
                 <li className="px-3 py-3 text-center text-sm text-ink-faint">No options found</li>
               ) : (
@@ -249,7 +318,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                 })
               )}
             </ul>
-          </div>
+          </div>,
+          document.body,
         )}
 
         {error && <p className="mt-1.5 text-xs font-medium text-rose-500">{error}</p>}

@@ -4,9 +4,10 @@ import jwt from 'jsonwebtoken';
 import { logger } from '../lib/logger';
 import { env } from '../config/env';
 import { registerClassSocket } from './class.socket';
-import { registerNotificationSocket } from './notification.socket';
+import { registerNotificationSocket, registerNotificationBridge } from './notification.socket';
 import { registerChatSocket } from './chat.socket';
 import { registerDataInvalidationSocket } from './data.socket';
+import { registerNotificationListeners } from '../modules/notifications/notification.listeners';
 
 export interface AuthSocket extends Socket {
   userPublicId: string;
@@ -41,6 +42,8 @@ export function initSocketServer(httpServer: HttpServer): IOServer {
   });
 
   registerDataInvalidationSocket(io);
+  registerNotificationBridge(io);
+  registerNotificationListeners();
 
   io.on('connection', (socket: Socket) => {
     const authSocket = socket as AuthSocket;

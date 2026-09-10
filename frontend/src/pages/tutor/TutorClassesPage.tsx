@@ -8,7 +8,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
-import { useMyClassesAsTutor, useCompleteClass, useCancelClass, useRefundClass } from '../../hooks/use-classes';
+import { useMyClassesAsTutor, useCompleteClass, useCancelClass, useRefundClass, LIVE_STATUS_POLL } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
 import { useTabActivity } from '../../hooks/use-tab-activity';
 import { WorksheetUploadModal } from '../../features/worksheets/WorksheetUploadModal';
@@ -43,15 +43,16 @@ export function TutorClassesPage() {
 
   // "ALL" tab fetches every status; others filter by the tab.
   const { data, isLoading } = useMyClassesAsTutor(activeTab === 'ALL' ? { limit: '100' } : { status: activeTab });
-  const { data: liveData } = useMyClassesAsTutor({ status: 'LIVE', limit: '1' });
+  const poll = { refetchInterval: LIVE_STATUS_POLL };
+  const { data: liveData } = useMyClassesAsTutor({ status: 'LIVE', limit: '1' }, poll);
   const hasLive = (liveData?.total ?? 0) > 0;
 
   // Lightweight counts per status (independent of the active tab) so a status
   // change — e.g. a class moving into Completed — lights up that tab even
   // while viewing a different one.
-  const { data: scheduledCount } = useMyClassesAsTutor({ status: 'SCHEDULED', limit: '1' });
-  const { data: completedCount } = useMyClassesAsTutor({ status: 'COMPLETED', limit: '1' });
-  const { data: cancelledCount } = useMyClassesAsTutor({ status: 'CANCELLED', limit: '1' });
+  const { data: scheduledCount } = useMyClassesAsTutor({ status: 'SCHEDULED', limit: '1' }, poll);
+  const { data: completedCount } = useMyClassesAsTutor({ status: 'COMPLETED', limit: '1' }, poll);
+  const { data: cancelledCount } = useMyClassesAsTutor({ status: 'CANCELLED', limit: '1' }, poll);
   const { dirty, markSeen } = useTabActivity(
     { SCHEDULED: scheduledCount?.total, COMPLETED: completedCount?.total, CANCELLED: cancelledCount?.total },
     activeTab,

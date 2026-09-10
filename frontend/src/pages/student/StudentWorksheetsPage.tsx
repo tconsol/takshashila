@@ -8,6 +8,7 @@ import { Tabs } from '../../components/ui/Tabs';
 import { Spinner } from '../../components/ui/Loading';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { useMyWorksheetsAsStudent } from '../../hooks/use-worksheets';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 import type { Worksheet } from '../../services/worksheets.service';
 import { api } from '../../lib/axios';
 
@@ -23,6 +24,16 @@ export function StudentWorksheetsPage() {
   const { data, isLoading } = useMyWorksheetsAsStudent({ type: activeType, limit: '100' });
   const items = data?.items ?? [];
 
+  // Both counts, regardless of which tab is open, so newly-published work from
+  // the tutor lights up the tab it landed in.
+  const { data: worksheetCount } = useMyWorksheetsAsStudent({ type: 'WORKSHEET', limit: '1' });
+  const { data: assignmentCount } = useMyWorksheetsAsStudent({ type: 'ASSIGNMENT', limit: '1' });
+  const { dirty, markSeen } = useTabActivity(
+    { WORKSHEET: worksheetCount?.total, ASSIGNMENT: assignmentCount?.total },
+    activeType,
+  );
+  const tabs = TYPE_TABS.map((t) => ({ ...t, indicator: dirty.has(t.key) }));
+
   const isDue = (w: Worksheet): boolean => w.type === 'ASSIGNMENT' && !!w.dueDate && new Date(w.dueDate) < new Date();
 
   return (
@@ -32,7 +43,11 @@ export function StudentWorksheetsPage() {
         subtitle="Quiz assessments from your tutor"
       />
 
-      <Tabs tabs={TYPE_TABS} activeTab={activeType} onChange={setActiveType} />
+      <Tabs
+        tabs={tabs}
+        activeTab={activeType}
+        onChange={(key) => { setActiveType(key); markSeen(key); }}
+      />
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner /></div>

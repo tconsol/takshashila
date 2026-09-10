@@ -11,24 +11,40 @@ export const classKeys = {
   detail: (id: string) => [...classKeys.all, id] as const,
 };
 
-export function useMyClassesAsTutor(params?: Record<string, string>) {
+/**
+ * Status transitions (SCHEDULED → LIVE → COMPLETED) are driven by the server's
+ * grace-period sweep as often as by a person, and those sweeps emit no socket
+ * event. Pass `LIVE_STATUS_POLL` on the small per-status count queries that feed
+ * tab indicators so a class moving between tabs actually lights one up.
+ */
+export const LIVE_STATUS_POLL = 30_000;
+
+interface ClassQueryOptions {
+  refetchInterval?: number;
+  enabled?: boolean;
+}
+
+export function useMyClassesAsTutor(params?: Record<string, string>, options?: ClassQueryOptions) {
   return useQuery({
     queryKey: classKeys.asTutor(params),
     queryFn: () => classesService.getMyAsTutor(params),
+    ...options,
   });
 }
 
-export function useMyClassesAsStudent(params?: Record<string, string>) {
+export function useMyClassesAsStudent(params?: Record<string, string>, options?: ClassQueryOptions) {
   return useQuery({
     queryKey: classKeys.asStudent(params),
     queryFn: () => classesService.getMyAsStudent(params),
+    ...options,
   });
 }
 
-export function useMyClassesAsPrincipal(params?: Record<string, string>) {
+export function useMyClassesAsPrincipal(params?: Record<string, string>, options?: ClassQueryOptions) {
   return useQuery({
     queryKey: classKeys.asPrincipal(params),
     queryFn: () => classesService.getMyAsPrincipal(params),
+    ...options,
   });
 }
 

@@ -58,11 +58,43 @@ export function TrendChart({
   useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
+
     const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
     ro.observe(el);
+
+    // A synchronous read here is usually enough, but when several siblings
+    // (StatsCards, other charts) mount in the same commit the browser can
+    // still be mid-reflow for this element, so `clientWidth` reads 0 and no
+    // further ResizeObserver callback ever fires because the box's size never
+    // subsequently *changes* from that stale 0. Re-checking on the next
+    // couple of animation frames catches that case without waiting on a
+    // resize that was never coming.
     setWidth(el.clientWidth);
-    return () => ro.disconnect();
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      if (el.clientWidth > 0) setWidth(el.clientWidth);
+      raf2 = requestAnimationFrame(() => {
+        if (el.clientWidth > 0) setWidth(el.clientWidth);
+      });
+    });
+
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   }, []);
+
+  // Data can arrive after mount (the query resolves later than the chart's own
+  // layout effect). If the very first width probe above landed on a 0-width
+  // container and never resized since, re-probe once real data shows up so the
+  // chart isn't left permanently blank waiting for a resize that never comes.
+  useLayoutEffect(() => {
+    if (width > 0 || data.length === 0) return;
+    const el = wrapRef.current;
+    if (el && el.clientWidth > 0) setWidth(el.clientWidth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.length]);
 
   // Keyboard parity with hover: arrow keys walk the series.
   useEffect(() => {
@@ -166,7 +198,7 @@ export function TrendChart({
       ) : (
         <div
           ref={wrapRef}
-          className="relative transition-opacity duration-200"
+          className="relative w-full min-w-0 transition-opacity duration-200"
           style={{ height, opacity: isFetching ? 0.55 : 1 }}
         >
           {geometry && (

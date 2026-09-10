@@ -271,12 +271,14 @@ export function SuperAdminSystemPage() {
             <div className="grid grid-cols-3 gap-3">
               {([['p50', data.requests.latencyMs.p50], ['p95', data.requests.latencyMs.p95], ['p99', data.requests.latencyMs.p99]] as const).map(
                 ([label, value]) => (
-                  <div key={label} className="rounded-xl border border-rule p-3 text-center">
+                  <div key={label} className="min-w-0 rounded-xl border border-rule p-3 text-center">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
-                    <p className={`mt-1 text-lg font-bold tabular-nums ${
+                    {/* Rounded to whole ms — sub-millisecond precision was pushing
+                        the wider numbers (four digits + ".41ms") past the tile's edge. */}
+                    <p className={`mt-1 truncate text-base font-bold tabular-nums sm:text-lg ${
                       value > 1000 ? 'text-danger' : value > 300 ? 'text-warn' : 'text-ink'
                     }`}>
-                      {value}ms
+                      {Math.round(value)}ms
                     </p>
                   </div>
                 ),

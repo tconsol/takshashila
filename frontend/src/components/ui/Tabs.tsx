@@ -37,9 +37,18 @@ export function Tabs({ tabs, activeTab, onChange, className = '' }: TabsProps) {
             {tab.icon}
             {tab.label}
             {tab.indicator && (
+              /* Red reads as an alert against the plain track, but disappears
+                 on the accent-filled active pill — there it takes the pill's
+                 own foreground colour instead. */
               <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-danger" />
+                <span className={cn(
+                  'absolute inline-flex h-full w-full animate-ping rounded-full opacity-75',
+                  active ? 'bg-accent-ink' : 'bg-danger',
+                )} />
+                <span className={cn(
+                  'relative inline-flex h-1.5 w-1.5 rounded-full',
+                  active ? 'bg-accent-ink' : 'bg-danger',
+                )} />
               </span>
             )}
           </button>

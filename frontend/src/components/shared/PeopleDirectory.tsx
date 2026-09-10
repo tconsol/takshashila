@@ -3,11 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   Search, ChevronLeft, ChevronRight, ShieldCheck, ShieldAlert,
-  Plus, Pencil, Trash2, RotateCcw, Download, Repeat,
+  Plus, Pencil, Trash2, RotateCcw, Download, Repeat, CircleDollarSign,
 } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { UserDetailModal } from './UserDetailModal';
 import { UserFormModal } from './UserFormModal';
+import { WalletAdjustModal } from './WalletAdjustModal';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Modal } from '../ui/Modal';
 import { Table, type TableColumn } from '../ui/Table';
@@ -71,6 +72,9 @@ export interface DirectoryRow extends DirectoryUser {
   isDeleted?: boolean;
 }
 
+/** Manual credit grant/deduct only makes sense for a spendable/earning wallet. */
+const WALLET_ADJUSTABLE_ROLES = ['STUDENT', 'TUTOR', 'PRINCIPAL'];
+
 interface PeopleDirectoryProps {
   title: string;
   eyebrow: string;
@@ -106,6 +110,7 @@ export function PeopleDirectory({
   const [exporting, setExporting] = useState(false);
   const [changingRole, setChangingRole] = useState<DirectoryRow | null>(null);
   const [nextRole, setNextRole] = useState('');
+  const [adjustingWallet, setAdjustingWallet] = useState<DirectoryRow | null>(null);
 
   const query = useMemo(
     () => ({ page, limit: PAGE_SIZE, role, status, q: search, deleted }),
@@ -309,18 +314,29 @@ export function PeopleDirectory({
                   <Repeat className="h-3 w-3" />
                 </Button>
               )}
+              {isSuperAdmin && WALLET_ADJUSTABLE_ROLES.includes(u.role) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  title="Adjust credits"
+                  onClick={() => setAdjustingWallet(u)}
+                >
+                  <CircleDollarSign className="h-3 w-3" />
+                </Button>
+              )}
               {u.status === 'SUSPENDED' ? (
-                <Button size="sm" variant="success" loading={activating} onClick={() => activate(u.publicId)}>
-                  <ShieldCheck className="h-3 w-3" /> Activate
+                <Button size="sm" variant="success" title="Activate" loading={activating} onClick={() => activate(u.publicId)}>
+                  <ShieldCheck className="h-3 w-3" />
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" loading={suspending} onClick={() => suspend(u.publicId)}>
-                  <ShieldAlert className="h-3 w-3" /> Suspend
+                <Button size="sm" variant="outline" title="Suspend" loading={suspending} onClick={() => suspend(u.publicId)}>
+                  <ShieldAlert className="h-3 w-3" />
                 </Button>
               )}
               <Button
                 size="sm"
                 variant="danger"
+                title="Delete"
                 onClick={() => { resetRemove(); setDeleting(u); }}
               >
                 <Trash2 className="h-3 w-3" />
@@ -472,6 +488,15 @@ export function PeopleDirectory({
         creatableRoles={creatableRoles}
         onClose={() => { setFormMode(null); setEditing(null); }}
       />
+
+      {adjustingWallet && (
+        <WalletAdjustModal
+          open={!!adjustingWallet}
+          onClose={() => setAdjustingWallet(null)}
+          targetPublicId={adjustingWallet.publicId}
+          targetName={`${adjustingWallet.firstName} ${adjustingWallet.lastName}`}
+        />
+      )}
 
       {/* Role change — super admin only */}
       <Modal

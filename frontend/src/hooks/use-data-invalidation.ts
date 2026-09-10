@@ -10,10 +10,10 @@ import { realtime } from '../lib/realtime';
 const MODULE_KEYS: Record<string, readonly (readonly string[])[]> = {
   principals:      [['principals'], ['admin-overview'], ['badges']],
   users:           [['users'], ['admin-overview'], ['super-admin-overview']],
-  classes:         [['classes'], ['analytics']],
+  classes:         [['classes'], ['analytics'], ['badges']],
   schedules:       [['schedules']],
-  assignments:     [['assignments']],
-  attendance:      [['attendance'], ['analytics']],
+  assignments:     [['assignments'], ['badges']],
+  attendance:      [['attendance'], ['analytics'], ['badges']],
   wallet:          [['wallet'], ['transactions'], ['analytics']],
   tickets:         [['tickets'], ['admin-overview'], ['badges']],
   students:        [['students'], ['badges']],
@@ -22,7 +22,7 @@ const MODULE_KEYS: Record<string, readonly (readonly string[])[]> = {
   tutors:          [['tutors', 'me'], ['tutors', 'my-principal'], ['tutors', 'my-tutors'], ['tutors', 'pending'], ['badges']],
   badges:          [['badges']],
   worksheets:      [['worksheets'], ['badges']],
-  resources:       [['resources']],
+  resources:       [['resources'], ['badges']],
 };
 
 export function useDataInvalidation() {
@@ -96,6 +96,7 @@ export function useDataInvalidation() {
 
     const handleClassCreated = ({ title }: { classPublicId: string; title: string; tutorPublicId: string }) => {
       qc.invalidateQueries({ queryKey: ['classes'] });
+      qc.invalidateQueries({ queryKey: ['badges'] });
       toast.info('New class scheduled!', title);
     };
 

@@ -86,6 +86,15 @@ export function UserDetailModal({ publicId, onClose, onSuspend, onActivate, muta
       footer={
         user && (
           <>
+            {canAdjustWallet && (
+              <Button
+                variant="primary"
+                className="mr-auto shadow-[0_0_0_3px_var(--accent-wash)]"
+                onClick={() => setAdjustingWallet(true)}
+              >
+                <CircleDollarSign className="h-4 w-4" /> Adjust credits
+              </Button>
+            )}
             <Button variant="ghost" onClick={onClose}>Close</Button>
             {suspended ? (
               <Button variant="success" loading={mutating} onClick={() => onActivate(user.publicId)}>
@@ -162,17 +171,10 @@ export function UserDetailModal({ publicId, onClose, onSuspend, onActivate, muta
           {/* Wallet */}
           {data.wallet && (
             <div>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink-muted">
-                  <WalletIcon className="h-3.5 w-3.5" /> Wallet
-                  {data.wallet.isLocked && <Badge variant="danger" tone="soft">Locked</Badge>}
-                </h4>
-                {canAdjustWallet && (
-                  <Button size="sm" variant="outline" onClick={() => setAdjustingWallet(true)}>
-                    <CircleDollarSign className="h-3.5 w-3.5" /> Adjust credits
-                  </Button>
-                )}
-              </div>
+              <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink-muted">
+                <WalletIcon className="h-3.5 w-3.5" /> Wallet
+                {data.wallet.isLocked && <Badge variant="danger" tone="soft">Locked</Badge>}
+              </h4>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 <Stat label="Balance" value={money(data.wallet.balanceCents, data.wallet.currency)} />
                 <Stat label="Purchased" value={money(data.wallet.purchasedCreditsCents, data.wallet.currency)} />

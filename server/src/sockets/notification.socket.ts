@@ -3,24 +3,26 @@ import type { AuthSocket } from './socket.handler';
 import { domainEvents } from '../events/event-emitter';
 import { DomainEvent } from '../constants/events';
 
-export function registerNotificationSocket(io: IOServer, socket: AuthSocket): void {
-  const onNotificationSent = (payload: { recipientPublicId: string; notificationPublicId: string; type: string }) => {
-    if (payload.recipientPublicId === socket.userPublicId) {
+/**
+ * Registered ONCE for the server, not per connection. The handler fans out to a
+ * room, so one listener per socket meant a user with N sockets received N copies
+ * of every notification.
+ */
+export function registerNotificationBridge(io: IOServer): void {
+  domainEvents.on(
+    DomainEvent.NOTIFICATION_SENT,
+    (payload: { recipientPublicId: string; notificationPublicId: string; type: string }) => {
       io.to(`user:${payload.recipientPublicId}`).emit('notification:new', {
         notificationPublicId: payload.notificationPublicId,
         type: payload.type,
       });
-    }
-  };
+    },
+  );
+}
 
-  domainEvents.on(DomainEvent.NOTIFICATION_SENT, onNotificationSent);
-
+export function registerNotificationSocket(_io: IOServer, socket: AuthSocket): void {
   socket.on('notification:mark-read', (notificationPublicId: string) => {
     socket.emit('notification:read-ack', { notificationPublicId });
-  });
-
-  socket.on('disconnect', () => {
-    domainEvents.off(DomainEvent.NOTIFICATION_SENT, onNotificationSent);
   });
 }
 

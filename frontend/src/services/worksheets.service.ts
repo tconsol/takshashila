@@ -62,21 +62,32 @@ export interface PaginatedWorksheets {
   totalPages: number;
 }
 
+/** The API nests counts under `pagination`; these types expose them flat. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function flattenPage<T>(raw: any): { items: T[]; total: number; page: number; limit: number; totalPages: number } {
+  const pagination = raw?.pagination ?? {};
+  return {
+    items: raw?.items ?? [],
+    total: pagination.total ?? 0,
+    page: pagination.page ?? 1,
+    limit: pagination.limit ?? 0,
+    totalPages: pagination.totalPages ?? 0,
+  };
+}
+
 export const worksheetsService = {
   create: (dto: CreateWorksheetDto) =>
     api.post('/worksheets', dto).then((r) => r.data.data as Worksheet),
 
   getMyAsTutor: (params?: Record<string, string>) =>
-    api.get('/worksheets/my', { params }).then((r) => r.data.data as PaginatedWorksheets),
+    api.get('/worksheets/my', { params }).then((r) => flattenPage<Worksheet>(r.data.data)),
 
   getAsPrincipal: (params?: Record<string, string>) =>
-    api.get('/worksheets/principal/all', { params }).then((r) => r.data.data as {
-      items: (Worksheet & { tutorName: string; submissionCount: number })[];
-      total: number; page: number; limit: number; totalPages: number;
-    }),
+    api.get('/worksheets/principal/all', { params })
+      .then((r) => flattenPage<Worksheet & { tutorName: string; submissionCount: number }>(r.data.data)),
 
   getMyAsStudent: (params?: Record<string, string>) =>
-    api.get('/worksheets/student/me', { params }).then((r) => r.data.data as PaginatedWorksheets),
+    api.get('/worksheets/student/me', { params }).then((r) => flattenPage<Worksheet>(r.data.data)),
 
   getById: (id: string) =>
     api.get(`/worksheets/${id}`).then((r) => r.data.data as Worksheet),

@@ -4,7 +4,7 @@ import { ClassCard } from '../../components/shared/ClassCard';
 import { Tabs } from '../../components/ui/Tabs';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
-import { useMyClassesAsPrincipal } from '../../hooks/use-classes';
+import { useMyClassesAsPrincipal, LIVE_STATUS_POLL } from '../../hooks/use-classes';
 import { useTabActivity } from '../../hooks/use-tab-activity';
 
 const EMPTY_LABELS: Record<string, string> = {
@@ -26,15 +26,16 @@ export function PrincipalClassesPage() {
   const [activeTab, setActiveTab] = useState('ALL');
 
   const { data, isLoading } = useMyClassesAsPrincipal(activeTab === 'ALL' ? { limit: '100' } : { status: activeTab });
-  const { data: liveData } = useMyClassesAsPrincipal({ status: 'LIVE', limit: '1' });
+  const poll = { refetchInterval: LIVE_STATUS_POLL };
+  const { data: liveData } = useMyClassesAsPrincipal({ status: 'LIVE', limit: '1' }, poll);
   const hasLive = (liveData?.total ?? 0) > 0;
 
   // Lightweight counts per status (independent of the active tab) so a status
   // change — e.g. a class moving into Completed — lights up that tab even
   // while viewing a different one.
-  const { data: scheduledCount } = useMyClassesAsPrincipal({ status: 'SCHEDULED', limit: '1' });
-  const { data: completedCount } = useMyClassesAsPrincipal({ status: 'COMPLETED', limit: '1' });
-  const { data: cancelledCount } = useMyClassesAsPrincipal({ status: 'CANCELLED', limit: '1' });
+  const { data: scheduledCount } = useMyClassesAsPrincipal({ status: 'SCHEDULED', limit: '1' }, poll);
+  const { data: completedCount } = useMyClassesAsPrincipal({ status: 'COMPLETED', limit: '1' }, poll);
+  const { data: cancelledCount } = useMyClassesAsPrincipal({ status: 'CANCELLED', limit: '1' }, poll);
   const { dirty, markSeen } = useTabActivity(
     { SCHEDULED: scheduledCount?.total, COMPLETED: completedCount?.total, CANCELLED: cancelledCount?.total },
     activeTab,

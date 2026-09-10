@@ -20,8 +20,18 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
-  badgeKey?: string;
+  /** One or more badge counters. An item with several (Classes carries both the
+   *  live "starting now" alert and the count of newly booked sessions) shows
+   *  their sum. */
+  badgeKey?: string | string[];
 }
+
+/** These two are client-side signals, not server counts — they clear on their
+ *  own terms and must not be written into the seen-count store. */
+const LOCAL_BADGE_KEYS = new Set(['scheduleAlert', 'demoRequests']);
+
+const asKeys = (badgeKey: NavItem['badgeKey']): string[] =>
+  !badgeKey ? [] : Array.isArray(badgeKey) ? badgeKey : [badgeKey];
 
 const NAV_ITEMS: Record<Role, NavItem[]> = {
   SUPER_ADMIN: [
@@ -63,7 +73,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Overview',    href: '/dashboard/principal',           icon: LayoutDashboard, badgeKey: 'scheduleAlert' },
     { label: 'Tutors',      href: '/dashboard/principal/tutors',    icon: GraduationCap,   badgeKey: 'tutors' },
     { label: 'Students',    href: '/dashboard/principal/students',  icon: Users,           badgeKey: 'students' },
-    { label: 'Classes',     href: '/dashboard/principal/classes',   icon: Video },
+    { label: 'Classes',     href: '/dashboard/principal/classes',   icon: Video,           badgeKey: 'classes' },
     { label: 'Content',     href: '/dashboard/principal/content',   icon: FileText },
     { label: 'Analytics',   href: '/dashboard/principal/analytics', icon: BarChart3 },
     // ── Teaching (principal also teaches) ──
@@ -79,10 +89,10 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   TUTOR: [
     { label: 'Overview',       href: '/dashboard/tutor',                  icon: LayoutDashboard },
     { label: 'Demo Requests',  href: '/dashboard/tutor/demo-requests',    icon: Sparkles,     badgeKey: 'demoRequests' },
-    { label: 'Students',       href: '/dashboard/tutor/students',         icon: Users },
-    { label: 'Classes',        href: '/dashboard/tutor/classes',          icon: Video },
+    { label: 'Students',       href: '/dashboard/tutor/students',         icon: Users,        badgeKey: 'students' },
+    { label: 'Classes',        href: '/dashboard/tutor/classes',          icon: Video,        badgeKey: 'classes' },
     { label: 'Calendar',       href: '/dashboard/tutor/schedule',         icon: Calendar },
-    { label: 'Assignments',    href: '/dashboard/tutor/assignments',      icon: BookOpen },
+    { label: 'Assignments',    href: '/dashboard/tutor/assignments',      icon: BookOpen,     badgeKey: 'assignments' },
     { label: 'Worksheets',     href: '/dashboard/tutor/worksheets',       icon: FileText,     badgeKey: 'worksheets' },
     { label: 'Resources',      href: '/dashboard/tutor/resources',        icon: FolderOpen },
     { label: 'Attendance',     href: '/dashboard/tutor/attendance',       icon: UserCheck },
@@ -96,10 +106,10 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Home',            href: '/dashboard/student',                  icon: LayoutDashboard },
     { label: 'Tutors',          href: '/dashboard/student/my-tutor',         icon: GraduationCap },
     { label: 'My Organization', href: '/dashboard/student/my-organization',  icon: Building2 },
-    { label: 'Classes',         href: '/dashboard/student/classes',          icon: Video,          badgeKey: 'scheduleAlert' },
+    { label: 'Classes',         href: '/dashboard/student/classes',          icon: Video,          badgeKey: ['scheduleAlert', 'classes'] },
     { label: 'Homework',        href: '/dashboard/student/worksheets',       icon: FileText,       badgeKey: 'worksheets' },
     { label: 'Games',           href: '/dashboard/student/games',            icon: Gamepad2 },
-    { label: 'Resources',       href: '/dashboard/student/resources',        icon: FolderOpen },
+    { label: 'Resources',       href: '/dashboard/student/resources',        icon: FolderOpen,     badgeKey: 'resources' },
     { label: 'Messages',        href: '/chat',                               icon: MessageSquare,  badgeKey: 'messages' },
     { label: 'Profile',         href: '/profile',                            icon: UserCircle },
   ],
@@ -152,12 +162,12 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
     const active = allItems.find(
       (item) =>
         item.badgeKey &&
-        item.badgeKey !== 'scheduleAlert' &&
-        item.badgeKey !== 'demoRequests' &&
         (location.pathname === item.href || location.pathname.startsWith(item.href + '/')),
     );
     // Mark the current server count as seen so the dot clears for this page.
-    if (active?.badgeKey) markSeen(active.badgeKey, badges[active.badgeKey] ?? 0);
+    asKeys(active?.badgeKey)
+      .filter((key) => !LOCAL_BADGE_KEYS.has(key))
+      .forEach((key) => markSeen(key, badges[key] ?? 0));
   }, [location.pathname, badges]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user) return null;
@@ -169,17 +179,20 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
     return location.pathname.startsWith(href + '/');
   };
 
-  const getBadgeCount = (badgeKey: string | undefined, href: string): number => {
-    if (!badgeKey) return 0;
+  const getBadgeCount = (badgeKey: NavItem['badgeKey'], href: string): number => {
+    const keys = asKeys(badgeKey);
+    if (keys.length === 0) return 0;
     if (isOnPage(href)) {
-      if (badgeKey === 'scheduleAlert' && scheduleAlertCount > 0) setTimeout(clearScheduleAlerts, 0);
+      if (keys.includes('scheduleAlert') && scheduleAlertCount > 0) setTimeout(clearScheduleAlerts, 0);
       return 0;
     }
-    if (badgeKey === 'scheduleAlert') return scheduleAlertCount;
-    if (badgeKey === 'demoRequests') return demoRequestCount;
-    // Show the dot only when the server count exceeds what the user last saw.
-    const count = badges[badgeKey] ?? 0;
-    return count > (seen[badgeKey] ?? 0) ? count : 0;
+    return keys.reduce((total, key) => {
+      if (key === 'scheduleAlert') return total + scheduleAlertCount;
+      if (key === 'demoRequests') return total + demoRequestCount;
+      // Show the dot only when the server count exceeds what the user last saw.
+      const count = badges[key] ?? 0;
+      return total + (count > (seen[key] ?? 0) ? count : 0);
+    }, 0);
   };
 
   const handleLogout = async () => {
@@ -269,7 +282,10 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                       )}>
                         <Icon className="h-[18px] w-[18px]" />
                         {badgeCount > 0 && (
-                          <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                          <span className="absolute right-0.5 top-0.5 flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-danger" />
+                          </span>
                         )}
                       </div>
                     </Link>
@@ -294,8 +310,11 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                       <Icon className="h-[15px] w-[15px] shrink-0" />
                       <span className="truncate">{item.label}</span>
                       {badgeCount > 0 && (
-                        <span className="ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 font-mono-ui text-[10px] font-semibold text-accent-ink">
-                          {badgeCount > 99 ? '99+' : badgeCount}
+                        <span className="relative ml-auto flex shrink-0">
+                          <span className="absolute inset-0 animate-ping rounded-full bg-danger opacity-60" />
+                          <span className="relative flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1 font-mono-ui text-[10px] font-semibold text-white">
+                            {badgeCount > 99 ? '99+' : badgeCount}
+                          </span>
                         </span>
                       )}
                     </Link>

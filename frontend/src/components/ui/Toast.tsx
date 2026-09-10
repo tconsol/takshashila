@@ -4,6 +4,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   type ReactNode,
 } from 'react';
@@ -11,6 +12,8 @@ import { X, CheckCircle2, XCircle, AlertTriangle, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
+
+const DEDUPE_WINDOW_MS = 1500;
 
 interface ToastItem {
   id: string;
@@ -37,17 +40,17 @@ export function useToast(): ToastContextValue {
 }
 
 const ICONS: Record<ToastVariant, ReactNode> = {
-  success: <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />,
-  error:   <XCircle className="h-4 w-4 text-rose-500 shrink-0" />,
-  warning: <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />,
-  info:    <Info className="h-4 w-4 text-sky-500 shrink-0" />,
+  success: <CheckCircle2 className="h-4 w-4 shrink-0 text-ok" />,
+  error:   <XCircle className="h-4 w-4 shrink-0 text-danger" />,
+  warning: <AlertTriangle className="h-4 w-4 shrink-0 text-warn" />,
+  info:    <Info className="h-4 w-4 shrink-0 text-info" />,
 };
 
 const ACCENT: Record<ToastVariant, { bar: string; iconBg: string }> = {
-  success: { bar: 'bg-emerald-500', iconBg: 'bg-emerald-50' },
-  error:   { bar: 'bg-rose-500',    iconBg: 'bg-rose-50' },
-  warning: { bar: 'bg-amber-500',   iconBg: 'bg-amber-50' },
-  info:    { bar: 'bg-sky-500',     iconBg: 'bg-sky-50' },
+  success: { bar: 'bg-ok',     iconBg: 'bg-ok-wash' },
+  error:   { bar: 'bg-danger', iconBg: 'bg-danger-wash' },
+  warning: { bar: 'bg-warn',   iconBg: 'bg-warn-wash' },
+  info:    { bar: 'bg-info',   iconBg: 'bg-info-wash' },
 };
 
 function ToastCard({ item, onClose }: { item: ToastItem; onClose: (id: string) => void }) {
@@ -90,8 +93,8 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: (id: string) =
   return (
     <div
       className={cn(
-        'pointer-events-auto w-80 overflow-hidden rounded-xl bg-white shadow-lg',
-        'border border-slate-200/80',
+        'pointer-events-auto w-80 overflow-hidden rounded-xl bg-surface shadow-pop',
+        'border border-rule-strong',
         'transition-all duration-300 ease-out',
         mounted && !leaving ? 'translate-x-0 opacity-100 scale-100' : 'translate-x-8 opacity-0 scale-95',
       )}
@@ -101,19 +104,19 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: (id: string) =
           {ICONS[item.variant]}
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-900 dark:text-white leading-snug">{item.title}</p>
+          <p className="text-sm font-semibold leading-snug text-ink">{item.title}</p>
           {item.description && (
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{item.description}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-ink-muted">{item.description}</p>
           )}
         </div>
         <button
           onClick={dismiss}
-          className="shrink-0 mt-0.5 flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-surface-hover hover:text-ink"
         >
           <X className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
       </div>
-      <div className="h-[3px] w-full bg-slate-100">
+      <div className="h-[3px] w-full bg-surface-sunk">
         <div className={cn('h-full transition-none', bar)} style={{ width: `${progress}%` }} />
       </div>
     </div>
@@ -127,21 +130,36 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  /* Last time each distinct message was raised. A realtime event that reaches
+     the client over two channels would otherwise stack two identical cards. */
+  const lastShown = useRef<Map<string, number>>(new Map());
+
   const add = useCallback(
     (opts: Omit<ToastItem, 'id' | 'duration'> & { duration?: number }) => {
+      const key = `${opts.variant}:${opts.title}:${opts.description ?? ''}`;
+      const now = Date.now();
+      const previous = lastShown.current.get(key);
+      if (previous !== undefined && now - previous < DEDUPE_WINDOW_MS) return;
+      lastShown.current.set(key, now);
+
       const id = Math.random().toString(36).slice(2, 9);
       setToasts((prev) => [...prev.slice(-4), { ...opts, id, duration: opts.duration ?? 3500 }]);
     },
     [],
   );
 
-  const ctx: ToastContextValue = {
-    toast: add,
-    success: (title, description) => add({ variant: 'success', title, description }),
-    error:   (title, description) => add({ variant: 'error',   title, description }),
-    warning: (title, description) => add({ variant: 'warning', title, description }),
-    info:    (title, description) => add({ variant: 'info',    title, description }),
-  };
+  // Stable identity — consumers put `toast` in effect deps, and a fresh object
+  // each render re-ran those effects (re-subscribing sockets) on every render.
+  const ctx = useMemo<ToastContextValue>(
+    () => ({
+      toast: add,
+      success: (title, description) => add({ variant: 'success', title, description }),
+      error:   (title, description) => add({ variant: 'error',   title, description }),
+      warning: (title, description) => add({ variant: 'warning', title, description }),
+      info:    (title, description) => add({ variant: 'info',    title, description }),
+    }),
+    [add],
+  );
 
   return (
     <ToastContext.Provider value={ctx}>
