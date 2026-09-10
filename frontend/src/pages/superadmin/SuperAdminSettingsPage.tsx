@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
+import { Toggle } from '../../components/ui/Toggle';
 import {
   systemService, FEATURE_FLAG_LABELS, type PlatformSettings,
 } from '../../services/system.service';
@@ -80,43 +81,6 @@ function toPatch(values: Record<string, string>): Partial<PlatformSettings> {
     }
   }
   return patch as Partial<PlatformSettings>;
-}
-
-function Toggle({
-  checked, onChange, label, description, danger,
-}: {
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  label: string;
-  description: string;
-  danger?: boolean;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-slate-100 p-4 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50">
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-900 dark:text-white">{label}</p>
-        <p className="mt-0.5 text-xs text-slate-500">{description}</p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
-          checked
-            ? danger ? 'bg-rose-500' : 'bg-emerald-500'
-            : 'bg-slate-300 dark:bg-slate-700'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            checked ? 'translate-x-[22px]' : 'translate-x-0.5'
-          }`}
-        />
-      </button>
-    </label>
-  );
 }
 
 export function SuperAdminSettingsPage() {

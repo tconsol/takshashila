@@ -16,7 +16,11 @@ export function DashboardLayout() {
   useSessionExpiry();
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+    // `themed-surfaces` retargets legacy literal colours (bg-white, bg-gray-50,
+    // and friends) onto the theme tokens in dark mode — see globals.css. Scoped
+    // to the dashboard so the deliberately-light landing page and games keep
+    // their own palette.
+    <div className="grain themed-surfaces relative flex h-screen overflow-hidden bg-paper">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -24,10 +28,12 @@ export function DashboardLayout() {
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+      <div className="relative z-[1] flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 flex flex-col">
-          <Outlet />
+        <main className="flex flex-1 flex-col overflow-y-auto p-4 lg:p-8">
+          <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

@@ -1,83 +1,180 @@
 import type { Config } from 'tailwindcss';
 
+/**
+ * EDITORIAL CONSOLE
+ *
+ * Two things are happening here.
+ *
+ * 1. New semantic tokens (`paper`, `surface`, `ink`, `rule`, `accent`) drive the
+ *    redesigned primitives and shell. Components reference roles, never hex.
+ *
+ * 2. The stock `slate` / `gray` / `indigo` ramps are *remapped* onto the same
+ *    warm palette. Hundreds of existing class names across the app keep working
+ *    and are pulled onto the new design without touching those files — a
+ *    `text-slate-500` becomes warm grey, an `indigo-600` becomes vermilion.
+ *    Screens are then refined individually rather than being unstyled meanwhile.
+ */
+
+const warm = {
+  50:  '#FBFAF7',
+  100: '#F4F2ED',
+  200: '#E4DFD5',
+  300: '#D0C9BC',
+  400: '#B0A89C',
+  500: '#8A8177',
+  600: '#6B6459',
+  700: '#514B42',
+  800: '#332E28',
+  900: '#1F1B16',
+  950: '#12100D',
+};
+
+const vermilion = {
+  50:  '#FDF0EB',
+  100: '#FBDDD3',
+  200: '#F4CEC2',
+  300: '#EDA893',
+  400: '#E3765A',
+  500: '#D64520',
+  600: '#B83919',
+  700: '#962D13',
+  800: '#74240F',
+  900: '#551A0B',
+  950: '#2E0E06',
+};
+
+const token = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
+
 const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        brand: {
-          50:  '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          950: '#1e1b4b',
+        // ── Semantic roles (preferred for all new work) ──────────────────
+        paper:   token('paper'),
+        surface: {
+          DEFAULT: token('surface'),
+          sunk:    token('surface-sunk'),
+          hover:   token('surface-hover'),
+        },
+        ink: {
+          DEFAULT: token('ink'),
+          2:       token('ink-2'),
+          muted:   token('ink-muted'),
+          faint:   token('ink-faint'),
+        },
+        rule: {
+          DEFAULT: token('rule'),
+          strong:  token('rule-strong'),
         },
         accent: {
-          50:  '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
-          800: '#9a3412',
-          900: '#7c2d12',
+          DEFAULT: token('accent'),
+          hover:   token('accent-hover'),
+          ink:     token('accent-ink'),
+          wash:    token('accent-wash'),
+          edge:    token('accent-edge'),
+          ...vermilion,
         },
-        // Clay tokens remapped to modern LMS design used throughout pages
+        ok:     { DEFAULT: token('ok'),     wash: token('ok-wash') },
+        warn:   { DEFAULT: token('warn'),   wash: token('warn-wash') },
+        danger: { DEFAULT: token('danger'), wash: token('danger-wash') },
+        info:   { DEFAULT: token('info'),   wash: token('info-wash') },
+
+        // ── Remapped stock ramps, so legacy markup inherits the redesign ──
+        slate: warm,
+        gray: warm,
+        stone: warm,
+        neutral: warm,
+        zinc: warm,
+        indigo: vermilion,
+        violet: vermilion,
+        brand: vermilion,
+
+        // Legacy clay-* aliases still referenced by older pages.
         clay: {
-          bg:           'rgb(var(--clay-bg) / <alpha-value>)',
-          surface:      'rgb(var(--clay-surface) / <alpha-value>)',
-          muted:        'rgb(var(--clay-muted) / <alpha-value>)',
-          ink:          'rgb(var(--clay-ink) / <alpha-value>)',
-          green:        'rgb(var(--clay-green) / <alpha-value>)',
-          'green-dark': 'rgb(var(--clay-green-dark) / <alpha-value>)',
-          coral:        'rgb(var(--clay-coral) / <alpha-value>)',
-          'coral-strong':'rgb(var(--clay-coral-strong) / <alpha-value>)',
-          sky:          'rgb(var(--clay-sky) / <alpha-value>)',
-          mint:         'rgb(var(--clay-mint) / <alpha-value>)',
-          yellow:       'rgb(var(--clay-yellow) / <alpha-value>)',
-          purple:       'rgb(var(--clay-purple) / <alpha-value>)',
-          pink:         'rgb(var(--clay-pink) / <alpha-value>)',
+          bg:             token('paper'),
+          surface:        token('surface'),
+          muted:          token('ink-muted'),
+          ink:            token('ink'),
+          green:          token('accent'),
+          'green-dark':   token('accent-hover'),
+          coral:          token('accent-wash'),
+          'coral-strong': token('accent'),
+          sky:            token('info-wash'),
+          mint:           token('ok-wash'),
+          yellow:         token('warn-wash'),
+          purple:         token('accent-wash'),
+          pink:           token('accent-wash'),
         },
       },
-      boxShadow: {
-        // Soft modern shadows (replaces hard clay offset shadows)
-        'clay':         '0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.05)',
-        'clay-lg':      '0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.06)',
-        'clay-sm':      '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-        'clay-pressed': '0 0 0 0 transparent',
-        // New utility shadows
-        'card':         '0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.05)',
-        'card-hover':   '0 4px 12px -2px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.06)',
-        'sidebar':      '2px 0 8px 0 rgb(0 0 0 / 0.06)',
-        'topbar':       '0 1px 0 0 rgb(226 232 240)',
-      },
-      borderWidth: {
-        '2.5': '2.5px',
-      },
+
       fontFamily: {
-        sans:    ['Nunito', 'Outfit', 'Inter', 'system-ui', 'sans-serif'],
-        heading: ['Nunito', 'Outfit', 'Inter', 'system-ui', 'sans-serif'],
+        sans:    ['Archivo', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+        heading: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+        mono:    ['JetBrains Mono', 'ui-monospace', 'monospace'],
       },
+
+      /* Squared-off geometry. The old system was pillowy; this one is cut. */
+      borderRadius: {
+        none: '0',
+        sm:   '2px',
+        DEFAULT: '4px',
+        md:   '5px',
+        lg:   '6px',
+        xl:   '8px',
+        '2xl': '10px',
+        '3xl': '14px',
+      },
+
+      boxShadow: {
+        // Structure comes from hairlines; shadows are reserved for overlays.
+        none:           'none',
+        lift:           'var(--shadow-lift)',
+        pop:            'var(--shadow-pop)',
+        // Legacy names kept so old markup does not fall back to Tailwind's blue-grey.
+        card:           'var(--shadow-lift)',
+        'card-hover':   'var(--shadow-lift)',
+        clay:           'var(--shadow-lift)',
+        'clay-sm':      'var(--shadow-lift)',
+        'clay-lg':      'var(--shadow-pop)',
+        'clay-pressed': 'none',
+        sidebar:        'none',
+        topbar:         'none',
+      },
+
+      fontSize: {
+        '2xs': ['10px', { lineHeight: '14px', letterSpacing: '0.12em' }],
+        xs:    ['11px', { lineHeight: '16px' }],
+        sm:    ['13px', { lineHeight: '19px' }],
+        base:  ['14px', { lineHeight: '21px' }],
+        lg:    ['16px', { lineHeight: '23px' }],
+        xl:    ['19px', { lineHeight: '26px' }],
+        '2xl': ['24px', { lineHeight: '30px' }],
+        '3xl': ['31px', { lineHeight: '36px' }],
+        '4xl': ['40px', { lineHeight: '44px' }],
+        '5xl': ['54px', { lineHeight: '56px' }],
+        '6xl': ['70px', { lineHeight: '70px' }],
+      },
+
+      transitionTimingFunction: {
+        editorial: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      },
+
       animation: {
-        'fade-in':    'fadeIn 0.2s ease-in-out',
-        'slide-up':   'slideUp 0.25s ease-out',
-        'scale-in':   'scaleIn 0.2s ease-out',
-        'marquee':    'marquee 40s linear infinite',
+        'fade-in':  'fadeIn 0.2s ease-out',
+        'slide-up': 'rise 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
+        'scale-in': 'scaleIn 0.18s cubic-bezier(0.22, 1, 0.36, 1)',
+        'sweep-in': 'sweepIn 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
+        marquee:    'marquee 40s linear infinite',
       },
       keyframes: {
-        fadeIn:  { from: { opacity: '0' },                                    to: { opacity: '1' } },
-        slideUp: { from: { transform: 'translateY(6px)', opacity: '0' },      to: { transform: 'translateY(0)', opacity: '1' } },
-        scaleIn: { from: { transform: 'scale(0.97)', opacity: '0' },          to: { transform: 'scale(1)', opacity: '1' } },
-        marquee: { from: { transform: 'translateX(0)' },                      to: { transform: 'translateX(-50%)' } },
+        fadeIn:  { from: { opacity: '0' }, to: { opacity: '1' } },
+        rise:    { from: { opacity: '0', transform: 'translateY(10px)' }, to: { opacity: '1', transform: 'none' } },
+        scaleIn: { from: { opacity: '0', transform: 'scale(0.98)' }, to: { opacity: '1', transform: 'none' } },
+        sweepIn: { from: { transform: 'scaleX(0)' }, to: { transform: 'scaleX(1)' } },
+        marquee: { from: { transform: 'translateX(0)' }, to: { transform: 'translateX(-50%)' } },
       },
     },
   },

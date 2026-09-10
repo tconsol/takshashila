@@ -10,6 +10,7 @@ import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { useMyClassesAsTutor, useCompleteClass, useCancelClass, useRefundClass } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 import { WorksheetUploadModal } from '../../features/worksheets/WorksheetUploadModal';
 import { TutorRescheduleModal } from '../../features/classes/TutorCreateClassModal';
 import type { ClassRecord } from '../../services/classes.service';
@@ -45,6 +46,17 @@ export function TutorClassesPage() {
   const { data: liveData } = useMyClassesAsTutor({ status: 'LIVE', limit: '1' });
   const hasLive = (liveData?.total ?? 0) > 0;
 
+  // Lightweight counts per status (independent of the active tab) so a status
+  // change — e.g. a class moving into Completed — lights up that tab even
+  // while viewing a different one.
+  const { data: scheduledCount } = useMyClassesAsTutor({ status: 'SCHEDULED', limit: '1' });
+  const { data: completedCount } = useMyClassesAsTutor({ status: 'COMPLETED', limit: '1' });
+  const { data: cancelledCount } = useMyClassesAsTutor({ status: 'CANCELLED', limit: '1' });
+  const { dirty, markSeen } = useTabActivity(
+    { SCHEDULED: scheduledCount?.total, COMPLETED: completedCount?.total, CANCELLED: cancelledCount?.total },
+    activeTab,
+  );
+
   const { mutateAsync: completeClass } = useCompleteClass();
   const { mutateAsync: cancelClass, isPending: cancelling } = useCancelClass();
   const { mutateAsync: refundClass, isPending: refunding } = useRefundClass();
@@ -67,10 +79,10 @@ export function TutorClassesPage() {
 
   const TABS = [
     { key: 'ALL', label: 'All' },
-    { key: 'SCHEDULED', label: 'Upcoming' },
+    { key: 'SCHEDULED', label: 'Upcoming', indicator: dirty.has('SCHEDULED') },
     { key: 'LIVE', label: 'In Progress', indicator: hasLive },
-    { key: 'COMPLETED', label: 'Completed' },
-    { key: 'CANCELLED', label: 'Cancelled' },
+    { key: 'COMPLETED', label: 'Completed', indicator: dirty.has('COMPLETED') },
+    { key: 'CANCELLED', label: 'Cancelled', indicator: dirty.has('CANCELLED') },
   ];
 
   const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate' | 'reschedule', cls: ClassRecord) => {
@@ -99,7 +111,7 @@ export function TutorClassesPage() {
         </Button>
       </div>
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs tabs={TABS} activeTab={activeTab} onChange={(key) => { setActiveTab(key); markSeen(key); }} />
 
       {isLoading ? (
         <div className="flex justify-center py-12">

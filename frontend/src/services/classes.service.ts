@@ -22,6 +22,10 @@ function mapClass(raw: any): ClassRecord {
     durationMinutes: raw.durationMinutes,
     billingMode: raw.billingMode,
     refundedAt: raw.refundedAt,
+    tutorName: raw.tutorName,
+    studentName: raw.studentName,
+    autoResolution: raw.autoResolution,
+    autoResolvedAt: raw.autoResolvedAt,
     createdAt: raw.createdAt,
   };
 }
@@ -76,6 +80,12 @@ export interface ClassRecord {
   durationMinutes?: number;
   billingMode?: string;
   refundedAt?: string;
+  /** Resolved server-side so a list can name the other party in the class. */
+  tutorName?: string;
+  studentName?: string;
+  /** Set when the grace-period sweep closed this class instead of a person. */
+  autoResolution?: 'AUTO_COMPLETED' | 'AUTO_CANCELLED';
+  autoResolvedAt?: string;
   createdAt: string;
 }
 

@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { HangingIdCard } from '../../components/lightswind/HangingIdCard';
+import { TagInput } from '../../components/ui/TagInput';
+import { Tabs } from '../../components/ui/Tabs';
 import { formatInTimeZone } from 'date-fns-tz';
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../stores/auth.store';
@@ -435,23 +437,11 @@ export function ProfilePage() {
       )}
 
       {/* Tab navigation */}
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
-        {tabs.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              tab === key
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={tabs.map(({ key, label, icon: Icon }) => ({ key, label, icon: <Icon className="h-4 w-4" /> }))}
+        activeTab={tab}
+        onChange={(key) => setTab(key as Tab)}
+      />
 
       {/* Account tab */}
       {tab === 'account' && (
@@ -526,67 +516,34 @@ export function ProfilePage() {
               />
             </Field>
 
-            <div>
-              <p className="mb-2 text-sm font-semibold text-slate-700">Subjects you teach</p>
-              <Controller
-                control={tutorForm.control}
-                name="subjects"
-                render={({ field }) => (
-                  <div className="flex flex-wrap gap-2">
-                    {SUBJECT_OPTIONS.map((s) => {
-                      const active = field.value.includes(s);
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => field.onChange(
-                            active ? field.value.filter((v) => v !== s) : [...field.value, s],
-                          )}
-                          className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all border ${
-                            active
-                              ? 'bg-indigo-600 text-white border-indigo-600'
-                              : 'border-slate-300 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50'
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              />
-            </div>
+            <Controller
+              control={tutorForm.control}
+              name="subjects"
+              render={({ field }) => (
+                <TagInput
+                  label="Subjects you teach"
+                  value={field.value}
+                  onChange={field.onChange}
+                  suggestions={SUBJECT_OPTIONS}
+                  placeholder="Type a subject and press Enter"
+                  hint="Type anything — spelling is standardised when you save, so 'maths' and 'Mathematics' become one subject."
+                />
+              )}
+            />
 
-            <div>
-              <p className="mb-2 text-sm font-semibold text-slate-700">Languages you teach in</p>
-              <Controller
-                control={tutorForm.control}
-                name="languages"
-                render={({ field }) => (
-                  <div className="flex flex-wrap gap-2">
-                    {LANGUAGE_OPTIONS.map((l) => {
-                      const active = field.value.includes(l);
-                      return (
-                        <button
-                          key={l}
-                          type="button"
-                          onClick={() => field.onChange(
-                            active ? field.value.filter((v) => v !== l) : [...field.value, l],
-                          )}
-                          className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all border ${
-                            active
-                              ? 'bg-violet-600 text-white border-violet-600'
-                              : 'border-slate-300 text-slate-600 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50'
-                          }`}
-                        >
-                          {l}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              />
-            </div>
+            <Controller
+              control={tutorForm.control}
+              name="languages"
+              render={({ field }) => (
+                <TagInput
+                  label="Languages you teach in"
+                  value={field.value}
+                  onChange={field.onChange}
+                  suggestions={LANGUAGE_OPTIONS}
+                  placeholder="Type a language and press Enter"
+                />
+              )}
+            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Hourly Rate ($)" error={tutorForm.formState.errors.hourlyRateUSD?.message}>

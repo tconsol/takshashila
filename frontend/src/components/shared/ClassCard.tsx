@@ -61,12 +61,22 @@ export function ClassCard({ cls, perspective, onAction, ratedClassIds }: ClassCa
 
   const tzAbbr = formatInTimeZone(new Date(), userTimezone, 'zzz');
 
+  // Each side needs to see who the class is *with* — a tutor's list is useless
+  // without the student's name, and vice versa.
+  const counterparty =
+    perspective === 'tutor'   ? cls.studentName
+    : perspective === 'student' ? (cls.tutorName ? `with ${cls.tutorName}` : undefined)
+    : [cls.tutorName, cls.studentName].filter(Boolean).join(' → ') || undefined;
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+    <div className="flex flex-col gap-3 rounded border border-rule bg-surface p-5 transition-colors hover:bg-surface-hover">
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="font-semibold text-gray-900 dark:text-white">{cls.subject}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+        <div className="min-w-0">
+          <p className="font-semibold text-ink">{cls.subject}</p>
+          {counterparty && (
+            <p className="mt-0.5 text-sm font-medium text-ink-2">{counterparty}</p>
+          )}
+          <p className="mt-0.5 text-sm text-ink-muted">
             {start
               ? `${formatInTimeZone(start, userTimezone, 'EEE, MMM d yyyy')} · ${formatInTimeZone(start, userTimezone, 'h:mm a')}${end ? ` – ${formatInTimeZone(end, userTimezone, 'h:mm a')}` : ''} ${tzAbbr}`
               : 'Time TBD'}
@@ -75,11 +85,20 @@ export function ClassCard({ cls, perspective, onAction, ratedClassIds }: ClassCa
         <div className="flex flex-col items-end gap-1.5">
           <Badge variant={statusColors[cls.status] ?? 'default'}>{cls.status.replace('_', ' ')}</Badge>
           <Badge variant={classTypeColors[cls.classType] ?? 'default'}>{cls.classType}</Badge>
+          {cls.autoResolution && (
+            <Badge
+              variant={cls.autoResolution === 'AUTO_COMPLETED' ? 'info' : 'warning'}
+              tone="outline"
+              title="Closed automatically because it was left open past its end time"
+            >
+              {cls.autoResolution === 'AUTO_COMPLETED' ? 'Auto completed' : 'Auto cancelled'}
+            </Badge>
+          )}
         </div>
       </div>
 
       <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-500 dark:text-gray-400">
+        <span className="text-ink-muted">
           {cls.costCents === 0 ? 'Free Demo' : (cls.costCents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
         </span>
         {(cls.status === 'SCHEDULED' || isInProgress) && !canJoin && minutesUntilStart !== null && minutesUntilStart > 0 && (

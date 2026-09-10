@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Sparkles, Video } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Select } from '../ui/Select';
+import { Badge } from '../ui/Badge';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { useTutorSlots } from '../../hooks/use-schedules';
@@ -50,10 +51,17 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
   const classType = watch('classType');
   const isDemo = classType === 'DEMO';
 
-  const slotOptions = availableSlots.map((s) => ({
-    value: s.publicId,
-    label: `${formatInTimeZone(new Date(s.startUTC), userTimezone, 'EEE MMM d, h:mm a')} – ${formatInTimeZone(new Date(s.endUTC), userTimezone, 'h:mm a')}`,
-  }));
+  // Say up front whether a slot is a one-off or part of a repeating series —
+  // a student picking a weekly slot should know it is weekly before booking.
+  const slotOptions = availableSlots.map((s) => {
+    const window = `${formatInTimeZone(new Date(s.startUTC), userTimezone, 'EEE MMM d, h:mm a')} – ${formatInTimeZone(new Date(s.endUTC), userTimezone, 'h:mm a')}`;
+    return {
+      value: s.publicId,
+      label: s.isRecurring ? `${window} · Recurring` : window,
+    };
+  });
+
+  const selectedSlot = availableSlots.find((s) => s.publicId === watch('slotPublicId'));
 
   const subjectOptions = tutor.subjects.map((s) => ({ value: s, label: s }));
 
@@ -181,13 +189,28 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
             No available slots right now. Check back later.
           </p>
         ) : (
-          <Select
-            label="Preferred Time Slot"
-            options={slotOptions}
-            placeholder="Select a slot"
-            error={errors.slotPublicId?.message}
-            {...register('slotPublicId')}
-          />
+          <div>
+            <Select
+              label="Preferred Time Slot"
+              options={slotOptions}
+              placeholder="Select a slot"
+              error={errors.slotPublicId?.message}
+              {...register('slotPublicId')}
+            />
+            {selectedSlot && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant={selectedSlot.isRecurring ? 'purple' : 'info'} tone="soft">
+                  {selectedSlot.isRecurring ? 'Recurring slot' : 'One-off slot'}
+                </Badge>
+                <Badge variant={isDemo ? 'warning' : 'success'} tone="soft">
+                  {classType} class
+                </Badge>
+                {selectedSlot.durationMinutes ? (
+                  <span className="text-ink-muted">{selectedSlot.durationMinutes} min</span>
+                ) : null}
+              </div>
+            )}
+          </div>
         )}
 
         <Controller

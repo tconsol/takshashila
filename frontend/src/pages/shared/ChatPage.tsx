@@ -7,6 +7,8 @@ import { ConversationList } from '../../features/chat/ConversationList';
 import { ChatWindow } from '../../features/chat/ChatWindow';
 import { useConversations, useStartConversation } from '../../features/chat/use-chat';
 import { Spinner } from '../../components/ui/Loading';
+import { Avatar } from '../../components/ui/Avatar';
+import { Badge } from '../../components/ui/Badge';
 import { api } from '../../lib/axios';
 import type { IConversation } from '../../features/chat/chat.types';
 
@@ -91,16 +93,6 @@ function useContacts() {
   });
 }
 
-const ROLE_COLORS: Record<string, { bg: string; text: string; gradient: string }> = {
-  TUTOR:       { bg: 'bg-sky-50',     text: 'text-sky-600',     gradient: 'from-sky-400 to-blue-500' },
-  STUDENT:     { bg: 'bg-emerald-50', text: 'text-emerald-600', gradient: 'from-emerald-400 to-teal-500' },
-  PRINCIPAL:   { bg: 'bg-violet-50',  text: 'text-violet-600',  gradient: 'from-violet-400 to-purple-500' },
-  PARENT:      { bg: 'bg-pink-50',    text: 'text-pink-600',    gradient: 'from-pink-400 to-rose-500' },
-  ADMIN:       { bg: 'bg-rose-50',    text: 'text-rose-600',    gradient: 'from-rose-400 to-red-500' },
-  SUPER_ADMIN: { bg: 'bg-rose-50',    text: 'text-rose-600',    gradient: 'from-rose-400 to-red-500' },
-  SUPPORT:     { bg: 'bg-amber-50',   text: 'text-amber-600',   gradient: 'from-amber-400 to-orange-500' },
-};
-
 // ── Admin: live search across all platform users ──────────────────────────────
 function AdminNewChatModal({ onClose, onStarted }: { onClose: () => void; onStarted: (conv: IConversation) => void }) {
   const [search, setSearch] = useState('');
@@ -143,43 +135,43 @@ function AdminNewChatModal({ onClose, onStarted }: { onClose: () => void; onStar
   const showEmpty = debouncedQ.length >= 2 && !isFetching && results.length === 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-xl flex flex-col max-h-[80vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-md bg-surface border border-rule shadow-pop flex flex-col max-h-[80vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 rounded-t-2xl flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-rule flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100">
-              <Users className="h-4 w-4 text-indigo-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded border border-rule bg-surface-sunk text-accent">
+              <Users className="h-4 w-4" />
             </div>
             <div>
-              <p className="font-semibold text-slate-900 text-sm">Message Any User</p>
-              <p className="text-xs text-slate-400">Search across all platform users</p>
+              <p className="font-semibold text-ink text-sm">Message Any User</p>
+              <p className="text-xs text-ink-muted">Search across all platform users</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded border border-rule bg-surface-sunk text-ink-muted hover:bg-danger-wash hover:text-danger hover:border-danger/35 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="px-4 py-3 flex-shrink-0 border-b border-slate-100">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-colors">
-            <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
+        <div className="px-4 py-3 flex-shrink-0 border-b border-rule">
+          <div className="flex items-center gap-2 rounded border border-rule bg-surface-sunk px-3 py-2 transition-colors focus-within:border-accent">
+            <Search className="h-4 w-4 text-ink-faint flex-shrink-0" />
             <input
               autoFocus
               type="text"
               placeholder="Search by name, email or student ID…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none"
+              className="flex-1 bg-transparent text-sm text-ink-2 placeholder-ink-faint outline-none"
             />
-            {isFetching && <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />}
+            {isFetching && <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />}
           </div>
           {debouncedQ.length < 2 && (
-            <p className="mt-2 text-xs text-slate-400 text-center">Type at least 2 characters to search</p>
+            <p className="mt-2 text-xs text-ink-faint text-center">Type at least 2 characters to search</p>
           )}
         </div>
 
@@ -187,34 +179,29 @@ function AdminNewChatModal({ onClose, onStarted }: { onClose: () => void; onStar
         <div className="flex-1 overflow-y-auto">
           {showEmpty ? (
             <div className="py-10 text-center">
-              <Users className="h-8 w-8 mx-auto text-slate-300 mb-2" />
-              <p className="text-sm text-slate-400">No users found for "{debouncedQ}"</p>
+              <Users className="h-8 w-8 mx-auto text-ink-faint mb-2" />
+              <p className="text-sm text-ink-muted">No users found for "{debouncedQ}"</p>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-rule">
               {results.map((c) => {
-                const roleColor = ROLE_COLORS[c.role] ?? ROLE_COLORS['SUPPORT'];
                 const isStarting = starting === c.userPublicId;
                 return (
                   <li key={c.userPublicId}>
                     <button
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors text-left"
                       onClick={() => handleStart(c)}
                       disabled={!!starting}
                     >
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${roleColor.gradient} text-white text-xs font-bold`}>
-                        {c.displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
-                      </div>
+                      <Avatar name={c.displayName} size="sm" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">{c.displayName}</p>
+                        <p className="text-sm font-medium text-ink truncate">{c.displayName}</p>
                         {(c as Contact & { email?: string }).email && (
-                          <p className="text-xs text-slate-400 truncate">{(c as Contact & { email?: string }).email}</p>
+                          <p className="text-xs text-ink-faint truncate">{(c as Contact & { email?: string }).email}</p>
                         )}
                       </div>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${roleColor.bg} ${roleColor.text}`}>
-                        {c.role.replace('_', ' ')}
-                      </span>
-                      {isStarting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />}
+                      <Badge size="sm">{c.role.replace('_', ' ')}</Badge>
+                      {isStarting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />}
                     </button>
                   </li>
                 );
@@ -252,35 +239,35 @@ function NewChatModal({ onClose, onStarted }: { onClose: () => void; onStarted: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-xl flex flex-col max-h-[80vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-md bg-surface border border-rule shadow-pop flex flex-col max-h-[80vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white rounded-t-2xl flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-rule flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100">
-              <MessageSquare className="h-4 w-4 text-indigo-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded border border-rule bg-surface-sunk text-accent">
+              <MessageSquare className="h-4 w-4" />
             </div>
-            <span className="font-semibold text-slate-900">New Conversation</span>
+            <span className="font-semibold text-ink">New Conversation</span>
           </div>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded border border-rule bg-surface-sunk text-ink-muted hover:bg-danger-wash hover:text-danger hover:border-danger/35 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="px-4 py-3 flex-shrink-0 border-b border-slate-100">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 focus-within:border-indigo-300 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-colors">
-            <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
+        <div className="px-4 py-3 flex-shrink-0 border-b border-rule">
+          <div className="flex items-center gap-2 rounded border border-rule bg-surface-sunk px-3 py-2 transition-colors focus-within:border-accent">
+            <Search className="h-4 w-4 text-ink-faint flex-shrink-0" />
             <input
               autoFocus
               type="text"
               placeholder="Search by name or role…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none"
+              className="flex-1 bg-transparent text-sm text-ink-2 placeholder-ink-faint outline-none"
             />
           </div>
         </div>
@@ -290,38 +277,34 @@ function NewChatModal({ onClose, onStarted }: { onClose: () => void; onStarted: 
           {isLoading ? (
             <div className="flex justify-center py-8"><Spinner /></div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10 text-slate-400">
+            <div className="flex flex-col items-center gap-2 py-10 text-ink-faint">
               <MessageSquare className="h-8 w-8" />
               <p className="text-sm font-medium">No contacts found</p>
             </div>
           ) : (
-            filtered.map((contact) => {
-              const roleColor = ROLE_COLORS[contact.role] ?? { bg: 'bg-slate-100', text: 'text-slate-600', gradient: 'from-slate-400 to-slate-500' };
-              const initials = contact.displayName.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2) || '?';
-              return (
-                <button
-                  key={contact.userPublicId}
-                  disabled={isPending}
-                  onClick={() => handleStart(contact)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
-                >
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br ${roleColor.gradient} text-sm font-semibold text-white flex-shrink-0`}>
-                    {initials}
+            filtered.map((contact) => (
+              <button
+                key={contact.userPublicId}
+                disabled={isPending}
+                onClick={() => handleStart(contact)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors text-left"
+              >
+                <Avatar name={contact.displayName || contact.role} size="lg" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-ink truncate">{contact.displayName || ''}</p>
+                  <p className="eyebrow leading-none mt-1 normal-case tracking-normal text-[11px] font-medium text-ink-muted">
+                    {contact.role.toLowerCase().replace('_', ' ')}
+                  </p>
+                </div>
+                {starting === contact.userPublicId ? (
+                  <Spinner />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded bg-accent text-accent-ink flex-shrink-0">
+                    <Send className="h-3.5 w-3.5" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{contact.displayName || ''}</p>
-                    <p className={`text-[11px] font-medium capitalize ${roleColor.text}`}>{contact.role.toLowerCase().replace('_', ' ')}</p>
-                  </div>
-                  {starting === contact.userPublicId ? (
-                    <Spinner />
-                  ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white flex-shrink-0">
-                      <Send className="h-3.5 w-3.5" />
-                    </div>
-                  )}
-                </button>
-              );
-            })
+                )}
+              </button>
+            ))
           )}
         </div>
       </div>
@@ -368,20 +351,20 @@ export function ChatPage() {
 
   return (
     <>
-      <div className="flex h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-1 min-h-[560px] min-w-0 overflow-hidden rounded-md border border-rule bg-surface shadow-lift">
         {/* Conversation list sidebar */}
-        <div className="w-80 flex-shrink-0 border-r border-slate-200 flex flex-col overflow-hidden">
+        <div className="w-80 flex-shrink-0 border-r border-rule flex flex-col overflow-hidden">
           {/* Sidebar header */}
-          <div className="flex-shrink-0 px-4 py-3 border-b border-slate-200 bg-white flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100">
-                <MessageSquare className="h-4 w-4 text-indigo-600" />
+          <div className="flex-shrink-0 px-4 py-3.5 border-b border-rule flex items-center justify-between">
+            <h2 className="font-display text-base font-semibold text-ink flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded border border-rule bg-surface-sunk text-accent">
+                <MessageSquare className="h-4 w-4" />
               </div>
               Messages
             </h2>
             <button
               onClick={handleNewChat}
-              className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded bg-accent text-accent-ink hover:bg-accent-hover transition-colors"
               title="New conversation"
             >
               <Plus className="h-4 w-4" />
@@ -392,7 +375,7 @@ export function ChatPage() {
         </div>
 
         {/* Chat window */}
-        <div className="flex-1 min-w-0 overflow-hidden bg-slate-50">
+        <div className="flex-1 min-w-0 overflow-hidden bg-paper">
           {activeId ? (
             <ChatWindow
               conversationPublicId={activeId}
@@ -401,16 +384,16 @@ export function ChatPage() {
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-5 px-8">
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-50">
-                <MessageSquare className="h-9 w-9 text-indigo-400" />
+              <div className="flex h-16 w-16 items-center justify-center rounded border border-rule bg-surface-sunk">
+                <MessageSquare className="h-7 w-7 text-ink-faint" />
               </div>
               <div className="text-center">
-                <p className="text-base font-semibold text-slate-800">No conversation selected</p>
-                <p className="text-xs text-slate-500 mt-1">Pick one from the list or start a new chat</p>
+                <p className="font-display text-lg font-semibold text-ink">No conversation selected</p>
+                <p className="text-xs text-ink-muted mt-1">Pick one from the list or start a new chat</p>
               </div>
               <button
                 onClick={handleNewChat}
-                className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors"
+                className="flex items-center gap-2 rounded bg-accent hover:bg-accent-hover px-5 py-2.5 text-sm font-semibold text-accent-ink transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Start New Chat

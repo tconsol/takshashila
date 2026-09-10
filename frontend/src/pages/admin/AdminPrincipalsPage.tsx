@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Tabs } from '../../components/ui/Tabs';
 import { usePrincipalList, usePendingPrincipals, useApprovePrincipal, useSuspendPrincipal } from '../../hooks/use-principals';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 import type { PrincipalProfile } from '../../services/principals.service';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info';
@@ -34,11 +35,22 @@ export function AdminPrincipalsPage() {
     : (allData?.items ?? []);
   const isLoading = activeTab === 'pending' ? pendingLoading : allLoading;
 
+  // Both buckets load concurrently regardless of the active tab, so a
+  // principal moving out of Pending lights up All even while viewing Pending.
+  const { dirty, markSeen } = useTabActivity(
+    { all: allData?.items.length, pending: pendingData?.items.length },
+    activeTab,
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader title="Principals" subtitle="Review and manage principal accounts" />
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs
+        tabs={TABS.map((t) => ({ ...t, indicator: dirty.has(t.key) }))}
+        activeTab={activeTab}
+        onChange={(key) => { setActiveTab(key); markSeen(key); }}
+      />
 
       {isLoading ? (
         <div className="flex justify-center py-12">

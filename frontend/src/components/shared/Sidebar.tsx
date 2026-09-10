@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BookOpen, Calendar, Wallet, Settings,
   BarChart3, Shield, Headphones, GraduationCap, LogOut,
   UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText, Building2,
-  Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2, ChevronRight, Server,
+  Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2, ChevronRight, Server, Megaphone,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import brandLogo from '../../assets/brainbaseedulogo.png';
@@ -31,7 +31,9 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Principals',  href: '/dashboard/super-admin/principals', icon: Building2 },
     { label: 'Tutors',      href: '/dashboard/super-admin/tutors',   icon: GraduationCap },
     { label: 'Students',    href: '/dashboard/super-admin/students', icon: UserCheck },
+    { label: 'Classes',     href: '/dashboard/super-admin/classes',  icon: Video },
     { label: 'Analytics',   href: '/dashboard/super-admin/analytics',icon: BarChart3 },
+    { label: 'Announcements', href: '/dashboard/super-admin/broadcast', icon: Megaphone },
     { label: 'Finance',     href: '/dashboard/super-admin/finance',  icon: Wallet },
     { label: 'Audit Logs',  href: '/dashboard/super-admin/audit',    icon: BookOpen },
     { label: 'System',      href: '/dashboard/super-admin/system',   icon: Server },
@@ -45,9 +47,12 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Principals',  href: '/dashboard/admin/principals',  icon: Building2,      badgeKey: 'principals' },
     { label: 'Tutors',      href: '/dashboard/admin/tutors',      icon: GraduationCap,  badgeKey: 'tutors' },
     { label: 'Students',    href: '/dashboard/admin/students',    icon: UserCheck },
+    { label: 'Classes',     href: '/dashboard/admin/classes',     icon: Video },
     { label: 'Analytics',   href: '/dashboard/admin/analytics',   icon: BarChart3 },
+    { label: 'Announcements', href: '/dashboard/admin/broadcast', icon: Megaphone },
     { label: 'Finance',     href: '/dashboard/admin/finance',     icon: Wallet },
     { label: 'Audit Logs',  href: '/dashboard/admin/audit',       icon: BookOpen },
+    { label: 'System',      href: '/dashboard/admin/system',      icon: Server },
     { label: 'Support',     href: '/dashboard/admin/support',     icon: Headphones,     badgeKey: 'support' },
     { label: 'Messages',    href: '/chat',                        icon: MessageSquare,  badgeKey: 'messages' },
     { label: 'Profile',     href: '/profile',                     icon: UserCircle },
@@ -60,7 +65,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Content',     href: '/dashboard/principal/content',   icon: FileText },
     { label: 'Analytics',   href: '/dashboard/principal/analytics', icon: BarChart3 },
     // ── Teaching (principal also teaches) ──
-    { label: 'My Schedule',    href: '/dashboard/principal/teach/schedule',    icon: Calendar },
+    { label: 'My Calendar',    href: '/dashboard/principal/teach/schedule',    icon: Calendar },
     { label: 'Teach Classes',  href: '/dashboard/principal/teach/classes',     icon: Video },
     { label: 'My Worksheets',  href: '/dashboard/principal/teach/worksheets',  icon: FileText },
     { label: 'My Assignments', href: '/dashboard/principal/teach/assignments', icon: BookOpen },
@@ -74,7 +79,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Demo Requests',  href: '/dashboard/tutor/demo-requests',    icon: Sparkles,     badgeKey: 'demoRequests' },
     { label: 'Students',       href: '/dashboard/tutor/students',         icon: Users },
     { label: 'Classes',        href: '/dashboard/tutor/classes',          icon: Video },
-    { label: 'Schedule',       href: '/dashboard/tutor/schedule',         icon: Calendar },
+    { label: 'Calendar',       href: '/dashboard/tutor/schedule',         icon: Calendar },
     { label: 'Assignments',    href: '/dashboard/tutor/assignments',      icon: BookOpen },
     { label: 'Worksheets',     href: '/dashboard/tutor/worksheets',       icon: FileText,     badgeKey: 'worksheets' },
     { label: 'Resources',      href: '/dashboard/tutor/resources',        icon: FolderOpen },
@@ -194,30 +199,30 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex flex-col bg-white border-r border-slate-200 transition-all duration-300',
-          'dark:bg-slate-900 dark:border-slate-800',
+          'fixed inset-y-0 left-0 z-30 flex flex-col border-r border-rule bg-surface transition-all duration-200 ease-editorial',
           'lg:static lg:translate-x-0',
-          collapsed ? 'w-[64px]' : 'w-64',
-          isOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full',
+          collapsed ? 'w-[60px]' : 'w-60',
+          isOpen ? 'translate-x-0 shadow-pop' : '-translate-x-full',
         )}
       >
-        {/* Brand header */}
+        {/* Masthead — flat ink, no gradient. The logo sits in a plain chip. */}
         <div className={cn(
-          'flex h-14 shrink-0 items-center bg-gradient-to-r from-indigo-600 to-violet-600',
-          collapsed ? 'justify-center' : 'justify-between px-4',
+          'flex h-14 shrink-0 items-center border-b border-rule',
+          collapsed ? 'justify-center' : 'justify-between px-3.5',
         )}>
           {collapsed ? (
-            <Link to="/" className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/95 p-1 hover:bg-white transition-colors">
+            <Link to="/" className="flex h-9 w-9 items-center justify-center rounded border border-rule bg-surface-sunk p-1 transition-colors hover:bg-surface-hover">
               <img src={brandLogo} alt="Brainbase Edu" className="h-full w-full object-contain" />
             </Link>
           ) : (
             <>
-              <Link to="/" className="flex flex-1 items-center min-w-0">
-                <img src={brandLogo} alt="Brainbase Edu" className="h-9 w-auto max-w-[150px] object-contain rounded-lg bg-white/95 px-2 py-1" />
+              <Link to="/" className="flex min-w-0 flex-1 items-center gap-2.5">
+                <img src={brandLogo} alt="" className="h-7 w-7 shrink-0 rounded border border-rule bg-surface-sunk object-contain p-0.5" />
+                <span className="truncate font-display text-[15px] font-semibold text-ink">Brainbase</span>
               </Link>
               <button
                 onClick={onToggleCollapse}
-                className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 hover:bg-white/25 text-white transition-colors"
+                className="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-ink-faint transition-colors hover:bg-surface-hover hover:text-ink lg:flex"
                 title="Collapse sidebar"
               >
                 <PanelLeftClose className="h-3.5 w-3.5" />
@@ -227,20 +232,19 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
-          {/* Expand toggle collapsed only, top of nav */}
+        <nav className="flex-1 overflow-y-auto py-3" style={{ scrollbarWidth: 'none' }}>
           {collapsed && (
-            <div className="flex justify-center px-2 pb-1">
+            <div className="flex justify-center px-2 pb-2">
               <button
                 onClick={onToggleCollapse}
                 title="Expand sidebar"
-                className="hidden lg:flex h-8 w-10 items-center justify-center rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 transition-colors"
+                className="hidden h-7 w-9 items-center justify-center rounded border border-rule text-ink-faint transition-colors hover:bg-surface-hover hover:text-ink lg:flex"
               >
-                <PanelLeftOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <PanelLeftOpen className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
-          <ul className={cn('space-y-1', collapsed ? 'px-2' : 'px-2.5')}>
+          <ul className={cn('space-y-0.5', collapsed ? 'px-2' : 'px-2')}>
             {items.map((item) => {
               const Icon = item.icon;
               const isActive = isOnPage(item.href);
@@ -248,7 +252,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
               return (
                 <li key={item.href}>
                   {collapsed ? (
-                    /* ── COLLAPSED: icon pill, always-visible bg ── */
+                    /* ── COLLAPSED: icon only, active marked by a left tick ── */
                     <Link
                       to={item.href}
                       onClick={() => { onClose(); clearSearch(); }}
@@ -256,50 +260,42 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                       className="flex justify-center"
                     >
                       <div className={cn(
-                        'relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150',
+                        'relative flex h-9 w-9 items-center justify-center rounded transition-colors duration-150',
                         isActive
-                          ? 'bg-indigo-600 shadow-sm shadow-indigo-500/30'
-                          : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700',
+                          ? 'bg-accent-wash text-accent'
+                          : 'text-ink-muted hover:bg-surface-hover hover:text-ink',
                       )}>
-                        <Icon
-                          className={cn('h-[18px] w-[18px]', isActive ? 'text-white' : 'text-slate-600 dark:text-slate-300')}
-                        />
+                        <Icon className="h-[18px] w-[18px]" />
                         {badgeCount > 0 && (
-                          <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 items-center justify-center">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
-                          </span>
+                          <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
                         )}
                       </div>
                     </Link>
                   ) : (
-                    /* ── EXPANDED: icon + label ── */
+                    /* ── EXPANDED: icon + label, active gets a left rule not a fill ── */
                     <Link
                       to={item.href}
                       onClick={() => { onClose(); clearSearch(); }}
                       className={cn(
-                        'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150',
+                        'relative flex items-center gap-2.5 rounded px-2.5 py-[7px] pl-3.5 text-sm transition-colors duration-150',
                         isActive
-                          ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-indigo-900/30 dark:text-indigo-300'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200',
+                          ? 'bg-accent-wash font-semibold text-accent'
+                          : 'font-medium text-ink-2 hover:bg-surface-hover hover:text-ink',
                       )}
                     >
-                      <div className="relative shrink-0">
-                        <Icon className={cn('h-4 w-4', isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400')} />
-                        {badgeCount > 0 && (
-                          <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
-                          </span>
+                      <span
+                        className={cn(
+                          'absolute -left-2 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-accent transition-opacity duration-150',
+                          isActive ? 'opacity-100' : 'opacity-0',
                         )}
-                      </div>
+                      />
+                      <Icon className="h-[15px] w-[15px] shrink-0" />
                       <span className="truncate">{item.label}</span>
-                      {badgeCount > 0 && !isActive && (
-                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
+                      {badgeCount > 0 && (
+                        <span className="ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 font-mono-ui text-[10px] font-semibold text-accent-ink">
                           {badgeCount > 99 ? '99+' : badgeCount}
                         </span>
                       )}
-                      {isActive && <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-indigo-400" />}
                     </Link>
                   )}
                 </li>
@@ -309,23 +305,19 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
         </nav>
 
         {/* Footer / logout */}
-        <div className={cn('shrink-0 border-t border-slate-100 py-2 dark:border-slate-800', collapsed ? 'px-2' : 'px-2.5')}>
+        <div className={cn('shrink-0 border-t border-rule py-2.5', collapsed ? 'px-2' : 'px-2')}>
           {collapsed ? (
-            <button
-              onClick={handleLogout}
-              title="Sign out"
-              className="flex w-full justify-center"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-900/30 transition-colors">
-                <LogOut className="h-[18px] w-[18px] text-slate-600 hover:text-rose-600 dark:text-slate-300" />
+            <button onClick={handleLogout} title="Sign out" className="flex w-full justify-center">
+              <div className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-danger-wash hover:text-danger">
+                <LogOut className="h-[18px] w-[18px]" />
               </div>
             </button>
           ) : (
             <button
               onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition-all hover:bg-rose-50 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
+              className="flex w-full items-center gap-2.5 rounded px-3 py-[7px] text-sm font-medium text-ink-muted transition-colors hover:bg-danger-wash hover:text-danger"
             >
-              <LogOut className="h-4 w-4 shrink-0" />
+              <LogOut className="h-[15px] w-[15px] shrink-0" />
               Sign out
             </button>
           )}

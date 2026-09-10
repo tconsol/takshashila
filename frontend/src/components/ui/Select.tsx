@@ -153,7 +153,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className={cn('relative w-full', className)} ref={containerRef}>
         {label && (
-          <label htmlFor={inputId} className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
+          <label htmlFor={inputId} className="eyebrow mb-1.5 block">
             {label}
           </label>
         )}
@@ -183,47 +183,46 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           aria-expanded={isOpen}
           aria-labelledby={label ? inputId : undefined}
           className={cn(
-            'relative flex w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5',
-            'text-sm font-medium text-left transition-colors duration-150 shadow-sm',
-            'focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500',
-            'dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100',
-            isOpen && 'ring-2 ring-indigo-500/25 border-indigo-500',
-            error && 'border-rose-400 focus:ring-rose-500/25',
-            disabled && 'cursor-not-allowed bg-slate-50 opacity-60 dark:bg-slate-800',
+            'relative flex w-full items-center gap-2 rounded-t-[3px] bg-surface-sunk px-3 py-2',
+            'border-0 border-b-2 border-rule-strong text-left text-sm transition-colors duration-150 ease-editorial',
+            'focus:outline-none focus:border-accent focus:bg-surface-hover',
+            isOpen && 'border-accent bg-surface-hover',
+            error && 'border-b-danger focus:border-b-danger',
+            disabled && 'cursor-not-allowed opacity-50',
           )}
         >
-          {leftIcon && <span className="shrink-0 text-slate-400">{leftIcon}</span>}
-          <span className={cn('flex-1 truncate', !selectedOption && 'text-slate-400')}>
+          {leftIcon && <span className="shrink-0 text-ink-faint">{leftIcon}</span>}
+          <span className={cn('flex-1 truncate text-ink', !selectedOption && 'text-ink-faint')}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronDown className={cn('ml-auto h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200', isOpen && 'rotate-180')} />
+          <ChevronDown className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-ink-faint transition-transform duration-150', isOpen && 'rotate-180')} />
         </button>
 
         {isOpen && (
           <div
-            className="absolute z-50 mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:bg-slate-900 dark:border-slate-700"
+            className="absolute z-50 mt-1 w-full overflow-hidden rounded border border-rule-strong bg-surface shadow-pop"
             style={{ maxWidth: containerRef.current?.offsetWidth }}
             role="listbox"
             onKeyDown={handleKeyDown}
           >
             {showSearch && (
-              <div className="border-b border-slate-100 p-2 dark:border-slate-800">
+              <div className="border-b border-rule p-1.5">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
                   <input
                     ref={searchRef}
                     type="text"
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setFocusedIdx(0); }}
                     placeholder="Search…"
-                    className="w-full rounded-lg border-0 bg-slate-50 py-1.5 pl-8 pr-3 text-sm outline-none placeholder:text-slate-400 dark:bg-slate-800 focus:ring-1 focus:ring-indigo-500/30"
+                    className="w-full rounded-sm border-0 bg-surface-sunk py-1.5 pl-8 pr-3 text-sm text-ink outline-none placeholder:text-ink-faint focus:ring-1 focus:ring-accent"
                   />
                 </div>
               </div>
             )}
             <ul ref={listRef} className="max-h-56 overflow-y-auto py-1">
               {filtered.length === 0 ? (
-                <li className="px-3 py-2.5 text-sm text-slate-400 text-center">No options found</li>
+                <li className="px-3 py-3 text-center text-sm text-ink-faint">No options found</li>
               ) : (
                 filtered.map((opt, idx) => {
                   const isSelected = opt.value === internalValue;
@@ -236,15 +235,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                       onClick={() => handleSelect(opt.value)}
                       onMouseEnter={() => setFocusedIdx(idx)}
                       className={cn(
-                        'flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors',
+                        'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors',
                         isFocused
-                          ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                          : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800',
-                        isSelected && !isFocused && 'bg-indigo-50/60 font-semibold text-indigo-600 dark:bg-indigo-900/20',
+                          ? 'bg-accent-wash text-accent'
+                          : 'text-ink-2 hover:bg-surface-hover',
+                        isSelected && !isFocused && 'font-semibold text-ink',
                       )}
                     >
                       <span className="flex-1 truncate">{opt.label}</span>
-                      {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-indigo-600" strokeWidth={2.5} />}
+                      {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-accent" strokeWidth={2.5} />}
                     </li>
                   );
                 })

@@ -12,67 +12,69 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   dot?: boolean;
 }
 
+/** purple/brand fold onto the single accent — this system has one hot colour. */
 const soft: Record<BadgeVariant, string> = {
-  default: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-  success: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  warning: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  danger:  'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
-  info:    'bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400',
-  purple:  'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
-  brand:   'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
+  default: 'bg-surface-sunk text-ink-2',
+  success: 'bg-ok-wash text-ok',
+  warning: 'bg-warn-wash text-warn',
+  danger:  'bg-danger-wash text-danger',
+  info:    'bg-info-wash text-info',
+  purple:  'bg-accent-wash text-accent',
+  brand:   'bg-accent-wash text-accent',
 };
 
 const solid: Record<BadgeVariant, string> = {
-  default: 'bg-slate-700 text-white',
-  success: 'bg-emerald-500 text-white',
-  warning: 'bg-amber-500 text-white',
-  danger:  'bg-rose-500 text-white',
-  info:    'bg-sky-500 text-white',
-  purple:  'bg-violet-500 text-white',
-  brand:   'bg-indigo-600 text-white',
+  default: 'bg-ink text-paper',
+  success: 'bg-ok text-white',
+  warning: 'bg-warn text-white',
+  danger:  'bg-danger text-white',
+  info:    'bg-info text-white',
+  purple:  'bg-accent text-accent-ink',
+  brand:   'bg-accent text-accent-ink',
 };
 
 const outline: Record<BadgeVariant, string> = {
-  default: 'border border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300',
-  success: 'border border-emerald-300 text-emerald-700 dark:border-emerald-600/60 dark:text-emerald-400',
-  warning: 'border border-amber-300 text-amber-700 dark:border-amber-600/60 dark:text-amber-400',
-  danger:  'border border-rose-300 text-rose-600 dark:border-rose-600/60 dark:text-rose-400',
-  info:    'border border-sky-300 text-sky-600 dark:border-sky-600/60 dark:text-sky-400',
-  purple:  'border border-violet-300 text-violet-600 dark:border-violet-600/60 dark:text-violet-400',
-  brand:   'border border-indigo-300 text-indigo-600 dark:border-indigo-600/60 dark:text-indigo-400',
+  default: 'text-ink-2 ring-1 ring-inset ring-rule-strong',
+  success: 'text-ok ring-1 ring-inset ring-ok/35',
+  warning: 'text-warn ring-1 ring-inset ring-warn/35',
+  danger:  'text-danger ring-1 ring-inset ring-danger/35',
+  info:    'text-info ring-1 ring-inset ring-info/35',
+  purple:  'text-accent ring-1 ring-inset ring-accent/35',
+  brand:   'text-accent ring-1 ring-inset ring-accent/35',
 };
 
 const dotColors: Record<BadgeVariant, string> = {
-  default: 'bg-slate-500',
-  success: 'bg-emerald-500',
-  warning: 'bg-amber-500',
-  danger:  'bg-rose-500',
-  info:    'bg-sky-500',
-  purple:  'bg-violet-500',
-  brand:   'bg-indigo-500',
+  default: 'bg-ink-muted',
+  success: 'bg-ok',
+  warning: 'bg-warn',
+  danger:  'bg-danger',
+  info:    'bg-info',
+  purple:  'bg-accent',
+  brand:   'bg-accent',
 };
 
 const sizes: Record<BadgeSize, string> = {
-  sm: 'px-2 py-0.5 text-[10px]',
-  md: 'px-2.5 py-0.5 text-xs',
+  sm: 'h-5 px-1.5 text-[10px] gap-1',
+  md: 'h-6 px-2 text-xs gap-1.5',
 };
 
 export function Badge({
-  className,
   variant = 'default',
   tone = 'soft',
   size = 'md',
   dot,
+  className,
   children,
   ...props
 }: BadgeProps) {
   const toneMap = tone === 'solid' ? solid : tone === 'outline' ? outline : soft;
+
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full font-semibold tracking-wide',
-        toneMap[variant],
+        'inline-flex items-center rounded-sm font-semibold uppercase tracking-[0.04em]',
         sizes[size],
+        toneMap[variant],
         className,
       )}
       {...props}

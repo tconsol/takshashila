@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Server, Database, Zap, Cpu, RefreshCw, Loader2,
@@ -5,6 +6,8 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
+import { IntegrationsPanel } from '../../components/shared/IntegrationsPanel';
+import { FailedJobsModal } from '../../components/shared/FailedJobsModal';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -42,9 +45,18 @@ function formatUptime(seconds: number) {
 }
 
 export function SuperAdminSystemPage() {
+  const [inspectingQueue, setInspectingQueue] = useState<string | null>(null);
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['system-health'],
     queryFn: systemService.getHealth,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+  });
+
+  // Pusher quota sits alongside process health — same cadence, separate endpoint.
+  const { data: rt } = useQuery({
+    queryKey: ['realtime-status'],
+    queryFn: systemService.getRealtimeStatus,
     refetchInterval: 15_000,
     staleTime: 10_000,
   });
@@ -118,6 +130,8 @@ export function SuperAdminSystemPage() {
           <Badge variant={overall.variant} tone="soft" dot>{overall.label}</Badge>
         </div>
       </Card>
+
+      <IntegrationsPanel integrations={data.integrations ?? []} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
@@ -208,8 +222,15 @@ export function SuperAdminSystemPage() {
                 return (
                   <div key={q.name} className="rounded-2xl border border-slate-100 p-3.5 dark:border-slate-800">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium capitalize text-slate-900 dark:text-white">{q.name}</p>
-                      <Badge variant={meta.variant} tone="soft">{meta.label}</Badge>
+                      <p className="text-sm font-medium capitalize text-ink">{q.name}</p>
+                      <div className="flex items-center gap-2">
+                        {q.failed > 0 && (
+                          <Button size="sm" variant="ghost" onClick={() => setInspectingQueue(q.name)}>
+                            Inspect
+                          </Button>
+                        )}
+                        <Badge variant={meta.variant} tone="soft">{meta.label}</Badge>
+                      </div>
                     </div>
                     {q.detail ? (
                       <p className="mt-1.5 truncate text-xs text-rose-500">{q.detail}</p>
@@ -312,27 +333,66 @@ export function SuperAdminSystemPage() {
           <CardHeader>
             <div>
               <CardTitle>Realtime</CardTitle>
-              <p className="mt-1 text-xs text-slate-500">Socket.IO connections and rooms</p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {rt ? `Broadcasting over ${rt.transport === 'pusher' ? 'Pusher' : 'Socket.IO'}` : 'Transport and quota'}
+              </p>
             </div>
-            <Radio className="h-4 w-4 text-emerald-500" />
+            <Radio className={`h-4 w-4 ${rt?.transport === 'pusher' ? 'text-ok' : 'text-warn'}`} />
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-slate-100 p-3.5 dark:border-slate-800">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Connected</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+              <div className="rounded border border-rule p-3.5">
+                <p className="eyebrow">Socket.IO</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-ink">
                   {data.realtime.connectedSockets ?? '—'}
                 </p>
+                <p className="text-[11px] text-ink-muted">{data.realtime.rooms ?? 0} rooms</p>
               </div>
-              <div className="rounded-xl border border-slate-100 p-3.5 dark:border-slate-800">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Rooms</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-                  {data.realtime.rooms ?? '—'}
+              <div className="rounded border border-rule p-3.5">
+                <p className="eyebrow">Pusher</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-ink">
+                  {rt ? `${rt.connections}/${rt.maxConnections}` : '—'}
                 </p>
+                <p className="text-[11px] text-ink-muted">connection leases</p>
               </div>
             </div>
-            {data.realtime.connectedSockets === null && (
-              <p className="mt-3 text-xs text-slate-400">Socket server not initialised in this process.</p>
+
+            {rt && (
+              <div className="mt-4">
+                <div className="flex items-baseline justify-between text-xs">
+                  <span className="text-ink-muted">Messages today</span>
+                  <span className="font-semibold tabular-nums text-ink">
+                    {rt.messagesToday.toLocaleString()} / {rt.maxDailyMessages.toLocaleString()}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunk">
+                  <div
+                    className={`h-full transition-all ${
+                      rt.messagesAvailable ? 'bg-accent' : 'bg-danger'
+                    }`}
+                    style={{
+                      width: `${Math.min(100, Math.round((rt.messagesToday / rt.maxDailyMessages) * 100))}%`,
+                    }}
+                  />
+                </div>
+                {!rt.configured && (
+                  <p className="mt-2.5 text-xs text-ink-muted">
+                    No Pusher credentials configured — everything runs on Socket.IO.
+                  </p>
+                )}
+                {rt.breakerOpen && (
+                  <p className="mt-2.5 text-xs text-danger">
+                    Pusher paused: {rt.breakerReason}
+                  </p>
+                )}
+                {rt.configured && !rt.breakerOpen && rt.transport === 'socket' && (
+                  <p className="mt-2.5 text-xs text-warn">
+                    {!rt.messagesAvailable
+                      ? 'Daily message quota reached — falling back to Socket.IO until UTC midnight.'
+                      : 'Connection limit reached — new clients get Socket.IO.'}
+                  </p>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -402,6 +462,8 @@ export function SuperAdminSystemPage() {
           </CardContent>
         </Card>
       </div>
+
+      <FailedJobsModal queue={inspectingQueue} onClose={() => setInspectingQueue(null)} />
 
       <Card>
         <CardHeader>

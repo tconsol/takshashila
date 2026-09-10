@@ -9,7 +9,9 @@ import { Button } from '../../components/ui/Button';
 import { Tabs } from '../../components/ui/Tabs';
 import { Modal } from '../../components/ui/Modal';
 import { Table } from '../../components/ui/Table';
+import { Select } from '../../components/ui/Select';
 import { api } from '../../lib/axios';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 
 interface SupportTicket {
   publicId: string;
@@ -19,8 +21,20 @@ interface SupportTicket {
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   reporterPublicId: string;
   assignedTo?: string;
+  /** Resolved server-side so the queue is workable without extra lookups. */
+  requesterName?: string;
+  requesterEmail?: string;
+  requesterRole?: string;
+  assigneePublicId?: string;
+  assigneeName?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface Agent {
+  publicId: string;
+  name: string;
+  role: string;
 }
 
 type StatusVariant = 'info' | 'warning' | 'success' | 'default';
@@ -60,6 +74,37 @@ export function SupportTicketsPage() {
     placeholderData: [],
   });
 
+  // Lightweight counts per status (independent of the active tab) so a status
+  // change — e.g. a ticket moving into Resolved — lights up that tab even
+  // while viewing a different one.
+  const { data: statusCounts } = useQuery({
+    queryKey: ['support', 'tickets', 'counts'],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        TABS.map(async ({ key }) => {
+          const r = await api.get(`/support/tickets?status=${key}&limit=1`);
+          return [key, r.data.data?.pagination?.total ?? 0] as const;
+        }),
+      );
+      return Object.fromEntries(entries) as Record<string, number>;
+    },
+    retry: false,
+  });
+  const { dirty, markSeen } = useTabActivity(statusCounts ?? {}, activeTab);
+
+  const { data: agents = [] } = useQuery<Agent[]>({
+    queryKey: ['support', 'agents'],
+    queryFn: () => api.get('/support/agents').then((r) => r.data.data ?? []),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+
+  const { mutate: assign, isPending: assigning } = useMutation({
+    mutationFn: ({ publicId, assigneePublicId }: { publicId: string; assigneePublicId: string }) =>
+      api.patch(`/support/tickets/${publicId}`, { assigneePublicId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['support', 'tickets'] }),
+  });
+
   const { mutateAsync: updateStatus } = useMutation({
     mutationFn: ({ publicId, status }: { publicId: string; status: string }) =>
       api.patch(`/support/tickets/${publicId}`, { status }),
@@ -86,7 +131,11 @@ export function SupportTicketsPage() {
     <div className="space-y-6">
       <PageHeader title="Support Tickets" subtitle="Manage and resolve support requests" />
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs
+        tabs={TABS.map((t) => ({ ...t, indicator: dirty.has(t.key) }))}
+        activeTab={activeTab}
+        onChange={(key) => { setActiveTab(key); markSeen(key); }}
+      />
 
       <Table
         columns={[
@@ -100,6 +149,32 @@ export function SupportTicketsPage() {
               >
                 {t.subject}
               </button>
+            ),
+          },
+          {
+            key: 'requesterName',
+            header: 'Raised by',
+            render: (t) => (
+              <div className="min-w-0">
+                <p className="truncate text-sm text-ink-2">{t.requesterName ?? '—'}</p>
+                {t.requesterRole && <p className="truncate text-xs text-ink-muted">{t.requesterRole}</p>}
+              </div>
+            ),
+          },
+          {
+            key: 'assigneeName',
+            header: 'Assigned to',
+            render: (t) => (
+              <Select
+                options={[
+                  { value: '', label: 'Unassigned' },
+                  ...agents.map((a) => ({ value: a.publicId, label: `${a.name} (${a.role})` })),
+                ]}
+                value={t.assigneePublicId ?? ''}
+                disabled={assigning}
+                onChange={(e) => assign({ publicId: t.publicId, assigneePublicId: e.target.value })}
+                className="w-48"
+              />
             ),
           },
           {

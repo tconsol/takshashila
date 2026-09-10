@@ -69,6 +69,8 @@ import { PrincipalsDirectoryPage } from '../pages/shared/PrincipalsDirectoryPage
 import { TutorsDirectoryPage } from '../pages/shared/TutorsDirectoryPage';
 import { StudentsDirectoryPage } from '../pages/shared/StudentsDirectoryPage';
 import { FinanceOpsPage } from '../pages/shared/FinanceOpsPage';
+import { BroadcastPage } from '../pages/shared/BroadcastPage';
+import { ClassesExplorerPage } from '../pages/shared/ClassesExplorerPage';
 
 // Admin pages
 import { AdminPrincipalsPage } from '../pages/admin/AdminPrincipalsPage';
@@ -172,6 +174,8 @@ export const router = createBrowserRouter([
         { path: '/dashboard/super-admin/tutors', element: <TutorsDirectoryPage /> },
         { path: '/dashboard/super-admin/students', element: <StudentsDirectoryPage /> },
         { path: '/dashboard/super-admin/finance', element: <FinanceOpsPage /> },
+        { path: '/dashboard/super-admin/classes', element: <ClassesExplorerPage /> },
+        { path: '/dashboard/super-admin/broadcast', element: <BroadcastPage /> },
         { path: '/dashboard/super-admin/analytics', element: <SuperAdminAnalyticsPage /> },
         { path: '/dashboard/super-admin/audit', element: <SuperAdminAuditPage /> },
         { path: '/dashboard/super-admin/system', element: <SuperAdminSystemPage /> },
@@ -193,6 +197,9 @@ export const router = createBrowserRouter([
         { path: '/dashboard/admin/students', element: <StudentsDirectoryPage /> },
         { path: '/dashboard/admin/finance', element: <FinanceOpsPage /> },
         { path: '/dashboard/admin/audit', element: <SuperAdminAuditPage /> },
+        { path: '/dashboard/admin/system', element: <SuperAdminSystemPage /> },
+        { path: '/dashboard/admin/classes', element: <ClassesExplorerPage /> },
+        { path: '/dashboard/admin/broadcast', element: <BroadcastPage /> },
         // Approval queues keep their own workflow-shaped screens.
         { path: '/dashboard/admin/principals/approvals', element: <AdminPrincipalsPage /> },
         { path: '/dashboard/admin/tutors/approvals', element: <PrincipalTutorsPage /> },

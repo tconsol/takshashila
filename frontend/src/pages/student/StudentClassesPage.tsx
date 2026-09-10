@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { useMyClassesAsStudent, useCancelClass } from '../../hooks/use-classes';
 import { useTutorSearch } from '../../hooks/use-tutors';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 import type { ClassRecord } from '../../services/classes.service';
 import type { TutorProfile } from '../../services/tutors.service';
 import { Avatar } from '../../components/ui/Avatar';
@@ -39,12 +40,23 @@ export function StudentClassesPage() {
   const { data: liveData } = useMyClassesAsStudent({ status: 'LIVE', limit: '1' });
   const hasLive = (liveData?.total ?? 0) > 0;
 
+  // Lightweight counts per status (independent of the active tab) so a status
+  // change — e.g. a class moving into Completed — lights up that tab even
+  // while viewing a different one.
+  const { data: scheduledCount } = useMyClassesAsStudent({ status: 'SCHEDULED', limit: '1' });
+  const { data: completedCount } = useMyClassesAsStudent({ status: 'COMPLETED', limit: '1' });
+  const { data: cancelledCount } = useMyClassesAsStudent({ status: 'CANCELLED', limit: '1' });
+  const { dirty, markSeen } = useTabActivity(
+    { SCHEDULED: scheduledCount?.total, COMPLETED: completedCount?.total, CANCELLED: cancelledCount?.total },
+    activeTab,
+  );
+
   const TABS = [
     { key: 'ALL', label: 'All' },
-    { key: 'SCHEDULED', label: 'Upcoming' },
+    { key: 'SCHEDULED', label: 'Upcoming', indicator: dirty.has('SCHEDULED') },
     { key: 'LIVE', label: 'In Progress', indicator: hasLive },
-    { key: 'COMPLETED', label: 'Completed' },
-    { key: 'CANCELLED', label: 'Cancelled' },
+    { key: 'COMPLETED', label: 'Completed', indicator: dirty.has('COMPLETED') },
+    { key: 'CANCELLED', label: 'Cancelled', indicator: dirty.has('CANCELLED') },
   ];
   const [bookingTutor, setBookingTutor] = useState<TutorProfile | null>(null);
   const [cancelTarget, setCancelTarget] = useState<ClassRecord | null>(null);
@@ -90,7 +102,7 @@ export function StudentClassesPage() {
           <Button onClick={() => setShowFindTutor(true)}>+ Book a Class</Button>
         </div>
 
-        <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+        <Tabs tabs={TABS} activeTab={activeTab} onChange={(key) => { setActiveTab(key); markSeen(key); }} />
 
         {isLoading ? (
           <div className="flex justify-center py-12">

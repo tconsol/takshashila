@@ -7,16 +7,6 @@ import { getInitials, cn } from '../../lib/utils';
 import { ROLE_LABELS } from '../../constants/roles';
 import { NotificationBell } from '../../features/notifications/NotificationBell';
 
-const AVATAR_COLORS: Record<string, string> = {
-  SUPER_ADMIN: 'from-violet-500 to-purple-600',
-  ADMIN:       'from-indigo-500 to-blue-600',
-  PRINCIPAL:   'from-teal-500 to-emerald-600',
-  TUTOR:       'from-orange-500 to-amber-500',
-  STUDENT:     'from-pink-500 to-rose-500',
-  PARENT:      'from-sky-500 to-cyan-500',
-  SUPPORT:     'from-slate-500 to-gray-600',
-};
-
 interface TopBarProps {
   onMenuClick: () => void;
 }
@@ -28,23 +18,21 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const toggleTheme = () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
-  const avatarGradient = user ? (AVATAR_COLORS[user.role] ?? AVATAR_COLORS.ADMIN) : AVATAR_COLORS.ADMIN;
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 lg:px-5 gap-3 dark:bg-slate-900 dark:border-slate-800">
-      {/* Mobile menu */}
+    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-rule bg-surface px-4 lg:px-6">
       <button
         onClick={onMenuClick}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors lg:hidden shrink-0"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink lg:hidden"
         aria-label="Toggle sidebar"
       >
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Search */}
-      <div className="flex-1 max-w-xs">
+      {/* Search — an underline field, not a pill, to match the form language */}
+      <div className="max-w-xs flex-1">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+          <Search className="pointer-events-none absolute left-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
           <input
             ref={inputRef}
             value={query}
@@ -52,17 +40,16 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             onKeyDown={(e) => e.key === 'Escape' && clear()}
             placeholder="Search pages…"
             className={cn(
-              'w-full rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700',
-              'placeholder:text-slate-400 pl-9 pr-8 py-2',
-              'focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white',
-              'transition-all duration-150',
-              'dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200',
+              'w-full border-0 border-b border-rule bg-transparent py-1.5 pl-6 pr-6 text-sm text-ink',
+              'placeholder:text-ink-faint',
+              'focus:border-b-2 focus:border-accent focus:pb-[5px] focus:outline-none',
+              'transition-colors duration-150',
             )}
           />
           {query && (
             <button
               onClick={() => { clear(); inputRef.current?.focus(); }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className="absolute right-0 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink-2"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -70,32 +57,26 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         </div>
       </div>
 
-      {/* Right actions */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex shrink-0 items-center gap-1">
         <button
           onClick={toggleTheme}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
+          className="flex h-8 w-8 items-center justify-center rounded text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink"
           aria-label="Toggle theme"
         >
-          {resolvedTheme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-4 w-4" />}
+          {resolvedTheme === 'dark' ? <Sun className="h-[17px] w-[17px]" /> : <Moon className="h-4 w-4" />}
         </button>
 
         <NotificationBell />
 
-        <div className="ml-1 flex items-center gap-2.5">
-          <div
-            className={cn(
-              'h-8 w-8 rounded-full bg-gradient-to-br flex items-center justify-center text-xs font-bold text-white shrink-0 ring-2 ring-white shadow-sm',
-              avatarGradient,
-            )}
-          >
+        <div className="ml-2 flex items-center gap-2.5 border-l border-rule pl-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-ink font-display text-xs font-semibold text-paper">
             {user ? getInitials(user.firstName, user.lastName) : '?'}
           </div>
-          <div className="hidden sm:block">
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-none">
+          <div className="hidden leading-none sm:block">
+            <p className="text-[13px] font-semibold text-ink">
               {user ? `${user.firstName} ${user.lastName}` : ''}
             </p>
-            <p className="mt-0.5 text-xs text-slate-400 leading-none">
+            <p className="mt-1 text-[11px] text-ink-muted">
               {user ? ROLE_LABELS[user.role] : ''}
             </p>
           </div>

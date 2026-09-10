@@ -28,6 +28,7 @@ import type { TutorSearchResult, JoinRequest } from '../../services/join-request
 import type { TutorProfile } from '../../services/tutors.service';
 import { useStartConversation } from '../../features/chat/use-chat';
 import { useAuthStore } from '../../stores/auth.store';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple';
 
@@ -112,6 +113,18 @@ export function PrincipalTutorsPage() {
   const displayList = activeTab === 'pending' ? pendingList : (allData?.items ?? []);
   const isLoading = activeTab === 'pending' ? pendingLoading : allLoading;
 
+  // All three buckets load concurrently regardless of the active tab, so a
+  // tutor moving out of Pending (or a join request arriving) lights up the
+  // tab it landed in even while viewing a different one.
+  const { dirty, markSeen } = useTabActivity(
+    {
+      all: allData?.items.length,
+      pending: pendingList.length,
+      requests: incomingRequests.length + outgoingRequests.length,
+    },
+    activeTab,
+  );
+
   const handleMessage = async (tutor: TutorProfile) => {
     const conv = await startConversation({ recipientPublicId: tutor.userPublicId, recipientRole: 'TUTOR' });
     navigate(`/chat/${conv.publicId}`);
@@ -176,7 +189,11 @@ export function PrincipalTutorsPage() {
         }
       />
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs
+        tabs={TABS.map((t) => ({ ...t, indicator: dirty.has(t.key) }))}
+        activeTab={activeTab}
+        onChange={(key) => { setActiveTab(key); markSeen(key); }}
+      />
 
       {/* Tutors List */}
       {activeTab !== 'requests' && (

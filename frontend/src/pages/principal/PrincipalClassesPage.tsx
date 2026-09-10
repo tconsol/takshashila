@@ -5,6 +5,7 @@ import { Tabs } from '../../components/ui/Tabs';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { useMyClassesAsPrincipal } from '../../hooks/use-classes';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 
 const EMPTY_LABELS: Record<string, string> = {
   ALL: 'No classes yet',
@@ -28,6 +29,17 @@ export function PrincipalClassesPage() {
   const { data: liveData } = useMyClassesAsPrincipal({ status: 'LIVE', limit: '1' });
   const hasLive = (liveData?.total ?? 0) > 0;
 
+  // Lightweight counts per status (independent of the active tab) so a status
+  // change — e.g. a class moving into Completed — lights up that tab even
+  // while viewing a different one.
+  const { data: scheduledCount } = useMyClassesAsPrincipal({ status: 'SCHEDULED', limit: '1' });
+  const { data: completedCount } = useMyClassesAsPrincipal({ status: 'COMPLETED', limit: '1' });
+  const { data: cancelledCount } = useMyClassesAsPrincipal({ status: 'CANCELLED', limit: '1' });
+  const { dirty, markSeen } = useTabActivity(
+    { SCHEDULED: scheduledCount?.total, COMPLETED: completedCount?.total, CANCELLED: cancelledCount?.total },
+    activeTab,
+  );
+
   const classes = (data?.items ?? []).slice().sort(
     (a, b) => new Date(b.scheduledStartUTC).getTime() - new Date(a.scheduledStartUTC).getTime(),
   ); // newest → oldest
@@ -35,9 +47,9 @@ export function PrincipalClassesPage() {
   const TABS = [
     { key: 'ALL', label: 'All' },
     { key: 'LIVE', label: 'In Progress', indicator: hasLive },
-    { key: 'SCHEDULED', label: 'Upcoming' },
-    { key: 'COMPLETED', label: 'Completed' },
-    { key: 'CANCELLED', label: 'Cancelled' },
+    { key: 'SCHEDULED', label: 'Upcoming', indicator: dirty.has('SCHEDULED') },
+    { key: 'COMPLETED', label: 'Completed', indicator: dirty.has('COMPLETED') },
+    { key: 'CANCELLED', label: 'Cancelled', indicator: dirty.has('CANCELLED') },
   ];
 
   return (
@@ -47,7 +59,7 @@ export function PrincipalClassesPage() {
         subtitle="Monitor all classes under your tutors"
       />
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs tabs={TABS} activeTab={activeTab} onChange={(key) => { setActiveTab(key); markSeen(key); }} />
 
       {isLoading ? (
         <div className="flex justify-center py-12">

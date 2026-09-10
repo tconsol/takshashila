@@ -33,32 +33,32 @@ function PinModal({ onConfirm, onCancel }: { onConfirm: (hours: number) => void;
     { label: '30 days', hours: 720 },
   ];
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl bg-white border border-slate-200 shadow-xl p-6">
-        <h3 className="text-base font-semibold text-slate-900 mb-1">Choose how long your pin lasts</h3>
-        <p className="text-xs text-slate-500 mb-5">You can unpin at any time.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/45 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-md bg-surface border border-rule shadow-pop p-6">
+        <h3 className="font-display text-base font-semibold text-ink mb-1">Choose how long your pin lasts</h3>
+        <p className="text-xs text-ink-muted mb-5">You can unpin at any time.</p>
         <div className="flex flex-col gap-3 mb-6">
           {options.map((opt) => (
             <label key={opt.hours} className="flex items-center gap-3 cursor-pointer">
               <div
                 onClick={() => setChoice(opt.hours)}
                 className={`h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                  choice === opt.hours ? 'border-indigo-500 bg-white' : 'border-slate-300 bg-white'
+                  choice === opt.hours ? 'border-accent bg-surface' : 'border-rule-strong bg-surface'
                 }`}
               >
-                {choice === opt.hours && <div className="h-2.5 w-2.5 rounded-full bg-indigo-600" />}
+                {choice === opt.hours && <div className="h-2.5 w-2.5 rounded-full bg-accent" />}
               </div>
-              <span className="text-sm font-medium text-slate-700">{opt.label}</span>
+              <span className="text-sm font-medium text-ink-2">{opt.label}</span>
             </label>
           ))}
         </div>
         <div className="flex justify-end gap-3">
-          <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
+          <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-ink-muted hover:text-accent transition-colors">
             Cancel
           </button>
           <button
             onClick={() => onConfirm(choice)}
-            className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors"
+            className="px-5 py-2 rounded bg-accent hover:bg-accent-hover text-accent-ink font-semibold text-sm transition-colors"
           >
             Pin
           </button>
@@ -106,7 +106,7 @@ function WaveformBars() {
       {Array.from({ length: 28 }).map((_, i) => (
         <div
           key={i}
-          className="w-[2px] rounded-full bg-white/60 animate-pulse"
+          className="w-[2px] rounded-full bg-paper/60 animate-pulse"
           style={{
             height: `${Math.random() * 60 + 20}%`,
             animationDelay: `${(i * 50) % 700}ms`,
@@ -493,35 +493,35 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
     <>
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-white">
-        <div className="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-sm font-semibold text-white flex-shrink-0">
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-rule bg-surface">
+        <div className="h-10 w-10 rounded bg-ink flex items-center justify-center text-sm font-display font-semibold text-paper flex-shrink-0">
           {initials}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900 truncate">
+          <p className="text-sm font-semibold text-ink truncate">
             {otherName || <span className="capitalize">{otherRole.toLowerCase().replace('_', ' ')}</span>}
           </p>
           {otherRole && otherName && (
-            <p className="text-[11px] font-medium text-indigo-600 capitalize leading-none mt-0.5">
+            <p className="eyebrow leading-none mt-1 normal-case tracking-normal text-[11px] font-medium text-ink-muted">
               {otherRole.toLowerCase().replace('_', ' ')}
             </p>
           )}
           {typingName && (
-            <p className="text-xs font-medium text-indigo-500 animate-pulse leading-none mt-0.5">{typingName} is typing…</p>
+            <p className="text-xs font-medium text-accent animate-pulse leading-none mt-1">{typingName} is typing…</p>
           )}
         </div>
       </div>
 
       {/* Pinned message banner */}
       {pinnedMessage && (
-        <div className="group flex-shrink-0 flex items-center gap-2 px-4 py-2 border-b border-slate-100 bg-white">
-          <Pin className="h-3.5 w-3.5 text-indigo-500 flex-shrink-0" />
-          <p className="flex-1 text-xs font-medium text-slate-800 truncate">
+        <div className="group flex-shrink-0 flex items-center gap-2 px-4 py-2 border-b border-rule bg-accent-wash">
+          <Pin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
+          <p className="flex-1 text-xs font-medium text-ink-2 truncate">
             {pinnedMessage.body || (pinnedMessage.mediaName ? `📎 ${pinnedMessage.mediaName}` : 'Pinned message')}
           </p>
           <button
             onClick={() => unpinMessage(pinnedMessage.publicId).then(() => setPinnedMessage(null)).catch(() => {})}
-            className="flex-shrink-0 hidden group-hover:flex items-center gap-1 px-2.5 py-1 rounded-xl border border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors"
+            className="flex-shrink-0 hidden group-hover:flex items-center gap-1 px-2.5 py-1 rounded border border-rule bg-surface text-[10px] font-medium text-ink-muted hover:bg-danger-wash hover:text-danger hover:border-danger/35 transition-colors"
           >
             <X className="h-2.5 w-2.5" />
             Unpin
@@ -530,10 +530,10 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
       )}
 
       {/* Messages */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-4 bg-slate-50 min-h-0">
+      <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-4 bg-paper min-h-0">
         {hasNextPage && (
           <div className="text-center mb-3">
-            <button onClick={() => fetchNextPage()} className="text-xs font-medium text-indigo-600 hover:text-indigo-700">
+            <button onClick={() => fetchNextPage()} className="text-xs font-medium text-accent hover:text-accent-hover">
               Load older messages
             </button>
           </div>
@@ -551,7 +551,7 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
             <div key={msg.publicId}>
               {showDateSep && (
                 <div className="flex items-center justify-center my-3">
-                  <span className="px-3 py-0.5 rounded-full bg-slate-200 text-[11px] font-medium text-slate-500">
+                  <span className="px-3 py-0.5 rounded-sm border border-rule bg-surface text-[11px] font-medium text-ink-muted">
                     {getDateLabel(msgDate)}
                   </span>
                 </div>
@@ -573,23 +573,23 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
         })}
 
         {allMessages.length === 0 && !isLoading && (
-          <p className="text-center text-sm text-slate-400 py-8">No messages yet. Say hello!</p>
+          <p className="text-center text-sm text-ink-faint py-8">No messages yet. Say hello!</p>
         )}
         <div ref={bottomRef} />
       </div>
 
       {/* Selection mode bar */}
       {isSelectionMode && (
-        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-900 text-white border-t border-slate-700">
+        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-ink text-paper border-t border-ink-2">
           <div className="flex items-center gap-3">
-            <button onClick={handleExitSelectionMode} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/30 hover:bg-white/10 transition-colors">
+            <button onClick={handleExitSelectionMode} className="flex h-7 w-7 items-center justify-center rounded-full border border-paper/30 hover:bg-paper/10 transition-colors">
               <X className="h-3.5 w-3.5" />
             </button>
             <span className="text-sm font-medium">{selectedIds.size} selected</span>
           </div>
           <button
             onClick={handleDeleteSelected} disabled={selectedIds.size === 0}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-rose-400/50 bg-rose-500/20 text-rose-300 font-medium text-xs hover:bg-rose-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded border border-danger/50 bg-danger/20 text-danger font-medium text-xs hover:bg-danger/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </button>
@@ -598,26 +598,26 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
 
       {/* Undo toast */}
       {pendingDelete && (
-        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-900 text-white text-xs font-medium">
+        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-ink text-paper text-xs font-medium">
           <span>Message deleted</span>
-          <button onClick={handleUndo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/30 bg-white/10 hover:bg-white/20 transition-colors">
+          <button onClick={handleUndo} className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-paper/30 bg-paper/10 hover:bg-paper/20 transition-colors">
             <RotateCcw className="h-3 w-3" /> Undo
           </button>
         </div>
       )}
 
       {/* Input area */}
-      <div className="flex-shrink-0 bg-white border-t border-slate-200">
+      <div className="flex-shrink-0 bg-surface border-t border-rule">
 
         {/* Reply preview */}
         {replyTo && (
-          <div className="flex items-center gap-2 px-4 pt-2.5 pb-1 border-b border-slate-100">
-            <div className="flex-1 min-w-0 border-l-4 border-indigo-500 pl-2">
-              <p className="text-[10px] font-semibold text-indigo-600">{replyTo.sender}</p>
-              <p className="text-xs text-slate-600 truncate">{replyTo.body}</p>
+          <div className="flex items-center gap-2 px-4 pt-2.5 pb-1 border-b border-rule">
+            <div className="flex-1 min-w-0 border-l-2 border-accent pl-2">
+              <p className="text-[10px] font-semibold text-accent">{replyTo.sender}</p>
+              <p className="text-xs text-ink-muted truncate">{replyTo.body}</p>
             </div>
-            <button onClick={() => setReplyTo(null)} className="flex-shrink-0 h-6 w-6 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
-              <X className="h-3.5 w-3.5 text-slate-400" />
+            <button onClick={() => setReplyTo(null)} className="flex-shrink-0 h-6 w-6 flex items-center justify-center rounded-full hover:bg-surface-hover transition-colors">
+              <X className="h-3.5 w-3.5 text-ink-faint" />
             </button>
           </div>
         )}
@@ -625,43 +625,43 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
         {/* Pending file preview */}
         {pendingFile && (
           <div className="flex items-center gap-2 px-4 pt-2.5 pb-1">
-            <div className="flex items-center gap-2 flex-1 min-w-0 border border-slate-200 bg-indigo-50 rounded-xl px-3 py-2">
-              <span className="text-indigo-600 flex-shrink-0">{fileIcon(pendingFile.type)}</span>
+            <div className="flex items-center gap-2 flex-1 min-w-0 border border-rule bg-accent-wash rounded px-3 py-2">
+              <span className="text-accent flex-shrink-0">{fileIcon(pendingFile.type)}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-800 truncate">{pendingFile.name}</p>
-                <p className="text-[10px] text-slate-500">{(pendingFile.size / 1024).toFixed(0)} KB</p>
+                <p className="text-xs font-medium text-ink truncate">{pendingFile.name}</p>
+                <p className="text-[10px] text-ink-muted">{(pendingFile.size / 1024).toFixed(0)} KB</p>
               </div>
               {uploading && (
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 transition-all" style={{ width: `${uploadProgress}%` }} />
+                  <div className="w-16 h-1.5 bg-surface-sunk rounded-full overflow-hidden">
+                    <div className="h-full bg-accent transition-all" style={{ width: `${uploadProgress}%` }} />
                   </div>
-                  <span className="text-[10px] font-medium text-slate-600">{uploadProgress}%</span>
+                  <span className="text-[10px] font-medium text-ink-muted">{uploadProgress}%</span>
                 </div>
               )}
             </div>
             {!uploading && (
-              <button onClick={clearPendingFile} className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 transition-colors">
+              <button onClick={clearPendingFile} className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded border border-rule bg-surface text-ink-muted hover:bg-danger-wash hover:text-danger hover:border-danger/35 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
         )}
 
-        {fileError && <p className="px-4 pt-1.5 text-xs font-medium text-rose-600">{fileError}</p>}
+        {fileError && <p className="px-4 pt-1.5 text-xs font-medium text-danger">{fileError}</p>}
 
         {/* Voice recording bar */}
         {isVoiceMode ? (
-          <div className="flex items-center gap-3 px-4 py-3 bg-slate-900">
+          <div className="flex items-center gap-3 px-4 py-3 bg-ink">
             {/* Delete */}
-            <button onClick={cancelRecording} className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white hover:bg-rose-500/30 transition-colors">
+            <button onClick={cancelRecording} className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded border border-paper/20 bg-paper/10 text-paper hover:bg-danger/30 transition-colors">
               <Trash2 className="h-4 w-4" />
             </button>
 
             {/* Recording indicator + timer */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className={`h-2.5 w-2.5 rounded-full bg-rose-500 ${recordingPhase === 'recording' ? 'animate-pulse' : 'opacity-50'}`} />
-              <span className="text-white font-semibold text-sm tabular-nums">{formatSeconds(recordingSecs)}</span>
+              <span className={`h-2.5 w-2.5 rounded-full bg-danger ${recordingPhase === 'recording' ? 'animate-pulse' : 'opacity-50'}`} />
+              <span className="text-paper font-semibold text-sm tabular-nums">{formatSeconds(recordingSecs)}</span>
             </div>
 
             {/* Waveform animation */}
@@ -672,7 +672,7 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
             {/* Pause / Resume */}
             <button
               onClick={recordingPhase === 'recording' ? pauseRecording : resumeRecording}
-              className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white hover:bg-white/20 transition-colors"
+              className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded border border-paper/20 bg-paper/10 text-paper hover:bg-paper/20 transition-colors"
             >
               {recordingPhase === 'recording' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
@@ -681,7 +681,7 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
             <button
               onClick={sendVoiceMessage}
               disabled={uploading}
-              className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-40"
+              className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded bg-accent hover:bg-accent-hover text-accent-ink transition-colors disabled:opacity-40"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </button>
@@ -696,9 +696,9 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker((p) => !p)}
-                className="h-11 w-11 flex items-center justify-center rounded-2xl bg-amber-50 border border-slate-200 text-slate-600 hover:bg-amber-100 transition-colors"
+                className="h-10 w-10 flex items-center justify-center rounded border border-rule bg-surface-sunk text-ink-muted hover:text-accent hover:border-accent/40 transition-colors"
               >
-                <Smile className="h-5 w-5" />
+                <Smile className="h-4.5 w-4.5" />
               </button>
               {showEmojiPicker && (
                 <div className="absolute bottom-14 left-0 z-30">
@@ -721,9 +721,9 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
               type="button"
               onClick={() => { setFileError(null); fileInputRef.current?.click(); }}
               disabled={uploading}
-              className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-2xl bg-sky-50 border border-slate-200 text-slate-600 hover:bg-sky-100 transition-colors disabled:opacity-40"
+              className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded border border-rule bg-surface-sunk text-ink-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40"
             >
-              <Paperclip className="h-5 w-5" />
+              <Paperclip className="h-4.5 w-4.5" />
             </button>
 
             {/* Text area */}
@@ -734,7 +734,7 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder="Type a message…"
               rows={1}
-              className="flex-1 resize-none rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 max-h-32 overflow-y-auto"
+              className="flex-1 resize-none rounded border border-rule-strong bg-surface px-4 py-2.5 text-sm text-ink placeholder-ink-faint outline-none transition-colors focus:border-accent max-h-32 overflow-y-auto"
             />
 
             {/* Mic button (only when input is empty and no file) */}
@@ -742,15 +742,15 @@ export function ChatWindow({ conversationPublicId, otherName, otherRole }: Props
               <button
                 type="button"
                 onClick={startRecording}
-                className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-2xl bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-colors"
+                className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded border border-rule bg-surface-sunk text-ink-muted hover:text-ink hover:border-ink-faint transition-colors"
               >
-                <Mic className="h-5 w-5" />
+                <Mic className="h-4.5 w-4.5" />
               </button>
             ) : (
               <button
                 onClick={handleSend}
                 disabled={!canSend}
-                className="flex-shrink-0 h-11 w-11 flex items-center justify-center rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded bg-accent hover:bg-accent-hover text-accent-ink disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {sending || uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>

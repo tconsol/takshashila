@@ -9,6 +9,11 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   rightIcon?: React.ReactNode;
 }
 
+/**
+ * Underline field, not a boxed pill: a flat sunk well with a hairline base
+ * that turns to the accent on focus. Reads as a form built for data entry,
+ * not a marketing site.
+ */
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, hint, leftIcon, rightIcon, id, ...props }, ref) => {
     const inputId = id || `input-${Math.random().toString(36).slice(2)}`;
@@ -16,13 +21,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={inputId} className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
+          <label htmlFor={inputId} className="eyebrow mb-1.5 block">
             {label}
           </label>
         )}
         <div className="relative">
           {leftIcon && (
-            <div className="pointer-events-none absolute inset-y-0 left-3.5 z-10 flex items-center text-slate-400">
+            <div className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center text-ink-faint">
               {leftIcon}
             </div>
           )}
@@ -30,28 +35,26 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5',
-              'text-sm font-medium text-slate-900 placeholder:text-slate-400',
-              'transition-colors duration-150 shadow-sm',
-              'focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500',
-              'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200',
-              'dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500',
-              'dark:focus:border-indigo-400 dark:focus:ring-indigo-400/25',
-              error && 'border-rose-400 focus:ring-rose-500/25 focus:border-rose-500',
-              leftIcon && 'pl-10',
-              rightIcon && 'pr-10',
+              'w-full bg-surface-sunk px-3 py-2 text-sm text-ink placeholder:text-ink-faint',
+              'border-0 border-b-2 border-rule-strong rounded-t-[3px]',
+              'transition-colors duration-150 ease-editorial',
+              'focus:outline-none focus:border-accent focus:bg-surface-hover',
+              leftIcon && 'pl-9',
+              rightIcon && 'pr-9',
+              error && 'border-b-danger focus:border-b-danger',
+              props.disabled && 'opacity-50 cursor-not-allowed',
               className,
             )}
             {...props}
           />
           {rightIcon && (
-            <div className="absolute inset-y-0 right-3.5 z-10 flex items-center text-slate-400">
+            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-ink-faint">
               {rightIcon}
             </div>
           )}
         </div>
-        {error && <p className="mt-1.5 text-xs font-medium text-rose-500">{error}</p>}
-        {!error && hint && <p className="mt-1.5 text-xs text-slate-400">{hint}</p>}
+        {error && <p className="mt-1.5 text-xs font-medium text-danger">{error}</p>}
+        {hint && !error && <p className="mt-1.5 text-xs text-ink-muted">{hint}</p>}
       </div>
     );
   },

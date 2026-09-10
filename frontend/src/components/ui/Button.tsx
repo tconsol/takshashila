@@ -11,34 +11,37 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
 }
 
+/**
+ * Buttons are cut, not pillowy: small radius, hairline borders, a 1px press
+ * translate instead of a shadow bloom. Only `primary` carries the accent fill,
+ * so at most one thing on a screen shouts.
+ */
 const variants: Record<Variant, string> = {
   primary:
-    'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white shadow-sm hover:shadow-md ' +
-    'focus-visible:ring-indigo-500',
+    'bg-accent text-accent-ink border border-accent ' +
+    'hover:bg-accent-hover hover:border-accent-hover',
+  // Kept as an alias so legacy `gradient` call sites stay on-system.
   gradient:
-    'bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white shadow-sm hover:shadow-md ' +
-    'focus-visible:ring-indigo-500',
+    'bg-accent text-accent-ink border border-accent ' +
+    'hover:bg-accent-hover hover:border-accent-hover',
   secondary:
-    'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white shadow-sm hover:shadow-md ' +
-    'focus-visible:ring-orange-500',
-  ghost:
-    'text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 ' +
-    'focus-visible:ring-slate-400 dark:text-slate-300 dark:hover:bg-slate-800',
-  danger:
-    'bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white shadow-sm hover:shadow-md ' +
-    'focus-visible:ring-rose-500',
-  success:
-    'bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white shadow-sm hover:shadow-md ' +
-    'focus-visible:ring-emerald-500',
+    'bg-ink text-paper border border-ink hover:bg-ink-2 hover:border-ink-2',
   outline:
-    'border border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 shadow-sm ' +
-    'focus-visible:ring-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
+    'bg-surface text-ink-2 border border-rule-strong ' +
+    'hover:bg-surface-hover hover:text-ink hover:border-ink-faint',
+  ghost:
+    'bg-transparent text-ink-muted border border-transparent ' +
+    'hover:bg-surface-hover hover:text-ink',
+  danger:
+    'bg-danger text-white border border-danger hover:brightness-110',
+  success:
+    'bg-ok text-white border border-ok hover:brightness-110',
 };
 
 const sizes: Record<Size, string> = {
-  sm: 'h-8 px-3.5 text-xs rounded-lg gap-1.5',
-  md: 'h-10 px-4 text-sm rounded-xl gap-2',
-  lg: 'h-12 px-6 text-base rounded-xl gap-2',
+  sm: 'h-7  px-2.5 text-xs  gap-1.5 rounded',
+  md: 'h-9  px-3.5 text-sm  gap-2   rounded',
+  lg: 'h-11 px-5   text-base gap-2  rounded-md',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -50,9 +53,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center font-semibold transition-all duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-        'disabled:pointer-events-none disabled:opacity-50',
+        'relative inline-flex shrink-0 items-center justify-center whitespace-nowrap',
+        'font-medium tracking-[-0.005em] transition-all duration-150 ease-editorial',
+        'active:translate-y-px',
+        'disabled:pointer-events-none disabled:opacity-40',
         variants[variant],
         sizes[size],
         fullWidth && 'w-full',
@@ -61,9 +65,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       {...props}
     >
       {loading && (
-        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        <svg
+          className="h-3.5 w-3.5 animate-spin"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden
+        >
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+          <path
+            className="opacity-90"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+          />
         </svg>
       )}
       {children}
