@@ -34,8 +34,45 @@ export const transporter = nodemailer.createTransport({
  */
 export async function sendEmailNow(data: EmailJobData): Promise<void> {
   const { to, subject, html, text } = data;
-  await transporter.sendMail({ from: env.EMAIL_FROM, to, subject, html, text });
-  logger.info('Email sent (direct)', { to, subject });
+  try {
+    const info = await transporter.sendMail({ from: env.EMAIL_FROM, to, subject, html, text });
+
+    // `rejected` can be non-empty even on an otherwise successful send when a
+    // message goes to several addresses, so record that rather than assuming
+    // a resolved promise means everyone got it.
+    const rejected = (info as { rejected?: string[] }).rejected ?? [];
+    await recordEmail({
+      to,
+      subject,
+      status: rejected.length > 0 ? 'REJECTED' : 'ACCEPTED',
+      detail: rejected.length > 0 ? `Rejected: ${rejected.join(', ')}` : (info as { response?: string }).response,
+      messageId: (info as { messageId?: string }).messageId,
+    });
+
+    logger.info('Email sent (direct)', { to, subject });
+  } catch (error) {
+    await recordEmail({ to, subject, status: 'FAILED', detail: (error as Error).message });
+    throw error;
+  }
+}
+
+/**
+ * Logging must never be the reason an email fails, so a write error here is
+ * swallowed — the send itself has already succeeded or thrown on its own.
+ */
+async function recordEmail(entry: {
+  to: string;
+  subject: string;
+  status: 'ACCEPTED' | 'REJECTED' | 'FAILED';
+  detail?: string;
+  messageId?: string;
+}): Promise<void> {
+  try {
+    const { EmailLogModel } = await import('../modules/notifications/email-log.model');
+    await EmailLogModel.create({ ...entry, detail: entry.detail?.slice(0, 300) });
+  } catch {
+    // Deliberately silent.
+  }
 }
 
 // Worker is created ONLY in the dedicated worker process (see worker.ts), so the

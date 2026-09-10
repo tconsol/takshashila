@@ -129,6 +129,62 @@ export class DemoRequestService {
     return buildPaginatedResult(enriched, total, page, limit);
   }
 
+  /**
+   * Platform-wide demo requests for admin oversight. Names are resolved here
+   * because the rows only carry profile ids, and a queue nobody can read is
+   * not oversight.
+   */
+  async listForAdmin(query: PaginationQuery & { status?: string }) {
+    const { page, limit, skip } = parsePaginationQuery(query);
+    const filter: Record<string, unknown> = { isDeleted: false };
+    if (query.status) filter.status = query.status;
+
+    const [items, total] = await Promise.all([
+      DemoRequestModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      DemoRequestModel.countDocuments(filter),
+    ]);
+
+    const { TutorProfileModel } = await import('../tutors/tutor.model');
+    const { StudentProfileModel } = await import('../students/student.model');
+    const { UserModel } = await import('../users/user.model');
+
+    const [tutorProfiles, studentProfiles] = await Promise.all([
+      TutorProfileModel.find(
+        { publicId: { $in: [...new Set(items.map((i) => i.tutorPublicId))] } },
+        { publicId: 1, userPublicId: 1 },
+      ).lean(),
+      StudentProfileModel.find(
+        { publicId: { $in: [...new Set(items.map((i) => i.studentPublicId))] } },
+        { publicId: 1, userPublicId: 1 },
+      ).lean(),
+    ]);
+
+    const users = await UserModel.find(
+      { publicId: { $in: [...tutorProfiles, ...studentProfiles].map((p) => p.userPublicId) } },
+      { publicId: 1, firstName: 1, lastName: 1 },
+    ).lean();
+    const nameByUser = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+    const tutorName = new Map(tutorProfiles.map((p) => [p.publicId, nameByUser.get(p.userPublicId) ?? 'Unknown tutor']));
+    const studentName = new Map(studentProfiles.map((p) => [p.publicId, nameByUser.get(p.userPublicId) ?? 'Unknown student']));
+
+    const hydrated = items.map((i) => ({
+      ...i,
+      tutorName: tutorName.get(i.tutorPublicId) ?? 'Unknown tutor',
+      studentName: studentName.get(i.studentPublicId) ?? 'Unknown student',
+    }));
+
+    return buildPaginatedResult(hydrated, total, page, limit);
+  }
+
+  /** Counts per status, so the admin view can show the funnel at a glance. */
+  async statusCounts() {
+    const rows = await DemoRequestModel.aggregate([
+      { $match: { isDeleted: false } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+    return rows.map((r: { _id: string; count: number }) => ({ status: r._id, count: r.count }));
+  }
+
   async getForStudent(
     studentUserPublicId: string,
     query: PaginationQuery & { status?: string },
