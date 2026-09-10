@@ -15,6 +15,7 @@ import { UserStatus } from '../users/user.types';
 import { tutorRepository } from '../tutors/tutor.repository';
 import type { CreateStudentByTutorDto, InviteExistingStudentDto, CreateStudentByPrincipalDto, InviteStudentByPrincipalDto, CreateStudentByParentDto } from './student.validators';
 import { PrincipalProfileModel } from '../principals/principal.model';
+import { TutorProfileModel } from '../tutors/tutor.model';
 import { ParentProfileModel } from '../parents/parent.model';
 import { enqueueEmail } from '../../queues/email.queue';
 import { settingsService } from '../settings/settings.service';
@@ -297,11 +298,18 @@ export class StudentService {
 
     if (dto.studentId) {
       user = await userRepository.findByStudentId(dto.studentId);
+      // A student ID and an account ID are both "the id on their account" to a
+      // tutor, so accept either rather than making them know the difference.
+      if (!user) user = await userRepository.findByPublicId(dto.studentId);
     } else if (dto.email) {
-      // Email might be a shared contact email search StudentProfile first
+      // A student may be reachable at two addresses: the one they sign in with,
+      // and a guardian's contact address shared across siblings. Check the
+      // shared contact address first, since that is the ambiguous one, then
+      // fall back to the login email — omitting that fallback was why searching
+      // a student's own account email found nothing.
       const profiles = await studentRepository.findManyByContactEmail(dto.email);
       if (profiles.length > 0) {
-        // Return first match that isn't already linked to this tutor
+        // Prefer a match that isn't already linked to this tutor.
         for (const p of profiles) {
           const linked = await studentRepository.findByUserAndTutor(p.userPublicId, tutorProfile.publicId);
           if (!linked) {
@@ -310,12 +318,13 @@ export class StudentService {
             break;
           }
         }
-        if (!user && profiles.length > 0) {
-          // All already linked
+        if (!user) {
+          // All already linked — return the first so the caller can say so.
           user = await userRepository.findByPublicId(profiles[0].userPublicId);
           contactEmail = profiles[0].contactEmail;
         }
       }
+      if (!user) user = await userRepository.findByEmail(dto.email);
     } else if (dto.phone) {
       user = await userRepository.findByPhone(dto.phone);
     }
@@ -345,11 +354,15 @@ export class StudentService {
     let user = null;
     if (dto.studentId) {
       user = await userRepository.findByStudentId(dto.studentId);
+      if (!user) user = await userRepository.findByPublicId(dto.studentId);
     } else if (dto.email) {
+      // Same two-address resolution as the lookup above — keep them in step,
+      // or a student who can be found cannot then be invited.
       const profiles = await studentRepository.findManyByContactEmail(dto.email);
       if (profiles.length > 0) {
         user = await userRepository.findByPublicId(profiles[0].userPublicId);
       }
+      if (!user) user = await userRepository.findByEmail(dto.email);
     } else if (dto.phone) {
       user = await userRepository.findByPhone(dto.phone!);
     }
@@ -436,7 +449,36 @@ export class StudentService {
     if (profile.status !== StudentStatus.PENDING_APPROVAL) {
       throw new ConflictError('No pending invite to decline');
     }
-    await studentRepository.update(profile.publicId, { status: StudentStatus.INACTIVE });
+
+    const declinedTutorPublicId = profile.tutorPublicId;
+
+    // Detach the tutor as well as marking the profile inactive. Leaving the link
+    // in place made the student look "already linked", so the tutor could never
+    // send a fresh invite after a decline.
+    //
+    // `$unset` rather than setting undefined: mongoose strips undefined out of
+    // `$set`, so the field would silently survive and the resend path — which
+    // looks for `tutorPublicId: { $exists: false }` — would never match.
+    await StudentProfileModel.updateOne(
+      { publicId: profile.publicId },
+      { $set: { status: StudentStatus.INACTIVE }, $unset: { tutorPublicId: '' } },
+    );
+
+    if (declinedTutorPublicId) {
+      const tutor = await TutorProfileModel.findOne(
+        { publicId: declinedTutorPublicId, isDeleted: false },
+        { userPublicId: 1 },
+      ).lean();
+      const student = await userRepository.findByPublicId(studentUserPublicId);
+
+      if (tutor?.userPublicId) {
+        domainEvents.emit(DomainEvent.STUDENT_INVITE_DECLINED, {
+          tutorUserPublicId: tutor.userPublicId,
+          studentUserPublicId,
+          studentName: student ? `${student.firstName} ${student.lastName}`.trim() : 'A student',
+        });
+      }
+    }
   }
 
   async listAll(query: PaginationQuery): Promise<PaginatedResult<IStudentProfile & { firstName: string; lastName: string; displayName: string; email: string }>> {

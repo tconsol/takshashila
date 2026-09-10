@@ -9,12 +9,66 @@ import { parsePaginationQuery, buildPaginatedResult } from '../../utils/paginati
 import type { CreateAvailabilitySlotDto, RescheduleSlotDto } from './schedule.validators';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { logger } from '../../lib/logger';
+import type { RecurrenceDto } from './schedule.validators';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const STEP_DAYS: Record<RecurrenceDto['frequency'], number> = {
+  DAILY: 1,
+  WEEKLY: 7,
+  BIWEEKLY: 14,
+};
+
+/**
+ * Turns one slot plus a rule into the list of concrete occurrences.
+ *
+ * Steps in whole days of fixed length, which keeps every occurrence at the same
+ * UTC instant-of-day. Slots are stored in UTC with the tutor's IANA zone
+ * alongside, so a series that crosses a DST boundary shifts by an hour in local
+ * time — acceptable here, and far less surprising than the alternative of the
+ * UTC time drifting for everyone else in the class.
+ */
+function expandRecurrence(
+  start: Date,
+  end: Date,
+  recurrence?: RecurrenceDto,
+): { start: Date; end: Date }[] {
+  if (!recurrence) return [{ start, end }];
+
+  const step = STEP_DAYS[recurrence.frequency] * DAY_MS;
+  return Array.from({ length: recurrence.count }, (_, i) => ({
+    start: new Date(start.getTime() + i * step),
+    end: new Date(end.getTime() + i * step),
+  }));
+}
 
 export class ScheduleService {
   async createSlot(
     tutorPublicId: string,
     dto: CreateAvailabilitySlotDto,
   ): Promise<IAvailabilitySlot> {
+    const [first] = await this.createSlots(tutorPublicId, dto);
+    return first;
+  }
+
+  /**
+   * Creates a slot, expanding a recurrence rule into one row per occurrence.
+   *
+   * Materialising each occurrence (rather than storing a rule and computing
+   * dates on read) means booking, conflict-checking and cancellation all keep
+   * working unchanged — one occurrence can be cancelled without disturbing the
+   * rest of the series. They share a `recurringRuleId` so the series is still
+   * identifiable.
+   *
+   * Occurrences that collide with an existing slot are skipped rather than
+   * failing the whole request: a tutor adding a weekly slot for a term should
+   * not be blocked by one week they are already booked.
+   */
+  async createSlots(
+    tutorPublicId: string,
+    dto: CreateAvailabilitySlotDto,
+  ): Promise<IAvailabilitySlot[]> {
     const start = new Date(dto.startUTC);
     const end = new Date(dto.endUTC);
 
@@ -22,28 +76,58 @@ export class ScheduleService {
       throw new AppError('Cannot create a slot in the past', 400);
     }
 
-    await this.assertNoConflict(tutorPublicId, start, end);
-
     const durationMinutes = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
+    const occurrences = expandRecurrence(start, end, dto.isRecurring ? dto.recurrence : undefined);
+    const recurringRuleId = occurrences.length > 1 ? uuidv4() : undefined;
 
-    const slot = await AvailabilitySlotModel.create({
-      publicId: uuidv4(),
-      tutorPublicId,
-      startUTC: start,
-      endUTC: end,
-      ianaTimezone: dto.ianaTimezone,
-      durationMinutes,
-      status: AvailabilityStatus.AVAILABLE,
-      isRecurring: dto.isRecurring || false,
-      isDeleted: false,
-    });
+    const created: IAvailabilitySlot[] = [];
+    const skipped: Date[] = [];
+
+    for (const occurrence of occurrences) {
+      try {
+        await this.assertNoConflict(tutorPublicId, occurrence.start, occurrence.end);
+      } catch (error) {
+        // The very first occurrence is the one the tutor explicitly picked, so a
+        // clash there is a real error; later ones are generated, so skip them.
+        if (created.length === 0 && skipped.length === 0) throw error;
+        skipped.push(occurrence.start);
+        continue;
+      }
+
+      const slot = await AvailabilitySlotModel.create({
+        publicId: uuidv4(),
+        tutorPublicId,
+        startUTC: occurrence.start,
+        endUTC: occurrence.end,
+        ianaTimezone: dto.ianaTimezone,
+        durationMinutes,
+        status: AvailabilityStatus.AVAILABLE,
+        isRecurring: occurrences.length > 1,
+        recurringRuleId,
+        isDeleted: false,
+      });
+      created.push(slot.toObject());
+    }
+
+    if (created.length === 0) {
+      throw new AppError('Every occurrence clashed with an existing slot', 409);
+    }
+
+    if (skipped.length > 0) {
+      logger.info('Skipped clashing occurrences while creating a recurring slot', {
+        tutorPublicId,
+        created: created.length,
+        skipped: skipped.length,
+      });
+    }
 
     domainEvents.emit(DomainEvent.SLOT_CREATED, {
       tutorPublicId,
-      slotPublicId: slot.publicId,
+      slotPublicId: created[0].publicId,
+      occurrences: created.length,
     });
 
-    return slot.toObject();
+    return created;
   }
 
   async getAvailableSlots(

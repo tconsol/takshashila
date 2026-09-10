@@ -19,6 +19,19 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
+  // ─── Pusher (primary realtime transport) ──────────────────────────────────
+  // Left optional so the app boots without them: with no credentials the
+  // realtime layer stays on the in-house Socket.IO server permanently.
+  PUSHER_APP_ID: z.string().optional(),
+  PUSHER_KEY: z.string().optional(),
+  PUSHER_SECRET: z.string().optional(),
+  PUSHER_CLUSTER: z.string().default('ap2'),
+  /** Free plan ceilings. Fallback trips before these, not on them. */
+  PUSHER_MAX_CONNECTIONS: z.coerce.number().default(100),
+  PUSHER_MAX_DAILY_MESSAGES: z.coerce.number().default(200_000),
+  /** Switch to Socket.IO at this fraction of either ceiling. */
+  PUSHER_SAFETY_MARGIN: z.coerce.number().min(0.5).max(1).default(0.95),
+
   COOKIE_SECRET: z.string().min(32, 'COOKIE_SECRET must be at least 32 chars'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   // Strip any trailing slash so links never become `https://site.com//verify-email`.

@@ -7,6 +7,8 @@ import { notificationQueue } from '../../queues/notification.queue';
 import { cleanupQueue } from '../../queues/cleanup.queue';
 import { getRequestMetrics } from '../../middlewares/metrics.middleware';
 import { getIO } from '../../sockets/socket.handler';
+import { integrationsService } from './integrations.service';
+import { NotFoundError } from '../../utils/error';
 
 export type HealthStatus = 'ok' | 'degraded' | 'down';
 
@@ -46,6 +48,25 @@ async function timed<T>(fn: () => Promise<T>): Promise<{ value: T | null; latenc
   } catch (e) {
     return { value: null, latencyMs: Date.now() - start, error: (e as Error).message };
   }
+}
+
+/**
+ * A one-line identifier for a job, deliberately excluding its payload.
+ * Email jobs carry addresses and rendered message bodies; a console showing
+ * failures must not become a place to read users' mail.
+ */
+function summariseJobData(data: unknown): string {
+  if (!data || typeof data !== 'object') return '';
+  const record = data as Record<string, unknown>;
+
+  if (typeof record.to === 'string') {
+    const subject = typeof record.subject === 'string' ? record.subject : 'email';
+    return `${subject} → ${record.to}`;
+  }
+  if (typeof record.recipientPublicId === 'string') {
+    return `notification → ${record.recipientPublicId}`;
+  }
+  return Object.keys(record).slice(0, 4).join(', ');
 }
 
 export class SystemService {
@@ -145,19 +166,80 @@ export class SystemService {
     return results.flat();
   }
 
+  private queueByName(name: string): Queue | null {
+    const queues: Record<string, Queue> = {
+      email: emailQueue,
+      notification: notificationQueue,
+      cleanup: cleanupQueue,
+    };
+    return queues[name] ?? null;
+  }
+
+  /**
+   * The failed jobs themselves, not just a count. A number tells you something
+   * broke; the reason and stack tell you what, and which recipient lost an email.
+   */
+  async getFailedJobs(queueName: string, limit = 20) {
+    const queue = this.queueByName(queueName);
+    if (!queue) throw new NotFoundError(`Queue "${queueName}"`);
+
+    const jobs = await queue.getFailed(0, Math.max(1, Math.min(limit, 100)) - 1);
+
+    return jobs.map((job) => ({
+      id: String(job.id),
+      name: job.name,
+      queue: queueName,
+      attemptsMade: job.attemptsMade,
+      failedReason: job.failedReason ?? null,
+      // The first frame is where it actually broke; the rest is framework noise.
+      stackHead: job.stacktrace?.[0]?.split('\n').slice(0, 3).join('\n') ?? null,
+      failedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
+      // Payloads can carry addresses and message bodies — send only enough to
+      // identify the job, never the content itself.
+      summary: summariseJobData(job.data),
+    }));
+  }
+
+  /** Re-queues a failed job. Used after the underlying cause is fixed. */
+  async retryFailedJob(queueName: string, jobId: string): Promise<void> {
+    const queue = this.queueByName(queueName);
+    if (!queue) throw new NotFoundError(`Queue "${queueName}"`);
+
+    const job = await queue.getJob(jobId);
+    if (!job) throw new NotFoundError('Job');
+    await job.retry();
+  }
+
+  /** Clears the failed set once the jobs are known to be unrecoverable. */
+  async clearFailedJobs(queueName: string): Promise<number> {
+    const queue = this.queueByName(queueName);
+    if (!queue) throw new NotFoundError(`Queue "${queueName}"`);
+
+    const removed = await queue.clean(0, 1000, 'failed');
+    return removed.length;
+  }
+
   async getHealth() {
-    const [mongo, redis, email, notification, cleanup] = await Promise.all([
+    const [mongo, redis, email, notification, cleanup, integrations] = await Promise.all([
       this.checkMongo(),
       this.checkRedis(),
       this.checkQueue(emailQueue, 'email'),
       this.checkQueue(notificationQueue, 'notification'),
       this.checkQueue(cleanupQueue, 'cleanup'),
+      integrationsService.getAll(),
     ]);
 
     const components: ComponentHealth[] = [mongo, redis];
     const queues: QueueHealth[] = [email, notification, cleanup];
 
-    const allStatuses = [...components, ...queues].map((c) => c.status);
+    const allStatuses: HealthStatus[] = [
+      ...components.map((c) => c.status),
+      ...queues.map((q) => q.status),
+      // `not-configured` is a deliberate choice, not a fault — exclude it.
+      ...integrations
+        .filter((i) => i.status !== 'not-configured')
+        .map((i): HealthStatus => (i.status === 'down' ? 'down' : i.status === 'degraded' ? 'degraded' : 'ok')),
+    ];
     const overall: HealthStatus = allStatuses.includes('down')
       ? 'down'
       : allStatuses.includes('degraded') ? 'degraded' : 'ok';
@@ -170,6 +252,7 @@ export class SystemService {
       components,
       queues,
       requests: getRequestMetrics(),
+      integrations,
       realtime: this.getSocketStats(),
       scheduledJobs: await this.getScheduledJobs(),
       process: {

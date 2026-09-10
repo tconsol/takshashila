@@ -6,6 +6,7 @@ import { requireRole } from '../../middlewares/permission.middleware';
 import { Role } from '../../constants/roles';
 import { userService } from './user.service';
 import { userAdminService } from './user.admin.service';
+import { impersonationService } from './impersonation.service';
 import { userRepository } from './user.repository';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 import { toCsv } from '../../utils/csv';
@@ -196,6 +197,30 @@ router.post('/:publicId/restore', requireRole(Role.SUPER_ADMIN, Role.ADMIN), asy
   try {
     const restored = await userAdminService.restoreUser(req.params.publicId, actorFrom(req));
     sendSuccess(res, restored, 'User restored');
+  } catch (e) { next(e); }
+});
+
+// ─── Impersonation (super admin only) ───────────────────────────────────────
+// Issues a short-lived, refresh-less token for the target user. See
+// impersonation.service.ts for why each constraint is there.
+
+router.post('/:publicId/impersonate', requireRole(Role.SUPER_ADMIN), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const result = await impersonationService.start(
+      req.params.publicId,
+      actorFrom(req),
+      req.body?.reason,
+    );
+    sendSuccess(res, result, `Impersonating ${result.user.firstName} ${result.user.lastName}`);
+  } catch (e) { next(e); }
+});
+
+router.post('/impersonate/stop', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    // The caller here is the impersonated session itself, so the session id
+    // comes off their own token rather than the request body.
+    await impersonationService.stop(req.user!.sessionId, actorFrom(req));
+    sendSuccess(res, null, 'Impersonation ended');
   } catch (e) { next(e); }
 });
 

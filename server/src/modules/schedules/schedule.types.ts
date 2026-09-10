@@ -31,6 +31,20 @@ export const ClassStatus = {
 } as const;
 export type ClassStatus = (typeof ClassStatus)[keyof typeof ClassStatus];
 
+/**
+ * How a class was closed when nobody closed it. A tutor who ran the class but
+ * forgot to press Complete should not lose the session; a class nobody turned
+ * up to should not sit open forever.
+ */
+export const AutoResolution = {
+  AUTO_COMPLETED: 'AUTO_COMPLETED',
+  AUTO_CANCELLED: 'AUTO_CANCELLED',
+} as const;
+export type AutoResolution = (typeof AutoResolution)[keyof typeof AutoResolution];
+
+/** Grace period after `endUTC` before the sweep closes a class. */
+export const AUTO_RESOLVE_GRACE_MINUTES = 10;
+
 export const AvailabilityStatus = {
   AVAILABLE: 'AVAILABLE',
   BOOKED: 'BOOKED',
@@ -81,6 +95,14 @@ export interface IScheduledClass {
   cancellationReason?: string;
   cancelledBy?: string;
   rescheduledFromId?: string;
+  /**
+   * Set when the grace-period sweep closed this class instead of a person.
+   * Kept separate from `status` so the UI can label it "Auto completed" /
+   * "Auto cancelled" without inventing new statuses that every switch
+   * statement in the codebase would then have to handle.
+   */
+  autoResolution?: AutoResolution;
+  autoResolvedAt?: Date;
   isRefunded?: boolean;
   refundedAt?: Date;
   isDeleted: boolean;

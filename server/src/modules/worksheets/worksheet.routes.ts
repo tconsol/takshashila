@@ -9,6 +9,7 @@ import { tutorService } from '../tutors/tutor.service';
 import { studentService } from '../students/student.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 import { getIO } from '../../sockets/socket.handler';
+import { realtime } from '../realtime/realtime.service';
 import { StudentProfileModel } from '../students/student.model';
 import { UserModel } from '../users/user.model';
 
@@ -24,13 +25,12 @@ router.post('/', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthReques
 
     // Notify assigned students (or all students of this tutor) via socket
     try {
-      const io = getIO();
       const studentPublicIds = worksheet.assignedToStudentPublicIds.length > 0
         ? worksheet.assignedToStudentPublicIds
         : (await StudentProfileModel.find({ tutorPublicId: tutor.publicId, isDeleted: false }, { userPublicId: 1 }).lean()).map((s) => s.userPublicId);
 
       for (const spid of studentPublicIds) {
-        io.to(`user:${spid}`).emit('worksheet:new', {
+        void realtime.emitTo(`user:${spid}`, 'worksheet:new', {
           worksheetPublicId: worksheet.publicId,
           title: worksheet.title,
           type: worksheet.type,
@@ -118,11 +118,10 @@ router.post('/:worksheetId/submit', requireRole(Role.STUDENT), async (req: AuthR
     // Notify tutor via socket
     try {
       const worksheet = await worksheetService.getByPublicId(req.params.worksheetId);
-      const io = getIO();
       const { tutorRepository } = await import('../tutors/tutor.repository');
       const tutorProfile = await tutorRepository.findByPublicId(worksheet.tutorPublicId).catch(() => null);
       if (tutorProfile) {
-        io.to(`user:${tutorProfile.userPublicId}`).emit('worksheet:submitted', {
+        void realtime.emitTo(`user:${tutorProfile.userPublicId}`, 'worksheet:submitted', {
           worksheetPublicId: worksheet.publicId,
           worksheetTitle: worksheet.title,
           studentPublicId: student.publicId,

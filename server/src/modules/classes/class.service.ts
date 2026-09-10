@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ScheduledClassModel } from '../schedules/schedule.model';
-import { ClassStatus, ClassType, BillingMode } from '../schedules/schedule.types';
+import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { scheduleService } from '../schedules/schedule.service';
 import { walletService } from '../wallets/wallet.service';
@@ -12,6 +12,7 @@ import { principalService } from '../principals/principal.service';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
+import { logger } from '../../lib/logger';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { PLATFORM_FEE_CENTS } from '../../utils/currency';
@@ -465,7 +466,7 @@ export class ClassService {
       ScheduledClassModel.find(filter).sort({ startUTC: -1 }).skip(skip).limit(limit).lean(),
       ScheduledClassModel.countDocuments(filter),
     ]);
-    return buildPaginatedResult(items, total, page, limit);
+    return buildPaginatedResult(await this.withParticipantNames(items), total, page, limit);
   }
 
   async getClassesByStudent(
@@ -486,7 +487,44 @@ export class ClassService {
       ScheduledClassModel.find(filter).sort({ startUTC: -1 }).skip(skip).limit(limit).lean(),
       ScheduledClassModel.countDocuments(filter),
     ]);
-    return buildPaginatedResult(items, total, page, limit);
+    return buildPaginatedResult(await this.withParticipantNames(items), total, page, limit);
+  }
+
+  /**
+   * Attaches `tutorName` / `studentName` to a page of classes.
+   *
+   * Rows store profile ids, so a tutor's class list would otherwise show no
+   * indication of *who* the class is for. Resolved in two queries per page
+   * rather than per row.
+   */
+  async withParticipantNames<T extends { tutorPublicId: string; studentPublicId: string }>(
+    items: T[],
+  ): Promise<(T & { tutorName: string; studentName: string })[]> {
+    if (items.length === 0) return [];
+
+    const tutorIds = [...new Set(items.map((c) => c.tutorPublicId))];
+    const studentIds = [...new Set(items.map((c) => c.studentPublicId))];
+
+    const [tutorProfiles, studentProfiles] = await Promise.all([
+      TutorProfileModel.find({ publicId: { $in: tutorIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+      StudentProfileModel.find({ publicId: { $in: studentIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+    ]);
+
+    const { UserModel } = await import('../users/user.model');
+    const users = await UserModel.find(
+      { publicId: { $in: [...tutorProfiles, ...studentProfiles].map((p) => p.userPublicId) } },
+      { publicId: 1, firstName: 1, lastName: 1 },
+    ).lean();
+
+    const nameByUser = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+    const tutorName = new Map(tutorProfiles.map((p) => [p.publicId, nameByUser.get(p.userPublicId) ?? 'Unknown tutor']));
+    const studentName = new Map(studentProfiles.map((p) => [p.publicId, nameByUser.get(p.userPublicId) ?? 'Unknown student']));
+
+    return items.map((c) => ({
+      ...c,
+      tutorName: tutorName.get(c.tutorPublicId) ?? 'Unknown tutor',
+      studentName: studentName.get(c.studentPublicId) ?? 'Unknown student',
+    }));
   }
 
   async getByPublicId(publicId: string): Promise<IScheduledClass> {
@@ -705,6 +743,86 @@ export class ClassService {
       { new: true },
     ).lean();
     return updated!;
+  }
+
+  /**
+   * Closes classes that ran past their end time with nobody closing them.
+   *
+   * Two cases, distinguished by whether the class was ever started:
+   *   • LIVE      — the tutor ran it and forgot to press Complete. Completing
+   *                 it settles the money exactly as the manual path does, so
+   *                 the tutor is paid and the student is charged correctly.
+   *   • SCHEDULED — nobody started it. Cancelling refunds the student through
+   *                 the normal cancellation path.
+   *
+   * Both are tagged with `autoResolution` so the UI can say a human did not do
+   * this, and so the pair can be audited or reversed later.
+   *
+   * Runs on a repeating job; safe to run concurrently because each class is
+   * claimed with a conditional update before any money moves.
+   */
+  async autoResolveOverdueClasses(): Promise<{ completed: number; cancelled: number }> {
+    const cutoff = new Date(Date.now() - AUTO_RESOLVE_GRACE_MINUTES * 60 * 1000);
+
+    const overdue = await ScheduledClassModel.find(
+      {
+        isDeleted: false,
+        endUTC: { $lte: cutoff },
+        status: { $in: [ClassStatus.LIVE, ClassStatus.SCHEDULED] },
+        autoResolution: { $exists: false },
+      },
+      { publicId: 1, status: 1, tutorPublicId: 1 },
+    )
+      .limit(200)
+      .lean();
+
+    let completed = 0;
+    let cancelled = 0;
+
+    for (const cls of overdue) {
+      // Claim it first: the conditional match means a second worker (or a
+      // tutor pressing Complete right now) cannot double-resolve the class.
+      const claimed = await ScheduledClassModel.findOneAndUpdate(
+        { publicId: cls.publicId, status: cls.status, autoResolution: { $exists: false } },
+        {
+          $set: {
+            autoResolution: cls.status === ClassStatus.LIVE
+              ? AutoResolution.AUTO_COMPLETED
+              : AutoResolution.AUTO_CANCELLED,
+            autoResolvedAt: new Date(),
+          },
+        },
+        { new: true },
+      ).lean();
+      if (!claimed) continue;
+
+      try {
+        if (cls.status === ClassStatus.LIVE) {
+          const tutor = await tutorService.getByPublicId(cls.tutorPublicId);
+          await this.completeClass(cls.publicId, tutor.userPublicId);
+          completed += 1;
+        } else {
+          await this.cancelClass(cls.publicId, 'system', {
+            reason: `Auto-cancelled: nobody joined within ${AUTO_RESOLVE_GRACE_MINUTES} minutes of the end time`,
+          } as CancelClassDto);
+          cancelled += 1;
+        }
+      } catch (error) {
+        // Release the claim so a later sweep can retry rather than leaving the
+        // class tagged as resolved when the settlement actually failed.
+        await ScheduledClassModel.updateOne(
+          { publicId: cls.publicId },
+          { $unset: { autoResolution: '', autoResolvedAt: '' } },
+        );
+        logger.warn('Auto-resolve failed for class', {
+          classPublicId: cls.publicId,
+          status: cls.status,
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    return { completed, cancelled };
   }
 
   /**

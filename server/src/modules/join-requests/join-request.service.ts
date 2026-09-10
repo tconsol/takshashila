@@ -303,11 +303,15 @@ export class JoinRequestService {
     status: string;
     principalPublicId?: string;
   } | null> {
-    const normalizedQuery = query.toLowerCase().trim();
-    let user = await userRepository.findByEmail(normalizedQuery);
-    if (!user && query.trim()) {
-      user = await userRepository.findByPhone(query.trim());
-    }
+    // One box, three kinds of identifier — a principal shouldn't have to tell us
+    // which they pasted. Order is cheapest/most selective first.
+    const trimmed = query.trim();
+    if (!trimmed) return null;
+
+    let user = await userRepository.findByEmail(trimmed.toLowerCase());
+    if (!user) user = await userRepository.findByPhone(trimmed);
+    if (!user) user = await userRepository.findByPublicId(trimmed);
+
     if (!user || user.role !== 'TUTOR') return null;
 
     let profile = await TutorProfileModel.findOne({

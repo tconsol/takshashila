@@ -16,7 +16,8 @@ export const emailQueue = new Queue<EmailJobData>('email', {
   defaultJobOptions,
 });
 
-const transporter = nodemailer.createTransport({
+/** Exported so the system console can probe SMTP with the real transport. */
+export const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
   secure: env.SMTP_SECURE,
