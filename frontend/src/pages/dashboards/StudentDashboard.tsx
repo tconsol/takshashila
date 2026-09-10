@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuthStore } from '../../stores/auth.store';
 import { DashboardHero } from '../../components/shared/DashboardHero';
+import { StatsCard } from '../../components/shared/StatsCard';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -248,75 +249,40 @@ export function StudentDashboard() {
         </motion.div>
       )}
 
-      {/* Stats cards staggered entrance */}
+      {/* Stats cards — shared StatsCard so this grid matches every other
+          dashboard's flat ink/paper tile instead of the old gradient-strip card. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          {
-            title: 'Upcoming Classes',
-            value: statsLoading ? '…' : String(upcoming),
-            icon: <Video className="h-5 w-5" />,
-            ring: 'from-indigo-500 to-blue-500',
-            tile: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300',
-            hint: 'Scheduled sessions',
-          },
-          {
-            title: 'Wallet Balance',
-            value: formatCreditsLabel(walletAnim),
-            icon: <Coins className="h-5 w-5" />,
-            ring: 'from-emerald-500 to-teal-500',
-            tile: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300',
-            hint: 'Credits available',
-          },
-          {
-            title: 'Submissions',
-            value: statsLoading ? '…' : String(submissions),
-            icon: <BookOpen className="h-5 w-5" />,
-            ring: 'from-orange-500 to-amber-500',
-            tile: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300',
-            hint: 'Worksheets done',
-          },
-          {
-            title: 'Attendance',
-            value: statsLoading ? '…' : `${attendance}%`,
-            icon: <BarChart3 className="h-5 w-5" />,
-            ring: 'from-violet-500 to-purple-500',
-            tile: 'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300',
-            badge: (stats?.attendanceRate ?? 0) >= 75
-              ? { text: 'Good standing', good: true }
-              : { text: 'Needs attention', good: false },
-          },
-        ].map((card, i) => (
-          <motion.div
-            key={card.title}
-            custom={i}
-            variants={fadeUp}
-            initial="hidden"
-            animate="show"
-            className="group relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
-          >
-            {/* accent strip */}
-            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.ring}`} />
-            <div className="flex items-start justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{card.title}</p>
-              <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tile}`}>
-                {card.icon}
-              </span>
-            </div>
-            <p className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white tabular-nums">
-              {card.value}
-            </p>
-            {card.hint && <p className="mt-1 text-xs text-slate-400">{card.hint}</p>}
-            {card.badge && (
-              <span className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                card.badge.good
-                  ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                  : 'bg-rose-50 text-rose-500 dark:bg-rose-900/30 dark:text-rose-400'
-              }`}>
-                {card.badge.good ? '↗' : '↘'} {card.badge.text}
-              </span>
-            )}
-          </motion.div>
-        ))}
+        <StatsCard
+          index={0}
+          title="Upcoming Classes"
+          value={statsLoading ? '…' : String(upcoming)}
+          icon={<Video className="h-5 w-5" />}
+          hint="Scheduled sessions"
+        />
+        <StatsCard
+          index={1}
+          title="Wallet Balance"
+          value={formatCreditsLabel(walletAnim)}
+          icon={<Coins className="h-5 w-5" />}
+          hint="Credits available"
+        />
+        <StatsCard
+          index={2}
+          title="Submissions"
+          value={statsLoading ? '…' : String(submissions)}
+          icon={<BookOpen className="h-5 w-5" />}
+          hint="Worksheets done"
+        />
+        <StatsCard
+          index={3}
+          title="Attendance"
+          value={statsLoading ? '…' : `${attendance}%`}
+          icon={<BarChart3 className="h-5 w-5" />}
+          change={{
+            value: (stats?.attendanceRate ?? 0) >= 75 ? 'Good standing' : 'Needs attention',
+            positive: (stats?.attendanceRate ?? 0) >= 75,
+          }}
+        />
       </div>
 
       {/* Streak + attendance ring row */}

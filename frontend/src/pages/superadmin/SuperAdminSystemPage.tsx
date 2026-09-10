@@ -19,9 +19,9 @@ const STATUS_META: Record<HealthStatus, {
   icon: typeof CheckCircle2;
   ring: string;
 }> = {
-  ok:       { label: 'Operational', variant: 'success', icon: CheckCircle2,  ring: 'bg-emerald-500' },
-  degraded: { label: 'Degraded',    variant: 'warning', icon: AlertTriangle, ring: 'bg-amber-500' },
-  down:     { label: 'Down',        variant: 'danger',  icon: XCircle,       ring: 'bg-rose-500' },
+  ok:       { label: 'Operational', variant: 'success', icon: CheckCircle2,  ring: 'bg-ok' },
+  degraded: { label: 'Degraded',    variant: 'warning', icon: AlertTriangle, ring: 'bg-warn' },
+  down:     { label: 'Down',        variant: 'danger',  icon: XCircle,       ring: 'bg-danger' },
 };
 
 const COMPONENT_ICONS: Record<string, typeof Database> = {
@@ -64,7 +64,7 @@ export function SuperAdminSystemPage() {
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
       </div>
     );
   }
@@ -73,7 +73,7 @@ export function SuperAdminSystemPage() {
     return (
       <div className="space-y-6">
         <PageHeader title="System Console" description="Live infrastructure health" icon={<Server className="h-5 w-5" />} />
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-600 dark:border-rose-800 dark:bg-rose-900/20">
+        <div className="rounded-xl border border-danger/30 bg-danger-wash p-6 text-center text-sm text-danger">
           Could not reach the health endpoint — the API itself may be down.
           <span className="mt-1 block text-xs opacity-80">{(error as Error)?.message}</span>
         </div>
@@ -98,7 +98,7 @@ export function SuperAdminSystemPage() {
         icon={<Server className="h-5 w-5" />}
         actions={
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-ink-muted">
               Checked {new Date(data.checkedAt).toLocaleTimeString()}
             </span>
             <Button size="sm" variant="outline" onClick={() => refetch()} loading={isFetching}>
@@ -109,7 +109,7 @@ export function SuperAdminSystemPage() {
       />
 
       {/* Overall banner */}
-      <Card padding="lg" className={data.status === 'ok' ? '' : 'border-amber-300 dark:border-amber-800'}>
+      <Card padding="lg" className={data.status === 'ok' ? '' : 'border-warn/40'}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <span className="relative flex h-12 w-12 items-center justify-center">
@@ -119,10 +119,10 @@ export function SuperAdminSystemPage() {
               </span>
             </span>
             <div>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-base font-semibold text-ink">
                 All systems {overall.label.toLowerCase()}
               </h3>
-              <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-0.5 text-sm text-ink-muted">
                 {data.components.length} services · {data.queues.length} queues · auto-refresh every 15s
               </p>
             </div>
@@ -138,7 +138,6 @@ export function SuperAdminSystemPage() {
           index={0}
           title="API Uptime"
           value={formatUptime(data.process.uptimeSeconds)}
-          accent="brand"
           icon={<Server className="h-5 w-5" />}
           hint={`${data.process.env} · node ${data.process.nodeVersion}`}
         />
@@ -146,7 +145,6 @@ export function SuperAdminSystemPage() {
           index={1}
           title="Heap Used"
           value={formatBytes(data.process.memory.heapUsedBytes)}
-          accent="violet"
           icon={<Cpu className="h-5 w-5" />}
           hint={`RSS ${formatBytes(data.process.memory.rssBytes)}`}
         />
@@ -154,7 +152,6 @@ export function SuperAdminSystemPage() {
           index={2}
           title="Jobs In Flight"
           value={totalPendingJobs.toLocaleString()}
-          accent="sky"
           icon={<Layers className="h-5 w-5" />}
           hint="Waiting + active + delayed"
         />
@@ -162,9 +159,9 @@ export function SuperAdminSystemPage() {
           index={3}
           title="Failed Jobs"
           value={totalFailedJobs.toLocaleString()}
-          accent={totalFailedJobs > 0 ? 'rose' : 'green'}
           icon={<AlertTriangle className="h-5 w-5" />}
           hint={totalFailedJobs > 0 ? 'Needs investigation' : 'Nothing failing'}
+          change={totalFailedJobs > 0 ? { value: 'Needs investigation', positive: false } : undefined}
         />
       </div>
 
@@ -173,7 +170,7 @@ export function SuperAdminSystemPage() {
           <CardHeader>
             <div>
               <CardTitle>Services</CardTitle>
-              <p className="mt-1 text-xs text-slate-500">Datastore and cache reachability with round-trip latency</p>
+              <p className="mt-1 text-xs text-ink-muted">Datastore and cache reachability with round-trip latency</p>
             </div>
           </CardHeader>
           <CardContent>
@@ -184,20 +181,20 @@ export function SuperAdminSystemPage() {
                 return (
                   <div
                     key={c.name}
-                    className="flex items-center justify-between rounded-2xl border border-slate-100 p-3.5 dark:border-slate-800"
+                    className="flex items-center justify-between rounded-2xl border border-rule p-3.5"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-surface-sunk text-ink-2">
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium capitalize text-slate-900 dark:text-white">{c.name}</p>
-                        {c.detail && <p className="truncate text-xs text-slate-500">{c.detail}</p>}
+                        <p className="text-sm font-medium capitalize text-ink">{c.name}</p>
+                        {c.detail && <p className="truncate text-xs text-ink-muted">{c.detail}</p>}
                       </div>
                     </div>
                     <div className="flex flex-shrink-0 items-center gap-2">
                       {c.latencyMs !== null && (
-                        <span className="text-xs tabular-nums text-slate-400">{c.latencyMs}ms</span>
+                        <span className="text-xs tabular-nums text-ink-muted">{c.latencyMs}ms</span>
                       )}
                       <Badge variant={meta.variant} tone="soft">{meta.label}</Badge>
                     </div>
@@ -212,7 +209,7 @@ export function SuperAdminSystemPage() {
           <CardHeader>
             <div>
               <CardTitle>Background Queues</CardTitle>
-              <p className="mt-1 text-xs text-slate-500">BullMQ job counts per worker queue</p>
+              <p className="mt-1 text-xs text-ink-muted">BullMQ job counts per worker queue</p>
             </div>
           </CardHeader>
           <CardContent>
@@ -220,7 +217,7 @@ export function SuperAdminSystemPage() {
               {data.queues.map((q) => {
                 const meta = STATUS_META[q.status];
                 return (
-                  <div key={q.name} className="rounded-2xl border border-slate-100 p-3.5 dark:border-slate-800">
+                  <div key={q.name} className="rounded-2xl border border-rule p-3.5">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium capitalize text-ink">{q.name}</p>
                       <div className="flex items-center gap-2">
@@ -233,7 +230,7 @@ export function SuperAdminSystemPage() {
                       </div>
                     </div>
                     {q.detail ? (
-                      <p className="mt-1.5 truncate text-xs text-rose-500">{q.detail}</p>
+                      <p className="mt-1.5 truncate text-xs text-danger">{q.detail}</p>
                     ) : (
                       <div className="mt-2.5 grid grid-cols-5 gap-2 text-center">
                         {([
@@ -242,11 +239,11 @@ export function SuperAdminSystemPage() {
                         ] as const).map(([label, n]) => (
                           <div key={label}>
                             <p className={`text-sm font-semibold tabular-nums ${
-                              label === 'Failed' && n > 0 ? 'text-rose-600' : 'text-slate-900 dark:text-white'
+                              label === 'Failed' && n > 0 ? 'text-danger' : 'text-ink'
                             }`}>
                               {n}
                             </p>
-                            <p className="text-[10px] uppercase tracking-wide text-slate-400">{label}</p>
+                            <p className="text-[10px] uppercase tracking-wide text-ink-muted">{label}</p>
                           </div>
                         ))}
                       </div>
@@ -265,7 +262,7 @@ export function SuperAdminSystemPage() {
           <CardHeader>
             <div>
               <CardTitle>Request Latency</CardTitle>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-ink-muted">
                 Rolling window of {data.requests.latencyMs.sampleSize.toLocaleString()} requests
               </p>
             </div>
@@ -274,10 +271,10 @@ export function SuperAdminSystemPage() {
             <div className="grid grid-cols-3 gap-3">
               {([['p50', data.requests.latencyMs.p50], ['p95', data.requests.latencyMs.p95], ['p99', data.requests.latencyMs.p99]] as const).map(
                 ([label, value]) => (
-                  <div key={label} className="rounded-xl border border-slate-100 p-3 text-center dark:border-slate-800">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+                  <div key={label} className="rounded-xl border border-rule p-3 text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
                     <p className={`mt-1 text-lg font-bold tabular-nums ${
-                      value > 1000 ? 'text-rose-600' : value > 300 ? 'text-amber-600' : 'text-slate-900 dark:text-white'
+                      value > 1000 ? 'text-danger' : value > 300 ? 'text-warn' : 'text-ink'
                     }`}>
                       {value}ms
                     </p>
@@ -285,7 +282,7 @@ export function SuperAdminSystemPage() {
                 ),
               )}
             </div>
-            <p className="mt-3 text-xs text-slate-400">
+            <p className="mt-3 text-xs text-ink-muted">
               {data.requests.requestsPerMinute.toLocaleString()} req/min since{' '}
               {new Date(data.requests.since).toLocaleTimeString()}
             </p>
@@ -296,7 +293,7 @@ export function SuperAdminSystemPage() {
           <CardHeader>
             <div>
               <CardTitle>Errors & Status</CardTitle>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-ink-muted">
                 {data.requests.totalErrors.toLocaleString()} of {data.requests.totalRequests.toLocaleString()} returned 5xx
               </p>
             </div>
@@ -313,17 +310,17 @@ export function SuperAdminSystemPage() {
                 data.requests.statusCounts.map((s) => (
                   <div key={s.status} className="flex items-center justify-between text-sm">
                     <span className={`font-mono ${
-                      s.status >= 500 ? 'text-rose-600' : s.status >= 400 ? 'text-amber-600' : 'text-emerald-600'
+                      s.status >= 500 ? 'text-danger' : s.status >= 400 ? 'text-warn' : 'text-ok'
                     }`}>
                       {s.status}
                     </span>
-                    <span className="tabular-nums text-slate-600 dark:text-slate-300">
+                    <span className="tabular-nums text-ink-2">
                       {s.count.toLocaleString()}
                     </span>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-slate-400">No requests recorded yet.</p>
+                <p className="text-sm text-ink-muted">No requests recorded yet.</p>
               )}
             </div>
           </CardContent>
@@ -403,30 +400,30 @@ export function SuperAdminSystemPage() {
           <CardHeader>
             <div>
               <CardTitle>Slowest Routes</CardTitle>
-              <p className="mt-1 text-xs text-slate-500">Ranked by average response time</p>
+              <p className="mt-1 text-xs text-ink-muted">Ranked by average response time</p>
             </div>
           </CardHeader>
           <CardContent>
             {data.requests.slowestRoutes.length > 0 ? (
               <div className="space-y-2">
                 {data.requests.slowestRoutes.map((r) => (
-                  <div key={r.route} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3 py-2 dark:border-slate-800">
+                  <div key={r.route} className="flex items-center justify-between gap-3 rounded-xl border border-rule px-3 py-2">
                     <div className="min-w-0">
-                      <p className="truncate font-mono text-xs text-slate-700 dark:text-slate-200">{r.route}</p>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="truncate font-mono text-xs text-ink-2">{r.route}</p>
+                      <p className="text-[11px] text-ink-muted">
                         {r.count.toLocaleString()} calls
                         {r.errorCount > 0 ? ` · ${r.errorCount} errors` : ''}
                       </p>
                     </div>
                     <div className="flex-shrink-0 text-right">
-                      <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">{r.avgMs}ms</p>
-                      <p className="text-[11px] text-slate-400">max {r.maxMs}ms</p>
+                      <p className="text-sm font-semibold tabular-nums text-ink">{r.avgMs}ms</p>
+                      <p className="text-[11px] text-ink-muted">max {r.maxMs}ms</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">No traffic recorded since the last restart.</p>
+              <p className="text-sm text-ink-muted">No traffic recorded since the last restart.</p>
             )}
           </CardContent>
         </Card>
@@ -435,29 +432,29 @@ export function SuperAdminSystemPage() {
           <CardHeader>
             <div>
               <CardTitle>Scheduled Jobs</CardTitle>
-              <p className="mt-1 text-xs text-slate-500">Repeatable jobs registered on the queues</p>
+              <p className="mt-1 text-xs text-ink-muted">Repeatable jobs registered on the queues</p>
             </div>
-            <Timer className="h-4 w-4 text-slate-400" />
+            <Timer className="h-4 w-4 text-ink-muted" />
           </CardHeader>
           <CardContent>
             {data.scheduledJobs.length > 0 ? (
               <div className="space-y-2">
                 {data.scheduledJobs.map((j) => (
-                  <div key={`${j.queue}-${j.name}-${j.pattern}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3 py-2 dark:border-slate-800">
+                  <div key={`${j.queue}-${j.name}-${j.pattern}`} className="flex items-center justify-between gap-3 rounded-xl border border-rule px-3 py-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">{j.name}</p>
-                      <p className="truncate text-xs text-slate-400">
+                      <p className="truncate text-sm font-medium text-ink-2">{j.name}</p>
+                      <p className="truncate text-xs text-ink-muted">
                         {j.queue}{j.pattern ? ` · ${j.pattern}` : ''}
                       </p>
                     </div>
-                    <span className="flex-shrink-0 text-xs text-slate-500">
+                    <span className="flex-shrink-0 text-xs text-ink-muted">
                       {j.nextRunAt ? `next ${new Date(j.nextRunAt).toLocaleString()}` : 'not scheduled'}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">No repeatable jobs registered.</p>
+              <p className="text-sm text-ink-muted">No repeatable jobs registered.</p>
             )}
           </CardContent>
         </Card>
@@ -469,34 +466,34 @@ export function SuperAdminSystemPage() {
         <CardHeader>
           <div>
             <CardTitle>Host</CardTitle>
-            <p className="mt-1 text-xs text-slate-500">Machine running the API process</p>
+            <p className="mt-1 text-xs text-ink-muted">Machine running the API process</p>
           </div>
           <Badge variant="info" tone="soft">pid {data.process.pid}</Badge>
         </CardHeader>
         <CardContent>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Platform</p>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{data.host.platform}</p>
+              <p className="text-xs uppercase tracking-wide text-ink-muted">Platform</p>
+              <p className="mt-1 text-sm font-medium text-ink">{data.host.platform}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">CPU cores</p>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">{data.host.cpuCount}</p>
+              <p className="text-xs uppercase tracking-wide text-ink-muted">CPU cores</p>
+              <p className="mt-1 text-sm font-medium text-ink">{data.host.cpuCount}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Load avg (1m)</p>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
+              <p className="text-xs uppercase tracking-wide text-ink-muted">Load avg (1m)</p>
+              <p className="mt-1 text-sm font-medium text-ink">
                 {data.host.loadAverage[0]?.toFixed(2) ?? '—'}
               </p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Memory used</p>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
+              <p className="text-xs uppercase tracking-wide text-ink-muted">Memory used</p>
+              <p className="mt-1 text-sm font-medium text-ink">
                 {usedMemPct}% of {formatBytes(data.host.totalMemoryBytes)}
               </p>
-              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunk">
                 <div
-                  className={`h-full transition-all ${usedMemPct > 90 ? 'bg-rose-500' : usedMemPct > 75 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                  className={`h-full transition-all ${usedMemPct > 90 ? 'bg-danger' : usedMemPct > 75 ? 'bg-warn' : 'bg-ok'}`}
                   style={{ width: `${usedMemPct}%` }}
                 />
               </div>

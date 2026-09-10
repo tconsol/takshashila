@@ -331,18 +331,18 @@ export function FinanceOpsPage() {
               <CardHeader>
                 <div>
                   <CardTitle>Totals by Type</CardTitle>
-                  <p className="mt-1 text-xs text-slate-500">Sum of the current filter selection</p>
+                  <p className="mt-1 text-xs text-ink-muted">Sum of the current filter selection</p>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
                   {ledger.totalsByType.map((t) => (
-                    <div key={t.type} className="rounded-xl border border-slate-100 p-3 dark:border-slate-800">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{t.type}</p>
-                      <p className="mt-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">
+                    <div key={t.type} className="rounded-xl border border-rule p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{t.type}</p>
+                      <p className="mt-1 text-base font-bold tabular-nums text-ink">
                         {money(t.totalCents)}
                       </p>
-                      <p className="text-xs text-slate-400">{t.count.toLocaleString()} entries</p>
+                      <p className="text-xs text-ink-muted">{t.count.toLocaleString()} entries</p>
                     </div>
                   ))}
                 </div>

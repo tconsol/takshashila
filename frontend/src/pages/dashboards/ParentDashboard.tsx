@@ -35,15 +35,15 @@ function ChildSummaryCard({ student }: {
   const fullName = `${student.firstName} ${student.lastName}`.trim() || 'Student';
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+    <div className="flex flex-col gap-4 rounded-2xl border border-rule bg-surface p-5 transition-colors hover:border-rule-strong hover:bg-surface-hover">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Avatar name={fullName} size="md" />
           <div>
-            <p className="text-sm font-semibold text-slate-900">{fullName}</p>
+            <p className="text-sm font-semibold text-ink">{fullName}</p>
             {student.grade && (
-              <p className="text-xs text-slate-500">{student.grade}</p>
+              <p className="text-xs text-ink-muted">{student.grade}</p>
             )}
           </div>
         </div>
@@ -56,13 +56,13 @@ function ChildSummaryCard({ student }: {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-2 text-center">
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50 py-2">
-          <p className="text-lg font-bold text-slate-900">{student.attendanceRate}%</p>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Attendance</p>
+        <div className="rounded-xl border border-ok/20 bg-ok-wash py-2">
+          <p className="text-lg font-bold text-ink">{student.attendanceRate}%</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Attendance</p>
         </div>
-        <div className="rounded-xl border border-sky-100 bg-sky-50 py-2">
-          <p className="text-lg font-bold text-slate-900">{student.totalClassesAttended}</p>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Classes</p>
+        <div className="rounded-xl border border-info/20 bg-info-wash py-2">
+          <p className="text-lg font-bold text-ink">{student.totalClassesAttended}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Classes</p>
         </div>
       </div>
 
@@ -198,12 +198,12 @@ export function ParentDashboard() {
               <Link
                 key={href}
                 to={href}
-                className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md text-center"
+                className="flex flex-col items-center gap-3 rounded-2xl border border-rule bg-surface p-5 transition-colors hover:border-rule-strong hover:bg-surface-hover text-center"
               >
                 <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} text-white`}>
                   <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-xs font-semibold text-slate-700">{label}</span>
+                <span className="text-xs font-semibold text-ink-2">{label}</span>
               </Link>
             ))}
           </div>

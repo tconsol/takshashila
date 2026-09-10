@@ -33,13 +33,20 @@ const ROLE_LABELS: Record<string, string> = {
   TUTOR: 'Tutor', STUDENT: 'Student', SUPPORT: 'Support',
 };
 
-const ROLE_COLOR: Record<string, { bg: string; text: string; gradient: string }> = {
-  SUPER_ADMIN: { bg: 'bg-rose-50',   text: 'text-rose-600',   gradient: 'from-rose-500 to-pink-600' },
-  ADMIN:       { bg: 'bg-amber-50',  text: 'text-amber-600',  gradient: 'from-amber-500 to-orange-600' },
-  PRINCIPAL:   { bg: 'bg-teal-50',   text: 'text-teal-600',   gradient: 'from-teal-500 to-emerald-600' },
-  TUTOR:       { bg: 'bg-violet-50', text: 'text-violet-600', gradient: 'from-violet-500 to-purple-600' },
-  STUDENT:     { bg: 'bg-indigo-50', text: 'text-indigo-600', gradient: 'from-indigo-500 to-blue-600' },
-  SUPPORT:     { bg: 'bg-pink-50',   text: 'text-pink-600',   gradient: 'from-pink-500 to-rose-600' },
+// `indigo`/`violet` are remapped to the single system accent everywhere else in
+// the app (see tailwind.config.ts), so using them here would make TUTOR and
+// STUDENT badges collapse onto the same vermilion as every button and link.
+// These six hues are deliberately left un-remapped so role stays a distinct
+// identity colour. Opacity-based backgrounds (`/10`) tint whatever surface is
+// underneath instead of painting a flat light-mode pastel, so the chip reads
+// correctly on both the bone and near-black grounds without a second class.
+const ROLE_COLOR: Record<string, { bg: string; text: string }> = {
+  SUPER_ADMIN: { bg: 'bg-rose-500/10',   text: 'text-rose-600 dark:text-rose-400' },
+  ADMIN:       { bg: 'bg-amber-500/10',  text: 'text-amber-600 dark:text-amber-400' },
+  PRINCIPAL:   { bg: 'bg-teal-500/10',   text: 'text-teal-600 dark:text-teal-400' },
+  TUTOR:       { bg: 'bg-sky-500/10',    text: 'text-sky-600 dark:text-sky-400' },
+  STUDENT:     { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400' },
+  SUPPORT:     { bg: 'bg-pink-500/10',   text: 'text-pink-600 dark:text-pink-400' },
 };
 
 const profileSchema = z.object({
@@ -72,8 +79,8 @@ function Toast({ type, message }: { type: 'success' | 'error'; message: string }
   return (
     <div className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium ${
       type === 'success'
-        ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-        : 'bg-rose-50 border border-rose-200 text-rose-700'
+        ? 'bg-ok-wash border border-ok/25 text-ok'
+        : 'bg-danger-wash border border-danger/25 text-danger'
     }`}>
       {type === 'success'
         ? <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -88,12 +95,12 @@ function Field({ label, error, children, hint }: {
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
+      <label className="mb-1.5 block text-sm font-semibold text-ink-2">
         {label}
       </label>
       {children}
-      {hint && !error && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+      {hint && !error && <p className="mt-1 text-xs text-ink-muted">{hint}</p>}
+      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>
   );
 }
@@ -103,7 +110,7 @@ function TextInput({ icon: Icon, readOnly, ...props }: {
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="relative">
-      {Icon && <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 z-10 text-slate-400" />}
+      {Icon && <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 z-10 text-ink-muted" />}
       <input
         {...props}
         readOnly={readOnly}
@@ -111,8 +118,8 @@ function TextInput({ icon: Icon, readOnly, ...props }: {
           Icon ? 'pl-10' : 'pl-3.5'
         } pr-3.5 ${
           readOnly
-            ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:bg-slate-800 dark:border-slate-700'
-            : 'border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white'
+            ? 'cursor-not-allowed border-rule bg-surface-sunk text-ink-faint'
+            : 'border-rule-strong bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent'
         }`}
       />
     </div>
@@ -124,17 +131,17 @@ const PasswordInput = forwardRef<HTMLInputElement, {
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>>(
   ({ show, onToggle, ...rest }, ref) => (
     <div className="relative">
-      <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 z-10 text-slate-400" />
+      <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 z-10 text-ink-muted" />
       <input
         {...rest}
         ref={ref}
         type={show ? 'text' : 'password'}
-        className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+        className="w-full rounded-xl border border-rule-strong bg-surface py-2.5 pl-10 pr-10 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent"
       />
       <button
         type="button"
         onClick={onToggle}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink-2"
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>
@@ -148,10 +155,10 @@ function SaveButton({ pending, label = 'Save changes' }: { pending: boolean; lab
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
+      className="inline-flex items-center gap-2 rounded-xl bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed px-5 py-2.5 text-sm font-semibold text-accent-ink shadow-sm transition-colors"
     >
       {pending
-        ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+        ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent-ink border-t-transparent" />
         : <CheckCircle2 className="h-4 w-4" />}
       {pending ? 'Saving…' : label}
     </button>
@@ -167,20 +174,20 @@ function CopyChip({ label, value, mono = true }: { label: string; value: string;
     });
   };
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+    <div className="flex items-center gap-2 rounded-xl border border-rule bg-surface-sunk px-3 py-2">
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-        <p className={`truncate text-xs font-semibold text-slate-700 ${mono ? 'font-mono' : ''}`}>{value}</p>
+        <p className="eyebrow">{label}</p>
+        <p className={`truncate text-xs font-semibold text-ink-2 ${mono ? 'font-mono' : ''}`}>{value}</p>
       </div>
       <button
         type="button"
         onClick={handleCopy}
         title="Copy to clipboard"
-        className="shrink-0 rounded-lg p-1 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+        className="shrink-0 rounded-lg p-1 transition-colors hover:bg-accent-wash hover:text-accent"
       >
         {copied
-          ? <Check className="h-3.5 w-3.5 text-emerald-600" />
-          : <Copy className="h-3.5 w-3.5 text-slate-400" />}
+          ? <Check className="h-3.5 w-3.5 text-ok" />
+          : <Copy className="h-3.5 w-3.5 text-ink-muted" />}
       </button>
     </div>
   );
@@ -322,7 +329,7 @@ export function ProfilePage() {
     <div className="mx-auto max-w-2xl space-y-6">
 
       {/* Hanging ID Card */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-indigo-50/40 pt-8 pb-4 flex flex-col items-center">
+      <div className="overflow-hidden rounded-2xl border border-rule bg-surface pt-8 pb-4 flex flex-col items-center">
         <HangingIdCard
           name={`${displayUser.firstName} ${displayUser.lastName}`.trim()}
           role={roleLabel}
@@ -346,10 +353,10 @@ export function ProfilePage() {
         <div className="mt-2 w-full px-6 pb-2">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+              <h1 className="text-xl font-bold text-ink">
                 {displayUser.firstName} {displayUser.lastName}
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-ink-muted">
                 {isStudent ? (displayUser.studentId ?? displayUser.email) : displayUser.email}
               </p>
             </div>
@@ -358,10 +365,10 @@ export function ProfilePage() {
                 {roleLabel}
               </span>
               {displayUser.emailVerified
-                ? <span className="flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700">
+                ? <span className="flex items-center gap-1 rounded-full bg-ok-wash border border-ok/25 px-3 py-1 text-xs font-semibold text-ok">
                     <CheckCircle2 className="h-3 w-3" /> Verified
                   </span>
-                : <span className="flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-semibold text-amber-700">
+                : <span className="flex items-center gap-1 rounded-full bg-warn-wash border border-warn/25 px-3 py-1 text-xs font-semibold text-warn">
                     <AlertCircle className="h-3 w-3" /> Unverified
                   </span>}
             </div>
@@ -379,12 +386,12 @@ export function ProfilePage() {
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunk px-3 py-1 text-xs font-medium text-ink-2">
               <Calendar className="h-3 w-3" />
               Member since {new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
             </span>
             {user.lastLoginAt && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunk px-3 py-1 text-xs font-medium text-ink-2">
                 <CheckCircle2 className="h-3 w-3" />
                 Last login {new Date(user.lastLoginAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
@@ -394,23 +401,23 @@ export function ProfilePage() {
           {isTutor && tutorCompletion !== null && (
             <div className="mt-5">
               <div className="mb-2 flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
-                  <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                <span className="flex items-center gap-1.5 font-medium text-ink-2">
+                  <Sparkles className="h-3.5 w-3.5 text-accent" />
                   Teaching profile {tutorCompletion}% complete
                 </span>
                 {tutorCompletion < 100 && (
                   <button
                     type="button"
                     onClick={() => setTab('teaching')}
-                    className="font-semibold text-indigo-600 hover:text-indigo-700"
+                    className="font-semibold text-accent hover:text-accent-hover"
                   >
                     Complete now →
                   </button>
                 )}
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-surface-sunk">
                 <div
-                  className="h-full bg-indigo-500 transition-all duration-500 rounded-full"
+                  className="h-full bg-accent transition-all duration-500 rounded-full"
                   style={{ width: `${tutorCompletion}%` }}
                 />
               </div>
@@ -423,16 +430,16 @@ export function ProfilePage() {
       {(['STUDENT', 'TUTOR', 'PRINCIPAL'] as const).includes(displayUser.role as 'STUDENT' | 'TUTOR' | 'PRINCIPAL') && (
         <Link
           to={`/dashboard/${displayUser.role.toLowerCase()}/wallet`}
-          className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-card transition-all hover:-translate-y-0.5 hover:border-indigo-200 dark:bg-slate-900 dark:border-slate-800"
+          className="group flex items-center gap-4 rounded-2xl border border-rule bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5 hover:border-accent/40"
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-warn-wash text-warn">
             <Wallet className="h-5 w-5" />
           </span>
           <div className="flex-1">
-            <p className="font-semibold text-slate-900 dark:text-white">My Wallet</p>
-            <p className="text-sm text-slate-500">View balance, credits and transactions</p>
+            <p className="font-semibold text-ink">My Wallet</p>
+            <p className="text-sm text-ink-muted">View balance, credits and transactions</p>
           </div>
-          <ArrowRight className="h-5 w-5 text-slate-300 transition-colors group-hover:text-indigo-500" />
+          <ArrowRight className="h-5 w-5 text-ink-faint transition-colors group-hover:text-accent" />
         </Link>
       )}
 
@@ -445,7 +452,7 @@ export function ProfilePage() {
 
       {/* Account tab */}
       {tab === 'account' && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+        <div className="rounded-2xl border border-rule bg-surface p-6 shadow-card">
           {profileFeedback && <div className="mb-5"><Toast {...profileFeedback} /></div>}
           <form onSubmit={profileForm.handleSubmit((d) => updateProfile(d))} className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -481,14 +488,14 @@ export function ProfilePage() {
               </Field>
             </div>
 
-            <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
-              <Globe className="h-4 w-4 text-sky-500 shrink-0" />
+            <div className="flex items-center gap-2.5 rounded-xl border border-info/25 bg-info-wash px-4 py-3">
+              <Globe className="h-4 w-4 text-info shrink-0" />
               <div className="text-sm">
-                <span className="font-semibold text-slate-700">{userTimezone}</span>
-                <span className="ml-1.5 text-slate-500">
+                <span className="font-semibold text-ink-2">{userTimezone}</span>
+                <span className="ml-1.5 text-ink-muted">
                   (UTC{formatInTimeZone(new Date(), userTimezone, 'xxx')})
                 </span>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-ink-muted mt-0.5">
                   Auto-detected from your device class times display in this timezone
                 </p>
               </div>
@@ -503,7 +510,7 @@ export function ProfilePage() {
 
       {/* Teaching profile tab (tutor only) */}
       {tab === 'teaching' && isTutor && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+        <div className="rounded-2xl border border-rule bg-surface p-6 shadow-card">
           {tutorFeedback && <div className="mb-5"><Toast {...tutorFeedback} /></div>}
           <form onSubmit={tutorForm.handleSubmit((d) => updateTutorProfile(d))} className="space-y-6">
 
@@ -512,7 +519,7 @@ export function ProfilePage() {
                 {...tutorForm.register('bio')}
                 rows={3}
                 placeholder="Tell students about your teaching style, experience and background…"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                className="w-full rounded-xl border border-rule-strong bg-surface px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent"
               />
             </Field>
 
@@ -548,13 +555,13 @@ export function ProfilePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Hourly Rate ($)" error={tutorForm.formState.errors.hourlyRateUSD?.message}>
                 <div className="relative">
-                  <DollarSign className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <DollarSign className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
                   <input
                     {...tutorForm.register('hourlyRateUSD', { valueAsNumber: true })}
                     type="number"
                     min={0}
                     placeholder="e.g. 50"
-                    className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
+                    className="w-full rounded-xl border border-rule-strong bg-surface py-2.5 pl-10 pr-3.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent"
                   />
                 </div>
               </Field>
@@ -584,14 +591,14 @@ export function ProfilePage() {
       {/* Security tab */}
       {tab === 'security' && (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+          <div className="rounded-2xl border border-rule bg-surface p-6 shadow-card">
             <div className="mb-5 flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50">
-                <Lock className="h-4 w-4 text-rose-600" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-danger-wash">
+                <Lock className="h-4 w-4 text-danger" />
               </span>
               <div>
-                <h3 className="text-base font-semibold text-slate-900 dark:text-white">Change Password</h3>
-                <p className="text-xs text-slate-500">All active sessions will be signed out after change</p>
+                <h3 className="text-base font-semibold text-ink">Change Password</h3>
+                <p className="text-xs text-ink-muted">All active sessions will be signed out after change</p>
               </div>
             </div>
 
@@ -629,21 +636,21 @@ export function ProfilePage() {
             </form>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+          <div className="rounded-2xl border border-rule bg-surface p-6 shadow-card">
             <div className="mb-4 flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
-                <ShieldCheck className="h-4 w-4 text-indigo-600" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-wash">
+                <ShieldCheck className="h-4 w-4 text-accent" />
               </span>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Account Details</h3>
+              <h3 className="text-base font-semibold text-ink">Account Details</h3>
             </div>
             <dl className="grid gap-3 sm:grid-cols-2">
               {[
-                { label: 'Status',  value: user.status.replace(/_/g, ' '), bg: 'bg-emerald-50', text: 'text-emerald-700' },
-                { label: 'Role',    value: roleLabel, bg: 'bg-indigo-50', text: 'text-indigo-700' },
-                { label: 'Created', value: new Date(user.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' }), bg: 'bg-amber-50', text: 'text-amber-700' },
+                { label: 'Status',  value: user.status.replace(/_/g, ' '), bg: 'bg-ok-wash', text: 'text-ok' },
+                { label: 'Role',    value: roleLabel, bg: 'bg-accent-wash', text: 'text-accent' },
+                { label: 'Created', value: new Date(user.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' }), bg: 'bg-warn-wash', text: 'text-warn' },
               ].map(({ label, value, bg, text }) => (
                 <div key={label} className={`rounded-xl ${bg} px-4 py-3`}>
-                  <dt className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
+                  <dt className="eyebrow mb-0.5">{label}</dt>
                   <dd className={`truncate text-sm font-semibold ${text}`}>{value}</dd>
                 </div>
               ))}
