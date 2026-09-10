@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Response, NextFunction } from 'express';
 import { walletController } from './wallet.controller';
 import { payoutService } from './payout.service';
+import { walletAdminService } from './wallet-admin.service';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { requirePermission, requireRole } from '../../middlewares/permission.middleware';
 import { Permission } from '../../constants/permissions';
@@ -64,6 +65,25 @@ router.get('/transactions', requirePermission(Permission.VIEW_FINANCIAL_REPORTS)
       pagination,
     );
     sendPaginated(res, result, 'Transactions fetched');
+  } catch (e) { next(e); }
+});
+
+// ─── Manual credit adjustments (super admin only) ──────────────────────────
+// Grants and claw-backs for students, tutors and principals — goodwill
+// credits, dispute corrections. See wallet-admin.service.ts for why this is
+// scoped tighter than the rest of wallet management.
+
+router.post('/:userId/credit', requireRole(Role.SUPER_ADMIN), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const transaction = await walletAdminService.grant(req.params.userId, req.body ?? {}, actorFrom(req));
+    sendCreated(res, transaction, 'Credits granted');
+  } catch (e) { next(e); }
+});
+
+router.post('/:userId/debit', requireRole(Role.SUPER_ADMIN), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const transaction = await walletAdminService.deduct(req.params.userId, req.body ?? {}, actorFrom(req));
+    sendCreated(res, transaction, 'Credits deducted');
   } catch (e) { next(e); }
 });
 
