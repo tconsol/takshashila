@@ -84,6 +84,21 @@ export interface CreateStudentByParentDto {
   notes?: string;
 }
 
+/** One tutor relationship as the student sees it. */
+export interface StudentTutorLink {
+  studentProfilePublicId: string;
+  status: string;
+  tutorPublicId?: string;
+  tutorUserPublicId?: string;
+  tutorName?: string;
+  tutorAvatarUrl?: string;
+  subjects: string[];
+  rating: number;
+  isVerified: boolean;
+  isPendingInvite: boolean;
+  createdAt: string;
+}
+
 export const studentsService = {
   createStudent: (dto: CreateStudentDto) =>
     api.post<{ data: StudentProfile }>('/students', dto).then((r) => r.data.data),
@@ -126,11 +141,25 @@ export const studentsService = {
   inviteExisting: (body: { email?: string; phone?: string; studentId?: string }) =>
     api.post<{ data: StudentProfile }>('/students/invite-existing', body).then((r) => r.data.data),
 
-  acceptInvite: () =>
-    api.post<{ data: StudentProfile }>('/students/me/accept-invite').then((r) => r.data.data),
+  /* A student holds one link per tutor, so invites are addressed individually —
+     `/students/me` only ever returns one profile and hid the rest. */
+  getMyTutorLinks: () =>
+    api.get<{ data: StudentTutorLink[] }>('/students/me/tutor-links').then((r) => r.data.data ?? []),
 
-  declineInvite: () =>
-    api.post('/students/me/decline-invite').then(() => null),
+  acceptInvite: (linkId?: string) =>
+    (linkId
+      ? api.post<{ data: StudentProfile }>(`/students/me/tutor-links/${linkId}/accept`)
+      : api.post<{ data: StudentProfile }>('/students/me/accept-invite')
+    ).then((r) => r.data.data),
+
+  declineInvite: (linkId?: string) =>
+    (linkId
+      ? api.post(`/students/me/tutor-links/${linkId}/decline`)
+      : api.post('/students/me/decline-invite')
+    ).then(() => null),
+
+  unlinkTutor: (linkId: string) =>
+    api.delete(`/students/me/tutor-links/${linkId}`).then(() => null),
 
   createStudentByPrincipal: (dto: CreateStudentByPrincipalDto) =>
     api.post<{ data: StudentProfile }>('/students/principal/create', dto).then((r) => r.data.data),

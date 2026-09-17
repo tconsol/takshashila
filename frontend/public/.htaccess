@@ -12,7 +12,10 @@ Options -Indexes
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set X-XSS-Protection "1; mode=block"
-    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    # Live classes need camera, mic and screen share on our OWN origin. An empty
+    # allowlist "()" denies the feature to everyone including self, which blocks
+    # getUserMedia and kills Agora; "(self)" is what grants it to this page only.
+    Header always set Permissions-Policy "camera=(self), microphone=(self), display-capture=(self), fullscreen=(self), geolocation=(), payment=(self)"
 
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" env=HTTPS
 

@@ -1,60 +1,59 @@
-import { GraduationCap, Star, MessageSquare, BookOpen, Users, Clock, CheckCircle, Mail, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { GraduationCap, Star, MessageSquare, BookOpen, CheckCircle, Unlink, BadgeCheck } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
+import { Modal } from '../../components/ui/Modal';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { Card, CardContent } from '../../components/ui/Card';
-import { useMyStudentProfile, useMyTutor, useAcceptInvite, useDeclineInvite } from '../../hooks/use-students';
+import { EmptyState } from '../../components/shared/EmptyState';
 import { Spinner } from '../../components/ui/Loading';
+import {
+  useMyTutorLinks,
+  useAcceptInvite,
+  useDeclineInvite,
+  useUnlinkTutor,
+} from '../../hooks/use-students';
+import { useStartConversation } from '../../features/chat/use-chat';
+import { useNavigate } from 'react-router-dom';
+import type { StudentTutorLink } from '../../services/students.service';
 
+/**
+ * A student can work with several tutors at once — one link each. Invites
+ * waiting on the student are lifted to the top, because they are the only thing
+ * on this page that needs a decision.
+ */
 export function StudentMyTutorPage() {
-  const { data: profile, isLoading: profileLoading } = useMyStudentProfile();
-  const { data: tutor, isLoading: tutorLoading } = useMyTutor();
+  const { data: links = [], isLoading } = useMyTutorLinks();
   const { mutate: acceptInvite, isPending: accepting } = useAcceptInvite();
   const { mutate: declineInvite, isPending: declining } = useDeclineInvite();
+  const { mutate: unlinkTutor, isPending: unlinking } = useUnlinkTutor();
+  const { mutateAsync: startConversation } = useStartConversation();
+  const navigate = useNavigate();
 
-  const isPendingInvite = profile?.status === 'PENDING_APPROVAL' && !!profile?.tutorPublicId;
+  const [confirmUnlink, setConfirmUnlink] = useState<StudentTutorLink | null>(null);
 
-  if (profileLoading || tutorLoading) {
-    return (
-      <div className="flex justify-center py-24">
-        <Spinner />
-      </div>
-    );
-  }
+  const invites = links.filter((l) => l.isPendingInvite);
+  const active = links.filter((l) => !l.isPendingInvite && !!l.tutorPublicId);
 
-  if (!profile?.tutorPublicId) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="My Tutor"
-          subtitle="Your connected tutor will appear here"
-          icon={<GraduationCap className="h-5 w-5" />}
-        />
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 py-20 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-            <GraduationCap className="h-8 w-8 text-gray-400" />
-          </div>
-          <div>
-            <p className="text-base font-medium text-gray-700 dark:text-gray-300">No tutor connected yet</p>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Browse tutors and request a demo class to get started.</p>
-          </div>
-          <Link to="/dashboard/student/tutors">
-            <Button variant="gradient">
-              <BookOpen className="h-4 w-4" /> Browse Tutors
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
+  const message = async (link: StudentTutorLink) => {
+    if (!link.tutorUserPublicId) return;
+    const conv = await startConversation({
+      recipientPublicId: link.tutorUserPublicId,
+      recipientRole: 'TUTOR',
+    });
+    navigate(`/chat/${conv.publicId}`);
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center py-24"><Spinner /></div>;
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Tutors"
-        subtitle="Your connected tutor or find a new one"
+        title="My Tutors"
+        subtitle={active.length > 0 ? `${active.length} connected` : 'Your connected tutors appear here'}
         icon={<GraduationCap className="h-5 w-5" />}
         actions={
           <Link to="/dashboard/student/tutors">
@@ -65,182 +64,137 @@ export function StudentMyTutorPage() {
         }
       />
 
-      {/* Requests — a real section rather than a banner, so a pending invitation
-          reads as something to act on and carries who sent it and why. */}
-      {isPendingInvite && (
-        <section>
-          <div className="ruled-heading mb-3">
-            <h2 className="text-base font-semibold text-ink">Requests</h2>
-            <Badge variant="warning" tone="soft" dot>1 awaiting you</Badge>
-          </div>
-
-          <Card className="border-warn/40 bg-warn-wash">
-            <CardContent className="p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-4">
-                  <Avatar name={tutor?.displayName ?? 'Tutor'} size="lg" />
-                  <div className="min-w-0">
-                    <p className="text-base font-semibold text-ink">
-                      {tutor?.displayName ?? 'A tutor'} wants to add you as their student
-                    </p>
-                    <p className="mt-1 text-sm text-ink-2">
-                      Accepting connects your account to their classroom — they will be able to
-                      schedule classes, set homework and record your attendance.
-                    </p>
-                    {tutor?.subjects && tutor.subjects.length > 0 && (
-                      <div className="mt-2.5 flex flex-wrap gap-1.5">
-                        {tutor.subjects.slice(0, 4).map((subject) => (
-                          <Badge key={subject} variant="info" tone="soft">{subject}</Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-shrink-0 gap-2">
-                  <Button variant="outline" onClick={() => declineInvite()} loading={declining}>
-                    Decline
-                  </Button>
-                  <Button onClick={() => acceptInvite()} loading={accepting}>
-                    <CheckCircle className="h-4 w-4" /> Accept
-                  </Button>
-                </div>
+      {invites.length > 0 && (
+        <section className="space-y-2.5">
+          <h2 className="eyebrow">Invitations · {invites.length}</h2>
+          {invites.map((link) => (
+            <div
+              key={link.studentProfilePublicId}
+              className="flex flex-wrap items-center gap-4 rounded-2xl border border-accent/30 bg-accent-wash p-4"
+            >
+              <Avatar name={link.tutorName ?? 'Tutor'} src={link.tutorAvatarUrl} size="md" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-ink">
+                  {link.tutorName ?? 'A tutor'} invited you
+                </p>
+                <p className="mt-0.5 truncate text-sm text-ink-muted">
+                  {link.subjects.length > 0 ? link.subjects.join(', ') : 'Accept to start booking classes'}
+                </p>
               </div>
-
-              <p className="mt-3 border-t border-warn/30 pt-3 text-xs text-ink-muted">
-                Declining lets the tutor know, and frees them to invite you again later.
-              </p>
-            </CardContent>
-          </Card>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  size="sm"
+                  loading={accepting}
+                  onClick={() => acceptInvite(link.studentProfilePublicId)}
+                >
+                  <CheckCircle className="h-4 w-4" /> Accept
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  loading={declining}
+                  onClick={() => declineInvite(link.studentProfilePublicId)}
+                >
+                  Decline
+                </Button>
+              </div>
+            </div>
+          ))}
         </section>
       )}
 
-      {tutor ? (
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Main profile card */}
-          <Card className="lg:col-span-2">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-5">
-                <Avatar name={tutor.displayName} size="xl" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">{tutor.displayName}</h2>
-                    {tutor.isVerified && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
-                        <CheckCircle className="h-3 w-3" /> Verified
-                      </span>
+      {active.length === 0 && invites.length === 0 ? (
+        <EmptyState
+          icon={<GraduationCap className="h-8 w-8" />}
+          title="No tutor connected yet"
+          description="Browse tutors and request a demo class to get started."
+          action={
+            <Link to="/dashboard/student/tutors">
+              <Button><BookOpen className="h-4 w-4" /> Browse tutors</Button>
+            </Link>
+          }
+        />
+      ) : (
+        <section className="space-y-2.5">
+          {active.length > 0 && <h2 className="eyebrow">Connected</h2>}
+          <div className="grid gap-3 md:grid-cols-2">
+            {active.map((link) => (
+              <div
+                key={link.studentProfilePublicId}
+                className="flex flex-col gap-3 rounded-2xl border border-rule bg-surface p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <Avatar name={link.tutorName ?? 'Tutor'} src={link.tutorAvatarUrl} size="lg" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate font-semibold text-ink">{link.tutorName ?? 'Tutor'}</p>
+                      {link.isVerified && (
+                        <BadgeCheck className="h-4 w-4 shrink-0 text-ok" aria-label="Verified" />
+                      )}
+                      <Badge variant={link.status === 'ACTIVE' ? 'success' : 'default'} tone="soft">
+                        {link.status}
+                      </Badge>
+                    </div>
+                    {link.subjects.length > 0 && (
+                      <p className="mt-1 truncate text-sm text-ink-muted">{link.subjects.join(', ')}</p>
+                    )}
+                    {link.rating > 0 && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-ink-muted">
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        {link.rating.toFixed(1)}
+                      </p>
                     )}
                   </div>
-
-                  {tutor.rating > 0 && (
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                      <span className="text-sm font-semibold text-gray-800 dark:text-white">{tutor.rating.toFixed(1)}</span>
-                      <span className="text-sm text-gray-500">rating</span>
-                    </div>
-                  )}
-
-                  {tutor.bio && (
-                    <p className="mt-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{tutor.bio}</p>
-                  )}
-
-                  {tutor.subjects?.length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Subjects</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {tutor.subjects.map((s) => (
-                          <span key={s} className="rounded-full bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-700 px-3 py-1 text-xs font-medium text-brand-700 dark:text-brand-300">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </div>
 
-              <div className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-800 flex gap-3">
-                <Link to="/chat" className="flex-1">
-                  <Button variant="outline" fullWidth>
+                <div className="mt-auto flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => message(link)} disabled={!link.tutorUserPublicId}>
                     <MessageSquare className="h-4 w-4" /> Message
                   </Button>
-                </Link>
-                <Link to="/dashboard/student/classes" className="flex-1">
-                  <Button variant="gradient" fullWidth>
-                    <BookOpen className="h-4 w-4" /> My Classes
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto text-danger hover:bg-danger-wash"
+                    onClick={() => setConfirmUnlink(link)}
+                  >
+                    <Unlink className="h-4 w-4" /> Unlink
                   </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Stats sidebar */}
-          <div className="space-y-4">
-            <Card>
-              <CardContent className="p-5 space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Tutor Stats</p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 dark:bg-brand-900/20">
-                      <Users className="h-4 w-4 text-brand-600 dark:text-brand-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Total Students</p>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{tutor.totalStudents}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-900/20">
-                      <BookOpen className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Classes Completed</p>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{tutor.totalClassesCompleted}</p>
-                    </div>
-                  </div>
-                  {tutor.hourlyRateCents != null && tutor.hourlyRateCents > 0 && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50 dark:bg-green-900/20">
-                        <Clock className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Hourly Rate</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          ${(tutor.hourlyRateCents / 100).toFixed(0)}/hr
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {tutor.email && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-900/20">
-                        <Mail className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Email</p>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{tutor.email}</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </CardContent>
-            </Card>
-
-            <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-4 text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Connection status</p>
-              <p className={`mt-1 text-sm font-semibold ${
-                profile?.status === 'ACTIVE' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
-              }`}>
-                {profile?.status === 'ACTIVE' ? 'Active' : 'Pending Approval'}
-              </p>
-            </div>
+              </div>
+            ))}
           </div>
-        </div>
-      ) : (
-        <div className="flex justify-center py-12">
-          <Spinner />
-        </div>
+        </section>
       )}
+
+      <Modal
+        open={!!confirmUnlink}
+        onClose={() => setConfirmUnlink(null)}
+        title="Unlink this tutor?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmUnlink(null)}>Keep tutor</Button>
+            <Button
+              variant="danger"
+              loading={unlinking}
+              onClick={() => {
+                if (!confirmUnlink) return;
+                unlinkTutor(confirmUnlink.studentProfilePublicId, {
+                  onSuccess: () => setConfirmUnlink(null),
+                });
+              }}
+            >
+              <Unlink className="h-4 w-4" /> Unlink
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-2">
+          You'll stop being {confirmUnlink?.tutorName ?? 'this tutor'}'s student and won't be able to
+          book new classes with them. Classes already completed stay in your history, and your other
+          tutors aren't affected. They can invite you again later.
+        </p>
+      </Modal>
     </div>
   );
 }

@@ -98,22 +98,44 @@ export function useInviteExistingStudent() {
   });
 }
 
+/** Every tutor link, so a second tutor's invite is visible rather than hidden
+ *  behind whichever profile happened to be created first. */
+export function useMyTutorLinks() {
+  return useQuery({
+    queryKey: ['students', 'me', 'tutor-links'],
+    queryFn: studentsService.getMyTutorLinks,
+  });
+}
+
+/** Everything a tutor-link action touches: the list, the legacy single profile,
+ *  the resolved tutor, and the sidebar badge counts. */
+function invalidateTutorLinks(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['students'] });
+  qc.invalidateQueries({ queryKey: ['tutors'] });
+  qc.invalidateQueries({ queryKey: ['badges'] });
+}
+
 export function useAcceptInvite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => studentsService.acceptInvite(),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: studentKeys.myProfile() });
-      qc.invalidateQueries({ queryKey: ['tutors', 'my-tutor'] });
-    },
+    mutationFn: (linkId?: string) => studentsService.acceptInvite(linkId),
+    onSuccess: () => invalidateTutorLinks(qc),
   });
 }
 
 export function useDeclineInvite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => studentsService.declineInvite(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: studentKeys.myProfile() }),
+    mutationFn: (linkId?: string) => studentsService.declineInvite(linkId),
+    onSuccess: () => invalidateTutorLinks(qc),
+  });
+}
+
+export function useUnlinkTutor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (linkId: string) => studentsService.unlinkTutor(linkId),
+    onSuccess: () => invalidateTutorLinks(qc),
   });
 }
 

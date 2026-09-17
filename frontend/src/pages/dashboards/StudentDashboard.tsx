@@ -5,7 +5,7 @@ import {
   Video, BookOpen, BarChart3, Coins, ArrowUpRight, Plus,
   Sparkles, Target, GraduationCap, Star, MessageSquare, Flame, Users,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuthStore } from '../../stores/auth.store';
 import { DashboardHero } from '../../components/shared/DashboardHero';
@@ -17,7 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { Avatar } from '../../components/ui/Avatar';
 import { LiveClassBanner } from '../../features/live-class/LiveClassBanner';
-import { useMyTutor, useStudentPrincipal } from '../../hooks/use-students';
+import { useMyTutor, useStudentPrincipal, useMyTutorLinks } from '../../hooks/use-students';
 import { useParentLinkRequests } from '../../hooks/use-student-parent-requests';
 import { api } from '../../lib/axios';
 
@@ -25,6 +25,8 @@ interface ClassItem {
   publicId: string;
   subject: string;
   scheduledStartUTC: string;
+  scheduledEndUTC?: string;
+  durationMinutes?: number;
   classType: string;
   status: string;
 }
@@ -53,14 +55,27 @@ function useStudentClasses() {
   return useQuery<ClassItem[]>({
     queryKey: ['classes', 'student', 'upcoming'],
     queryFn: async () => {
-      const { data } = await api.get('/classes/my/student', { params: { status: 'SCHEDULED', limit: 3 } });
+      // Deliberately unfiltered: asking the API for SCHEDULED dropped a class
+      // the moment it went LIVE — exactly when the student needs to join it.
+      const { data } = await api.get('/classes/my/student', { params: { limit: '50' } });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (data?.data?.items ?? []).map((c: any) => ({
-        ...c,
-        subject: c.subject ?? c.title ?? '',
-        scheduledStartUTC: c.scheduledStartUTC ?? c.startUTC ?? '',
-      }));
+      return (data?.data?.items ?? [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((c: any) => ({
+          ...c,
+          subject: c.subject ?? c.title ?? '',
+          scheduledStartUTC: c.scheduledStartUTC ?? c.startUTC ?? '',
+          scheduledEndUTC: c.scheduledEndUTC ?? c.endUTC ?? undefined,
+        }))
+        .filter((c: ClassItem) => c.status === 'SCHEDULED' || c.status === 'LIVE')
+        // Live first, then soonest — the actionable one sits at the top.
+        .sort((a: ClassItem, b: ClassItem) => {
+          if (a.status !== b.status) return a.status === 'LIVE' ? -1 : 1;
+          return new Date(a.scheduledStartUTC).getTime() - new Date(b.scheduledStartUTC).getTime();
+        })
+        .slice(0, 3);
     },
+    refetchInterval: 60_000,
   });
 }
 
@@ -185,6 +200,7 @@ function AttendanceRing({ rate }: { rate: number }) {
 export function StudentDashboard() {
   const user = useAuthStore((s) => s.user);
   const userTimezone = user?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const navigate = useNavigate();
 
   const { data: stats, isLoading: statsLoading } = useStudentStats();
   const { data: classes = [], isLoading: classesLoading } = useStudentClasses();
@@ -192,6 +208,8 @@ export function StudentDashboard() {
   const { data: myTutor } = useMyTutor();
   const { data: myPrincipal } = useStudentPrincipal();
   const { data: parentRequests = [] } = useParentLinkRequests();
+  const { data: tutorLinks = [] } = useMyTutorLinks();
+  const tutorInvites = tutorLinks.filter((l) => l.isPendingInvite);
 
   const upcoming   = useCountUp(stats?.upcoming ?? 0);
   const submissions = useCountUp(stats?.submissions ?? 0);
@@ -244,6 +262,36 @@ export function StudentDashboard() {
           <Link to="/dashboard/student/parent-requests" className="shrink-0">
             <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white border-violet-600">
               Review <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </Link>
+        </motion.div>
+      )}
+
+      {/* Tutor invitations. Surfaced here as well as on My Tutors, because a
+          student who never opens that page would otherwise never know. */}
+      {tutorInvites.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent-wash px-5 py-3.5"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15">
+              <GraduationCap className="h-4 w-4 text-accent" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">
+                {tutorInvites.length === 1
+                  ? `${tutorInvites[0].tutorName ?? 'A tutor'} invited you`
+                  : `${tutorInvites.length} tutors invited you`}
+              </p>
+              <p className="mt-0.5 text-xs text-ink-muted">Accept to start booking classes with them</p>
+            </div>
+          </div>
+          <Link to="/dashboard/student/my-tutor" className="shrink-0">
+            <Button size="sm">
+              Review <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </Link>
         </motion.div>
@@ -351,31 +399,71 @@ export function StudentDashboard() {
                 />
               ) : (
                 <div className="space-y-2.5">
-                  {classes.map((cls, i) => (
-                    <motion.div
-                      key={cls.publicId}
-                      custom={i}
-                      variants={slideLeft}
-                      initial="hidden"
-                      animate="show"
-                      className="flex items-center justify-between rounded-xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 text-brand-600 ring-1 ring-brand-100 dark:from-brand-900/30 dark:to-violet-900/30 dark:text-brand-300">
-                          <Video className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{cls.subject}</p>
-                          <p className="text-xs text-gray-500">
-                            {formatInTimeZone(new Date(cls.scheduledStartUTC), userTimezone, 'EEE, MMM d · h:mm a zzz')}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant={cls.classType === 'DEMO' ? 'warning' : 'info'} tone="soft">
-                        {cls.classType}
-                      </Badge>
-                    </motion.div>
-                  ))}
+                  {classes.map((cls, i) => {
+                    // Joinable from 10 minutes before the start until the end —
+                    // early enough to be waiting, not so early it's meaningless.
+                    const startsAt = new Date(cls.scheduledStartUTC).getTime();
+                    const endsAt = cls.scheduledEndUTC
+                      ? new Date(cls.scheduledEndUTC).getTime()
+                      : startsAt + (cls.durationMinutes ?? 60) * 60_000;
+                    const joinable =
+                      cls.status === 'LIVE' ||
+                      (Date.now() >= startsAt - 10 * 60_000 && Date.now() <= endsAt);
+
+                    return (
+                      <motion.div
+                        key={cls.publicId}
+                        custom={i}
+                        variants={slideLeft}
+                        initial="hidden"
+                        animate="show"
+                      >
+                        <Link
+                          to={`/dashboard/student/classes`}
+                          state={{ focusClassPublicId: cls.publicId }}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 text-brand-600 ring-1 ring-brand-100 dark:from-brand-900/30 dark:to-violet-900/30 dark:text-brand-300">
+                              <Video className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{cls.subject}</p>
+                              <p className="text-xs text-gray-500">
+                                {formatInTimeZone(new Date(cls.scheduledStartUTC), userTimezone, 'EEE, MMM d · h:mm a zzz')}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-shrink-0 items-center gap-2">
+                            {cls.status === 'LIVE' && (
+                              <span className="flex items-center gap-1.5 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-500">
+                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                LIVE
+                              </span>
+                            )}
+                            {joinable ? (
+                              <Button
+                                size="sm"
+                                onClick={(e) => {
+                                  // Inside a Link — don't also navigate to the list.
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  navigate(`/class/${cls.publicId}`);
+                                }}
+                              >
+                                <Video className="h-3.5 w-3.5" /> Join
+                              </Button>
+                            ) : (
+                              <Badge variant={cls.classType === 'DEMO' ? 'warning' : 'info'} tone="soft">
+                                {cls.classType}
+                              </Badge>
+                            )}
+                          </div>
+                        </Link>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
