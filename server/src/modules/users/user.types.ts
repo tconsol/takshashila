@@ -34,6 +34,8 @@ export interface IUser {
   pushTokens?: string[];
   isDeleted: boolean;
   deletedAt?: Date;
+  /** Address held before deletion released it; restore puts it back. */
+  deletedEmail?: string;
   deletedBy?: string;
   createdAt: Date;
   updatedAt: Date;

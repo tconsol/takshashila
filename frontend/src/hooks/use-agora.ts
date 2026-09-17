@@ -25,6 +25,8 @@ export interface UseAgoraReturn {
   localScreenTrack: ILocalVideoTrack | null;
   localUid: UID | null;
   participants: Map<UID, AgoraParticipant>;
+  /** uids (as strings) currently above the speaking threshold. */
+  speakingUids: Set<string>;
   isMuted: boolean;
   isCameraOff: boolean;
   isScreenSharing: boolean;
@@ -53,6 +55,7 @@ export function useAgora(classPublicId: string | null): UseAgoraReturn {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [speakingUids, setSpeakingUids] = useState<Set<string>>(new Set());
 
   const updateParticipant = useCallback((uid: UID, update: Partial<AgoraParticipant>) => {
     setParticipants((prev) => {
@@ -105,6 +108,20 @@ export function useAgora(classPublicId: string | null): UseAgoraReturn {
         client.on('user-left', (user: IAgoraRTCRemoteUser) => {
           if (!active) return;
           removeParticipant(user.uid);
+        });
+
+        /* Drives the "who is talking" ring. The threshold keeps keyboard noise
+           and breathing from lighting every tile up; Agora reports 0-100. */
+        client.enableAudioVolumeIndicator();
+        client.on('volume-indicator', (volumes: { uid: UID; level: number }[]) => {
+          if (!active) return;
+          const loud = new Set(
+            volumes.filter((v) => v.level > 20).map((v) => String(v.uid)),
+          );
+          setSpeakingUids((prev) => {
+            if (prev.size === loud.size && [...prev].every((u) => loud.has(u))) return prev;
+            return loud;
+          });
         });
 
         await client.join(appId, channel, token, uid);
@@ -250,6 +267,7 @@ export function useAgora(classPublicId: string | null): UseAgoraReturn {
     localScreenTrack,
     localUid,
     participants,
+    speakingUids,
     isMuted,
     isCameraOff,
     isScreenSharing,

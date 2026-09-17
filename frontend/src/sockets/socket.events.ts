@@ -32,9 +32,6 @@ export const SocketEvent = {
   // Whiteboard
   WB_UPDATE: 'wb:update',
 
-  // Recording
-  RECORDING_STARTED: 'recording:started',
-  RECORDING_STOPPED: 'recording:stopped',
 
   // Data invalidation (server pushes when data changes)
   DATA_INVALIDATE: 'data:invalidate',

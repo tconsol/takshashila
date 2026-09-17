@@ -84,4 +84,10 @@ export interface DebitWalletDto {
   metadata?: Record<string, unknown>;
   /** Also decrement this sub-bucket (e.g. 'demoCreditsCents') alongside balance. */
   bucketField?: 'demoCreditsCents' | 'purchasedCreditsCents' | 'bonusCreditsCents';
+  /**
+   * Let the balance go below zero instead of rejecting with 402. Only for
+   * charges the user must not be able to dodge by spending down first, such as
+   * a cancellation fee. The debt is settled by their next top-up.
+   */
+  allowNegative?: boolean;
 }

@@ -11,7 +11,6 @@ import {
   cancelClassSchema,
   setMeetingUrlSchema,
   classQuerySchema,
-  saveRecordingSchema,
   tutorCreateClassSchema,
   tutorRescheduleSchema,
 } from './class.validators';
@@ -22,6 +21,7 @@ router.use(authMiddleware);
 router.post('/tutor/create', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(tutorCreateClassSchema), classController.tutorCreateClass.bind(classController));
 router.get('/my/principal', requireRole(Role.PRINCIPAL), classController.getLiveClassesAsPrincipal.bind(classController));
 router.get('/my/tutor', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(classQuerySchema, 'query'), classController.getMyClassesAsTutor.bind(classController));
+router.get('/my/awaiting-decision', requireRole(Role.TUTOR, Role.PRINCIPAL), classController.getAwaitingDecision.bind(classController));
 router.get('/my/student', requireRole(Role.STUDENT), validate(classQuerySchema, 'query'), classController.getMyClassesAsStudent.bind(classController));
 router.post('/book', requireRole(Role.STUDENT), validate(bookClassSchema), classController.bookClass.bind(classController));
 // Platform-wide class listing for admin finance/ops screens.
@@ -49,7 +49,6 @@ router.post('/:classId/cancel', validate(cancelClassSchema), classController.can
 router.post('/:classId/refund', requireRole(Role.SUPER_ADMIN, Role.ADMIN, Role.PRINCIPAL, Role.TUTOR), validate(cancelClassSchema), classController.refundClass.bind(classController));
 router.patch('/:classId/meeting-url', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(setMeetingUrlSchema), classController.setMeetingUrl.bind(classController));
 router.patch('/:classId/reschedule-by-tutor', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(tutorRescheduleSchema), classController.tutorReschedule.bind(classController));
-router.post('/:classId/recording', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(saveRecordingSchema), classController.saveRecording.bind(classController));
 router.get('/:classId/agora-token', classController.getAgoraToken.bind(classController));
 
 export default router;

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
-import { authService } from '../services/auth.service';
+import { authService, isGoogleRoleRequired } from '../services/auth.service';
+import type { GoogleAuthPayload, GoogleRoleRequired } from '../services/auth.service';
 import { ROLE_DASHBOARD_PATHS } from '../constants/roles';
 import type { LoginFormData } from '../validators/auth.validators';
 
@@ -30,13 +31,22 @@ export function useLogin() {
   });
 }
 
-export function useGoogleAuth() {
+/**
+ * `onRoleRequired` fires when Google authenticated someone we've never seen —
+ * the server needs a role before it can create the account, so the caller shows
+ * a picker and calls the mutation again with `role`.
+ */
+export function useGoogleAuth(onRoleRequired?: (info: GoogleRoleRequired) => void) {
   const { setAuth } = useAuthStore();
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: (payload: { idToken?: string; code?: string; accessToken?: string }) => authService.googleAuth(payload),
+    mutationFn: (payload: GoogleAuthPayload) => authService.googleAuth(payload),
     onSuccess: (result) => {
+      if (isGoogleRoleRequired(result)) {
+        onRoleRequired?.(result);
+        return;
+      }
       setAuth(result.user, result.accessToken);
       localStorage.setItem('refreshToken', result.refreshToken);
       navigate(ROLE_DASHBOARD_PATHS[result.user.role], { replace: true });

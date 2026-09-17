@@ -49,8 +49,6 @@ const scheduledClassSchema = new Schema<IScheduledClass>(
     meetingUrl: { type: String },
     meetingProvider: { type: String, enum: ['zoom', 'google_meet', 'native'] },
     meetingId: { type: String },
-    recordingUrl: { type: String },
-    recordingGcsKey: { type: String },
     costCents: { type: Number, default: 0 },
     billingMode: {
       type: String,
@@ -59,6 +57,9 @@ const scheduledClassSchema = new Schema<IScheduledClass>(
     },
     idempotencyKey: { type: String, required: true, unique: true },
     studentJoinedAt: { type: Date },
+    tutorJoinedAt: { type: Date },
+    startedAt: { type: Date },
+    needsTutorDecision: { type: Boolean, default: false, index: true },
     cancellationReason: { type: String },
     cancelledBy: { type: String },
     rescheduledFromId: { type: String },

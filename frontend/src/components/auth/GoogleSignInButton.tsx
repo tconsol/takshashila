@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useGoogleAuth } from '../../hooks/use-auth';
+import { GoogleRoleModal } from './GoogleRoleModal';
+import type { GoogleRoleRequired } from '../../services/auth.service';
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
@@ -21,8 +23,12 @@ function GoogleGlyph() {
  * Instrumented so the failing step is visible in the console + on screen.
  */
 export function GoogleSignInButton({ label = 'Continue with Google' }: { label?: string }) {
-  const googleAuth = useGoogleAuth();
   const [localError, setLocalError] = useState<string | null>(null);
+  // Held so the second call (with the chosen role) can replay the same credential.
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [roleInfo, setRoleInfo] = useState<GoogleRoleRequired | null>(null);
+
+  const googleAuth = useGoogleAuth((info) => setRoleInfo(info));
 
   const login = useGoogleLogin({
     // MUST request email + profile, else the access token carries no email and the
@@ -32,6 +38,7 @@ export function GoogleSignInButton({ label = 'Continue with Google' }: { label?:
       console.info('[google] popup success, got access_token:', !!resp.access_token);
       setLocalError(null);
       if (resp.access_token) {
+        setPendingToken(resp.access_token);
         googleAuth.mutate({ accessToken: resp.access_token });
       } else {
         setLocalError('Google did not return an access token.');
@@ -82,12 +89,29 @@ export function GoogleSignInButton({ label = 'Continue with Google' }: { label?:
         type="button"
         onClick={() => { setLocalError(null); login(); }}
         disabled={googleAuth.isPending}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 hover:shadow-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        className="flex w-full items-center justify-center gap-3 rounded-xl border border-rule bg-surface px-4 py-2.5 text-sm font-semibold text-ink-2 transition-all hover:border-rule-strong hover:bg-surface-hover disabled:opacity-60"
       >
         <GoogleGlyph />
         {googleAuth.isPending ? 'Signing in…' : label}
       </button>
-      {error && <p className="text-center text-xs font-medium text-rose-600">{error}</p>}
+      {error && !roleInfo && <p className="text-center text-xs font-medium text-danger">{error}</p>}
+
+      {roleInfo && (
+        <GoogleRoleModal
+          info={roleInfo}
+          submitting={googleAuth.isPending}
+          error={serverError}
+          onCancel={() => { setRoleInfo(null); setPendingToken(null); }}
+          onSubmit={(extra) => {
+            if (!pendingToken) {
+              setRoleInfo(null);
+              setLocalError('Your Google session expired. Please try again.');
+              return;
+            }
+            googleAuth.mutate({ accessToken: pendingToken, ...extra });
+          }}
+        />
+      )}
     </div>
   );
 }

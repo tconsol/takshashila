@@ -25,14 +25,12 @@ export const Permission = {
   MANAGE_STUDENTS: 'MANAGE_STUDENTS',
   SCHEDULE_CLASS: 'SCHEDULE_CLASS',
   CONDUCT_CLASS: 'CONDUCT_CLASS',
-  UPLOAD_RECORDING: 'UPLOAD_RECORDING',
   MANAGE_ASSIGNMENTS: 'MANAGE_ASSIGNMENTS',
   GRADE_ASSIGNMENTS: 'GRADE_ASSIGNMENTS',
   MARK_ATTENDANCE: 'MARK_ATTENDANCE',
 
   // ─── Student Operations ──────────────────────────────
   BOOK_CLASS: 'BOOK_CLASS',
-  VIEW_RECORDINGS: 'VIEW_RECORDINGS',
   SUBMIT_ASSIGNMENT: 'SUBMIT_ASSIGNMENT',
   MANAGE_OWN_CREDITS: 'MANAGE_OWN_CREDITS',
   VIEW_OWN_PROGRESS: 'VIEW_OWN_PROGRESS',
@@ -92,7 +90,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.CREATE_STUDENT,
     Permission.SCHEDULE_CLASS,
     Permission.CONDUCT_CLASS,
-    Permission.UPLOAD_RECORDING,
     Permission.MANAGE_ASSIGNMENTS,
     Permission.GRADE_ASSIGNMENTS,
     Permission.MARK_ATTENDANCE,
@@ -104,7 +101,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.MANAGE_STUDENTS,
     Permission.SCHEDULE_CLASS,
     Permission.CONDUCT_CLASS,
-    Permission.UPLOAD_RECORDING,
     Permission.MANAGE_ASSIGNMENTS,
     Permission.GRADE_ASSIGNMENTS,
     Permission.MARK_ATTENDANCE,
@@ -114,7 +110,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 
   STUDENT: [
     Permission.BOOK_CLASS,
-    Permission.VIEW_RECORDINGS,
     Permission.SUBMIT_ASSIGNMENT,
     Permission.MANAGE_OWN_CREDITS,
     Permission.VIEW_OWN_PROGRESS,
@@ -132,7 +127,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.VIEW_OWN_WALLET,
     Permission.VIEW_OWN_PROGRESS,
     Permission.BOOK_CLASS,
-    Permission.VIEW_RECORDINGS,
   ],
 };
 

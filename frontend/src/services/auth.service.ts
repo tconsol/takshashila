@@ -2,6 +2,40 @@ import { api } from '../lib/axios';
 import type { ApiResponse, User, TokenPair } from '../types';
 import type { LoginFormData, RegisterFormData, ForgotPasswordFormData } from '../validators/auth.validators';
 
+/** Roles a person may pick for themselves during Google signup. */
+export type GoogleSignupRole = 'STUDENT' | 'TUTOR' | 'PRINCIPAL';
+
+export interface GoogleAuthPayload {
+  idToken?: string;
+  code?: string;
+  accessToken?: string;
+  /** Sent on the second call, once the person has chosen. */
+  role?: GoogleSignupRole;
+  phone?: string;
+  timezone?: string;
+  subjects?: string[];
+  languages?: string[];
+  bio?: string;
+  qualifications?: string[];
+  grade?: string;
+  organizationName?: string;
+}
+
+/** An unknown Google address signs UP, so the server asks what to create. */
+export interface GoogleRoleRequired {
+  needsRole: true;
+  email: string;
+  firstName: string;
+  lastName: string;
+  picture?: string;
+}
+
+export type GoogleAuthResult = ({ user: User } & TokenPair) | GoogleRoleRequired;
+
+export function isGoogleRoleRequired(r: GoogleAuthResult): r is GoogleRoleRequired {
+  return (r as GoogleRoleRequired).needsRole === true;
+}
+
 export const authService = {
   async login(data: LoginFormData) {
     const res = await api.post<ApiResponse<{ user: User } & TokenPair>>('/auth/login', data);
@@ -21,8 +55,8 @@ export const authService = {
     return res.data.data;
   },
 
-  async googleAuth(payload: { idToken?: string; code?: string; accessToken?: string }) {
-    const res = await api.post<ApiResponse<{ user: User } & TokenPair>>('/auth/google', payload);
+  async googleAuth(payload: GoogleAuthPayload) {
+    const res = await api.post<ApiResponse<GoogleAuthResult>>('/auth/google', payload);
     return res.data.data;
   },
 

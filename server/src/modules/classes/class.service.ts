@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ScheduledClassModel } from '../schedules/schedule.model';
-import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES } from '../schedules/schedule.types';
+import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES, MIN_SESSION_MINUTES } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { scheduleService } from '../schedules/schedule.service';
 import { walletService } from '../wallets/wallet.service';
@@ -20,7 +20,7 @@ import { attendanceService } from '../attendance/attendance.service';
 import { AttendanceStatus } from '../attendance/attendance.types';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
-import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto, SaveRecordingDto, TutorCreateClassDto, TutorRescheduleDto } from './class.validators';
+import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto, TutorCreateClassDto, TutorRescheduleDto } from './class.validators';
 
 // A completed demo class consumes 10 credits from the student's free demo-credit bucket.
 const DEMO_CLASS_COST_CENTS = 10 * 100;
@@ -102,7 +102,7 @@ export class ClassService {
         status: ClassStatus.SCHEDULED,
         isDeleted: false,
       },
-      { $set: { status: ClassStatus.LIVE } },
+      { $set: { status: ClassStatus.LIVE, startedAt: new Date(), tutorJoinedAt: new Date() } },
       { new: true },
     ).lean();
 
@@ -141,8 +141,13 @@ export class ClassService {
     // (Previously this early-returned for LIVE, so a student joining after the
     //  tutor started was wrongly marked absent on completion.)
     const setFields: Record<string, unknown> = {};
-    if (cls.status === ClassStatus.SCHEDULED) setFields.status = ClassStatus.LIVE;
+    if (cls.status === ClassStatus.SCHEDULED) {
+      setFields.status = ClassStatus.LIVE;
+      if (!cls.startedAt) setFields.startedAt = new Date();
+    }
     if (role === 'STUDENT' && !cls.studentJoinedAt) setFields.studentJoinedAt = new Date();
+    // Both sides are needed to judge whether the session really happened.
+    if (role === 'TUTOR' && !cls.tutorJoinedAt) setFields.tutorJoinedAt = new Date();
 
     if (Object.keys(setFields).length === 0) return cls; // already LIVE + already joined
 
@@ -185,7 +190,7 @@ export class ClassService {
 
     const updated = await ScheduledClassModel.findOneAndUpdate(
       { publicId: classPublicId },
-      { $set: { status: ClassStatus.COMPLETED } },
+      { $set: { status: ClassStatus.COMPLETED, needsTutorDecision: false } },
       { new: true },
     ).lean();
 
@@ -327,6 +332,7 @@ export class ClassService {
           status: ClassStatus.CANCELLED,
           cancellationReason: dto.reason,
           cancelledBy: actorPublicId,
+          needsTutorDecision: false,
         },
       },
       { new: true },
@@ -346,6 +352,11 @@ export class ClassService {
       StudentProfileModel.findOne({ publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
     ]);
 
+    await this._chargeCancellationFee(classPublicId, actorPublicId, {
+      tutorUserPublicId: cancelledTutorProfile?.userPublicId,
+      studentUserPublicId: cancelledStudentProfile?.userPublicId,
+    });
+
     domainEvents.emit(DomainEvent.CLASS_CANCELLED, {
       classPublicId,
       cancelledBy: actorPublicId,
@@ -355,6 +366,47 @@ export class ClassService {
     });
 
     return updated!;
+  }
+
+  /**
+   * The platform fee falls on whoever walked away. Only a party to the class
+   * pays: an admin or the overdue sweep cancelling on someone's behalf is not a
+   * cancellation by that person, so nobody is charged.
+   *
+   * Deliberately allowed to push the wallet negative — otherwise the fee is
+   * avoidable by simply having no balance. Never fatal: the class is already
+   * cancelled by this point and must not be un-cancelled by a billing failure.
+   */
+  private async _chargeCancellationFee(
+    classPublicId: string,
+    actorPublicId: string,
+    parties: { tutorUserPublicId?: string; studentUserPublicId?: string },
+  ): Promise<void> {
+    const role =
+      actorPublicId === parties.tutorUserPublicId ? 'TUTOR' :
+      actorPublicId === parties.studentUserPublicId ? 'STUDENT' :
+      null;
+
+    if (!role) return;
+
+    try {
+      await walletService.debitWallet({
+        ownerPublicId: actorPublicId,
+        amountCents: PLATFORM_FEE_CENTS,
+        description: 'Class cancellation fee',
+        idempotencyKey: `cancel-fee-${classPublicId}`,
+        referenceId: classPublicId,
+        referenceType: 'CLASS_CANCELLATION_FEE',
+        metadata: { cancelledBy: role },
+        allowNegative: true,
+      });
+    } catch (error) {
+      logger.warn('Could not charge cancellation fee', {
+        classPublicId,
+        actorPublicId,
+        error: (error as Error).message,
+      });
+    }
   }
 
   /**
@@ -724,27 +776,6 @@ export class ClassService {
     return updated!;
   }
 
-  async saveRecording(
-    classPublicId: string,
-    actorPublicId: string,
-    dto: SaveRecordingDto,
-  ): Promise<IScheduledClass> {
-    const cls = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
-    if (!cls) throw new NotFoundError('Class');
-    if (cls.tutorPublicId !== actorPublicId) {
-      const tutorProfile = await tutorService.getByPublicId(cls.tutorPublicId);
-      if (tutorProfile.userPublicId !== actorPublicId) {
-        throw new AppError('Only the class tutor can save a recording', 403);
-      }
-    }
-    const updated = await ScheduledClassModel.findOneAndUpdate(
-      { publicId: classPublicId },
-      { $set: { recordingUrl: dto.recordingUrl, recordingGcsKey: dto.gcsObjectKey } },
-      { new: true },
-    ).lean();
-    return updated!;
-  }
-
   /**
    * Closes classes that ran past their end time with nobody closing them.
    *
@@ -761,7 +792,7 @@ export class ClassService {
    * Runs on a repeating job; safe to run concurrently because each class is
    * claimed with a conditional update before any money moves.
    */
-  async autoResolveOverdueClasses(): Promise<{ completed: number; cancelled: number }> {
+  async autoResolveOverdueClasses(): Promise<{ completed: number; cancelled: number; held: number }> {
     const cutoff = new Date(Date.now() - AUTO_RESOLVE_GRACE_MINUTES * 60 * 1000);
 
     const overdue = await ScheduledClassModel.find(
@@ -770,16 +801,34 @@ export class ClassService {
         endUTC: { $lte: cutoff },
         status: { $in: [ClassStatus.LIVE, ClassStatus.SCHEDULED] },
         autoResolution: { $exists: false },
+        needsTutorDecision: { $ne: true },
       },
-      { publicId: 1, status: 1, tutorPublicId: 1 },
+      {
+        publicId: 1, status: 1, tutorPublicId: 1,
+        studentJoinedAt: 1, tutorJoinedAt: 1, startedAt: 1, endUTC: 1,
+      },
     )
       .limit(200)
       .lean();
 
     let completed = 0;
     let cancelled = 0;
+    let held = 0;
 
     for (const cls of overdue) {
+      /* Only settle a LIVE class automatically when it plausibly happened: both
+         people present, together, for at least the minimum. Anything shorter is
+         ambiguous — it could be a mis-click or a session that fell apart — so a
+         human decides rather than the platform moving money on a guess. */
+      if (cls.status === ClassStatus.LIVE && !this._metMinimumSession(cls)) {
+        await ScheduledClassModel.updateOne(
+          { publicId: cls.publicId, needsTutorDecision: { $ne: true } },
+          { $set: { needsTutorDecision: true } },
+        );
+        held += 1;
+        continue;
+      }
+
       // Claim it first: the conditional match means a second worker (or a
       // tutor pressing Complete right now) cannot double-resolve the class.
       const claimed = await ScheduledClassModel.findOneAndUpdate(
@@ -822,7 +871,52 @@ export class ClassService {
       }
     }
 
-    return { completed, cancelled };
+    return { completed, cancelled, held };
+  }
+
+  /**
+   * Did tutor and student overlap in the room for long enough to call it a
+   * lesson? Measured from the later of the two join times, so one person sitting
+   * alone for an hour does not count.
+   *
+   * This is a proxy: there is no per-second presence heartbeat, so it cannot
+   * detect someone joining and immediately walking away. It answers "were both
+   * present, and did the session run at least this long".
+   */
+  private _metMinimumSession(cls: Pick<
+    IScheduledClass,
+    'studentJoinedAt' | 'tutorJoinedAt' | 'endUTC'
+  >): boolean {
+    if (!cls.studentJoinedAt || !cls.tutorJoinedAt) return false;
+
+    const bothPresentFrom = Math.max(
+      new Date(cls.studentJoinedAt).getTime(),
+      new Date(cls.tutorJoinedAt).getTime(),
+    );
+    // Cap at the scheduled end so a class left open all night isn't counted as
+    // an all-night lesson.
+    const until = Math.min(Date.now(), new Date(cls.endUTC).getTime());
+    const minutesTogether = (until - bothPresentFrom) / 60_000;
+
+    return minutesTogether >= MIN_SESSION_MINUTES;
+  }
+
+  /** Classes parked awaiting the tutor's Complete/Cancel decision. */
+  async listAwaitingDecision(tutorUserPublicId: string): Promise<IScheduledClass[]> {
+    const tutorProfile = await TutorProfileModel.findOne(
+      { userPublicId: tutorUserPublicId, isDeleted: false },
+      { publicId: 1 },
+    ).lean();
+    if (!tutorProfile) return [];
+
+    return ScheduledClassModel.find({
+      tutorPublicId: tutorProfile.publicId,
+      needsTutorDecision: true,
+      status: ClassStatus.LIVE,
+      isDeleted: false,
+    })
+      .sort({ endUTC: 1 })
+      .lean();
   }
 
   /**

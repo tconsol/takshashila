@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Send, Users, ChevronRight } from 'lucide-react';
+import { MessageSquare, Send, Users, ChevronRight, PinOff } from 'lucide-react';
 import { useSocket } from '../../sockets/use-socket';
 import { useClassSocket } from '../../sockets/class.socket';
 import { useAgora } from '../../hooks/use-agora';
@@ -31,6 +31,9 @@ export function ClassRoomPage() {
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [handRaisedNotice, setHandRaisedNotice] = useState<string | null>(null);
   const [screenSharerUid, setScreenSharerUid] = useState<string | null>(null);
+  // 'local' | remote uid | null. Survives presentation changes on purpose: a
+  // deliberate pin should outrank someone starting to share.
+  const [pinnedKey, setPinnedKey] = useState<string | null>(null);
   const handTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -170,49 +173,61 @@ export function ClassRoomPage() {
   const participantCount = 1 + agora.participants.size;
 
   return (
-    <div className="flex h-screen flex-col bg-gray-950 text-white overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-950 text-white">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-2.5 bg-gray-900 border-b border-gray-800 shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 rounded-full bg-red-500/20 px-2.5 py-1 text-xs font-semibold text-red-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-neutral-900/80 px-5 py-2.5 backdrop-blur">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex items-center gap-1.5 rounded-full bg-rose-500/15 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-rose-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
             LIVE
           </span>
-          <span className="text-sm font-medium text-gray-200">Live Class</span>
+          <span className="truncate text-sm font-medium text-neutral-200">Live Class</span>
           {!agora.isJoined && !agora.error && (
-            <span className="text-xs text-amber-400 animate-pulse">Connecting…</span>
+            <span className="animate-pulse text-xs text-amber-400">Connecting…</span>
           )}
           {handRaisedNotice && (
-            <span className="flex items-center gap-1.5 rounded-full bg-yellow-500/20 px-2.5 py-1 text-xs font-medium text-yellow-400 animate-pulse">
+            <span className="hidden animate-pulse items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-300 sm:flex">
               {handRaisedNotice}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex shrink-0 items-center gap-2.5">
           {(agora.error || joinError) && (
-            <span className="text-xs text-amber-400">{agora.error ?? joinError}</span>
+            <span className="hidden max-w-[28ch] truncate text-xs text-amber-400 md:inline">
+              {agora.error ?? joinError}
+            </span>
           )}
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          {pinnedKey && (
+            <button
+              onClick={() => setPinnedKey(null)}
+              className="flex items-center gap-1.5 rounded-lg bg-sky-500/15 px-2.5 py-1.5 text-xs font-medium text-sky-300 transition-colors hover:bg-sky-500/25"
+            >
+              <PinOff className="h-3.5 w-3.5" />
+              Unpin
+            </button>
+          )}
+          <span className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-neutral-300">
             <Users className="h-3.5 w-3.5" />
-            <span>{participantCount}</span>
-          </div>
+            {participantCount}
+          </span>
           <button
             onClick={() => setIsChatOpen((v) => !v)}
-            className="flex items-center gap-1 rounded-lg bg-gray-800 px-2.5 py-1.5 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-white/10"
           >
             <MessageSquare className="h-3.5 w-3.5" />
-            Chat
-            <ChevronRight className={`h-3 w-3 transition-transform ${isChatOpen ? 'rotate-180' : ''}`} />
+            <span className="hidden sm:inline">Chat</span>
+            <ChevronRight className={`h-3 w-3 transition-transform duration-200 ${isChatOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Main area */}
-      <div className="flex flex-1 overflow-hidden min-h-0">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
 
         {/* Video area */}
-        <div className="flex-1 bg-gray-950 overflow-hidden min-h-0">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <VideoGrid
             localVideoTrack={agora.localVideoTrack}
             localScreenTrack={agora.localScreenTrack}
@@ -223,73 +238,81 @@ export function ClassRoomPage() {
             isCameraOff={agora.isCameraOff}
             isScreenSharing={agora.isScreenSharing}
             screenSharerUid={screenSharerUid}
+            speakingUids={agora.speakingUids}
+            localUid={agora.localUid}
+            pinnedKey={pinnedKey}
+            onTogglePin={(key) => setPinnedKey((cur) => (cur === key ? null : key))}
           />
         </div>
 
         {/* Chat panel */}
         {isChatOpen && (
-          <div className="flex w-72 shrink-0 flex-col bg-gray-900 border-l border-gray-800 min-h-0">
-            <div className="px-4 py-2.5 border-b border-gray-800 text-xs font-semibold text-gray-400 flex items-center gap-1.5 shrink-0">
+          <aside className="flex min-h-0 w-full max-w-[20rem] shrink-0 flex-col border-l border-white/10 bg-neutral-900">
+            <div className="flex shrink-0 items-center gap-1.5 border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-neutral-400">
               <MessageSquare className="h-3.5 w-3.5" />
-              Chat
+              In-class chat
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
               {messages.length === 0 && (
-                <p className="text-center text-xs text-gray-600 mt-6">No messages yet</p>
+                <p className="mt-8 text-center text-xs text-neutral-600">
+                  No messages yet — say hello.
+                </p>
               )}
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={`flex flex-col ${m.from === user?.publicId ? 'items-end' : 'items-start'}`}
-                >
-                  <span className="text-[10px] text-gray-500 mb-0.5">{m.name || m.role}</span>
-                  <div
-                    className={`max-w-[200px] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-                      m.from === user?.publicId
-                        ? 'bg-brand-600 text-white'
-                        : 'bg-gray-800 text-gray-200'
-                    }`}
-                  >
-                    {m.message}
+              {messages.map((m, i) => {
+                const mine = m.from === user?.publicId;
+                return (
+                  <div key={i} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                    {!mine && (
+                      <span className="mb-1 text-[10px] font-medium text-neutral-500">
+                        {m.name || m.role}
+                      </span>
+                    )}
+                    <div
+                      className={`max-w-[15rem] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                        mine
+                          ? 'rounded-br-md bg-sky-600 text-white'
+                          : 'rounded-bl-md bg-white/5 text-neutral-200 ring-1 ring-white/10'
+                      }`}
+                    >
+                      {m.message}
+                    </div>
+                    <span className="mt-1 text-[9px] text-neutral-600">
+                      {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
-                  <span className="text-[9px] text-gray-600 mt-0.5">
-                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
               <div ref={bottomRef} />
             </div>
 
-            <div className="flex gap-2 border-t border-gray-800 p-3 shrink-0">
+            <div className="flex shrink-0 gap-2 border-t border-white/10 p-3">
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder="Type a message…"
-                className="flex-1 rounded-xl bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:ring-1 focus:ring-brand-500"
+                className="min-w-0 flex-1 rounded-xl bg-white/5 px-3 py-2 text-sm text-white ring-1 ring-white/10 outline-none transition placeholder:text-neutral-500 focus:ring-2 focus:ring-sky-500"
               />
               <button
                 onClick={handleSend}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 hover:bg-brand-700 transition-colors shrink-0"
+                disabled={!input.trim()}
+                aria-label="Send message"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-600 transition-colors hover:bg-sky-500 disabled:opacity-40"
               >
                 <Send className="h-4 w-4" />
               </button>
             </div>
-          </div>
+          </aside>
         )}
       </div>
 
       {/* Control bar */}
       <ControlBar
-        classPublicId={classPublicId ?? ''}
         isMuted={agora.isMuted}
         isCameraOff={agora.isCameraOff}
         isScreenSharing={agora.isScreenSharing}
         isWhiteboardOpen={isWhiteboardOpen}
-        isTutor={isTutor}
-        localVideoTrack={agora.localVideoTrack}
-        localAudioTrack={agora.localAudioTrack}
         onToggleMute={agora.toggleMute}
         onToggleCamera={agora.toggleCamera}
         onStartScreenShare={handleStartScreenShare}

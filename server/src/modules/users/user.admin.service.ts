@@ -9,6 +9,7 @@ import { NotFoundError, ConflictError, ValidationError, AuthorizationError } fro
 import { Role, ROLE_HIERARCHY } from '../../constants/roles';
 import { authService } from '../auth/auth.service';
 import { auditService } from '../audit/audit.service';
+import { logger } from '../../lib/logger';
 import { UserModel } from './user.model';
 import { StudentProfileModel } from '../students/student.model';
 import { TutorProfileModel } from '../tutors/tutor.model';
@@ -427,7 +428,10 @@ export class UserAdminService {
 
   /**
    * Soft delete: the account and its role profile are flagged, never dropped, so
-   * classes, ledger rows and audit history keep resolving. Reversible via restore.
+   * classes, ledger rows and audit history keep resolving. The email address is
+   * released, so the person can sign up again from scratch — the unique index is
+   * global, and a retained address would lock them out forever.
+   * Reversible via restore.
    */
   async deleteUser(publicId: string, actor: AdminActor, reason?: string) {
     const user = await userRepository.findByPublicId(publicId);
@@ -435,6 +439,7 @@ export class UserAdminService {
     this.assertCanManage(user as PublicUser, actor, 'delete');
 
     await userRepository.softDelete(publicId, actor.publicId);
+    await userRepository.releaseEmail(publicId);
 
     const ProfileModel = PROFILE_MODELS[user.role];
     if (ProfileModel) {
@@ -469,12 +474,23 @@ export class UserAdminService {
       { $set: { isDeleted: false }, $unset: { deletedAt: '', deletedBy: '' } },
     );
 
+    // Someone may have signed up on the freed address in the meantime; if so the
+    // restored account keeps its placeholder rather than colliding.
+    const { reclaimed } = await userRepository.reclaimEmail(publicId);
+
     const ProfileModel = PROFILE_MODELS[user.role];
     if (ProfileModel) {
       await ProfileModel.updateOne(
         { userPublicId: publicId },
         { $set: { isDeleted: false }, $unset: { deletedAt: '', deletedBy: '' } },
       );
+    }
+
+    if (!reclaimed && user.deletedEmail) {
+      logger.warn('Restored user could not reclaim its address — it is taken', {
+        publicId,
+        address: user.deletedEmail,
+      });
     }
 
     await auditService.log({

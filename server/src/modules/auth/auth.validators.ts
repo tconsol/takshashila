@@ -75,9 +75,24 @@ export const googleAuthSchema = z.object({
   idToken: z.string().min(1).optional(),      // native (mobile) flow
   code: z.string().min(1).optional(),         // web auth-code popup flow
   accessToken: z.string().min(1).optional(),  // web implicit popup flow
+
+  // Second leg of a Google *signup*: sent after the person picks what they are.
+  role: z.enum(['STUDENT', 'TUTOR', 'PRINCIPAL']).optional(),
+  phone: z.string().optional(),
+  timezone: z.string().optional(),
+  subjects: z.array(z.string()).optional(),
+  languages: z.array(z.string()).optional(),
+  bio: z.string().max(1000).optional(),
+  qualifications: z.array(z.string()).optional(),
+  grade: z.string().optional(),
+  organizationName: z.string().optional(),
 }).refine((d) => !!d.idToken || !!d.code || !!d.accessToken, {
   message: 'Provide a Google idToken, access token, or authorization code',
   path: ['idToken'],
+}).superRefine((d, ctx) => {
+  if (d.role === 'TUTOR' && (!d.subjects || d.subjects.length === 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['subjects'], message: 'Select at least one subject' });
+  }
 });
 
 export const acceptInviteSchema = z.object({

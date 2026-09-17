@@ -36,6 +36,7 @@ const userSchema = new Schema<IUser>(
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date },
     deletedBy: { type: String },
+    deletedEmail: { type: String },
   },
   {
     timestamps: true,

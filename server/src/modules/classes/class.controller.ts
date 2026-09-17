@@ -109,6 +109,14 @@ export class ClassController {
     } catch (error) { next(error); }
   }
 
+  /** Classes that ran too short to settle themselves and need a decision. */
+  async getAwaitingDecision(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const classes = await classService.listAwaitingDecision(req.user!.publicId);
+      sendSuccess(res, classes, 'Classes awaiting your decision');
+    } catch (error) { next(error); }
+  }
+
   async getByPublicId(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const cls = await classService.getByPublicId(req.params.classId);
@@ -127,13 +135,6 @@ export class ClassController {
     try {
       const cls = await classService.tutorReschedule(req.params.classId, req.user!.publicId, req.body);
       sendSuccess(res, cls, 'Class rescheduled');
-    } catch (error) { next(error); }
-  }
-
-  async saveRecording(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const cls = await classService.saveRecording(req.params.classId, req.user!.publicId, req.body);
-      sendSuccess(res, cls, 'Recording saved');
     } catch (error) { next(error); }
   }
 

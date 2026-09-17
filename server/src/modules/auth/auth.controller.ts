@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import type { CookieOptions } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { authService } from './auth.service';
+import { isRoleRequired } from './auth.types';
 import { sendSuccess, sendCreated } from '../../utils/response';
 import { env } from '../../config/env';
 
@@ -59,10 +60,15 @@ export class AuthController {
 
   async googleAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await authService.loginWithGoogle(
-        { idToken: req.body.idToken, code: req.body.code, accessToken: req.body.accessToken },
-        getDeviceInfo(req),
-      );
+      const result = await authService.loginWithGoogle(req.body, getDeviceInfo(req));
+
+      // Unknown address and no role yet — ask the client to collect one. Not an
+      // error, so no cookies and no tokens; the client replays with `role`.
+      if (isRoleRequired(result)) {
+        sendSuccess(res, result, 'Tell us which kind of account to create');
+        return;
+      }
+
       setAuthCookies(res, result.accessToken, result.refreshToken);
       sendSuccess(res, result, 'Login successful');
     } catch (error) {

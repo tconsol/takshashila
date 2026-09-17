@@ -18,10 +18,18 @@ import {
   ConflictError,
   NotFoundError,
   AppError,
+  ValidationError,
 } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import type { Role } from '../../constants/roles';
+import type {
+  GoogleAuthInput,
+  GoogleRoleRequired,
+  GoogleSignupRole,
+  RoleProfileInput,
+} from './auth.types';
+import { GOOGLE_SIGNUP_ROLES } from './auth.types';
 import type { TokenPair, DeviceInfo } from '../../shared/types';
 import type {
   RegisterDto,
@@ -88,6 +96,8 @@ export class AuthService {
       return { publicId: existing.publicId };
     }
 
+    await this._releaseDeletedHolder(dto.email);
+
     const user = await userRepository.create({
       publicId: uuidv4(),
       email: dto.email.toLowerCase(),
@@ -119,10 +129,21 @@ export class AuthService {
   }
 
   /**
+   * A deleted account no longer owns its address — but accounts deleted before
+   * that rule existed still hold theirs, and the global unique index would block
+   * the person from ever signing up again. Release it on the way past so
+   * re-registration works without a migration.
+   */
+  private async _releaseDeletedHolder(email: string): Promise<void> {
+    const holder = await userRepository.findByEmail(email, false, true);
+    if (holder?.isDeleted) await userRepository.releaseEmail(holder.publicId);
+  }
+
+  /**
    * Ensure a new/re-registering user has a wallet and the profile for their role.
    * Idempotent: safe to call again on re-registration (won't duplicate profiles).
    */
-  private async _provisionForRole(userPublicId: string, role: Role, dto: RegisterDto): Promise<void> {
+  private async _provisionForRole(userPublicId: string, role: Role, dto: RoleProfileInput): Promise<void> {
     try {
       await walletService.getOrCreateWallet(userPublicId);
     } catch (err) {
@@ -334,9 +355,9 @@ export class AuthService {
    * student profile just like a normal registration.
    */
   async loginWithGoogle(
-    input: { idToken?: string; code?: string; accessToken?: string },
+    input: GoogleAuthInput,
     device: DeviceInfo,
-  ): Promise<TokenPair & { user: object }> {
+  ): Promise<(TokenPair & { user: object }) | GoogleRoleRequired> {
     const { verifyGoogleIdToken, verifyGoogleAccessToken, exchangeGoogleCode } = await import('../../lib/google-auth');
     // Web implicit flow sends an `accessToken`; web code flow sends `code`;
     // native sends an `idToken`. Resolve whichever we got into a Google identity.
@@ -353,12 +374,18 @@ export class AuthService {
       throw new AuthenticationError('Your Google email is not verified.');
     }
 
-    // Include soft-deleted rows: the address is still taken by the unique index,
-    // so creating over one fails. The isDeleted guard below is the real answer.
+    // Include soft-deleted rows: legacy deletions still hold their address, and
+    // creating over one would fail on the unique index.
     let user = await userRepository.findByEmail(identity.email, true, true);
 
+    // A deleted account does not block signing up again — free the address and
+    // fall through to provisioning a brand new one.
+    if (user?.isDeleted) {
+      await userRepository.releaseEmail(user.publicId);
+      user = null;
+    }
+
     if (user) {
-      if (user.isDeleted) throw new AuthenticationError('This account has been deactivated');
       if (user.status === UserStatus.SUSPENDED) {
         throw new AuthenticationError('Your account has been suspended. Please contact support.');
       }
@@ -373,8 +400,26 @@ export class AuthService {
         user = { ...user, emailVerified: true, status: UserStatus.ACTIVE };
       }
     } else {
-      // No account yet → provision a fresh STUDENT. A random password hash keeps
-      // the field required; the user signs in only via Google unless they reset it.
+      /* First time on this address. Google tells us who they are but not what
+         they are here, so the caller must say. The client answers by showing a
+         role picker and posting the same Google token back with `role`. */
+      if (!input.role) {
+        return {
+          needsRole: true,
+          email: identity.email,
+          firstName: identity.firstName,
+          lastName: identity.lastName,
+          picture: identity.picture,
+        };
+      }
+      if (!(GOOGLE_SIGNUP_ROLES as readonly string[]).includes(input.role)) {
+        const label = input.role.replace('_', ' ').toLowerCase();
+        throw new ValidationError([`Cannot sign up as ${label}`], `Cannot sign up as ${label}`);
+      }
+      const signupRole = input.role as GoogleSignupRole;
+
+      // A random password hash keeps the field required; they sign in through
+      // Google unless they later run a password reset.
       const randomSecret = crypto.randomBytes(48).toString('hex');
       const passwordHash = await argon2.hash(randomSecret, {
         type: argon2.argon2id,
@@ -389,36 +434,28 @@ export class AuthService {
         passwordHash,
         firstName: identity.firstName,
         lastName: identity.lastName || '-',
-        role: 'STUDENT',
+        role: signupRole,
         status: UserStatus.ACTIVE,
         avatarUrl: identity.picture,
-        timezone: 'UTC',
+        phone: input.phone,
+        timezone: input.timezone || 'UTC',
         emailVerified: true,
         twoFAEnabled: false,
         loginCount: 0,
         isDeleted: false,
       });
 
-      try { await walletService.getOrCreateWallet(created.publicId); } catch { /* non-fatal */ }
-      try {
-        await StudentProfileModel.create({
-          publicId: uuidv4(),
-          userPublicId: created.publicId,
-          previousTutorPublicIds: [],
-          status: StudentStatus.PENDING_APPROVAL,
-          demoClassesUsed: 0,
-          demoClassTakenWith: [],
-          totalClassesAttended: 0,
-          totalClassesCancelled: 0,
-          totalClassesMissed: 0,
-          totalClassesBooked: 0,
-          attendanceRate: 0,
-          invitedBy: created.publicId,
-          isDeleted: false,
-        });
-      } catch (err) {
-        console.warn('[auth] Could not create student profile for Google user:', (err as Error).message);
-      }
+      // Same provisioning as password signup, so a Google tutor gets a tutor
+      // profile with subjects rather than being silently filed as a student.
+      await this._provisionForRole(created.publicId, signupRole, {
+        timezone: input.timezone,
+        subjects: input.subjects,
+        languages: input.languages,
+        bio: input.bio,
+        qualifications: input.qualifications,
+        grade: input.grade,
+        organizationName: input.organizationName,
+      });
 
       // Re-fetch with sensitive fields so _issueSession has passwordHash to strip.
       user = await userRepository.findByEmail(identity.email, true);

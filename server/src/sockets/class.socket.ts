@@ -110,20 +110,6 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
     });
   });
 
-  // ─── Recording lifecycle ─────────────────────────────────────────────────────
-
-  socket.on('recording:started', (classPublicId: string) => {
-    socket.to(`class:${classPublicId}`).emit('recording:started', {
-      startedBy: socket.userPublicId,
-    });
-  });
-
-  socket.on('recording:stopped', (classPublicId: string) => {
-    socket.to(`class:${classPublicId}`).emit('recording:stopped', {
-      stoppedBy: socket.userPublicId,
-    });
-  });
-
   // Notify peers on unexpected disconnect
   socket.on('disconnect', () => {
     socket.rooms.forEach((room) => {

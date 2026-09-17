@@ -45,9 +45,9 @@ export class UserRepository {
 
   /**
    * `includeDeleted` matters because the email unique index is global, not
-   * partial on isDeleted: a soft-deleted row still occupies the address. Callers
-   * that are about to CREATE must look with it on, or the insert dies on a
-   * duplicate-key error instead of reporting a deactivated account.
+   * partial on isDeleted. Deletion normally releases the address (see
+   * `releaseEmail`), but legacy rows deleted before that existed still hold
+   * theirs, so callers about to CREATE should look with it on.
    */
   async findByEmail(email: string, withSensitive = false, includeDeleted = false): Promise<IUser | null> {
     const filter: Record<string, unknown> = { email: email.toLowerCase() };
@@ -78,6 +78,48 @@ export class UserRepository {
     })
       .select('+passwordResetToken +passwordResetExpiry')
       .lean();
+  }
+
+  /**
+   * Frees a deleted account's address so the person can sign up again, while the
+   * row itself stays put for classes, ledger and audit to resolve against. The
+   * original is parked in `deletedEmail` so restore can reclaim it.
+   *
+   * Returns false when the address was already released.
+   */
+  async releaseEmail(publicId: string): Promise<boolean> {
+    const user = await UserModel.findOne({ publicId }, { email: 1, deletedEmail: 1 }).lean();
+    if (!user || user.deletedEmail) return false;
+
+    await UserModel.updateOne(
+      { publicId },
+      {
+        $set: {
+          deletedEmail: user.email,
+          // Unique but obviously inert, and never a deliverable address.
+          email: `deleted+${publicId}@deleted.invalid`,
+        },
+      },
+    );
+    return true;
+  }
+
+  /** Puts a released address back, unless someone has since claimed it. */
+  async reclaimEmail(publicId: string): Promise<{ reclaimed: boolean; email?: string }> {
+    const user = await UserModel.findOne({ publicId }, { deletedEmail: 1 }).lean();
+    if (!user?.deletedEmail) return { reclaimed: false };
+
+    const taken = await UserModel.findOne(
+      { email: user.deletedEmail, publicId: { $ne: publicId } },
+      { publicId: 1 },
+    ).lean();
+    if (taken) return { reclaimed: false };
+
+    await UserModel.updateOne(
+      { publicId },
+      { $set: { email: user.deletedEmail }, $unset: { deletedEmail: '' } },
+    );
+    return { reclaimed: true, email: user.deletedEmail };
   }
 
   async update(publicId: string, updates: Partial<IUser>): Promise<IUser | null> {

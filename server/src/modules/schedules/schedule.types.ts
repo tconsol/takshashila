@@ -45,6 +45,13 @@ export type AutoResolution = (typeof AutoResolution)[keyof typeof AutoResolution
 /** Grace period after `endUTC` before the sweep closes a class. */
 export const AUTO_RESOLVE_GRACE_MINUTES = 10;
 
+/**
+ * How long tutor and student must have been in the room together before the
+ * platform will settle a class on its own. Below this the class is held for the
+ * tutor to complete or cancel — the money is too ambiguous to move unattended.
+ */
+export const MIN_SESSION_MINUTES = 30;
+
 export const AvailabilityStatus = {
   AVAILABLE: 'AVAILABLE',
   BOOKED: 'BOOKED',
@@ -86,12 +93,19 @@ export interface IScheduledClass {
   meetingUrl?: string;
   meetingProvider?: 'zoom' | 'google_meet' | 'native';
   meetingId?: string;
-  recordingUrl?: string;
-  recordingGcsKey?: string;
   costCents: number;
   billingMode: BillingMode;
   idempotencyKey: string;
   studentJoinedAt?: Date;
+  tutorJoinedAt?: Date;
+  /** When the class actually went LIVE, which is not the scheduled start. */
+  startedAt?: Date;
+  /**
+   * Set by the overdue sweep when a class ran but not long enough to settle
+   * automatically. It is then held — indefinitely — until the tutor completes
+   * or cancels it. No money moves while this is true.
+   */
+  needsTutorDecision?: boolean;
   cancellationReason?: string;
   cancelledBy?: string;
   rescheduledFromId?: string;

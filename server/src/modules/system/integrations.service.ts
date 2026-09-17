@@ -101,7 +101,7 @@ export class IntegrationsService {
       {
         key: 'gcs',
         name: 'Google Cloud Storage',
-        impact: 'Resource and worksheet uploads, class recordings',
+        impact: 'Resource and worksheet uploads',
         configured: Boolean(env.GCP_BUCKET_NAME && env.GCP_PROJECT_ID),
         probe: async () => {
           const { getStorage } = await import('../media/media.service');
@@ -111,19 +111,6 @@ export class IntegrationsService {
           return exists
             ? { status: 'ok', detail: `Bucket ${env.GCP_BUCKET_NAME} reachable` }
             : { status: 'down', detail: `Bucket ${env.GCP_BUCKET_NAME} not found` };
-        },
-      },
-      {
-        key: 'gcs-recordings',
-        name: 'Recording Bucket',
-        impact: 'Storing finished class recordings',
-        configured: Boolean(env.GCS_RECORDING_BUCKET),
-        probe: async () => {
-          const { getStorage } = await import('../media/media.service');
-          const [exists] = await getStorage().bucket(env.GCS_RECORDING_BUCKET!).exists();
-          return exists
-            ? { status: 'ok', detail: `Bucket ${env.GCS_RECORDING_BUCKET} reachable` }
-            : { status: 'down', detail: `Bucket ${env.GCS_RECORDING_BUCKET} not found` };
         },
       },
       {
@@ -159,14 +146,6 @@ export class IntegrationsService {
             ? { status: 'ok', detail: 'Token generation working' }
             : { status: 'down', detail: 'Token generation returned empty' };
         },
-      },
-      {
-        key: 'agora-recording',
-        name: 'Agora Recording',
-        impact: 'Recording live classes',
-        configured: Boolean(
-          env.AGORA_RECORDING_ENABLED && env.AGORA_CUSTOMER_ID && env.AGORA_CUSTOMER_SECRET,
-        ),
       },
       {
         key: 'agora-whiteboard',

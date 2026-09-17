@@ -71,14 +71,6 @@ const envSchema = z.object({
   AGORA_APP_CERTIFICATE: z.string().min(1, 'AGORA_APP_CERTIFICATE is required'),
   AGORA_TOKEN_EXPIRE_SECONDS: z.coerce.number().default(3600),
 
-  // ── Agora Cloud Recording ───────────────────────────────────────────────────
-  AGORA_CUSTOMER_ID: z.string().optional(),
-  AGORA_CUSTOMER_SECRET: z.string().optional(),
-  AGORA_RECORDING_ENABLED: z.coerce.boolean().default(false),
-  GCS_ACCESS_KEY: z.string().optional(),
-  GCS_SECRET_KEY: z.string().optional(),
-  GCS_RECORDING_BUCKET: z.string().optional(),
-
   // ── Agora Whiteboard (Netless) ──────────────────────────────────────────────
   AGORA_WHITEBOARD_APP_ID: z.string().optional(),
   AGORA_WHITEBOARD_AK: z.string().optional(),

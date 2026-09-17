@@ -142,7 +142,9 @@ export class WalletService {
 
       if (!wallet) throw new NotFoundError('Wallet');
       if (wallet.isLocked) throw new AppError(`Wallet is locked: ${wallet.lockedReason}`, 403);
-      if (wallet.balanceCents < dto.amountCents) {
+      // `allowNegative` is for penalties the user cannot opt out of by being
+      // broke — a cancellation fee has to land or it isn't a deterrent.
+      if (!dto.allowNegative && wallet.balanceCents < dto.amountCents) {
         throw new AppError('Insufficient credits', 402);
       }
 
