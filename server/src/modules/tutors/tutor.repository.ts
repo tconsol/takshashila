@@ -2,10 +2,16 @@ import { TutorProfileModel } from './tutor.model';
 import type { ITutorProfile, TutorSearchFilters } from './tutor.types';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
+import { invalidatePrefix } from '../../lib/cache';
+
+// Browse/search results are cached under this prefix (see tutor.controller).
+// Any write to a tutor profile must drop them so the marketplace updates instantly.
+const SEARCH_CACHE_PREFIX = 'tutors:search:';
 
 export class TutorRepository {
   async create(data: Omit<ITutorProfile, '_id' | 'createdAt' | 'updatedAt'>): Promise<ITutorProfile> {
     const doc = await TutorProfileModel.create(data);
+    void invalidatePrefix(SEARCH_CACHE_PREFIX);
     return doc.toObject();
   }
 
@@ -18,11 +24,13 @@ export class TutorRepository {
   }
 
   async update(publicId: string, updates: Partial<ITutorProfile>): Promise<ITutorProfile | null> {
-    return TutorProfileModel.findOneAndUpdate(
+    const updated = await TutorProfileModel.findOneAndUpdate(
       { publicId, isDeleted: false },
       { $set: updates },
       { new: true },
     ).lean();
+    void invalidatePrefix(SEARCH_CACHE_PREFIX);
+    return updated;
   }
 
   async search(
@@ -52,6 +60,18 @@ export class TutorRepository {
         .skip(skip)
         .limit(limit)
         .lean(),
+      TutorProfileModel.countDocuments(filter),
+    ]);
+
+    return buildPaginatedResult(items, total, page, limit);
+  }
+
+  async findAll(query: PaginationQuery): Promise<PaginatedResult<ITutorProfile>> {
+    const { page, limit, skip } = parsePaginationQuery(query);
+    const filter = { isDeleted: false };
+
+    const [items, total] = await Promise.all([
+      TutorProfileModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       TutorProfileModel.countDocuments(filter),
     ]);
 

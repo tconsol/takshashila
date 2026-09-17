@@ -32,6 +32,7 @@ const userSchema = new Schema<IUser>(
     lastLoginAt: { type: Date },
     lastLoginIp: { type: String },
     loginCount: { type: Number, default: 0 },
+    pushTokens: { type: [String], default: [] }, // Expo push tokens for mobile notifications
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date },
     deletedBy: { type: String },

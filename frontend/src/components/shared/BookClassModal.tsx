@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Sparkles, Video } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Select } from '../ui/Select';
+import { Badge } from '../ui/Badge';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { useTutorSlots } from '../../hooks/use-schedules';
@@ -12,6 +13,7 @@ import { useBookClass } from '../../hooks/use-classes';
 import { useCreateDemoRequest } from '../../hooks/use-demo-requests';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuthStore } from '../../stores/auth.store';
+import { PLATFORM_FEE_CREDITS } from '../../lib/billing';
 import type { TutorProfile } from '../../services/tutors.service';
 
 const schema = z.object({
@@ -49,10 +51,17 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
   const classType = watch('classType');
   const isDemo = classType === 'DEMO';
 
-  const slotOptions = availableSlots.map((s) => ({
-    value: s.publicId,
-    label: `${formatInTimeZone(new Date(s.startUTC), userTimezone, 'EEE MMM d, h:mm a')} – ${formatInTimeZone(new Date(s.endUTC), userTimezone, 'h:mm a')}`,
-  }));
+  // Say up front whether a slot is a one-off or part of a repeating series —
+  // a student picking a weekly slot should know it is weekly before booking.
+  const slotOptions = availableSlots.map((s) => {
+    const window = `${formatInTimeZone(new Date(s.startUTC), userTimezone, 'EEE MMM d, h:mm a')} – ${formatInTimeZone(new Date(s.endUTC), userTimezone, 'h:mm a')}`;
+    return {
+      value: s.publicId,
+      label: s.isRecurring ? `${window} · Recurring` : window,
+    };
+  });
+
+  const selectedSlot = availableSlots.find((s) => s.publicId === watch('slotPublicId'));
 
   const subjectOptions = tutor.subjects.map((s) => ({ value: s, label: s }));
 
@@ -152,6 +161,27 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
           </div>
         )}
 
+        {!isDemo && (() => {
+          const rate = tutor.hourlyRateCents ?? 0;
+          const rateCredits = rate / 100;
+          const total = rateCredits + PLATFORM_FEE_CREDITS;
+          return (
+            <div className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 dark:border-violet-800/40 dark:bg-violet-900/20">
+              <p className="mb-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300">Cost (charged after the class)</p>
+              <div className="space-y-0.5 text-xs text-violet-700/90 dark:text-violet-300/90">
+                <div className="flex justify-between"><span>Tutor rate</span><span>{rateCredits} credits</span></div>
+                <div className="flex justify-between"><span>Platform fee</span><span>{PLATFORM_FEE_CREDITS} credit</span></div>
+                <div className="flex justify-between border-t border-violet-200/70 pt-0.5 font-semibold dark:border-violet-700/50">
+                  <span>You pay</span><span>{total} credits</span>
+                </div>
+              </div>
+              <p className="mt-1.5 text-[11px] text-violet-600/80 dark:text-violet-400/80">
+                Charged only when the class is completed and you've attended.
+              </p>
+            </div>
+          );
+        })()}
+
         {slotsLoading ? (
           <p className="text-sm text-gray-500">Loading available slots…</p>
         ) : availableSlots.length === 0 ? (
@@ -159,13 +189,28 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
             No available slots right now. Check back later.
           </p>
         ) : (
-          <Select
-            label="Preferred Time Slot"
-            options={slotOptions}
-            placeholder="Select a slot"
-            error={errors.slotPublicId?.message}
-            {...register('slotPublicId')}
-          />
+          <div>
+            <Select
+              label="Preferred Time Slot"
+              options={slotOptions}
+              placeholder="Select a slot"
+              error={errors.slotPublicId?.message}
+              {...register('slotPublicId')}
+            />
+            {selectedSlot && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant={selectedSlot.isRecurring ? 'purple' : 'info'} tone="soft">
+                  {selectedSlot.isRecurring ? 'Recurring slot' : 'One-off slot'}
+                </Badge>
+                <Badge variant={isDemo ? 'warning' : 'success'} tone="soft">
+                  {classType} class
+                </Badge>
+                {selectedSlot.durationMinutes ? (
+                  <span className="text-ink-muted">{selectedSlot.durationMinutes} min</span>
+                ) : null}
+              </div>
+            )}
+          </div>
         )}
 
         <Controller

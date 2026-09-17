@@ -19,7 +19,7 @@ export function getRedisClient(): Redis {
         return Math.min(times * 200, 3000);
       },
       enableReadyCheck: true,
-      lazyConnect: false,
+      lazyConnect: true,   // connect on first use, not on boot
     });
 
     redisClient.on('connect', () => logger.info('Redis connected'));
@@ -28,6 +28,18 @@ export function getRedisClient(): Redis {
   }
 
   return redisClient;
+}
+
+/** Eagerly verify Redis connectivity and log a clear result. Non-fatal. */
+export async function verifyRedisConnection(): Promise<boolean> {
+  try {
+    const pong = await getRedisClient().ping();
+    logger.info(`Redis connected (${pong}) → ${env.REDIS_HOST}:${env.REDIS_PORT}`);
+    return true;
+  } catch (err) {
+    logger.error('Redis connection FAILED', { error: (err as Error).message });
+    return false;
+  }
 }
 
 export async function disconnectRedis(): Promise<void> {

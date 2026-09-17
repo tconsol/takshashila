@@ -7,6 +7,8 @@ import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { requestLogger } from './middlewares/requestLogger.middleware';
 import { globalRateLimiter } from './middlewares/rateLimit.middleware';
+import { maintenanceMiddleware } from './middlewares/maintenance.middleware';
+import { metricsMiddleware } from './middlewares/metrics.middleware';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware';
 
 import authRoutes from './modules/auth/auth.routes';
@@ -25,6 +27,9 @@ import { notificationRouter } from './modules/notifications/notification.routes'
 import { paymentRouter } from './modules/payments/payment.routes';
 import { supportRouter } from './modules/support/support.routes';
 import { analyticsRouter } from './modules/analytics/analytics.routes';
+import { settingsRouter } from './modules/settings/settings.routes';
+import { realtimeRouter } from './modules/realtime/realtime.routes';
+import { systemRouter } from './modules/system/system.routes';
 import { chatRouter } from './modules/chat/chat.routes';
 import { ratingRouter } from './modules/ratings/rating.routes';
 import parentRoutes from './modules/parents/parent.routes';
@@ -38,8 +43,25 @@ const app = express();
 
 app.set('trust proxy', 1);
 
+// This API serves only JSON (the SPA is hosted separately), so we can lock the
+// security headers down hard without breaking any rendered content. CSP for the
+// actual web pages must be set on the frontend host (see frontend/public/_headers).
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      'default-src': ["'none'"],
+      'frame-ancestors': ["'none'"], // clickjacking: API can't be framed
+      'base-uri': ["'none'"],
+      'form-action': ["'none'"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // SPA on another origin fetches this API
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  referrerPolicy: { policy: 'no-referrer' },
+  hsts: { maxAge: 15552000, includeSubDomains: true, preload: true }, // 180d HSTS
+  // helmet defaults also set: X-Content-Type-Options: nosniff, X-Frame-Options: DENY,
+  // X-DNS-Prefetch-Control, Origin-Agent-Cluster, etc.
 }));
 
 const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
@@ -56,13 +78,18 @@ app.use(cors({
 
 app.use(compression());
 app.use('/api/v1/payments/stripe/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/v1/payments/razorpay/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser(env.COOKIE_SECRET));
 app.use(requestLogger);
+app.use(metricsMiddleware);
 app.use(globalRateLimiter);
 
 const API_BASE = `/api/${env.API_VERSION}`;
+
+// Holds back writes while maintenance mode is on; reads and admins pass through.
+app.use(API_BASE, maintenanceMiddleware);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 app.get('/health/db', async (_req, res) => {
@@ -98,6 +125,9 @@ app.use(`${API_BASE}/support`, supportRouter);
 app.use(`${API_BASE}/chat`, chatRouter);
 app.use(`${API_BASE}/ratings`, ratingRouter);
 app.use(`${API_BASE}/analytics`, analyticsRouter);
+app.use(`${API_BASE}/settings`, settingsRouter);
+app.use(`${API_BASE}/realtime`, realtimeRouter);
+app.use(`${API_BASE}/system`, systemRouter);
 app.use(`${API_BASE}/parents`, parentRoutes);
 app.use(`${API_BASE}/worksheets`, worksheetRoutes);
 app.use(`${API_BASE}/join-requests`, joinRequestRoutes);

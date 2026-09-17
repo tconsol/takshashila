@@ -16,11 +16,19 @@ export interface RegisterDto {
 }
 
 export const authService = {
+  // API expects { identifier, password } (identifier = email or student ID).
   login: (dto: LoginDto): Promise<LoginResponse> =>
-    api.post('/auth/login', dto).then((r) => r.data.data),
+    api.post('/auth/login', { identifier: dto.email, password: dto.password }).then((r) => r.data.data),
 
   register: (dto: RegisterDto): Promise<{ publicId: string }> =>
     api.post('/auth/register', { ...dto, role: dto.role ?? 'STUDENT' }).then((r) => r.data.data),
+
+  // Exchange a verified Google ID token for our own session (login or signup).
+  googleAuth: (idToken: string): Promise<LoginResponse> =>
+    api.post('/auth/google', { idToken }).then((r) => r.data.data),
+
+  resendVerification: (email: string): Promise<void> =>
+    api.post('/auth/resend-verification', { email }).then(() => undefined),
 
   getMe: (): Promise<User> =>
     api.get('/auth/me').then((r) => r.data.data),

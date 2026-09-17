@@ -3,7 +3,7 @@ import {
   Headphones, Clock, CheckCircle2, AlertTriangle, ArrowUpRight, Inbox,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { PageHeader } from '../../components/shared/PageHeader';
+import { DashboardHero } from '../../components/shared/DashboardHero';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
@@ -65,22 +65,23 @@ export function SupportDashboard() {
   const resolvedCount   = tickets.filter((t) => t.status === 'RESOLVED').length;
 
   return (
-    <div className="animate-fade-in">
-      <PageHeader
+    <div className="space-y-6">
+      <DashboardHero
+        role="SUPPORT"
         eyebrow="Support Center"
         title="Help Desk"
         description="Triage tickets, recover accounts and resolve escalations."
-        icon={<Headphones className="h-5 w-5" />}
+        icon={<Headphones className="h-6 w-6" />}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard title="Open Tickets"   value={String(openCount)}       accent="brand"  icon={<Inbox className="h-5 w-5" />} />
-        <StatsCard title="In Progress"    value={String(inProgressCount)} accent="sky"    icon={<Clock className="h-5 w-5" />} />
-        <StatsCard title="Resolved"       value={String(resolvedCount)}   accent="green"  icon={<CheckCircle2 className="h-5 w-5" />} hint="This view" />
-        <StatsCard title="Escalated"      value={String(escalatedCount)}  accent="rose"   icon={<AlertTriangle className="h-5 w-5" />} />
+        <StatsCard index={0} title="Open Tickets"   value={String(openCount)}       accent="brand"  icon={<Inbox className="h-5 w-5" />} />
+        <StatsCard index={1} title="In Progress"    value={String(inProgressCount)} accent="sky"    icon={<Clock className="h-5 w-5" />} />
+        <StatsCard index={2} title="Resolved"       value={String(resolvedCount)}   accent="green"  icon={<CheckCircle2 className="h-5 w-5" />} hint="This view" />
+        <StatsCard index={3} title="Escalated"      value={String(escalatedCount)}  accent="rose"   icon={<AlertTriangle className="h-5 w-5" />} />
       </div>
 
-      <div className="mt-6">
+      <div>
         <Card padding="none">
           <div className="flex items-center justify-between border-b border-gray-200/70 px-5 py-4 dark:border-gray-800">
             <div>
@@ -104,7 +105,7 @@ export function SupportDashboard() {
             ) : (
               <div className="space-y-2.5">
                 {tickets.map((t) => (
-                  <div key={t.publicId} className="flex items-center justify-between rounded-xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10">
+                  <div key={t.publicId} className="flex items-center justify-between rounded-2xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-gray-900 dark:text-white">

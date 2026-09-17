@@ -10,6 +10,7 @@ import { userRepository } from '../users/user.repository';
 import { ConflictError, NotFoundError, AppError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { settingsService } from '../settings/settings.service';
 
 export interface JoinRequestWithDetails extends IJoinRequest {
   tutorName: string;
@@ -35,7 +36,8 @@ export class JoinRequestService {
         publicId: uuidv4(),
         userPublicId: tutorUserPublicId,
         status: TutorStatus.REGISTERED,
-        subjects: [], languages: [], hourlyRateCents: 0, commissionRatePercent: 20,
+        subjects: [], languages: [], hourlyRateCents: 0,
+        commissionRatePercent: (await settingsService.get()).defaultTutorCommissionRatePercent,
         qualifications: [], timezone: 'UTC', trustScore: 50, totalStudents: 0,
         totalClassesCompleted: 0, totalClassesCancelled: 0, totalEarningsCents: 0,
         rating: 0, ratingCount: 0, isVerified: false, isDeleted: false,
@@ -111,7 +113,8 @@ export class JoinRequestService {
         publicId: uuidv4(),
         userPublicId: targetUser.publicId,
         status: TutorStatus.REGISTERED,
-        subjects: [], languages: [], hourlyRateCents: 0, commissionRatePercent: 20,
+        subjects: [], languages: [], hourlyRateCents: 0,
+        commissionRatePercent: (await settingsService.get()).defaultTutorCommissionRatePercent,
         qualifications: [], timezone: 'UTC', trustScore: 50, totalStudents: 0,
         totalClassesCompleted: 0, totalClassesCancelled: 0, totalEarningsCents: 0,
         rating: 0, ratingCount: 0, isVerified: false, isDeleted: false,
@@ -300,11 +303,15 @@ export class JoinRequestService {
     status: string;
     principalPublicId?: string;
   } | null> {
-    const normalizedQuery = query.toLowerCase().trim();
-    let user = await userRepository.findByEmail(normalizedQuery);
-    if (!user && query.trim()) {
-      user = await userRepository.findByPhone(query.trim());
-    }
+    // One box, three kinds of identifier — a principal shouldn't have to tell us
+    // which they pasted. Order is cheapest/most selective first.
+    const trimmed = query.trim();
+    if (!trimmed) return null;
+
+    let user = await userRepository.findByEmail(trimmed.toLowerCase());
+    if (!user) user = await userRepository.findByPhone(trimmed);
+    if (!user) user = await userRepository.findByPublicId(trimmed);
+
     if (!user || user.role !== 'TUTOR') return null;
 
     let profile = await TutorProfileModel.findOne({
@@ -321,7 +328,7 @@ export class JoinRequestService {
         subjects: [],
         languages: [],
         hourlyRateCents: 0,
-        commissionRatePercent: 20,
+        commissionRatePercent: (await settingsService.get()).defaultTutorCommissionRatePercent,
         qualifications: [],
         timezone: 'UTC',
         trustScore: 50,

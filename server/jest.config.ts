@@ -10,6 +10,8 @@ const config: Config = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   clearMocks: true,
+  forceExit: true,       // BullMQ/redis producers hold handles in unit tests
+  testTimeout: 15000,
   collectCoverageFrom: ['src/**/*.ts', '!src/server.ts', '!src/**/*.types.ts'],
   coverageDirectory: 'coverage',
 };

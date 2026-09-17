@@ -120,10 +120,10 @@ export const studentsService = {
       { params },
     ).then((r) => r.data.data),
 
-  lookupStudent: (query: { email?: string; phone?: string }) =>
+  lookupStudent: (query: { email?: string; phone?: string; studentId?: string }) =>
     api.get<{ data: StudentLookupResult }>('/students/lookup', { params: query }).then((r) => r.data.data),
 
-  inviteExisting: (body: { email?: string; phone?: string }) =>
+  inviteExisting: (body: { email?: string; phone?: string; studentId?: string }) =>
     api.post<{ data: StudentProfile }>('/students/invite-existing', body).then((r) => r.data.data),
 
   acceptInvite: () =>
@@ -163,5 +163,8 @@ export const studentsService = {
   getMyPrincipal: () =>
     api.get<{ data: { publicId: string; organizationName?: string; firstName: string; lastName: string } | null }>('/students/me/principal')
       .then((r) => r.data.data ?? null),
+
+  reject: (studentPublicId: string, reason?: string) =>
+    api.post<{ data: StudentProfile }>(`/students/${studentPublicId}/reject`, { reason }).then((r) => r.data.data),
 };
 

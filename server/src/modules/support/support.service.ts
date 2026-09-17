@@ -45,7 +45,50 @@ export class SupportService {
       TicketModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       TicketModel.countDocuments(filter),
     ]);
-    return buildPaginatedResult(items, total, page, limit);
+    return buildPaginatedResult(await this.withNames(items), total, page, limit);
+  }
+
+  /**
+   * Tickets store only ids. A queue that shows neither who raised a ticket nor
+   * who owns it cannot be worked, so both are resolved per page.
+   */
+  private async withNames<T extends { requesterPublicId: string; assigneePublicId?: string }>(items: T[]) {
+    if (items.length === 0) return [] as (T & { requesterName: string; assigneeName: string | null })[];
+
+    const { UserModel } = await import('../users/user.model');
+    const ids = [...new Set(items.flatMap((t) => [t.requesterPublicId, t.assigneePublicId].filter(Boolean) as string[]))];
+    const users = await UserModel.find(
+      { publicId: { $in: ids } },
+      { publicId: 1, firstName: 1, lastName: 1, email: 1, role: 1 },
+    ).lean();
+    const byId = new Map(users.map((u) => [u.publicId, u]));
+
+    return items.map((t) => {
+      const requester = byId.get(t.requesterPublicId);
+      const assignee = t.assigneePublicId ? byId.get(t.assigneePublicId) : undefined;
+      return {
+        ...t,
+        requesterName: requester ? `${requester.firstName} ${requester.lastName}`.trim() : 'Unknown',
+        requesterEmail: requester?.email ?? '',
+        requesterRole: requester?.role ?? '',
+        assigneeName: assignee ? `${assignee.firstName} ${assignee.lastName}`.trim() : null,
+      };
+    });
+  }
+
+  /** People a ticket can be assigned to. */
+  async listAgents() {
+    const { UserModel } = await import('../users/user.model');
+    const agents = await UserModel.find(
+      { role: { $in: ['SUPPORT', 'ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE', isDeleted: false },
+      { publicId: 1, firstName: 1, lastName: 1, role: 1 },
+    ).lean();
+
+    return agents.map((a) => ({
+      publicId: a.publicId,
+      name: `${a.firstName} ${a.lastName}`.trim(),
+      role: a.role,
+    }));
   }
 
   async getTicket(publicId: string): Promise<ITicket> {

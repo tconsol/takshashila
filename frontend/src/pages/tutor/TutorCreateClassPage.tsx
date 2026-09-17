@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarPlus, Users, User, RefreshCw, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
+import { CalendarPlus, Users, User, RefreshCw, ChevronDown, ChevronUp, ArrowLeft, Wallet } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useTutorCreateClass } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
+import { useAuthStore } from '../../stores/auth.store';
 
 type ClassType = 'DEMO' | 'ONE_ON_ONE' | 'GROUP' | 'RECURRING';
 type Recurrence = 'NONE' | 'DAILY' | 'WEEKLY';
@@ -39,6 +40,13 @@ export function TutorCreateClassPage() {
   const [studentMode, setStudentMode] = useState<'all' | 'specific'>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showStudents, setShowStudents] = useState(false);
+  const [meetingUrl, setMeetingUrl] = useState('');
+  const [creditError, setCreditError] = useState<string | null>(null);
+
+  const MAX_NATIVE_STUDENTS = 10;
+
+  const role = useAuthStore((s) => s.user?.role);
+  const walletPath = role === 'PRINCIPAL' ? '/dashboard/principal/wallet' : '/dashboard/tutor/wallet';
 
   const { mutateAsync: create, isPending } = useTutorCreateClass();
   const { data: studentsData } = useMyStudentsAsTutor({ limit: '200' });
@@ -56,32 +64,71 @@ export function TutorCreateClassPage() {
       return next;
     });
 
+  const studentCount = studentMode === 'all' ? students.length : selected.size;
+  const exceedsNative = studentCount > MAX_NATIVE_STUDENTS;
+  const showMeetingField = type === 'GROUP' || type === 'RECURRING' || exceedsNative;
+
   const canSubmit =
     title.trim().length > 0 &&
     startUTC.length > 0 &&
     endUTC.length > 0 &&
-    new Date(endUTC) > new Date(startUTC);
+    new Date(endUTC) > new Date(startUTC) &&
+    (!exceedsNative || meetingUrl.trim().length > 0); // big groups need an external link
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    await create({
-      title: title.trim(),
-      description: description.trim() || undefined,
-      classType: type,
-      startUTC: new Date(startUTC).toISOString(),
-      endUTC: new Date(endUTC).toISOString(),
-      recurrence,
-      recurrenceEndDate:
-        recurrence !== 'NONE' && recurrenceEndDate
-          ? new Date(recurrenceEndDate).toISOString()
-          : undefined,
-      studentPublicIds: studentMode === 'all' ? [] : [...selected],
-    });
-    navigate('/dashboard/tutor/classes');
+    setCreditError(null);
+    try {
+      await create({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        classType: type,
+        startUTC: new Date(startUTC).toISOString(),
+        endUTC: new Date(endUTC).toISOString(),
+        recurrence,
+        recurrenceEndDate:
+          recurrence !== 'NONE' && recurrenceEndDate
+            ? new Date(recurrenceEndDate).toISOString()
+            : undefined,
+        studentPublicIds: studentMode === 'all' ? [] : [...selected],
+        meetingUrl: meetingUrl.trim() || undefined,
+      });
+      navigate('/dashboard/tutor/classes');
+    } catch (e) {
+      const err = e as { response?: { status?: number; data?: { message?: string } } };
+      if (err.response?.status === 402) {
+        setCreditError(err.response.data?.message ?? "You don't have enough credits to create this class.");
+      }
+    }
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {/* Insufficient-credits popup */}
+      {creditError && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setCreditError(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/30">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <h3 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">Not enough credits</h3>
+            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">{creditError}</p>
+            <div className="mt-5 flex gap-2">
+              <Button variant="ghost" fullWidth onClick={() => setCreditError(null)}>Cancel</Button>
+              <Button variant="gradient" fullWidth onClick={() => navigate(walletPath)}>
+                <Wallet className="h-4 w-4" /> Add credits
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
@@ -271,6 +318,27 @@ export function TutorCreateClassPage() {
             </div>
           )}
         </div>
+
+        {/* External meeting link (for big groups the native room can't fit) */}
+        {showMeetingField && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Google Meet / Zoom link {exceedsNative && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type="url"
+              value={meetingUrl}
+              onChange={(e) => setMeetingUrl(e.target.value)}
+              placeholder="https://meet.google.com/…  or  https://zoom.us/j/…"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p className={`mt-1 text-xs ${exceedsNative ? 'text-red-500' : 'text-gray-400'}`}>
+              {exceedsNative
+                ? `You have ${studentCount} students. The in-app room fits up to ${MAX_NATIVE_STUDENTS} — add a Meet/Zoom link to host them. Students will see a "Join" button that opens it.`
+                : `Optional. Up to ${MAX_NATIVE_STUDENTS} students can use the in-app room (no link needed). Add a link to use Google Meet / Zoom instead.`}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Actions */}

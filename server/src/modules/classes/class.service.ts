@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ScheduledClassModel } from '../schedules/schedule.model';
-import { ClassStatus, ClassType } from '../schedules/schedule.types';
+import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { scheduleService } from '../schedules/schedule.service';
 import { walletService } from '../wallets/wallet.service';
@@ -12,14 +12,18 @@ import { principalService } from '../principals/principal.service';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
+import { logger } from '../../lib/logger';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
-import { calculateCommission } from '../../utils/currency';
+import { PLATFORM_FEE_CENTS } from '../../utils/currency';
 import { attendanceService } from '../attendance/attendance.service';
 import { AttendanceStatus } from '../attendance/attendance.types';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto, SaveRecordingDto, TutorCreateClassDto, TutorRescheduleDto } from './class.validators';
+
+// A completed demo class consumes 10 credits from the student's free demo-credit bucket.
+const DEMO_CLASS_COST_CENTS = 10 * 100;
 
 export class ClassService {
   async bookClass(
@@ -43,10 +47,11 @@ export class ClassService {
     const costCents = tutorProfile.hourlyRateCents;
 
     // Charge happens at class completion (not booking). Verify student has
-    // enough balance up front so they cannot book a class they cannot pay for.
+    // enough balance up front (rate + platform fee) so they cannot book a class
+    // they cannot pay for.
     if (costCents > 0) {
       const wallet = await walletService.getWallet(studentUserPublicId);
-      if (wallet.balanceCents < costCents) {
+      if (wallet.balanceCents < costCents + PLATFORM_FEE_CENTS) {
         throw new AppError('Insufficient credits to book this class', 402);
       }
     }
@@ -68,6 +73,7 @@ export class ClassService {
         title: dto.title,
         description: dto.description,
         costCents,
+        billingMode: BillingMode.STUDENT_REQUESTED,
         idempotencyKey: dto.idempotencyKey,
         isDeleted: false,
       });
@@ -127,15 +133,21 @@ export class ClassService {
     }
     if (!authorized) throw new AppError('Not authorized to join this class', 403);
 
-    // If already LIVE (or other terminal state), return as-is
-    if (cls.status !== ClassStatus.SCHEDULED) return cls;
+    // Terminal states — nothing to update.
+    if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED) return cls;
 
-    // Transition SCHEDULED → LIVE; if student joining, record their join time
-    const setFields: Record<string, unknown> = { status: ClassStatus.LIVE };
-    if (role === 'STUDENT') setFields.studentJoinedAt = new Date();
+    // Transition SCHEDULED → LIVE, and ALWAYS record the student's join time the
+    // first time they join — even if the tutor already started the class (LIVE).
+    // (Previously this early-returned for LIVE, so a student joining after the
+    //  tutor started was wrongly marked absent on completion.)
+    const setFields: Record<string, unknown> = {};
+    if (cls.status === ClassStatus.SCHEDULED) setFields.status = ClassStatus.LIVE;
+    if (role === 'STUDENT' && !cls.studentJoinedAt) setFields.studentJoinedAt = new Date();
+
+    if (Object.keys(setFields).length === 0) return cls; // already LIVE + already joined
 
     const updated = await ScheduledClassModel.findOneAndUpdate(
-      { publicId: classPublicId, status: ClassStatus.SCHEDULED, isDeleted: false },
+      { publicId: classPublicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] }, isDeleted: false },
       { $set: setFields },
       { new: true },
     ).lean();
@@ -182,42 +194,83 @@ export class ClassService {
       { userPublicId: 1 },
     ).lean();
 
-    // Charge student → pay tutor, but only if the student actually attended.
+    // ── Billing on completion ──────────────────────────────────────────────
+    const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
     const studentAttended = !!scheduled.studentJoinedAt;
-    if (scheduled.costCents > 0 && studentAttended && studentProfileForEvent?.userPublicId) {
-      const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
-      const commissionCents = calculateCommission(
-        scheduled.costCents,
-        tutorProfile.commissionRatePercent,
-      );
-      const tutorEarningsCents = scheduled.costCents - commissionCents;
 
-      try {
-        // 1) Debit the student the full per-class charge
-        await walletService.debitWallet({
-          ownerPublicId: studentProfileForEvent.userPublicId,
-          amountCents: scheduled.costCents,
-          description: `Class: ${scheduled.title}`,
-          idempotencyKey: `class-charge-${classPublicId}`,
-          referenceId: classPublicId,
-          referenceType: 'CLASS_COMPLETION',
-        });
+    if (scheduled.classType === ClassType.DEMO) {
+      // A demo costs 10 credits, drawn from the student's free demo-credit bucket.
+      // No tutor payout (it's a trial). Only charged if the student attended.
+      if (studentAttended && studentProfileForEvent?.userPublicId) {
+        try {
+          await walletService.debitWallet({
+            ownerPublicId: studentProfileForEvent.userPublicId,
+            amountCents: DEMO_CLASS_COST_CENTS,
+            description: `Demo class: ${scheduled.title}`,
+            idempotencyKey: `demo-charge-${classPublicId}`,
+            referenceId: classPublicId,
+            referenceType: 'CLASS_COMPLETION',
+            bucketField: 'demoCreditsCents',
+          });
+        } catch {
+          // Insufficient demo credits — complete the class anyway.
+        }
+      }
+    } else if (scheduled.billingMode === BillingMode.TUTOR_INVITED) {
+      // Tutor created + invited: students attend FREE. The tutor pays a flat
+      // 2-credit platform fee PER ATTENDING STUDENT, and earns nothing.
+      // tutorCreateClass writes one class doc per student, so completing each
+      // attended doc charges 2 credits → e.g. 10 attendees = 20 credits.
+      if (studentAttended && studentProfileForEvent?.userPublicId) {
+        const tutorFeeCents = PLATFORM_FEE_CENTS * 2;
+        try {
+          await walletService.debitWallet({
+            ownerPublicId: tutorProfile.userPublicId,
+            amountCents: tutorFeeCents,
+            description: `Platform fee (hosted class): ${scheduled.title}`,
+            idempotencyKey: `tutor-platform-fee-${classPublicId}`,
+            referenceId: classPublicId,
+            referenceType: 'CLASS_COMPLETION',
+          });
+        } catch {
+          // Insufficient tutor balance complete the class but skip the fee.
+        }
+      }
+    } else {
+      // Student-requested: charge student (rate + fee), pay tutor (rate − fee),
+      // platform keeps the fee from both sides. Only if the student attended.
+      if (scheduled.costCents > 0 && studentAttended && studentProfileForEvent?.userPublicId) {
+        const studentChargeCents = scheduled.costCents + PLATFORM_FEE_CENTS;
+        const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
 
-        // 2) Credit the tutor their earnings (charge minus platform commission)
-        await walletService.creditWallet({
-          ownerPublicId: tutorProfile.userPublicId,
-          amountCents: tutorEarningsCents,
-          creditType: CreditType.EARNED_CREDITS,
-          description: `Earnings: ${scheduled.title}`,
-          idempotencyKey: `tutor-earning-${classPublicId}`,
-          referenceId: classPublicId,
-          referenceType: 'CLASS_COMPLETION',
-        });
+        try {
+          // 1) Debit the student the rate plus the platform fee
+          await walletService.debitWallet({
+            ownerPublicId: studentProfileForEvent.userPublicId,
+            amountCents: studentChargeCents,
+            description: `Class: ${scheduled.title}`,
+            idempotencyKey: `class-charge-${classPublicId}`,
+            referenceId: classPublicId,
+            referenceType: 'CLASS_COMPLETION',
+          });
 
-        await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
-      } catch {
-        // Insufficient student balance complete the class but skip the charge.
-        // (Booking already validated balance; this guards edge cases.)
+          // 2) Credit the tutor the rate minus the platform fee
+          if (tutorEarningsCents > 0) {
+            await walletService.creditWallet({
+              ownerPublicId: tutorProfile.userPublicId,
+              amountCents: tutorEarningsCents,
+              creditType: CreditType.EARNED_CREDITS,
+              description: `Earnings: ${scheduled.title}`,
+              idempotencyKey: `tutor-earning-${classPublicId}`,
+              referenceId: classPublicId,
+              referenceType: 'CLASS_COMPLETION',
+            });
+            await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
+          }
+        } catch {
+          // Insufficient student balance complete the class but skip the charge.
+          // (Booking already validated balance; this guards edge cases.)
+        }
       }
     }
 
@@ -304,6 +357,84 @@ export class ClassService {
     return updated!;
   }
 
+  /**
+   * Refund/reverse a COMPLETED, already-charged class.
+   * STUDENT_REQUESTED: refund the student (rate + fee) and claw back the tutor's
+   * earning (rate − fee). TUTOR_INVITED: refund the tutor the platform fee they paid.
+   * Idempotent via per-class transaction keys + the isRefunded flag.
+   */
+  async refundClass(
+    classPublicId: string,
+    actorUserPublicId: string,
+    reason: string,
+  ): Promise<IScheduledClass> {
+    const scheduled = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (!scheduled) throw new NotFoundError('Scheduled class');
+    if (scheduled.status !== ClassStatus.COMPLETED) {
+      throw new ConflictError('Only completed classes can be refunded');
+    }
+    if (scheduled.isRefunded) throw new ConflictError('Class already refunded');
+
+    const studentAttended = !!scheduled.studentJoinedAt;
+    const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
+
+    if (scheduled.billingMode === BillingMode.TUTOR_INVITED) {
+      // Tutor paid a 2-credit fee per attending student → refund it.
+      if (studentAttended) {
+        await walletService.refundWallet({
+          ownerPublicId: tutorProfile.userPublicId,
+          amountCents: PLATFORM_FEE_CENTS * 2,
+          description: `Refund platform fee: ${scheduled.title}`,
+          idempotencyKey: `tutor-fee-refund-${classPublicId}`,
+          referenceId: classPublicId,
+          referenceType: 'CLASS_REFUND',
+        });
+      }
+    } else if (scheduled.costCents > 0 && studentAttended) {
+      const studentProfile = await StudentProfileModel.findOne(
+        { publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 },
+      ).lean();
+      if (studentProfile?.userPublicId) {
+        const studentChargeCents = scheduled.costCents + PLATFORM_FEE_CENTS;
+        const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
+
+        // 1) Refund the student in full (rate + fee). Must succeed before we mark refunded.
+        await walletService.refundWallet({
+          ownerPublicId: studentProfile.userPublicId,
+          amountCents: studentChargeCents,
+          description: `Refund: ${scheduled.title}`,
+          idempotencyKey: `class-refund-${classPublicId}`,
+          referenceId: classPublicId,
+          referenceType: 'CLASS_REFUND',
+        });
+
+        // 2) Claw back the tutor's earning (best-effort may have been spent).
+        if (tutorEarningsCents > 0) {
+          try {
+            await walletService.reverseWallet({
+              ownerPublicId: tutorProfile.userPublicId,
+              amountCents: tutorEarningsCents,
+              description: `Reversal: ${scheduled.title}`,
+              idempotencyKey: `tutor-reversal-${classPublicId}`,
+              referenceId: classPublicId,
+              referenceType: 'CLASS_REFUND',
+            });
+          } catch {
+            // Tutor balance too low to claw back platform absorbs the difference.
+          }
+        }
+      }
+    }
+
+    const updated = await ScheduledClassModel.findOneAndUpdate(
+      { publicId: classPublicId },
+      { $set: { isRefunded: true, refundedAt: new Date(), cancellationReason: reason, cancelledBy: actorUserPublicId } },
+      { new: true },
+    ).lean();
+
+    return updated!;
+  }
+
   async setMeetingUrl(
     classPublicId: string,
     dto: SetMeetingUrlDto,
@@ -335,7 +466,7 @@ export class ClassService {
       ScheduledClassModel.find(filter).sort({ startUTC: -1 }).skip(skip).limit(limit).lean(),
       ScheduledClassModel.countDocuments(filter),
     ]);
-    return buildPaginatedResult(items, total, page, limit);
+    return buildPaginatedResult(await this.withParticipantNames(items), total, page, limit);
   }
 
   async getClassesByStudent(
@@ -356,7 +487,44 @@ export class ClassService {
       ScheduledClassModel.find(filter).sort({ startUTC: -1 }).skip(skip).limit(limit).lean(),
       ScheduledClassModel.countDocuments(filter),
     ]);
-    return buildPaginatedResult(items, total, page, limit);
+    return buildPaginatedResult(await this.withParticipantNames(items), total, page, limit);
+  }
+
+  /**
+   * Attaches `tutorName` / `studentName` to a page of classes.
+   *
+   * Rows store profile ids, so a tutor's class list would otherwise show no
+   * indication of *who* the class is for. Resolved in two queries per page
+   * rather than per row.
+   */
+  async withParticipantNames<T extends { tutorPublicId: string; studentPublicId: string }>(
+    items: T[],
+  ): Promise<(T & { tutorName: string; studentName: string })[]> {
+    if (items.length === 0) return [];
+
+    const tutorIds = [...new Set(items.map((c) => c.tutorPublicId))];
+    const studentIds = [...new Set(items.map((c) => c.studentPublicId))];
+
+    const [tutorProfiles, studentProfiles] = await Promise.all([
+      TutorProfileModel.find({ publicId: { $in: tutorIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+      StudentProfileModel.find({ publicId: { $in: studentIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+    ]);
+
+    const { UserModel } = await import('../users/user.model');
+    const users = await UserModel.find(
+      { publicId: { $in: [...tutorProfiles, ...studentProfiles].map((p) => p.userPublicId) } },
+      { publicId: 1, firstName: 1, lastName: 1 },
+    ).lean();
+
+    const nameByUser = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+    const tutorName = new Map(tutorProfiles.map((p) => [p.publicId, nameByUser.get(p.userPublicId) ?? 'Unknown tutor']));
+    const studentName = new Map(studentProfiles.map((p) => [p.publicId, nameByUser.get(p.userPublicId) ?? 'Unknown student']));
+
+    return items.map((c) => ({
+      ...c,
+      tutorName: tutorName.get(c.tutorPublicId) ?? 'Unknown tutor',
+      studentName: studentName.get(c.studentPublicId) ?? 'Unknown student',
+    }));
   }
 
   async getByPublicId(publicId: string): Promise<IScheduledClass> {
@@ -406,6 +574,20 @@ export class ClassService {
       studentPublicIds = allStudents.map((s) => s.publicId);
     }
 
+    // Native live room fits up to 10 students (+ tutor + linked principal = 12).
+    // Larger groups must run on an external Google Meet / Zoom link.
+    const MAX_NATIVE_GROUP_STUDENTS = 10;
+    const externalUrl = dto.meetingUrl?.trim() || undefined;
+    if (studentPublicIds.length > MAX_NATIVE_GROUP_STUDENTS && !externalUrl) {
+      throw new AppError(
+        `This class has ${studentPublicIds.length} students. The in-app room supports up to ${MAX_NATIVE_GROUP_STUDENTS}. Add a Google Meet or Zoom link to host a larger group.`,
+        400,
+      );
+    }
+    const meetingProvider = externalUrl
+      ? (dto.meetingProvider ?? (/zoom/i.test(externalUrl) ? 'zoom' : 'google_meet'))
+      : 'native';
+
     // Build list of occurrences
     const occurrences: Array<{ start: Date; end: Date }> = [];
     const startMs = new Date(dto.startUTC).getTime();
@@ -422,6 +604,21 @@ export class ClassService {
         occurrences.push({ start: new Date(cur), end: new Date(cur + durationMs) });
         cur += stepMs;
         if (occurrences.length > 365) break; // safety cap
+      }
+    }
+
+    // The tutor pays a 2-credit platform fee per attending student on completion.
+    // Require enough balance up front so they can't create a class they can't fund.
+    const PER_STUDENT_FEE_CENTS = PLATFORM_FEE_CENTS * 2;
+    const billableCount = studentPublicIds.length * occurrences.length;
+    if (billableCount > 0) {
+      const requiredCents = billableCount * PER_STUDENT_FEE_CENTS;
+      const wallet = await walletService.getWallet(tutorProfile.userPublicId);
+      if (wallet.balanceCents < requiredCents) {
+        throw new AppError(
+          `You don't have enough credits to create this class. It needs ${requiredCents / 100} credits (2 per student) but your balance is ${wallet.balanceCents / 100}. Please top up your wallet.`,
+          402,
+        );
       }
     }
 
@@ -447,6 +644,9 @@ export class ClassService {
           title: dto.title,
           description: dto.description,
           costCents: 0,
+          billingMode: BillingMode.TUTOR_INVITED,
+          meetingUrl: externalUrl,
+          meetingProvider,
           idempotencyKey: uuidv4(),
           isDeleted: false,
         });
@@ -543,6 +743,151 @@ export class ClassService {
       { new: true },
     ).lean();
     return updated!;
+  }
+
+  /**
+   * Closes classes that ran past their end time with nobody closing them.
+   *
+   * Two cases, distinguished by whether the class was ever started:
+   *   • LIVE      — the tutor ran it and forgot to press Complete. Completing
+   *                 it settles the money exactly as the manual path does, so
+   *                 the tutor is paid and the student is charged correctly.
+   *   • SCHEDULED — nobody started it. Cancelling refunds the student through
+   *                 the normal cancellation path.
+   *
+   * Both are tagged with `autoResolution` so the UI can say a human did not do
+   * this, and so the pair can be audited or reversed later.
+   *
+   * Runs on a repeating job; safe to run concurrently because each class is
+   * claimed with a conditional update before any money moves.
+   */
+  async autoResolveOverdueClasses(): Promise<{ completed: number; cancelled: number }> {
+    const cutoff = new Date(Date.now() - AUTO_RESOLVE_GRACE_MINUTES * 60 * 1000);
+
+    const overdue = await ScheduledClassModel.find(
+      {
+        isDeleted: false,
+        endUTC: { $lte: cutoff },
+        status: { $in: [ClassStatus.LIVE, ClassStatus.SCHEDULED] },
+        autoResolution: { $exists: false },
+      },
+      { publicId: 1, status: 1, tutorPublicId: 1 },
+    )
+      .limit(200)
+      .lean();
+
+    let completed = 0;
+    let cancelled = 0;
+
+    for (const cls of overdue) {
+      // Claim it first: the conditional match means a second worker (or a
+      // tutor pressing Complete right now) cannot double-resolve the class.
+      const claimed = await ScheduledClassModel.findOneAndUpdate(
+        { publicId: cls.publicId, status: cls.status, autoResolution: { $exists: false } },
+        {
+          $set: {
+            autoResolution: cls.status === ClassStatus.LIVE
+              ? AutoResolution.AUTO_COMPLETED
+              : AutoResolution.AUTO_CANCELLED,
+            autoResolvedAt: new Date(),
+          },
+        },
+        { new: true },
+      ).lean();
+      if (!claimed) continue;
+
+      try {
+        if (cls.status === ClassStatus.LIVE) {
+          const tutor = await tutorService.getByPublicId(cls.tutorPublicId);
+          await this.completeClass(cls.publicId, tutor.userPublicId);
+          completed += 1;
+        } else {
+          await this.cancelClass(cls.publicId, 'system', {
+            reason: `Auto-cancelled: nobody joined within ${AUTO_RESOLVE_GRACE_MINUTES} minutes of the end time`,
+          } as CancelClassDto);
+          cancelled += 1;
+        }
+      } catch (error) {
+        // Release the claim so a later sweep can retry rather than leaving the
+        // class tagged as resolved when the settlement actually failed.
+        await ScheduledClassModel.updateOne(
+          { publicId: cls.publicId },
+          { $unset: { autoResolution: '', autoResolvedAt: '' } },
+        );
+        logger.warn('Auto-resolve failed for class', {
+          classPublicId: cls.publicId,
+          status: cls.status,
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    return { completed, cancelled };
+  }
+
+  /**
+   * Platform-wide class listing for the admin finance screen. `refundable` narrows
+   * to the only classes `refundClass` will accept: completed, paid and not already
+   * refunded — so the UI never offers a button that is going to 409.
+   */
+  async listForAdmin(
+    filters: { status?: string; refundable?: boolean; refunded?: boolean; days?: number },
+    query: PaginationQuery,
+  ) {
+    const { page, limit, skip } = parsePaginationQuery(query);
+
+    const filter: Record<string, unknown> = { isDeleted: false };
+    if (filters.refundable) {
+      filter.status = ClassStatus.COMPLETED;
+      filter.isRefunded = false;
+      filter.costCents = { $gt: 0 };
+    } else {
+      if (filters.status) filter.status = filters.status;
+      if (filters.refunded !== undefined) filter.isRefunded = filters.refunded;
+    }
+    if (filters.days) {
+      filter.startUTC = { $gte: new Date(Date.now() - filters.days * 24 * 60 * 60 * 1000) };
+    }
+
+    const [items, total] = await Promise.all([
+      ScheduledClassModel.find(filter).sort({ startUTC: -1 }).skip(skip).limit(limit).lean(),
+      ScheduledClassModel.countDocuments(filter),
+    ]);
+
+    // Rows key off profile ids; resolve both sides to names so the table is usable.
+    const tutorIds = [...new Set(items.map((c) => c.tutorPublicId))];
+    const studentIds = [...new Set(items.map((c) => c.studentPublicId))];
+
+    const [tutorProfiles, studentProfiles] = await Promise.all([
+      TutorProfileModel.find({ publicId: { $in: tutorIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+      StudentProfileModel.find({ publicId: { $in: studentIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+    ]);
+
+    const { UserModel } = await import('../users/user.model');
+    const userIds = [
+      ...tutorProfiles.map((p) => p.userPublicId),
+      ...studentProfiles.map((p) => p.userPublicId),
+    ];
+    const users = await UserModel.find(
+      { publicId: { $in: userIds } },
+      { publicId: 1, firstName: 1, lastName: 1 },
+    ).lean();
+
+    const nameByUserId = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`]));
+    const tutorNameByProfile = new Map(
+      tutorProfiles.map((p) => [p.publicId, nameByUserId.get(p.userPublicId) ?? 'Unknown tutor']),
+    );
+    const studentNameByProfile = new Map(
+      studentProfiles.map((p) => [p.publicId, nameByUserId.get(p.userPublicId) ?? 'Unknown student']),
+    );
+
+    const hydrated = items.map((c) => ({
+      ...c,
+      tutorName: tutorNameByProfile.get(c.tutorPublicId) ?? 'Unknown tutor',
+      studentName: studentNameByProfile.get(c.studentPublicId) ?? 'Unknown student',
+    }));
+
+    return buildPaginatedResult(hydrated, total, page, limit);
   }
 }
 

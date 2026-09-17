@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
-  Video, BookOpen, BarChart3, Wallet, ArrowUpRight, Plus,
+  Video, BookOpen, BarChart3, Coins, ArrowUpRight, Plus,
   Sparkles, Target, GraduationCap, Star, MessageSquare, Flame, Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuthStore } from '../../stores/auth.store';
-import { PageHeader } from '../../components/shared/PageHeader';
+import { DashboardHero } from '../../components/shared/DashboardHero';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
@@ -41,6 +41,11 @@ function useStudentStats() {
         attendanceRate: number;
       };
     },
+    // Refresh when the student returns to the dashboard (e.g. after a class
+    // completes) so completed/attendance counts aren't stale.
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    staleTime: 10_000,
   });
 }
 
@@ -67,6 +72,9 @@ function useWalletBalance() {
       const { data } = await api.get('/wallets/me');
       return data?.data?.balanceCents ?? 0;
     },
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    staleTime: 10_000,
   });
 }
 
@@ -120,8 +128,8 @@ const popIn = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const formatINR = (cents: number) =>
-  `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+const formatCreditsLabel = (cents: number) =>
+  `${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })} cr`;
 
 const TIPS = [
   'Consistency beats intensity show up every day! 🎯',
@@ -195,31 +203,19 @@ export function StudentDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Greeting banner */}
-      <motion.div
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-brand-500 via-violet-500 to-indigo-500 px-5 py-4 shadow-lg shadow-brand-500/20"
-      >
-        <div>
-          <p className="text-lg font-bold text-white">
-            {greeting.emoji} {greeting.text}
-          </p>
-          <p className="mt-0.5 text-sm text-white/80">{tip}</p>
-        </div>
-        <Link to="/dashboard/student/tutors">
-          <Button size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30 border shrink-0">
-            <Plus className="h-4 w-4" /> Book a class
-          </Button>
-        </Link>
-      </motion.div>
-
-      <PageHeader
+      <DashboardHero
+        role="STUDENT"
         eyebrow="My Learning"
-        title="Dashboard"
-        description="Your classes, progress and credits at a glance."
-        icon={<Sparkles className="h-5 w-5" />}
+        title={`${greeting.emoji} ${greeting.text}`}
+        description={tip}
+        icon={<Sparkles className="h-6 w-6" />}
+        actions={
+          <Link to="/dashboard/student/tutors">
+            <Button size="sm" className="bg-white/20 hover:bg-white/30 text-white border-white/30 border shrink-0">
+              <Plus className="h-4 w-4" /> Book a class
+            </Button>
+          </Link>
+        }
       />
 
       <LiveClassBanner />
@@ -253,42 +249,40 @@ export function StudentDashboard() {
         </motion.div>
       )}
 
-      {/* Stats cards staggered entrance */}
+      {/* Stats cards — shared StatsCard so this grid matches every other
+          dashboard's flat ink/paper tile instead of the old gradient-strip card. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          {
-            title: 'Upcoming Classes',
-            value: statsLoading ? '…' : String(upcoming),
-            accent: 'brand' as const,
-            icon: <Video className="h-5 w-5" />,
-          },
-          {
-            title: 'Wallet Balance',
-            value: formatINR(walletAnim),
-            accent: 'green' as const,
-            icon: <Wallet className="h-5 w-5" />,
-            hint: 'Credits available',
-          },
-          {
-            title: 'Submissions',
-            value: statsLoading ? '…' : String(submissions),
-            accent: 'orange' as const,
-            icon: <BookOpen className="h-5 w-5" />,
-          },
-          {
-            title: 'Attendance',
-            value: statsLoading ? '…' : `${attendance}%`,
-            accent: 'violet' as const,
-            icon: <BarChart3 className="h-5 w-5" />,
-            change: (stats?.attendanceRate ?? 0) >= 75
-              ? { value: 'Good standing', positive: true }
-              : { value: 'Needs attention', positive: false },
-          },
-        ].map((card, i) => (
-          <motion.div key={card.title} custom={i} variants={fadeUp} initial="hidden" animate="show">
-            <StatsCard {...card} />
-          </motion.div>
-        ))}
+        <StatsCard
+          index={0}
+          title="Upcoming Classes"
+          value={statsLoading ? '…' : String(upcoming)}
+          icon={<Video className="h-5 w-5" />}
+          hint="Scheduled sessions"
+        />
+        <StatsCard
+          index={1}
+          title="Wallet Balance"
+          value={formatCreditsLabel(walletAnim)}
+          icon={<Coins className="h-5 w-5" />}
+          hint="Credits available"
+        />
+        <StatsCard
+          index={2}
+          title="Submissions"
+          value={statsLoading ? '…' : String(submissions)}
+          icon={<BookOpen className="h-5 w-5" />}
+          hint="Worksheets done"
+        />
+        <StatsCard
+          index={3}
+          title="Attendance"
+          value={statsLoading ? '…' : `${attendance}%`}
+          icon={<BarChart3 className="h-5 w-5" />}
+          change={{
+            value: (stats?.attendanceRate ?? 0) >= 75 ? 'Good standing' : 'Needs attention',
+            positive: (stats?.attendanceRate ?? 0) >= 75,
+          }}
+        />
       </div>
 
       {/* Streak + attendance ring row */}

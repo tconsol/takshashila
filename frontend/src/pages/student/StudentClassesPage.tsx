@@ -6,35 +6,58 @@ import { BookClassModal } from '../../components/shared/BookClassModal';
 import { Tabs } from '../../components/ui/Tabs';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { useMyClassesAsStudent, useCancelClass } from '../../hooks/use-classes';
+import { useMyClassesAsStudent, useCancelClass, LIVE_STATUS_POLL } from '../../hooks/use-classes';
 import { useTutorSearch } from '../../hooks/use-tutors';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 import type { ClassRecord } from '../../services/classes.service';
 import type { TutorProfile } from '../../services/tutors.service';
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
+import { Table } from '../../components/ui/Table';
 import { RateClassModal } from '../../features/ratings/RateClassModal';
 import { useMyRatedClassIds } from '../../features/ratings/use-ratings';
 import { useStartConversation } from '../../features/chat/use-chat';
 
 const EMPTY_LABELS: Record<string, string> = {
+  ALL: 'No classes yet',
   SCHEDULED: 'No upcoming classes',
   LIVE: 'No classes in progress',
   COMPLETED: 'No completed classes',
   CANCELLED: 'No cancelled classes',
 };
 
+const STATUS_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'default'> = {
+  COMPLETED: 'success',
+  CANCELLED: 'danger',
+  LIVE: 'warning',
+  SCHEDULED: 'info',
+};
+
 export function StudentClassesPage() {
-  const [activeTab, setActiveTab] = useState('SCHEDULED');
+  const [activeTab, setActiveTab] = useState('ALL');
   const [showFindTutor, setShowFindTutor] = useState(false);
 
-  const { data: liveData } = useMyClassesAsStudent({ status: 'LIVE', limit: '1' });
+  const poll = { refetchInterval: LIVE_STATUS_POLL };
+  const { data: liveData } = useMyClassesAsStudent({ status: 'LIVE', limit: '1' }, poll);
   const hasLive = (liveData?.total ?? 0) > 0;
 
+  // Lightweight counts per status (independent of the active tab) so a status
+  // change — e.g. a class moving into Completed — lights up that tab even
+  // while viewing a different one.
+  const { data: scheduledCount } = useMyClassesAsStudent({ status: 'SCHEDULED', limit: '1' }, poll);
+  const { data: completedCount } = useMyClassesAsStudent({ status: 'COMPLETED', limit: '1' }, poll);
+  const { data: cancelledCount } = useMyClassesAsStudent({ status: 'CANCELLED', limit: '1' }, poll);
+  const { dirty, markSeen } = useTabActivity(
+    { SCHEDULED: scheduledCount?.total, COMPLETED: completedCount?.total, CANCELLED: cancelledCount?.total },
+    activeTab,
+  );
+
   const TABS = [
-    { key: 'SCHEDULED', label: 'Upcoming' },
+    { key: 'ALL', label: 'All' },
+    { key: 'SCHEDULED', label: 'Upcoming', indicator: dirty.has('SCHEDULED') },
     { key: 'LIVE', label: 'In Progress', indicator: hasLive },
-    { key: 'COMPLETED', label: 'Completed' },
-    { key: 'CANCELLED', label: 'Cancelled' },
+    { key: 'COMPLETED', label: 'Completed', indicator: dirty.has('COMPLETED') },
+    { key: 'CANCELLED', label: 'Cancelled', indicator: dirty.has('CANCELLED') },
   ];
   const [bookingTutor, setBookingTutor] = useState<TutorProfile | null>(null);
   const [cancelTarget, setCancelTarget] = useState<ClassRecord | null>(null);
@@ -44,7 +67,7 @@ export function StudentClassesPage() {
   const { data: serverRatedIds = [] } = useMyRatedClassIds();
   const ratedIds = new Set([...serverRatedIds, ...sessionRatedIds]);
 
-  const { data, isLoading } = useMyClassesAsStudent({ status: activeTab });
+  const { data, isLoading } = useMyClassesAsStudent(activeTab === 'ALL' ? { limit: '100' } : { status: activeTab });
   const { data: tutorResult } = useTutorSearch({ limit: 20 });
   const { mutateAsync: cancelClass, isPending: cancelling } = useCancelClass();
   const { mutateAsync: startConversation } = useStartConversation();
@@ -55,7 +78,9 @@ export function StudentClassesPage() {
     navigate(`/chat/${conv.publicId}`);
   };
 
-  const classes = data?.items ?? [];
+  const classes = (data?.items ?? []).slice().sort(
+    (a, b) => new Date(b.scheduledStartUTC).getTime() - new Date(a.scheduledStartUTC).getTime(),
+  ); // newest → oldest
   const tutors = tutorResult?.items ?? [];
 
   const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate', cls: ClassRecord) => {
@@ -78,7 +103,7 @@ export function StudentClassesPage() {
           <Button onClick={() => setShowFindTutor(true)}>+ Book a Class</Button>
         </div>
 
-        <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+        <Tabs tabs={TABS} activeTab={activeTab} onChange={(key) => { setActiveTab(key); markSeen(key); }} />
 
         {isLoading ? (
           <div className="flex justify-center py-12">
@@ -87,6 +112,41 @@ export function StudentClassesPage() {
         ) : classes.length === 0 ? (
           <div className="text-center py-12 text-gray-400 dark:text-gray-500">
             {EMPTY_LABELS[activeTab] ?? 'No classes found'}
+          </div>
+        ) : activeTab === 'ALL' ? (
+          /* ── ALL: table view (newest → oldest) ── */
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+            <Table
+              keyField="publicId"
+              data={classes}
+              columns={[
+                {
+                  key: 'subject',
+                  header: 'Class',
+                  render: (c) => <span className="font-medium text-gray-900 dark:text-white">{c.subject || 'Class'}</span>,
+                },
+                {
+                  key: 'classType',
+                  header: 'Type',
+                  render: (c) => <Badge variant="purple">{c.classType.replace(/_/g, ' ')}</Badge>,
+                },
+                {
+                  key: 'scheduledStartUTC',
+                  header: 'Date & Time',
+                  render: (c) => (
+                    <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      {new Date(c.scheduledStartUTC).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'status',
+                  header: 'Status',
+                  render: (c) => <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>,
+                },
+              ]}
+              emptyMessage="No classes yet"
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

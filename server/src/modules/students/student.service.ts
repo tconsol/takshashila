@@ -15,8 +15,10 @@ import { UserStatus } from '../users/user.types';
 import { tutorRepository } from '../tutors/tutor.repository';
 import type { CreateStudentByTutorDto, InviteExistingStudentDto, CreateStudentByPrincipalDto, InviteStudentByPrincipalDto, CreateStudentByParentDto } from './student.validators';
 import { PrincipalProfileModel } from '../principals/principal.model';
+import { TutorProfileModel } from '../tutors/tutor.model';
 import { ParentProfileModel } from '../parents/parent.model';
 import { enqueueEmail } from '../../queues/email.queue';
+import { settingsService } from '../settings/settings.service';
 
 function buildWelcomeEmail(opts: {
   firstName: string;
@@ -27,7 +29,7 @@ function buildWelcomeEmail(opts: {
 }): string {
   return `
     <div style="font-family:sans-serif;max-width:560px;margin:auto;padding:32px;background:#fafafa;border-radius:16px;border:2px solid #1a1a2e">
-      <h2 style="margin:0 0 8px;color:#1a1a2e">Welcome to Takshashila! 🎓</h2>
+      <h2 style="margin:0 0 8px;color:#1a1a2e">Welcome to brainbaseedu! 🎓</h2>
       <p style="color:#555;margin:0 0 24px">A student account has been created for <strong>${opts.firstName} ${opts.lastName}</strong>.</p>
       <div style="background:#fff;border:2px solid #1a1a2e;border-radius:12px;padding:20px;margin-bottom:20px">
         <table style="width:100%;border-collapse:collapse">
@@ -41,8 +43,7 @@ function buildWelcomeEmail(opts: {
   `;
 }
 
-const MAX_DEMO_CLASSES = 3;
-const DEMO_CREDITS_PER_CLASS_CENTS = 100_00;
+// Demo-class limits now live in platform settings (settingsService.get()).
 
 async function generateStudentId(firstName: string, lastName: string): Promise<string> {
   const f = (firstName[0] || 'x').toLowerCase().replace(/[^a-z]/, 'x');
@@ -135,7 +136,7 @@ export class StudentService {
     if (dto.contactEmail) {
       await enqueueEmail({
         to: dto.contactEmail,
-        subject: `Student account created for ${dto.firstName} Takshashila`,
+        subject: `Student account created for ${dto.firstName} brainbaseedu`,
         html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
       });
     }
@@ -297,11 +298,18 @@ export class StudentService {
 
     if (dto.studentId) {
       user = await userRepository.findByStudentId(dto.studentId);
+      // A student ID and an account ID are both "the id on their account" to a
+      // tutor, so accept either rather than making them know the difference.
+      if (!user) user = await userRepository.findByPublicId(dto.studentId);
     } else if (dto.email) {
-      // Email might be a shared contact email search StudentProfile first
+      // A student may be reachable at two addresses: the one they sign in with,
+      // and a guardian's contact address shared across siblings. Check the
+      // shared contact address first, since that is the ambiguous one, then
+      // fall back to the login email — omitting that fallback was why searching
+      // a student's own account email found nothing.
       const profiles = await studentRepository.findManyByContactEmail(dto.email);
       if (profiles.length > 0) {
-        // Return first match that isn't already linked to this tutor
+        // Prefer a match that isn't already linked to this tutor.
         for (const p of profiles) {
           const linked = await studentRepository.findByUserAndTutor(p.userPublicId, tutorProfile.publicId);
           if (!linked) {
@@ -310,12 +318,13 @@ export class StudentService {
             break;
           }
         }
-        if (!user && profiles.length > 0) {
-          // All already linked
+        if (!user) {
+          // All already linked — return the first so the caller can say so.
           user = await userRepository.findByPublicId(profiles[0].userPublicId);
           contactEmail = profiles[0].contactEmail;
         }
       }
+      if (!user) user = await userRepository.findByEmail(dto.email);
     } else if (dto.phone) {
       user = await userRepository.findByPhone(dto.phone);
     }
@@ -345,11 +354,15 @@ export class StudentService {
     let user = null;
     if (dto.studentId) {
       user = await userRepository.findByStudentId(dto.studentId);
+      if (!user) user = await userRepository.findByPublicId(dto.studentId);
     } else if (dto.email) {
+      // Same two-address resolution as the lookup above — keep them in step,
+      // or a student who can be found cannot then be invited.
       const profiles = await studentRepository.findManyByContactEmail(dto.email);
       if (profiles.length > 0) {
         user = await userRepository.findByPublicId(profiles[0].userPublicId);
       }
+      if (!user) user = await userRepository.findByEmail(dto.email);
     } else if (dto.phone) {
       user = await userRepository.findByPhone(dto.phone!);
     }
@@ -436,7 +449,36 @@ export class StudentService {
     if (profile.status !== StudentStatus.PENDING_APPROVAL) {
       throw new ConflictError('No pending invite to decline');
     }
-    await studentRepository.update(profile.publicId, { status: StudentStatus.INACTIVE });
+
+    const declinedTutorPublicId = profile.tutorPublicId;
+
+    // Detach the tutor as well as marking the profile inactive. Leaving the link
+    // in place made the student look "already linked", so the tutor could never
+    // send a fresh invite after a decline.
+    //
+    // `$unset` rather than setting undefined: mongoose strips undefined out of
+    // `$set`, so the field would silently survive and the resend path — which
+    // looks for `tutorPublicId: { $exists: false }` — would never match.
+    await StudentProfileModel.updateOne(
+      { publicId: profile.publicId },
+      { $set: { status: StudentStatus.INACTIVE }, $unset: { tutorPublicId: '' } },
+    );
+
+    if (declinedTutorPublicId) {
+      const tutor = await TutorProfileModel.findOne(
+        { publicId: declinedTutorPublicId, isDeleted: false },
+        { userPublicId: 1 },
+      ).lean();
+      const student = await userRepository.findByPublicId(studentUserPublicId);
+
+      if (tutor?.userPublicId) {
+        domainEvents.emit(DomainEvent.STUDENT_INVITE_DECLINED, {
+          tutorUserPublicId: tutor.userPublicId,
+          studentUserPublicId,
+          studentName: student ? `${student.firstName} ${student.lastName}`.trim() : 'A student',
+        });
+      }
+    }
   }
 
   async listAll(query: PaginationQuery): Promise<PaginatedResult<IStudentProfile & { firstName: string; lastName: string; displayName: string; email: string }>> {
@@ -545,7 +587,7 @@ export class StudentService {
     if (dto.contactEmail) {
       await enqueueEmail({
         to: dto.contactEmail,
-        subject: `Student account created for ${dto.firstName} Takshashila`,
+        subject: `Student account created for ${dto.firstName} brainbaseedu`,
         html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
       });
     }
@@ -701,7 +743,7 @@ export class StudentService {
     if (parentUser?.email && !parentUser.email.endsWith('@student.internal')) {
       await enqueueEmail({
         to: parentUser.email,
-        subject: `Child account created for ${dto.firstName} Takshashila`,
+        subject: `Child account created for ${dto.firstName} brainbaseedu`,
         html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
       });
     }
@@ -764,7 +806,8 @@ export class StudentService {
   async canUseDemoCredit(userPublicId: string, tutorPublicId: string): Promise<boolean> {
     const profile = await studentRepository.findByUserPublicId(userPublicId);
     if (!profile) return false;
-    if (profile.demoClassesUsed >= MAX_DEMO_CLASSES) return false;
+    const { maxDemoClasses } = await settingsService.get();
+    if (profile.demoClassesUsed >= maxDemoClasses) return false;
     if (profile.demoClassTakenWith.includes(tutorPublicId)) return false;
     return true;
   }

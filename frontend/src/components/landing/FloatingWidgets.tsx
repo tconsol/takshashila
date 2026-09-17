@@ -27,9 +27,9 @@ const KB_ENTRIES: KB[] = [
   { keys: ['mind game', 'games', 'fun activities'], a: 'Students get mind games like Grand Prix, Quick Count and Number Order  learn while you play and build streaks!' },
   { keys: ['chat', 'doubt', 'message my tutor', 'ask doubt'], a: 'Use the in-app chat to message your tutor, parents or principal anytime  perfect for clearing doubts between classes.' },
   { keys: ['principal', 'school', 'institution', 'organisation', 'organization', 'manage tutors'], a: 'Principals onboard tutors, track classes, view analytics and manage their whole institution from the principal dashboard.' },
-  { keys: ['get started', 'sign up', 'register', 'create account', 'how do i start', 'how to begin', 'join takshashila'], a: 'Easy! 1) Sign up free, 2) find your tutor, 3) book a free demo. Tap "Get started" at the top to begin.' },
+  { keys: ['get started', 'sign up', 'register', 'create account', 'how do i start', 'how to begin', 'join brainbaseedu'], a: 'Easy! 1) Sign up free, 2) find your tutor, 3) book a free demo. Tap "Get started" at the top to begin.' },
   { keys: ['security', 'privacy', 'is my data', 'is it safe', 'data safe'], a: 'Your data and payments are protected  secure wallet payments, role-based access and recorded classes keep everything safe and transparent.' },
-  { keys: ['mobile', 'app', 'phone', 'android', 'ios'], a: 'Takshashila works right in your mobile browser  no install needed. Join live classes, chat and check progress on the go.' },
+  { keys: ['mobile', 'app', 'phone', 'android', 'ios'], a: 'brainbaseeduworks right in your mobile browser  no install needed. Join live classes, chat and check progress on the go.' },
   { keys: ['contact', 'support', 'help', 'customer care', 'reach you'], a: 'Our support team is one message away. Sign in and use the Chat tab, or reach us via the Contact link in the footer.' },
   { keys: ['hello', 'hi ', 'hey', 'namaste', 'good morning'], a: 'Hi there! I can help with demos, pricing, tutors, subjects, progress and more. Pick a question below or type your own.' },
   { keys: ['thank', 'thanks', 'great', 'awesome'], a: 'You are welcome! Happy learning  tap "Get started" whenever you are ready.' },
@@ -78,7 +78,7 @@ function suggest(text: string): string[] {
 
 interface Msg { from: 'bot' | 'user'; text: string }
 
-const GREETING = "Hi! I'm Tara, your Takshashila helper. Pick a question below or type your own.";
+const GREETING = "Hi! I'm Tara, your brainbaseeduhelper. Pick a question below or type your own.";
 
 function answer(q: string): string {
   const lower = ` ${q.toLowerCase()} `;

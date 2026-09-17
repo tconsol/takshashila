@@ -19,7 +19,7 @@ const prodFormat = combine(
 export const logger = winston.createLogger({
   level: env.NODE_ENV === 'production' ? 'info' : 'debug',
   format: env.NODE_ENV === 'production' ? prodFormat : devFormat,
-  defaultMeta: { service: 'takshashila-api' },
+  defaultMeta: { service: 'brainbaseedu-api' },
   transports: [
     new winston.transports.Console(),
   ],

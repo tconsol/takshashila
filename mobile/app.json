@@ -1,21 +1,22 @@
 {
   "expo": {
-    "name": "Takshashila Student",
-    "slug": "takshashila-student",
+    "name": "brainbaseeduStudent",
+    "slug": "brainbaseedu-student",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "takshashila",
+    "scheme": "brainbaseedu",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.takshashila.student"
+      "bundleIdentifier": "com.brainbaseedu.student"
     },
     "android": {
-      "package": "com.takshashila.student"
+      "package": "com.brainbaseedu.student"
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

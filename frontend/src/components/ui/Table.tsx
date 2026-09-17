@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Spinner } from './Loading';
+import { cn } from '../../lib/utils';
 
 export interface TableColumn<T> {
   key: string;
@@ -8,6 +9,8 @@ export interface TableColumn<T> {
   className?: string;
   headerClassName?: string;
   width?: string;
+  /** Right-aligns header + cell — use for numeric/currency columns. */
+  numeric?: boolean;
 }
 
 interface TableProps<T> {
@@ -19,64 +22,83 @@ interface TableProps<T> {
   emptyState?: ReactNode;
   onRowClick?: (row: T) => void;
   dense?: boolean;
+  /** Adds a hairline every 5 rows to help the eye track across a wide table. */
+  banded?: boolean;
 }
 
+/**
+ * A ledger, not a card grid: hairline rules between rows (not a border round
+ * the whole block), an all-caps mono-adjacent header, numeric columns set in
+ * tabular figures and right-aligned by default via `numeric`.
+ */
 export function Table<T>({
   columns,
   data,
   keyField,
   loading,
-  emptyMessage = 'No data yet.',
+  emptyMessage = 'Nothing here yet.',
   emptyState,
   onRowClick,
   dense,
+  banded,
 }: TableProps<T>) {
-  const cellPad = dense ? 'px-4 py-2.5' : 'px-5 py-3.5';
-  const headPad = dense ? 'px-4 py-2.5' : 'px-5 py-3';
+  const cellPad = dense ? 'px-3 py-2' : 'px-4 py-3';
+  const headPad = dense ? 'px-3 py-2' : 'px-4 py-2.5';
+
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-card dark:bg-slate-900 dark:border-slate-700">
-      <table className="w-full text-sm text-left">
-        <thead className="border-b border-slate-100 bg-slate-50/80 dark:bg-slate-800/40 dark:border-slate-700">
-          <tr>
+    <div className="w-full overflow-x-auto rounded border border-rule bg-surface">
+      <table className="w-full min-w-full border-collapse text-left text-sm">
+        <thead>
+          <tr className="border-b border-rule-strong">
             {columns.map((col) => (
               <th
                 key={col.key}
                 style={col.width ? { width: col.width } : undefined}
-                className={`${headPad} text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 ${col.headerClassName ?? ''}`}
+                className={cn(
+                  headPad,
+                  'eyebrow whitespace-nowrap font-semibold',
+                  col.numeric && 'text-right',
+                  col.headerClassName,
+                )}
               >
                 {col.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+        <tbody>
           {loading ? (
             <tr>
-              <td colSpan={columns.length} className="px-5 py-12 text-center">
+              <td colSpan={columns.length} className="px-4 py-16 text-center">
                 <div className="flex justify-center"><Spinner /></div>
               </td>
             </tr>
           ) : data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-5 py-12 text-center text-sm text-slate-400">
+              <td colSpan={columns.length} className="px-4 py-16 text-center text-sm text-ink-faint">
                 {emptyState ?? emptyMessage}
               </td>
             </tr>
           ) : (
-            data.map((row) => (
+            data.map((row, i) => (
               <tr
                 key={String(row[keyField])}
                 onClick={() => onRowClick?.(row)}
-                className={`transition-colors ${
-                  onRowClick
-                    ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                    : ''
-                }`}
+                className={cn(
+                  'border-b border-rule transition-colors duration-100',
+                  onRowClick && 'cursor-pointer hover:bg-surface-hover',
+                  banded && (i + 1) % 5 === 0 && 'border-b-rule-strong',
+                )}
               >
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`${cellPad} text-sm font-medium text-slate-700 dark:text-slate-200 ${col.className ?? ''}`}
+                    className={cn(
+                      cellPad,
+                      'align-middle text-ink-2',
+                      col.numeric && 'text-right tabular-nums',
+                      col.className,
+                    )}
                   >
                     {col.render
                       ? col.render(row)

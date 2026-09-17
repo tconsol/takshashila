@@ -27,6 +27,7 @@ export interface IPayment {
   providerOrderId: string;
   providerPaymentId?: string;
   amountCents: number;
+  creditsCents?: number;
   currency: PaymentCurrency;
   status: PaymentStatus;
   metadata?: Record<string, unknown>;
@@ -36,7 +37,8 @@ export interface IPayment {
 }
 
 export interface CreatePaymentOrderDto {
-  amountCents: number;
+  amountCents: number;             // amount to charge in the chosen currency's smallest unit
+  creditsCents?: number;           // wallet credit value (1 credit = 100 cents); defaults to amountCents
   currency: PaymentCurrency;
   provider: PaymentProvider;
   metadata?: Record<string, unknown>;

@@ -20,6 +20,14 @@ router.post('/stripe/webhook', async (req: AuthRequest, res: Response, next: Nex
   } catch (e) { next(e); }
 });
 
+router.post('/razorpay/webhook', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const sig = req.headers['x-razorpay-signature'] as string;
+    await paymentService.handleRazorpayWebhook(req.body as Buffer, sig);
+    res.json({ received: true });
+  } catch (e) { next(e); }
+});
+
 router.use(requireAuth);
 
 router.post('/order', async (req: AuthRequest, res: Response, next: NextFunction) => {

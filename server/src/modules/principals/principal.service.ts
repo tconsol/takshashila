@@ -8,6 +8,7 @@ import { DomainEvent } from '../../constants/events';
 import { walletService } from '../wallets/wallet.service';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
+import { settingsService } from '../settings/settings.service';
 
 export interface PrincipalWithUser extends IPrincipalProfile {
   firstName: string;
@@ -27,7 +28,8 @@ export class PrincipalService {
       organizationName: data.organizationName,
       organizationWebsite: data.organizationWebsite,
       bio: data.bio,
-      commissionRatePercent: data.commissionRatePercent || 15,
+      commissionRatePercent:
+        data.commissionRatePercent || (await settingsService.get()).defaultPrincipalCommissionRatePercent,
       totalTutors: 0,
       totalStudents: 0,
       totalRevenueCents: 0,

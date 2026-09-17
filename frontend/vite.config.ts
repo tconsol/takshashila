@@ -15,6 +15,23 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    build: {
+      chunkSizeWarningLimit: 900,
+      rollupOptions: {
+        output: {
+          // Split heavy vendors into separate cached chunks so the main bundle
+          // stays small and these load only when a feature needs them.
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-motion': ['framer-motion', 'gsap'],
+            'vendor-xlsx': ['xlsx'],
+            'vendor-stripe': ['@stripe/stripe-js', '@stripe/react-stripe-js'],
+            'vendor-query': ['@tanstack/react-query'],
+            'vendor-agora': ['agora-rtc-sdk-ng'],
+          },
+        },
+      },
+    },
     server: {
       port: 5173,
       proxy: {

@@ -1,8 +1,14 @@
 import { z } from 'zod';
+import { normalizeSubjects, normalizeLanguages } from '../../utils/taxonomy';
+
+// Tutors type these free-hand, so canonicalise at the edge: every downstream
+// reader (search, analytics, the directory filter) then sees one spelling.
+const subjectList = z.array(z.string().min(1)).transform(normalizeSubjects);
+const languageList = z.array(z.string().min(1)).transform(normalizeLanguages);
 
 export const createTutorProfileSchema = z.object({
-  subjects: z.array(z.string().min(1)).min(1, 'At least one subject is required'),
-  languages: z.array(z.string().min(1)).min(1, 'At least one language is required'),
+  subjects: subjectList.refine((v) => v.length > 0, 'At least one subject is required'),
+  languages: languageList.refine((v) => v.length > 0, 'At least one language is required'),
   hourlyRateCents: z.number().int().min(0).optional(),
   bio: z.string().max(1000).optional(),
   qualifications: z.array(z.string()).optional(),
@@ -10,8 +16,8 @@ export const createTutorProfileSchema = z.object({
 });
 
 export const updateTutorProfileSchema = z.object({
-  subjects: z.array(z.string().min(1)).optional(),
-  languages: z.array(z.string().min(1)).optional(),
+  subjects: subjectList.optional(),
+  languages: languageList.optional(),
   hourlyRateCents: z.number().int().min(0).optional(),
   bio: z.string().max(1000).optional(),
   qualifications: z.array(z.string()).optional(),
@@ -22,8 +28,8 @@ export const inviteTutorSchema = z.object({
   email: z.string().email(),
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
-  subjects: z.array(z.string().min(1)).optional(),
-  languages: z.array(z.string().min(1)).optional(),
+  subjects: subjectList.optional(),
+  languages: languageList.optional(),
 });
 
 export const tutorSearchSchema = z.object({

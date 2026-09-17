@@ -7,6 +7,7 @@ import { loginSchema, type LoginFormData } from '../../validators/auth.validator
 import { useLogin } from '../../hooks/use-auth';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
 
 const ROLE_TILES = [
   { label: 'Student',   path: '/register/student',   Icon: GraduationCap, color: 'bg-indigo-50 text-indigo-600' },
@@ -44,7 +45,7 @@ export function LoginPage() {
 
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Welcome back</h1>
-        <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">Sign in to your Takshashila account</p>
+        <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">Sign in to your brainbaseeduaccount</p>
       </div>
 
       {justRegistered && (
@@ -98,6 +99,15 @@ export function LoginPage() {
           Sign in
         </Button>
       </form>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
+        <div className="relative flex justify-center">
+          <span className="bg-white dark:bg-slate-900 px-3 text-xs text-slate-400">or</span>
+        </div>
+      </div>
+
+      <GoogleSignInButton label="Sign in with Google" />
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>

@@ -28,7 +28,7 @@ const VIDEO_MIME_TYPES = new Set(['video/mp4', 'video/webm', 'video/quicktime'])
 const MAX_SIZE_BYTES = 50 * 1024 * 1024;      // 50 MB general
 const MAX_VIDEO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB for videos
 
-function getStorage(): Storage {
+export function getStorage(): Storage {
   if (env.GCP_CLIENT_EMAIL && env.GCP_PRIVATE_KEY) {
     return new Storage({
       projectId: env.GCP_PROJECT_ID,

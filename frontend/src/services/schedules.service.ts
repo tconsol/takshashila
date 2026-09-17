@@ -8,7 +8,20 @@ export interface AvailabilitySlot {
   status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED' | 'CANCELLED';
   timezone: string;
   recurrenceRule?: string;
+  durationMinutes?: number;
+  /** True for every occurrence of a repeating series. */
+  isRecurring?: boolean;
+  /** Shared by all occurrences created from one rule. */
+  recurringRuleId?: string;
   createdAt: string;
+}
+
+export type RecurrenceFrequency = 'DAILY' | 'WEEKLY' | 'BIWEEKLY';
+
+export interface Recurrence {
+  frequency: RecurrenceFrequency;
+  /** Total occurrences, counting the first. */
+  count: number;
 }
 
 export interface CreateSlotDto {
@@ -16,6 +29,8 @@ export interface CreateSlotDto {
   endUTC: string;
   ianaTimezone: string;
   recurrenceRule?: string;
+  isRecurring?: boolean;
+  recurrence?: Recurrence;
 }
 
 export const schedulesService = {

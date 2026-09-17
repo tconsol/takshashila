@@ -59,6 +59,50 @@ export interface AdminOverview {
   urgentTicketsList: UrgentTicket[];
 }
 
+export interface ClassStats {
+  completed: number;
+  cancelled: number;
+  booked: number;
+  periodDays: number;
+  recentClasses: {
+    publicId: string;
+    title: string;
+    status: string;
+    startUTC: string;
+    costCents: number;
+    durationMinutes: number;
+  }[];
+}
+
+export interface AssignmentStats {
+  published: number;
+  submitted: number;
+  graded: number;
+  periodDays: number;
+}
+
+export interface AttendanceStats {
+  total: number;
+  present: number;
+  rate: number;
+}
+
+export interface RevenuePoint {
+  _id: string;
+  totalCents: number;
+  count: number;
+}
+
+export interface TopTutor {
+  tutorPublicId: string;
+  name: string;
+  avatarUrl?: string;
+  subjects: string[];
+  rating: number;
+  classesCompleted: number;
+  revenueCents: number;
+}
+
 export const analyticsService = {
   getSuperAdminOverview: (): Promise<SuperAdminOverview> =>
     api.get('/analytics/super-admin/overview').then((r) => r.data),
@@ -68,6 +112,21 @@ export const analyticsService = {
 
   getPlatformOverview: () =>
     api.get('/analytics/platform/overview').then((r) => r.data),
+
+  getClassStats: (days = 30): Promise<ClassStats> =>
+    api.get(`/analytics/platform/classes?days=${days}`).then((r) => r.data),
+
+  getAssignmentStats: (days = 30): Promise<AssignmentStats> =>
+    api.get(`/analytics/platform/assignments?days=${days}`).then((r) => r.data),
+
+  getAttendanceStats: (days = 30): Promise<AttendanceStats> =>
+    api.get(`/analytics/platform/attendance?days=${days}`).then((r) => r.data),
+
+  getRevenueSeries: (days = 30): Promise<RevenuePoint[]> =>
+    api.get(`/analytics/platform/revenue?days=${days}`).then((r) => r.data),
+
+  getTopTutors: (limit = 8): Promise<TopTutor[]> =>
+    api.get(`/analytics/platform/top-tutors?limit=${limit}`).then((r) => r.data),
 
   getTutorStats: () =>
     api.get('/analytics/tutor/me').then((r) => r.data),

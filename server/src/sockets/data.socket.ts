@@ -4,9 +4,15 @@ import { DomainEvent } from '../constants/events';
 import { StudentProfileModel } from '../modules/students/student.model';
 import { TutorProfileModel } from '../modules/tutors/tutor.model';
 import { PrincipalProfileModel } from '../modules/principals/principal.model';
+import { realtime } from '../modules/realtime/realtime.service';
 
-function invalidate(io: IOServer, rooms: string[], module: string) {
-  rooms.forEach((room) => io.to(room).emit('data:invalidate', { module }));
+function invalidate(_io: IOServer, rooms: string[], module: string) {
+  void realtime.emit(rooms, 'data:invalidate', { module });
+}
+
+/** Same routing as `invalidate`, for the non-invalidation events below. */
+function push(rooms: string[], event: string, payload: unknown = {}) {
+  void realtime.emit(rooms, event, payload);
 }
 
 async function notifyTutorConnections(
@@ -33,7 +39,7 @@ async function notifyTutorConnections(
 
   if (rooms.length > 0) {
     invalidate(io, rooms, module);
-    rooms.forEach((room) => io.to(room).emit('schedule:alert'));
+    push(rooms, 'schedule:alert');
   }
 }
 
@@ -57,14 +63,14 @@ export function registerDataInvalidationSocket(io: IOServer): void {
   domainEvents.on(DomainEvent.CLASS_BOOKED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, [...rooms, 'role:PRINCIPAL', 'role:ADMIN'], 'classes');
-    rooms.forEach((r) => io.to(r).emit('schedule:alert'));
+    push(rooms, 'schedule:alert');
   });
 
   domainEvents.on(DomainEvent.CLASS_CANCELLED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, [...rooms, 'role:PRINCIPAL'], 'classes');
     invalidate(io, rooms, 'wallet');
-    rooms.forEach((r) => io.to(r).emit('schedule:alert'));
+    push(rooms, 'schedule:alert');
   });
 
   domainEvents.on(DomainEvent.CLASS_CREATED_BY_TUTOR, (payload: {
@@ -77,13 +83,13 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     const studentRooms = payload.studentUserPublicIds.map((uid) => `user:${uid}`);
     invalidate(io, [...studentRooms, `user:${payload.tutorUserPublicId}`, 'role:PRINCIPAL'], 'classes');
     studentRooms.forEach((room) => {
-      io.to(room).emit('class:created', {
+      push([room], 'class:created', {
         title: payload.title,
         classType: payload.classType,
         count: payload.count,
       });
       // Light up the Classes sidebar badge for each student
-      io.to(room).emit('schedule:alert');
+      push([room], 'schedule:alert');
     });
   });
 
@@ -100,7 +106,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
   domainEvents.on(DomainEvent.CLASS_RESCHEDULED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, rooms, 'classes');
-    rooms.forEach((r) => io.to(r).emit('schedule:alert'));
+    push(rooms, 'schedule:alert');
   });
 
   // Assignment events
@@ -155,8 +161,25 @@ export function registerDataInvalidationSocket(io: IOServer): void {
   domainEvents.on(DomainEvent.STUDENT_INVITED, (payload: { userPublicId: string; tutorUserPublicId?: string }) => {
     invalidate(io, [`user:${payload.userPublicId}`], 'students');
     if (payload.tutorUserPublicId) {
-      io.to(`user:${payload.userPublicId}`).emit('student:invited', { tutorUserPublicId: payload.tutorUserPublicId });
+      push([`user:${payload.userPublicId}`], 'student:invited', { tutorUserPublicId: payload.tutorUserPublicId });
     }
+  });
+
+  /**
+   * A declined invite is the one outcome the tutor cannot see by refreshing —
+   * the student simply disappears from their pending list. Tell them, and
+   * refresh the student list so the seat is free to invite again.
+   */
+  domainEvents.on(DomainEvent.STUDENT_INVITE_DECLINED, (payload: {
+    tutorUserPublicId: string;
+    studentUserPublicId: string;
+    studentName: string;
+  }) => {
+    invalidate(io, [`user:${payload.tutorUserPublicId}`], 'students');
+    push([`user:${payload.tutorUserPublicId}`], 'student:invite-declined', {
+      studentName: payload.studentName,
+      studentUserPublicId: payload.studentUserPublicId,
+    });
   });
 
   // Student approved notify student, their tutor, and all principals
@@ -189,7 +212,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
   // Demo request events
   domainEvents.on(DomainEvent.DEMO_REQUEST_CREATED, (payload: { tutorUserPublicId: string; studentUserPublicId: string; subject?: string }) => {
     invalidate(io, [`user:${payload.tutorUserPublicId}`], 'demo-requests');
-    io.to(`user:${payload.tutorUserPublicId}`).emit('demo:new-request', { subject: payload.subject ?? '' });
+    push([`user:${payload.tutorUserPublicId}`], 'demo:new-request', { subject: payload.subject ?? '' });
   });
 
   domainEvents.on(DomainEvent.DEMO_REQUEST_ACCEPTED, (payload: { tutorUserPublicId: string; studentUserPublicId: string; classPublicId: string; subject: string }) => {
@@ -197,7 +220,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     invalidate(io, [`user:${payload.studentUserPublicId}`, `user:${payload.tutorUserPublicId}`], 'classes');
     invalidate(io, [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`], 'badges');
     // Push real-time notification to student will trigger toast + query update
-    io.to(`user:${payload.studentUserPublicId}`).emit('demo:accepted', {
+    push([`user:${payload.studentUserPublicId}`], 'demo:accepted', {
       classPublicId: payload.classPublicId,
       subject: payload.subject,
     });
@@ -205,7 +228,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
 
   domainEvents.on(DomainEvent.DEMO_REQUEST_REJECTED, (payload: { tutorUserPublicId: string; studentUserPublicId: string; subject: string }) => {
     invalidate(io, [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`], 'demo-requests');
-    io.to(`user:${payload.studentUserPublicId}`).emit('demo:rejected', {
+    push([`user:${payload.studentUserPublicId}`], 'demo:rejected', {
       subject: payload.subject,
     });
   });

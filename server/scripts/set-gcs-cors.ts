@@ -41,8 +41,8 @@ async function main() {
       origin: [
         'http://localhost:5173',
         'http://localhost:3000',
-        'https://takshashila.tconsolutions.com',
-        'https://www.takshashila.tconsolutions.com',
+        'https://brainbaseedu.com',
+        'https://www.brainbaseedu.com',
       ],
       method: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD', 'OPTIONS'],
       responseHeader: [

@@ -13,6 +13,7 @@ import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Table } from '../../components/ui/Table';
 import { Tabs } from '../../components/ui/Tabs';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 import { useToast } from '../../components/ui/Toast';
 import {
   useMyAssignments,
@@ -155,6 +156,15 @@ export function TutorAssignmentsPage() {
   const classes = classData?.items ?? [];
   const isBusy = creating || creatingWs;
 
+  // Every status is fetched already (client-filtered per tab), so a status
+  // change — e.g. Draft → Published — can light up the destination tab for
+  // free, even while viewing a different one.
+  const statusCounts = TABS.reduce<Record<string, number>>((acc, t) => {
+    acc[t.key] = assignments.filter((a) => a.status === t.key).length;
+    return acc;
+  }, {});
+  const { dirty, markSeen } = useTabActivity(statusCounts, activeTab);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -234,7 +244,11 @@ export function TutorAssignmentsPage() {
         <Button onClick={() => setShowCreate(true)}>+ New Assignment</Button>
       </div>
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs
+        tabs={TABS.map((t) => ({ ...t, indicator: dirty.has(t.key) }))}
+        activeTab={activeTab}
+        onChange={(key) => { setActiveTab(key); markSeen(key); }}
+      />
 
       {isLoading ? (
         <div className="flex justify-center py-10">

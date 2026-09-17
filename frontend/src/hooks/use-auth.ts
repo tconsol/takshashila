@@ -30,6 +30,20 @@ export function useLogin() {
   });
 }
 
+export function useGoogleAuth() {
+  const { setAuth } = useAuthStore();
+  const navigate = useNavigate();
+
+  return useMutation({
+    mutationFn: (payload: { idToken?: string; code?: string; accessToken?: string }) => authService.googleAuth(payload),
+    onSuccess: (result) => {
+      setAuth(result.user, result.accessToken);
+      localStorage.setItem('refreshToken', result.refreshToken);
+      navigate(ROLE_DASHBOARD_PATHS[result.user.role], { replace: true });
+    },
+  });
+}
+
 export function useLogout() {
   const { clearAuth } = useAuthStore();
   const navigate = useNavigate();

@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Wallet, Gift, BookOpen, Star } from 'lucide-react';
+import { Coins, Gift, BookOpen, Star, Plus } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { TopUpModal } from '../../features/payments/TopUpModal';
+import { formatCredits } from '../../lib/billing';
 import { api } from '../../lib/axios';
 import { format } from 'date-fns';
 
@@ -33,10 +37,11 @@ const txTypeVariant: Record<string, 'success' | 'danger' | 'default'> = {
 };
 
 function centsToDisplay(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  return `${formatCredits(cents)} cr`;
 }
 
 export function StudentWalletPage() {
+  const [topUpOpen, setTopUpOpen] = useState(false);
   const { data: wallet, isLoading: walletLoading } = useQuery<WalletData>({
     queryKey: ['wallet', 'me'],
     queryFn: () => api.get('/wallets/me').then((r) => r.data.data),
@@ -51,13 +56,22 @@ export function StudentWalletPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="My Wallet" subtitle="Credits and transaction history" />
+      <PageHeader
+        title="My Wallet"
+        subtitle="Credits and transaction history"
+        actions={
+          <Button variant="gradient" onClick={() => setTopUpOpen(true)}>
+            <Plus className="h-4 w-4" /> Add Credits
+          </Button>
+        }
+      />
+      <TopUpModal open={topUpOpen} onClose={() => setTopUpOpen(false)} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Total Balance"
           value={walletLoading ? '' : centsToDisplay(wallet?.balanceCents ?? 0)}
-          icon={<Wallet className="h-5 w-5 text-brand-600" />}
+          icon={<Coins className="h-5 w-5 text-brand-600" />}
         />
         <StatsCard
           title="Demo Credits"

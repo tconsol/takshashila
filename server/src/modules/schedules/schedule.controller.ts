@@ -8,8 +8,16 @@ export class ScheduleController {
   async createSlot(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const tutorProfile = await tutorService.getByUserPublicId(req.user!.publicId);
-      const slot = await scheduleService.createSlot(tutorProfile.publicId, req.body);
-      sendCreated(res, slot, 'Availability slot created');
+      const slots = await scheduleService.createSlots(tutorProfile.publicId, req.body);
+      // Return the first slot as before so existing callers keep working, with
+      // the full series alongside for the recurring case.
+      sendCreated(
+        res,
+        { ...slots[0], occurrences: slots.length, slots },
+        slots.length > 1
+          ? `${slots.length} recurring slots created`
+          : 'Availability slot created',
+      );
     } catch (error) { next(error); }
   }
 

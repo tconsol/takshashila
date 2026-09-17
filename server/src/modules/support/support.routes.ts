@@ -28,6 +28,12 @@ router.get('/tickets', async (req: AuthRequest, res: Response, next: NextFunctio
   } catch (e) { next(e); }
 });
 
+router.get('/agents', requireRole(Role.SUPPORT, Role.ADMIN, Role.SUPER_ADMIN), async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    res.json({ success: true, data: await supportService.listAgents() });
+  } catch (e) { next(e); }
+});
+
 router.get('/tickets/:publicId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const ticket = await supportService.getTicket(req.params.publicId);

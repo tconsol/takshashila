@@ -1,33 +1,20 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { useSocket } from '../sockets/use-socket';
 import { SocketEvent } from '../sockets/socket.events';
 import { useToast } from '../components/ui/Toast';
 import { useAuthStore } from '../stores/auth.store';
-import { useDismissedBadgesStore } from '../stores/dismissed-badges.store';
-import notificationSound from '../assets/aayein-meme.mp3';
-
-// Maps a socket module name → badge keys that should be restored when new data arrives
-const MODULE_TO_BADGE_KEYS: Record<string, string[]> = {
-  worksheets:      ['worksheets'],
-  students:        ['students'],
-  tutors:          ['tutors', 'principals'],
-  principals:      ['principals'],
-  tickets:         ['tickets', 'support'],
-  'join-requests': ['join-requests', 'principals'],
-  'demo-requests': ['demo-requests'],
-  badges:          [],
-};
+import { realtime } from '../lib/realtime';
 
 const MODULE_KEYS: Record<string, readonly (readonly string[])[]> = {
   principals:      [['principals'], ['admin-overview'], ['badges']],
   users:           [['users'], ['admin-overview'], ['super-admin-overview']],
-  classes:         [['classes']],
+  classes:         [['classes'], ['analytics'], ['badges']],
   schedules:       [['schedules']],
-  assignments:     [['assignments']],
-  attendance:      [['attendance']],
-  wallet:          [['wallet'], ['transactions']],
+  assignments:     [['assignments'], ['badges']],
+  attendance:      [['attendance'], ['analytics'], ['badges']],
+  wallet:          [['wallet'], ['transactions'], ['analytics']],
   tickets:         [['tickets'], ['admin-overview'], ['badges']],
   students:        [['students'], ['badges']],
   'join-requests': [['join-requests'], ['badges']],
@@ -35,7 +22,7 @@ const MODULE_KEYS: Record<string, readonly (readonly string[])[]> = {
   tutors:          [['tutors', 'me'], ['tutors', 'my-principal'], ['tutors', 'my-tutors'], ['tutors', 'pending'], ['badges']],
   badges:          [['badges']],
   worksheets:      [['worksheets'], ['badges']],
-  resources:       [['resources']],
+  resources:       [['resources'], ['badges']],
 };
 
 export function useDataInvalidation() {
@@ -43,62 +30,31 @@ export function useDataInvalidation() {
   const qc = useQueryClient();
   const toast = useToast();
   const location = useLocation();
-  const { user } = useAuthStore();
-  const restore = useDismissedBadgesStore((s) => s.restore);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { user, accessToken } = useAuthStore();
 
+  // Open the Pusher connection once per session. The server decides whether
+  // this client actually gets one; if not, `start` resolves to 'socket' and
+  // everything keeps working over Socket.IO.
   useEffect(() => {
-    const audio = new Audio(notificationSound);
-    audio.volume = 0.6;
-    audioRef.current = audio;
-
-    // Unlock autoplay on first user interaction (browsers block audio until then)
-    const unlock = () => {
-      audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
-      document.removeEventListener('click', unlock, true);
-      document.removeEventListener('keydown', unlock, true);
-    };
-    document.addEventListener('click', unlock, true);
-    document.addEventListener('keydown', unlock, true);
-
-    return () => {
-      document.removeEventListener('click', unlock, true);
-      document.removeEventListener('keydown', unlock, true);
-    };
-  }, []);
+    if (!accessToken) return;
+    void realtime.start(accessToken);
+    return () => { void realtime.stop(); };
+  }, [accessToken]);
 
   useEffect(() => {
     if (!socket) return;
 
     const handleInvalidate = ({ module }: { module: string }) => {
-      // Real new data arrived restore any badge the user had dismissed for this module
-      (MODULE_TO_BADGE_KEYS[module] ?? []).forEach(restore);
-
       const keys = MODULE_KEYS[module];
       if (!keys) return;
       keys.forEach((key) => qc.invalidateQueries({ queryKey: key as string[] }));
     };
 
-    const handleChatMessage = (msg: { senderPublicId: string; conversationPublicId: string }) => {
-      // Always refresh conversation list (re-sorts to top + updates preview)
+    const handleChatMessage = () => {
+      // Refresh conversation list + unread/badge counts (notification sound removed).
       qc.invalidateQueries({ queryKey: ['chat', 'conversations'] });
       qc.invalidateQueries({ queryKey: ['chat', 'unread'] });
       qc.invalidateQueries({ queryKey: ['badges'] });
-
-      const isFromMe = msg.senderPublicId === user?.publicId;
-      const isOnChatPage = location.pathname.startsWith('/chat');
-      const isViewingConversation = location.pathname === `/chat/${msg.conversationPublicId}`;
-
-      // Restore dismissed badge so red dot reappears for new incoming messages
-      if (!isFromMe && !isOnChatPage) {
-        restore('messages');
-      }
-
-      // Play sound only if message is from someone else and we're not viewing that conversation
-      if (!isFromMe && !isViewingConversation && audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      }
     };
 
     const handleStudentInvited = () => {
@@ -129,11 +85,6 @@ export function useDataInvalidation() {
     const handleWorksheetNew = ({ title, type }: { worksheetPublicId: string; title: string; type: string; subject?: string }) => {
       qc.invalidateQueries({ queryKey: ['worksheets'] });
       qc.invalidateQueries({ queryKey: ['badges'] });
-      const isOnWorksheetsPage = location.pathname.includes('/worksheets');
-      if (!isOnWorksheetsPage && audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      }
       toast.info(`New ${type === 'ASSIGNMENT' ? 'assignment' : 'worksheet'} available!`, title);
     };
 
@@ -145,29 +96,45 @@ export function useDataInvalidation() {
 
     const handleClassCreated = ({ title }: { classPublicId: string; title: string; tutorPublicId: string }) => {
       qc.invalidateQueries({ queryKey: ['classes'] });
+      qc.invalidateQueries({ queryKey: ['badges'] });
       toast.info('New class scheduled!', title);
     };
 
-    socket.on(SocketEvent.DATA_INVALIDATE, handleInvalidate);
-    socket.on(SocketEvent.DEMO_ACCEPTED, handleDemoAccepted);
-    socket.on(SocketEvent.DEMO_REJECTED, handleDemoRejected);
-    socket.on(SocketEvent.DEMO_NEW_REQUEST, handleDemoNewRequest);
-    socket.on(SocketEvent.STUDENT_INVITED, handleStudentInvited);
-    socket.on('chat:message', handleChatMessage);
-    socket.on('worksheet:new', handleWorksheetNew);
-    socket.on('worksheet:submitted', handleWorksheetSubmitted);
-    socket.on('class:created', handleClassCreated);
+    const handleInviteDeclined = ({ studentName }: { studentName: string }) => {
+      qc.invalidateQueries({ queryKey: ['students'] });
+      qc.invalidateQueries({ queryKey: ['badges'] });
+      toast.warning('Invitation declined', `${studentName} declined your invitation. You can send a new one.`);
+    };
+
+    /**
+     * Broadcasts arrive over Pusher or Socket.IO depending on how much of the
+     * Pusher quota is left — the server picks per message. Registering the same
+     * handler on both means the UI reacts identically either way, and the
+     * fallback is invisible here.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type AnyHandler = (...args: any[]) => void;
+    const BROADCASTS: [string, AnyHandler][] = ([
+      [SocketEvent.DATA_INVALIDATE, handleInvalidate],
+      [SocketEvent.DEMO_ACCEPTED, handleDemoAccepted],
+      [SocketEvent.DEMO_REJECTED, handleDemoRejected],
+      [SocketEvent.DEMO_NEW_REQUEST, handleDemoNewRequest],
+      [SocketEvent.STUDENT_INVITED, handleStudentInvited],
+      ['chat:message', handleChatMessage],
+      ['worksheet:new', handleWorksheetNew],
+      ['worksheet:submitted', handleWorksheetSubmitted],
+      ['class:created', handleClassCreated],
+      ['student:invite-declined', handleInviteDeclined],
+    ] as unknown) as [string, AnyHandler][];
+
+    BROADCASTS.forEach(([event, handler]) => socket.on(event, handler));
+    const unsubscribers = BROADCASTS.map(([event, handler]) =>
+      realtime.on(event, handler),
+    );
 
     return () => {
-      socket.off(SocketEvent.DATA_INVALIDATE, handleInvalidate);
-      socket.off(SocketEvent.DEMO_ACCEPTED, handleDemoAccepted);
-      socket.off(SocketEvent.DEMO_REJECTED, handleDemoRejected);
-      socket.off(SocketEvent.DEMO_NEW_REQUEST, handleDemoNewRequest);
-      socket.off(SocketEvent.STUDENT_INVITED, handleStudentInvited);
-      socket.off('chat:message', handleChatMessage);
-      socket.off('worksheet:new', handleWorksheetNew);
-      socket.off('worksheet:submitted', handleWorksheetSubmitted);
-      socket.off('class:created', handleClassCreated);
+      BROADCASTS.forEach(([event, handler]) => socket.off(event, handler));
+      unsubscribers.forEach((off) => off());
     };
   }, [socket, qc, toast, user?.publicId, location.pathname]);
 }

@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link, router, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { GoogleSignInButton } from '../../components/GoogleSignInButton';
 import { authService } from '../../services/auth.service';
 import { useAuthStore } from '../../stores/auth.store';
 
@@ -89,6 +90,10 @@ export default function LoginScreen() {
             leftIcon="lock-closed-outline"
           />
 
+          <Link href={'/(auth)/forgot-password' as Href} className="self-end text-primary-600 text-sm font-semibold mt-1">
+            Forgot password?
+          </Link>
+
           <Button
             onPress={handleLogin}
             loading={loading}
@@ -97,6 +102,15 @@ export default function LoginScreen() {
           >
             Sign in
           </Button>
+
+          {/* Divider */}
+          <View className="flex-row items-center my-5">
+            <View className="flex-1 h-px bg-gray-200" />
+            <Text className="mx-3 text-xs font-medium text-gray-400">OR</Text>
+            <View className="flex-1 h-px bg-gray-200" />
+          </View>
+
+          <GoogleSignInButton label="Sign in with Google" />
 
           <View className="flex-row items-center justify-center mt-8">
             <Text className="text-sm text-gray-500">Don't have an account?</Text>

@@ -16,6 +16,7 @@ import {
   useCancelJoinRequest,
 } from '../../hooks/use-join-requests';
 import { useMyPrincipal } from '../../hooks/use-tutors';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 import type { ActivePrincipal, JoinRequest } from '../../services/join-requests.service';
 import type { MyPrincipal } from '../../services/tutors.service';
 
@@ -45,6 +46,13 @@ export function TutorPrincipalsPage() {
   const { data: principalsData, isLoading: principalsLoading } = useActivePrincipals();
   const { data: incoming = [], isLoading: incomingLoading } = useIncomingJoinRequests();
   const { data: outgoing = [], isLoading: outgoingLoading } = useOutgoingJoinRequests();
+
+  // Both request lists load concurrently regardless of the active tab, so a
+  // new/resolved request lights up its tab even while viewing another.
+  const { dirty, markSeen } = useTabActivity(
+    { incoming: incoming.length, outgoing: outgoing.length },
+    activeTab,
+  );
 
   const { mutateAsync: sendRequest, isPending: sending } = useSendTutorRequest();
   const { mutateAsync: approve, isPending: approving } = useApproveJoinRequest();
@@ -82,7 +90,11 @@ export function TutorPrincipalsPage() {
         icon={<Building2 className="h-5 w-5" />}
       />
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs
+        tabs={TABS.map((t) => ({ ...t, indicator: dirty.has(t.key) }))}
+        activeTab={activeTab}
+        onChange={(key) => { setActiveTab(key); markSeen(key); }}
+      />
 
       {/* My Principals */}
       {activeTab === 'mine' && (

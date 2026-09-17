@@ -21,8 +21,9 @@ import { ChevronLeft, ChevronRight, Plus, Globe, Pencil, Trash2, AlertTriangle, 
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { useMySlots, useCreateSlot, useCancelSlot, useRescheduleSlot } from '../../hooks/use-schedules';
-import type { AvailabilitySlot } from '../../services/schedules.service';
+import type { AvailabilitySlot, RecurrenceFrequency } from '../../services/schedules.service';
 
 const slotSchema = z.object({
   date: z.string().min(1, 'Date is required'),
@@ -92,6 +93,12 @@ export function TutorSchedulePage() {
     resolver: zodResolver(slotSchema),
   });
 
+  // Recurrence lives outside the form schema: it is a property of the *request*
+  // rather than of a single slot, and the server expands it into many rows.
+  const [repeats, setRepeats] = useState(false);
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>('WEEKLY');
+  const [occurrences, setOccurrences] = useState(4);
+
   const openCreate = useCallback((date?: Date) => {
     if (date) setValue('date', format(date, 'yyyy-MM-dd'));
     setFormError(null);
@@ -113,8 +120,15 @@ export function TutorSchedulePage() {
     try {
       const startUTC = zonedTimeToUtc(new Date(`${data.date}T${data.startTime}`), defaultTz).toISOString();
       const endUTC   = zonedTimeToUtc(new Date(`${data.date}T${data.endTime}`),   defaultTz).toISOString();
-      await createSlot({ startUTC, endUTC, ianaTimezone: defaultTz });
+      await createSlot({
+        startUTC,
+        endUTC,
+        ianaTimezone: defaultTz,
+        isRecurring: repeats,
+        ...(repeats ? { recurrence: { frequency, count: occurrences } } : {}),
+      });
       reset({ date: format(new Date(), 'yyyy-MM-dd') });
+      setRepeats(false);
       setShowCreate(false);
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : 'Failed to create slot');
@@ -311,8 +325,48 @@ export function TutorSchedulePage() {
               </span>
             </span>
           </div>
+          <div className="rounded border border-rule p-3">
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span>
+                <span className="block text-sm font-semibold text-ink">Repeat this slot</span>
+                <span className="block text-xs text-ink-muted">
+                  Creates the same time on a schedule. Weeks you are already booked are skipped.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={repeats}
+                onChange={(e) => setRepeats(e.target.checked)}
+                className="h-4 w-4 shrink-0 rounded border-rule-strong text-accent focus:ring-accent"
+              />
+            </label>
+
+            {repeats && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <Select
+                  label="Repeats"
+                  options={[
+                    { value: 'DAILY', label: 'Every day' },
+                    { value: 'WEEKLY', label: 'Every week' },
+                    { value: 'BIWEEKLY', label: 'Every 2 weeks' },
+                  ]}
+                  value={frequency}
+                  onChange={(e) => setFrequency(e.target.value as RecurrenceFrequency)}
+                />
+                <Input
+                  label="Occurrences"
+                  type="number"
+                  min={2}
+                  max={52}
+                  value={occurrences}
+                  onChange={(e) => setOccurrences(Math.max(2, Math.min(52, Number(e.target.value) || 2)))}
+                />
+              </div>
+            )}
+          </div>
+
           {formError && (
-            <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded px-2 py-1">{formError}</p>
+            <p className="rounded bg-danger-wash px-2 py-1 text-xs text-danger">{formError}</p>
           )}
         </form>
       </Modal>

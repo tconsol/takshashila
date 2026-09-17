@@ -13,6 +13,7 @@ import {
   useAcceptDemoRequest,
   useRejectDemoRequest,
 } from '../../hooks/use-demo-requests';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 import type { DemoRequest } from '../../services/demo-requests.service';
 
 const STATUS_TABS = [
@@ -169,6 +170,17 @@ export function TutorDemoRequestsPage() {
 
   const requests = data?.items ?? [];
 
+  // Lightweight counts per status (independent of the active tab) so a
+  // request moving from Pending to Accepted lights up that tab even while
+  // viewing a different one.
+  const { data: pendingCount } = useDemoRequestsAsTutor({ status: 'PENDING', limit: '1' });
+  const { data: acceptedCount } = useDemoRequestsAsTutor({ status: 'ACCEPTED', limit: '1' });
+  const { data: rejectedCount } = useDemoRequestsAsTutor({ status: 'REJECTED', limit: '1' });
+  const { dirty, markSeen } = useTabActivity(
+    { PENDING: pendingCount?.total, ACCEPTED: acceptedCount?.total, REJECTED: rejectedCount?.total },
+    activeTab,
+  );
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -179,9 +191,9 @@ export function TutorDemoRequestsPage() {
       />
 
       <Tabs
-        tabs={STATUS_TABS.map((t) => ({ key: t.key, label: t.label }))}
+        tabs={STATUS_TABS.map((t) => ({ key: t.key, label: t.label, indicator: dirty.has(t.key) }))}
         activeTab={activeTab}
-        onChange={setActiveTab}
+        onChange={(key) => { setActiveTab(key); markSeen(key); }}
         className="mb-5"
       />
 

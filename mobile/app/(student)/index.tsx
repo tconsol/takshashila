@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { parseISO, isAfter } from 'date-fns';
 import { Avatar } from '../../components/ui/Avatar';
@@ -17,6 +17,7 @@ import { studentService } from '../../services/student.service';
 import { classesService } from '../../services/classes.service';
 import { walletService } from '../../services/wallet.service';
 import { analyticsService } from '../../services/analytics.service';
+import { notificationsService } from '../../services/notifications.service';
 
 function greeting() {
   const h = new Date().getHours();
@@ -46,10 +47,16 @@ export default function DashboardScreen() {
     queryFn: analyticsService.getStudentMe,
   });
 
+  const { data: unreadNotifs } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: notificationsService.getUnreadCount,
+    refetchInterval: 30000,
+  });
+
   const { data: classesData, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['my-classes', 'home'],
     queryFn: () =>
-      classesService.getMyAsStudent({ status: 'SCHEDULED,IN_PROGRESS', limit: '10', page: '1' }),
+      classesService.getMyAsStudent({ status: 'SCHEDULED,LIVE,IN_PROGRESS', limit: '10', page: '1' }),
   });
 
   const liveClass = (classesData?.items ?? []).find((c) => c.status === 'IN_PROGRESS');
@@ -79,9 +86,19 @@ export default function DashboardScreen() {
               </Text>
             </View>
             <TouchableOpacity
+              onPress={() => router.push('/notifications' as Href)}
+              activeOpacity={0.7}
+              className="mr-2 h-11 w-11 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+            >
+              <Ionicons name="notifications-outline" size={22} color="#fff" />
+              {(unreadNotifs ?? 0) > 0 && (
+                <View className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500" />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() => router.push('/(student)/profile')}
               activeOpacity={0.7}
-              className="ml-3"
             >
               <Avatar name={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`} size={44} />
             </TouchableOpacity>
@@ -94,12 +111,12 @@ export default function DashboardScreen() {
               style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}
             >
               <View className="w-11 h-11 rounded-2xl items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}>
-                <Ionicons name="wallet-outline" size={22} color="#fff" />
+                <Ionicons name="pricetags" size={22} color="#fff" />
               </View>
               <View className="flex-1 ml-3">
                 <Text className="text-white/70 text-xs">Wallet balance</Text>
                 <Text className="text-white text-xl font-bold">
-                  ₹{((wallet?.balanceCents ?? 0) / 100).toFixed(0)}
+                  {((wallet?.balanceCents ?? 0) / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })} cr
                 </Text>
               </View>
               <TouchableOpacity

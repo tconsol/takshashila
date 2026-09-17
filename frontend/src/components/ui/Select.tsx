@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, useCallback, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -24,6 +25,17 @@ export interface SelectProps {
   searchThreshold?: number;
 }
 
+interface PanelPosition {
+  left: number;
+  width: number;
+  /** Exactly one of these is set — the other side is left to `auto`. */
+  top?: number;
+  bottom?: number;
+  maxHeight: number;
+}
+
+const VIEWPORT_GAP = 8;
+
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   function Select(
     {
@@ -48,6 +60,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const inputId = id ?? uid;
 
     const [isOpen, setIsOpen] = useState(false);
+    /** Viewport coordinates for the portalled panel. The panel can't live next
+     *  to the trigger: inside a Modal the scroll container clips it. So it is
+     *  portalled to <body> and positioned by hand against the trigger's rect. */
+    const [panelPos, setPanelPos] = useState<PanelPosition | null>(null);
     const [search, setSearch] = useState('');
     const [internalValue, setInternalValue] = useState<string>(
       controlledValue ?? defaultValue ?? '',
@@ -55,6 +71,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const [focusedIdx, setFocusedIdx] = useState(-1);
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
     const hiddenSelectRef = useRef<HTMLSelectElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
@@ -66,10 +83,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     useEffect(() => {
       if (!isOpen) return;
       const handler = (e: MouseEvent) => {
-        if (!containerRef.current?.contains(e.target as Node)) {
-          setIsOpen(false);
-          setSearch('');
-        }
+        const target = e.target as Node;
+        if (containerRef.current?.contains(target)) return;
+        if (panelRef.current?.contains(target)) return;
+        setIsOpen(false);
+        setSearch('');
       };
       document.addEventListener('mousedown', handler);
       return () => document.removeEventListener('mousedown', handler);
@@ -90,6 +108,50 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       },
       [ref],
     );
+
+    /**
+     * Below is preferred; above only wins when below is both too tight for the
+     * panel AND actually roomier. Measured before the panel paints so it never
+     * flashes open on the wrong side and then jumps.
+     */
+    const measure = useCallback(() => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const searchBarHeight = options.length > searchThreshold ? 44 : 0;
+      const desired = Math.min(224, options.length * 36 + 8) + searchBarHeight + 2;
+      const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_GAP;
+      const spaceAbove = rect.top - VIEWPORT_GAP;
+      const dropUp = spaceBelow < desired && spaceAbove > spaceBelow;
+
+      setPanelPos({
+        left: rect.left,
+        width: rect.width,
+        ...(dropUp
+          ? { bottom: window.innerHeight - rect.top + 4 }
+          : { top: rect.bottom + 4 }),
+        maxHeight: Math.max(96, Math.min(desired, dropUp ? spaceAbove : spaceBelow)),
+      });
+    }, [options.length, searchThreshold]);
+
+    const openDropdown = () => {
+      if (disabled) return;
+      if (!isOpen) measure();
+      setIsOpen((v) => !v);
+    };
+
+    /* The panel is fixed-positioned outside the trigger's scroll container, so
+       it has to be re-anchored whenever anything under it scrolls or resizes. */
+    useEffect(() => {
+      if (!isOpen) return;
+      const reanchor = () => measure();
+      window.addEventListener('scroll', reanchor, true);
+      window.addEventListener('resize', reanchor);
+      return () => {
+        window.removeEventListener('scroll', reanchor, true);
+        window.removeEventListener('resize', reanchor);
+      };
+    }, [isOpen, measure]);
 
     const showSearch = options.length > searchThreshold;
     const filtered = search
@@ -125,7 +187,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       if (!isOpen) {
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
           e.preventDefault();
-          setIsOpen(true);
+          openDropdown();
         }
         return;
       }
@@ -153,7 +215,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className={cn('relative w-full', className)} ref={containerRef}>
         {label && (
-          <label htmlFor={inputId} className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">
+          <label htmlFor={inputId} className="eyebrow mb-1.5 block">
             {label}
           </label>
         )}
@@ -176,54 +238,60 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         <button
           type="button"
           id={`${inputId}-trigger`}
-          onClick={() => !disabled && setIsOpen((v) => !v)}
+          onClick={openDropdown}
           onKeyDown={handleKeyDown}
           disabled={disabled}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
           aria-labelledby={label ? inputId : undefined}
           className={cn(
-            'relative flex w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5',
-            'text-sm font-medium text-left transition-colors duration-150 shadow-sm',
-            'focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500',
-            'dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100',
-            isOpen && 'ring-2 ring-indigo-500/25 border-indigo-500',
-            error && 'border-rose-400 focus:ring-rose-500/25',
-            disabled && 'cursor-not-allowed bg-slate-50 opacity-60 dark:bg-slate-800',
+            'relative flex w-full items-center gap-2 rounded-t-[3px] bg-surface-sunk px-3 py-2',
+            'border-0 border-b-2 border-rule-strong text-left text-sm transition-colors duration-150 ease-editorial',
+            'focus:outline-none focus:border-accent focus:bg-surface-hover',
+            isOpen && 'border-accent bg-surface-hover',
+            error && 'border-b-danger focus:border-b-danger',
+            disabled && 'cursor-not-allowed opacity-50',
           )}
         >
-          {leftIcon && <span className="shrink-0 text-slate-400">{leftIcon}</span>}
-          <span className={cn('flex-1 truncate', !selectedOption && 'text-slate-400')}>
+          {leftIcon && <span className="shrink-0 text-ink-faint">{leftIcon}</span>}
+          <span className={cn('flex-1 truncate text-ink', !selectedOption && 'text-ink-faint')}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronDown className={cn('ml-auto h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200', isOpen && 'rotate-180')} />
+          <ChevronDown className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-ink-faint transition-transform duration-150', isOpen && 'rotate-180')} />
         </button>
 
-        {isOpen && (
+        {isOpen && panelPos && createPortal(
           <div
-            className="absolute z-50 mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:bg-slate-900 dark:border-slate-700"
-            style={{ maxWidth: containerRef.current?.offsetWidth }}
+            ref={panelRef}
+            className="fixed z-[60] flex flex-col overflow-hidden rounded border border-rule-strong bg-surface shadow-pop"
+            style={{
+              left: panelPos.left,
+              width: panelPos.width,
+              top: panelPos.top,
+              bottom: panelPos.bottom,
+              maxHeight: panelPos.maxHeight,
+            }}
             role="listbox"
             onKeyDown={handleKeyDown}
           >
             {showSearch && (
-              <div className="border-b border-slate-100 p-2 dark:border-slate-800">
+              <div className="shrink-0 border-b border-rule p-1.5">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
                   <input
                     ref={searchRef}
                     type="text"
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setFocusedIdx(0); }}
                     placeholder="Search…"
-                    className="w-full rounded-lg border-0 bg-slate-50 py-1.5 pl-8 pr-3 text-sm outline-none placeholder:text-slate-400 dark:bg-slate-800 focus:ring-1 focus:ring-indigo-500/30"
+                    className="w-full rounded-sm border-0 bg-surface-sunk py-1.5 pl-8 pr-3 text-sm text-ink outline-none placeholder:text-ink-faint focus:ring-1 focus:ring-accent"
                   />
                 </div>
               </div>
             )}
-            <ul ref={listRef} className="max-h-56 overflow-y-auto py-1">
+            <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto py-1">
               {filtered.length === 0 ? (
-                <li className="px-3 py-2.5 text-sm text-slate-400 text-center">No options found</li>
+                <li className="px-3 py-3 text-center text-sm text-ink-faint">No options found</li>
               ) : (
                 filtered.map((opt, idx) => {
                   const isSelected = opt.value === internalValue;
@@ -236,21 +304,22 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                       onClick={() => handleSelect(opt.value)}
                       onMouseEnter={() => setFocusedIdx(idx)}
                       className={cn(
-                        'flex cursor-pointer items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors',
+                        'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors',
                         isFocused
-                          ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                          : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800',
-                        isSelected && !isFocused && 'bg-indigo-50/60 font-semibold text-indigo-600 dark:bg-indigo-900/20',
+                          ? 'bg-accent-wash text-accent'
+                          : 'text-ink-2 hover:bg-surface-hover',
+                        isSelected && !isFocused && 'font-semibold text-ink',
                       )}
                     >
                       <span className="flex-1 truncate">{opt.label}</span>
-                      {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-indigo-600" strokeWidth={2.5} />}
+                      {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-accent" strokeWidth={2.5} />}
                     </li>
                   );
                 })
               )}
             </ul>
-          </div>
+          </div>,
+          document.body,
         )}
 
         {error && <p className="mt-1.5 text-xs font-medium text-rose-500">{error}</p>}

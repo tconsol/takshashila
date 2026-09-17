@@ -14,8 +14,18 @@ function mapClass(raw: any): ClassRecord {
     scheduledStartUTC: raw.scheduledStartUTC ?? raw.startUTC ?? '',
     scheduledEndUTC: raw.scheduledEndUTC ?? raw.endUTC ?? '',
     meetingUrl: raw.meetingUrl,
+    meetingProvider: raw.meetingProvider,
     costCents: raw.costCents ?? 0,
     notes: raw.notes ?? raw.description,
+    isRefunded: raw.isRefunded ?? false,
+    studentJoinedAt: raw.studentJoinedAt,
+    durationMinutes: raw.durationMinutes,
+    billingMode: raw.billingMode,
+    refundedAt: raw.refundedAt,
+    tutorName: raw.tutorName,
+    studentName: raw.studentName,
+    autoResolution: raw.autoResolution,
+    autoResolvedAt: raw.autoResolvedAt,
     createdAt: raw.createdAt,
   };
 }
@@ -42,6 +52,8 @@ export interface TutorCreateClassDto {
   recurrence: 'NONE' | 'DAILY' | 'WEEKLY';
   recurrenceEndDate?: string;
   studentPublicIds: string[];
+  meetingUrl?: string;
+  meetingProvider?: 'zoom' | 'google_meet' | 'native';
 }
 
 export interface TutorRescheduleDto {
@@ -60,8 +72,20 @@ export interface ClassRecord {
   scheduledStartUTC: string;
   scheduledEndUTC: string;
   meetingUrl?: string;
+  meetingProvider?: 'zoom' | 'google_meet' | 'native';
   costCents: number;
   notes?: string;
+  isRefunded?: boolean;
+  studentJoinedAt?: string;
+  durationMinutes?: number;
+  billingMode?: string;
+  refundedAt?: string;
+  /** Resolved server-side so a list can name the other party in the class. */
+  tutorName?: string;
+  studentName?: string;
+  /** Set when the grace-period sweep closed this class instead of a person. */
+  autoResolution?: 'AUTO_COMPLETED' | 'AUTO_CANCELLED';
+  autoResolvedAt?: string;
   createdAt: string;
 }
 
@@ -73,27 +97,35 @@ export interface PaginatedClasses {
   totalPages: number;
 }
 
+/**
+ * The API nests counts under `pagination`; this type exposes them flat. Callers
+ * read `.total` to drive tab indicators, so the lift has to happen here — a
+ * spread of the raw body leaves `total` undefined and every indicator dead.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapPage(raw: any): PaginatedClasses {
+  const pagination = raw?.pagination ?? {};
+  return {
+    items: (raw?.items ?? []).map(mapClass),
+    total: pagination.total ?? 0,
+    page: pagination.page ?? 1,
+    limit: pagination.limit ?? 0,
+    totalPages: pagination.totalPages ?? 0,
+  };
+}
+
 export const classesService = {
   book: (dto: BookClassDto) =>
     api.post('/classes/book', dto).then((r) => mapClass(r.data.data)),
 
   getMyAsTutor: (params?: Record<string, string>) =>
-    api.get('/classes/my/tutor', { params }).then((r) => ({
-      ...r.data.data,
-      items: (r.data.data?.items ?? []).map(mapClass),
-    } as PaginatedClasses)),
+    api.get('/classes/my/tutor', { params }).then((r) => mapPage(r.data.data)),
 
   getMyAsStudent: (params?: Record<string, string>) =>
-    api.get('/classes/my/student', { params }).then((r) => ({
-      ...r.data.data,
-      items: (r.data.data?.items ?? []).map(mapClass),
-    } as PaginatedClasses)),
+    api.get('/classes/my/student', { params }).then((r) => mapPage(r.data.data)),
 
   getMyAsPrincipal: (params?: Record<string, string>) =>
-    api.get('/classes/my/principal', { params }).then((r) => ({
-      ...r.data.data,
-      items: (r.data.data?.items ?? []).map(mapClass),
-    } as PaginatedClasses)),
+    api.get('/classes/my/principal', { params }).then((r) => mapPage(r.data.data)),
 
   getById: (classId: string) =>
     api.get(`/classes/${classId}`).then((r) => mapClass(r.data.data)),
@@ -109,6 +141,9 @@ export const classesService = {
 
   cancel: (classId: string, dto: CancelClassDto) =>
     api.post(`/classes/${classId}/cancel`, dto).then((r) => mapClass(r.data.data)),
+
+  refund: (classId: string, reason: string) =>
+    api.post(`/classes/${classId}/refund`, { reason }).then((r) => mapClass(r.data.data)),
 
   setMeetingUrl: (classId: string, meetingUrl: string) =>
     api.patch(`/classes/${classId}/meeting-url`, { meetingUrl }).then((r) => mapClass(r.data.data)),

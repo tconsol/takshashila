@@ -15,6 +15,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { tutorsService } from '../../services/tutors.service';
 import { scheduleService } from '../../services/schedule.service';
 import { classesService } from '../../services/classes.service';
+import { demoRequestsService } from '../../services/demo-requests.service';
 import { useAuthStore } from '../../stores/auth.store';
 import type { TutorSlot } from '../../types/api.types';
 
@@ -54,6 +55,24 @@ export default function BookWithTutorScreen() {
       ]);
     },
     onError: (err: Error) => Alert.alert('Booking Failed', err.message),
+  });
+
+  // Free demo = the way a student requests to join a tutor. Tutor accepts → linked.
+  const demoMutation = useMutation({
+    mutationFn: () =>
+      demoRequestsService.create({
+        tutorPublicId: tutorId,
+        availabilitySlotPublicId: selectedSlot?.publicId,
+        preferredSubject: subject || undefined,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['demo-requests'] });
+      setSelectedSlot(null);
+      Alert.alert('Request sent!', 'Your free demo request was sent. The tutor will review and accept it.', [
+        { text: 'OK' },
+      ]);
+    },
+    onError: (err: Error) => Alert.alert('Request failed', err.message),
   });
 
   if (tLoading || sLoading || !tutor) return <LoadingScreen />;
@@ -163,6 +182,17 @@ export default function BookWithTutorScreen() {
             >
               Confirm Booking
             </Button>
+
+            <TouchableOpacity
+              onPress={() => demoMutation.mutate()}
+              disabled={demoMutation.isPending}
+              className="mt-2 flex-row items-center justify-center gap-2 rounded-2xl border border-indigo-200 py-3"
+            >
+              <Ionicons name="sparkles-outline" size={16} color="#6366F1" />
+              <Text className="font-semibold text-indigo-600">
+                {demoMutation.isPending ? 'Sending…' : 'Request free demo (join tutor)'}
+              </Text>
+            </TouchableOpacity>
           </Card>
         )}
       </ScrollView>

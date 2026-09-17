@@ -6,7 +6,7 @@ import {
 import { Link } from 'react-router-dom';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useAuthStore } from '../../stores/auth.store';
-import { PageHeader } from '../../components/shared/PageHeader';
+import { DashboardHero } from '../../components/shared/DashboardHero';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
@@ -90,12 +90,13 @@ export function TutorDashboard() {
     (tutorProfile.subjects?.length === 0 || !tutorProfile.bio || tutorProfile.hourlyRateCents === 0);
 
   return (
-    <div className="animate-fade-in">
-      <PageHeader
+    <div className="space-y-6">
+      <DashboardHero
+        role="TUTOR"
         eyebrow="Tutor Studio"
         title="Your Teaching Day"
         description="Manage classes, students and earnings all in one place."
-        icon={<GraduationCap className="h-5 w-5" />}
+        icon={<GraduationCap className="h-6 w-6" />}
         actions={
           <>
             <Link to="/dashboard/tutor/schedule">
@@ -117,7 +118,7 @@ export function TutorDashboard() {
       <DemoRequestsSection />
 
       {profileIncomplete && (
-        <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 dark:border-amber-800/40 dark:bg-amber-900/20">
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 dark:border-amber-800/40 dark:bg-amber-900/20">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <div className="flex-1 text-sm">
             <span className="font-semibold text-amber-800 dark:text-amber-300">Your tutor profile is incomplete.</span>
@@ -135,24 +136,28 @@ export function TutorDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
+          index={0}
           title="Total Students"
           value={statsLoading ? '…' : String(stats?.totalStudents ?? 0)}
           accent="brand"
           icon={<Users className="h-5 w-5" />}
         />
         <StatsCard
+          index={1}
           title="Upcoming Classes"
           value={statsLoading ? '…' : String(stats?.upcoming ?? 0)}
           accent="sky"
           icon={<Video className="h-5 w-5" />}
         />
         <StatsCard
+          index={2}
           title="Completed Classes"
           value={statsLoading ? '…' : String(stats?.completed ?? 0)}
           accent="violet"
           icon={<BookOpen className="h-5 w-5" />}
         />
         <StatsCard
+          index={3}
           title="Wallet Balance"
           value={formatINR(balanceCents)}
           accent="green"
@@ -161,7 +166,7 @@ export function TutorDashboard() {
         />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
             <div>
@@ -192,7 +197,7 @@ export function TutorDashboard() {
             ) : (
               <div className="space-y-2.5">
                 {classes.map((cls) => (
-                  <div key={cls.publicId} className="flex items-center justify-between rounded-xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10">
+                  <div key={cls.publicId} className="flex items-center justify-between rounded-2xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 text-brand-600 ring-1 ring-brand-100 dark:from-brand-900/30 dark:to-violet-900/30 dark:text-brand-300">
                         <Video className="h-4 w-4" />

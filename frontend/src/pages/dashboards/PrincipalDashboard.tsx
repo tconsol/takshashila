@@ -5,7 +5,7 @@ import {
   Users, GraduationCap, Video, ArrowUpRight, UserPlus, Building2,
   Sparkles, AlertCircle, FileText, ClipboardList,
 } from 'lucide-react';
-import { PageHeader } from '../../components/shared/PageHeader';
+import { DashboardHero } from '../../components/shared/DashboardHero';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
@@ -44,12 +44,13 @@ export function PrincipalDashboard() {
   const [inviteOpen, setInviteOpen] = useState(false);
 
   return (
-    <div className="animate-fade-in">
-      <PageHeader
+    <div className="space-y-6">
+      <DashboardHero
+        role="PRINCIPAL"
         eyebrow="Principal Console"
         title="Your Tutor Network"
         description="Onboard tutors, track performance and grow your institution."
-        icon={<Building2 className="h-5 w-5" />}
+        icon={<Building2 className="h-6 w-6" />}
         actions={
           <>
             <Link to="/dashboard/principal/tutors">
@@ -65,15 +66,16 @@ export function PrincipalDashboard() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard title="Active Tutors"     value={statsLoading ? '…' : String(stats?.tutors ?? 0)}   accent="brand"  icon={<GraduationCap className="h-5 w-5" />} />
-        <StatsCard title="Total Students"    value={statsLoading ? '…' : String(stats?.students ?? 0)} accent="green"  icon={<Users className="h-5 w-5" />} />
-        <StatsCard title="Classes (30d)"     value={statsLoading ? '…' : String(stats?.classes ?? 0)}  accent="violet" icon={<Video className="h-5 w-5" />} />
-        <StatsCard title="Pending Approvals" value={tutorsLoading ? '…' : String(pendingTutors.length)} accent="amber"  icon={<AlertCircle className="h-5 w-5" />} hint="Awaiting your review" />
+        <StatsCard index={0} title="Active Tutors"     value={statsLoading ? '…' : String(stats?.tutors ?? 0)}   accent="brand"  icon={<GraduationCap className="h-5 w-5" />} />
+        <StatsCard index={1} title="Total Students"    value={statsLoading ? '…' : String(stats?.students ?? 0)} accent="green"  icon={<Users className="h-5 w-5" />} />
+        <StatsCard index={2} title="Classes (30d)"     value={statsLoading ? '…' : String(stats?.classes ?? 0)}  accent="violet" icon={<Video className="h-5 w-5" />} />
+        <StatsCard index={3} title="Pending Approvals" value={tutorsLoading ? '…' : String(pendingTutors.length)} accent="amber"  icon={<AlertCircle className="h-5 w-5" />} hint="Awaiting your review" />
       </div>
 
       {/* Tutor content activity worksheets & assignments */}
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
+          index={4}
           title="Worksheets"
           value={statsLoading ? '…' : String(stats?.worksheets ?? 0)}
           accent="brand"
@@ -81,6 +83,7 @@ export function PrincipalDashboard() {
           hint={`${stats?.worksheetSubmissions ?? 0} submissions`}
         />
         <StatsCard
+          index={5}
           title="Assignments"
           value={statsLoading ? '…' : String(stats?.assignments ?? 0)}
           accent="violet"
@@ -88,12 +91,14 @@ export function PrincipalDashboard() {
           hint={`${stats?.assignmentSubmissions ?? 0} submissions`}
         />
         <StatsCard
+          index={6}
           title="Worksheet Submissions"
           value={statsLoading ? '…' : String(stats?.worksheetSubmissions ?? 0)}
           accent="green"
           icon={<FileText className="h-5 w-5" />}
         />
         <StatsCard
+          index={7}
           title="Assignment Submissions"
           value={statsLoading ? '…' : String(stats?.assignmentSubmissions ?? 0)}
           accent="amber"
@@ -101,7 +106,7 @@ export function PrincipalDashboard() {
         />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
             <div>
@@ -130,7 +135,7 @@ export function PrincipalDashboard() {
             ) : (
               <div className="space-y-2.5">
                 {pendingTutors.map((t) => (
-                  <div key={t.publicId} className="flex items-center justify-between rounded-xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10">
+                  <div key={t.publicId} className="flex items-center justify-between rounded-2xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-violet-100 text-sm font-semibold text-brand-700 dark:from-brand-900/40 dark:to-violet-900/40 dark:text-brand-300">
                         {(t.displayName?.[0] ?? 'T').toUpperCase()}{(t.displayName?.split(' ')[1]?.[0] ?? '').toUpperCase()}

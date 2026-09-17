@@ -28,6 +28,7 @@ import type { TutorSearchResult, JoinRequest } from '../../services/join-request
 import type { TutorProfile } from '../../services/tutors.service';
 import { useStartConversation } from '../../features/chat/use-chat';
 import { useAuthStore } from '../../stores/auth.store';
+import { useTabActivity } from '../../hooks/use-tab-activity';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple';
 
@@ -56,15 +57,12 @@ const REQ_STATUS_VARIANT: Record<string, BadgeVariant> = {
   CANCELLED: 'default',
 };
 
+// The join-request and invite endpoints accept ADMIN and SUPER_ADMIN as well as
+// PRINCIPAL, so both see the same tabs — only the scope of the data differs.
 const TABS = [
   { key: 'all', label: 'All Tutors' },
   { key: 'pending', label: 'Pending Approval' },
   { key: 'requests', label: 'Join Requests' },
-];
-
-const ADMIN_TABS = [
-  { key: 'all', label: 'All Tutors' },
-  { key: 'pending', label: 'Pending Approval' },
 ];
 
 export function PrincipalTutorsPage() {
@@ -115,6 +113,18 @@ export function PrincipalTutorsPage() {
   const displayList = activeTab === 'pending' ? pendingList : (allData?.items ?? []);
   const isLoading = activeTab === 'pending' ? pendingLoading : allLoading;
 
+  // All three buckets load concurrently regardless of the active tab, so a
+  // tutor moving out of Pending (or a join request arriving) lights up the
+  // tab it landed in even while viewing a different one.
+  const { dirty, markSeen } = useTabActivity(
+    {
+      all: allData?.items.length,
+      pending: pendingList.length,
+      requests: incomingRequests.length + outgoingRequests.length,
+    },
+    activeTab,
+  );
+
   const handleMessage = async (tutor: TutorProfile) => {
     const conv = await startConversation({ recipientPublicId: tutor.userPublicId, recipientRole: 'TUTOR' });
     navigate(`/chat/${conv.publicId}`);
@@ -162,28 +172,28 @@ export function PrincipalTutorsPage() {
     setRejectReason('');
   };
 
-  const tabs = isPrincipal ? TABS : ADMIN_TABS;
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Tutors"
         subtitle={isPrincipal ? 'Invite and manage tutors in your institution' : 'Review and manage tutor accounts'}
         actions={
-          isPrincipal ? (
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => { setShowAddTutor(true); resetRequestSent(); setSearchResult(null); setAddTutorQuery(''); }}>
-                <Search className="h-4 w-4 mr-1.5" /> Add Tutor
-              </Button>
-              <Button onClick={() => { setShowInvite(true); resetInvite(); }}>
-                <UserPlus className="h-4 w-4 mr-1.5" /> Invite Tutor
-              </Button>
-            </div>
-          ) : undefined
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { setShowAddTutor(true); resetRequestSent(); setSearchResult(null); setAddTutorQuery(''); }}>
+              <Search className="h-4 w-4 mr-1.5" /> Add Tutor
+            </Button>
+            <Button onClick={() => { setShowInvite(true); resetInvite(); }}>
+              <UserPlus className="h-4 w-4 mr-1.5" /> Invite Tutor
+            </Button>
+          </div>
         }
       />
 
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs
+        tabs={TABS.map((t) => ({ ...t, indicator: dirty.has(t.key) }))}
+        activeTab={activeTab}
+        onChange={(key) => { setActiveTab(key); markSeen(key); }}
+      />
 
       {/* Tutors List */}
       {activeTab !== 'requests' && (
@@ -216,7 +226,7 @@ export function PrincipalTutorsPage() {
       )}
 
       {/* Join Requests Tab */}
-      {activeTab === 'requests' && isPrincipal && (
+      {activeTab === 'requests' && (
         <div className="space-y-6">
           {/* Incoming from tutors */}
           <div>

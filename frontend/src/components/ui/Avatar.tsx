@@ -20,40 +20,26 @@ function getInitials(name: string): string {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
-// Modern gradient palette one per hash bucket
-const GRADIENTS = [
-  'from-indigo-400 to-violet-500',
-  'from-pink-400 to-rose-500',
-  'from-teal-400 to-emerald-500',
-  'from-amber-400 to-orange-500',
-  'from-sky-400 to-blue-500',
-  'from-purple-400 to-indigo-500',
-];
-
-function getGradient(name: string): string {
-  if (!name) return GRADIENTS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return GRADIENTS[Math.abs(hash) % GRADIENTS.length];
-}
-
+/**
+ * Squared-off initial chip in flat ink, not a rainbow gradient circle — the
+ * accent is reserved for live/active state, so an avatar never competes with it.
+ */
 export function Avatar({ name, src, size = 'md', className = '' }: AvatarProps) {
   const sizeClass = sizeClasses[size];
-  const gradient = getGradient(name);
 
   if (src) {
     return (
       <img
         src={src}
         alt={name}
-        className={`${sizeClass} rounded-full ring-2 ring-white object-cover flex-shrink-0 ${className}`}
+        className={`${sizeClass} flex-shrink-0 rounded object-cover ring-1 ring-rule ${className}`}
       />
     );
   }
 
   return (
     <div
-      className={`${sizeClass} bg-gradient-to-br ${gradient} rounded-full flex items-center justify-center text-white font-bold ring-2 ring-white flex-shrink-0 ${className}`}
+      className={`${sizeClass} flex flex-shrink-0 items-center justify-center rounded bg-ink font-display font-semibold text-paper ${className}`}
       title={name}
     >
       {getInitials(name)}

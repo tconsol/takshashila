@@ -12,14 +12,18 @@ import {
   changePasswordSchema,
   refreshTokenSchema,
   acceptInviteSchema,
+  resendVerificationSchema,
+  googleAuthSchema,
 } from './auth.validators';
 
 const router = Router();
 
 router.post('/register', authRateLimiter, validate(registerSchema), authController.register.bind(authController));
 router.post('/login', authRateLimiter, validate(loginSchema), authController.login.bind(authController));
+router.post('/google', authRateLimiter, validate(googleAuthSchema), authController.googleAuth.bind(authController));
 router.post('/refresh', validate(refreshTokenSchema), authController.refreshTokens.bind(authController));
 router.post('/verify-email', validate(verifyEmailSchema), authController.verifyEmail.bind(authController));
+router.post('/resend-verification', authRateLimiter, validate(resendVerificationSchema), authController.resendVerification.bind(authController));
 router.post('/accept-invite', validate(acceptInviteSchema), authController.acceptInvite.bind(authController));
 router.post('/forgot-password', passwordResetLimiter, validate(forgotPasswordSchema), authController.forgotPassword.bind(authController));
 router.post('/reset-password', passwordResetLimiter, validate(resetPasswordSchema), authController.resetPassword.bind(authController));

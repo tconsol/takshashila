@@ -14,19 +14,19 @@ export function EmptyState({ icon, title, description, action, className, compac
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center text-center',
-        compact ? 'py-8 px-4' : 'py-14 px-6',
+        'flex flex-col items-center justify-center border border-dashed border-rule-strong text-center',
+        compact ? 'px-4 py-8' : 'px-6 py-16',
         className,
       )}
     >
       {icon && (
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
+        <div className="mb-4 flex h-11 w-11 items-center justify-center rounded border border-rule bg-surface-sunk text-ink-faint">
           {icon}
         </div>
       )}
-      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
+      <h3 className="font-display text-base font-semibold text-ink">{title}</h3>
       {description && (
-        <p className="mt-1.5 max-w-sm text-sm text-slate-400 dark:text-slate-500">{description}</p>
+        <p className="mt-1.5 max-w-sm text-sm text-ink-muted">{description}</p>
       )}
       {action && <div className="mt-5">{action}</div>}
     </div>

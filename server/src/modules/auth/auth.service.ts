@@ -3,7 +3,9 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { userRepository } from '../users/user.repository';
 import { UserStatus } from '../users/user.types';
+import type { IUser } from '../users/user.types';
 import { getRedisClient } from '../../config/redis';
+import { invalidatePrefix } from '../../lib/cache';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -35,13 +37,13 @@ import { TutorProfileModel } from '../tutors/tutor.model';
 import { TutorStatus } from '../tutors/tutor.types';
 import { StudentProfileModel } from '../students/student.model';
 import { StudentStatus } from '../students/student.types';
+import { settingsService } from '../settings/settings.service';
 
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 export class AuthService {
   async register(dto: RegisterDto, defaultRole: Role = 'STUDENT'): Promise<{ publicId: string }> {
-    const exists = await userRepository.existsByEmail(dto.email);
-    if (exists) throw new ConflictError('An account with this email already exists');
+    const role = (dto.role as Role) || defaultRole;
 
     const passwordHash = await argon2.hash(dto.password, {
       type: argon2.argon2id,
@@ -53,13 +55,46 @@ export class AuthService {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
+    // If an account with this email already exists, only block it when it has been
+    // verified. An unverified (PENDING_VERIFICATION) account is not "owned" yet, so
+    // we let the person register again: refresh their details + resend the link.
+    const existing = await userRepository.findByEmail(dto.email);
+    if (existing) {
+      const isVerified = existing.emailVerified || existing.status === UserStatus.ACTIVE;
+      if (isVerified) throw new ConflictError('An account with this email already exists');
+
+      await userRepository.update(existing.publicId, {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        role,
+        phone: dto.phone,
+        timezone: dto.timezone || 'UTC',
+        passwordHash,
+        status: UserStatus.PENDING_VERIFICATION,
+        emailVerified: false,
+        emailVerificationToken: verificationToken,
+        emailVerificationExpiry: verificationExpiry,
+      });
+
+      await this._provisionForRole(existing.publicId, role, dto);
+
+      domainEvents.emit(DomainEvent.USER_REGISTERED, {
+        userId: existing.publicId,
+        email: existing.email,
+        role,
+        verificationToken,
+      });
+
+      return { publicId: existing.publicId };
+    }
+
     const user = await userRepository.create({
       publicId: uuidv4(),
       email: dto.email.toLowerCase(),
       passwordHash,
       firstName: dto.firstName,
       lastName: dto.lastName,
-      role: dto.role as Role || defaultRole,
+      role,
       status: UserStatus.PENDING_VERIFICATION,
       phone: dto.phone,
       timezone: dto.timezone || 'UTC',
@@ -78,86 +113,101 @@ export class AuthService {
       verificationToken,
     });
 
-    // Auto-create wallet for all new users
+    await this._provisionForRole(user.publicId, role, dto);
+
+    return { publicId: user.publicId };
+  }
+
+  /**
+   * Ensure a new/re-registering user has a wallet and the profile for their role.
+   * Idempotent: safe to call again on re-registration (won't duplicate profiles).
+   */
+  private async _provisionForRole(userPublicId: string, role: Role, dto: RegisterDto): Promise<void> {
     try {
-      await walletService.getOrCreateWallet(user.publicId);
+      await walletService.getOrCreateWallet(userPublicId);
     } catch (err) {
       console.warn('[auth] Could not create wallet for user:', (err as Error).message);
     }
 
-    // Auto-create tutor profile for self-registered tutors
-    if (user.role === 'TUTOR') {
+    if (role === 'TUTOR') {
       try {
-        await TutorProfileModel.create({
-          publicId: uuidv4(),
-          userPublicId: user.publicId,
-          status: TutorStatus.REGISTERED,
-          subjects: dto.subjects ?? [],
-          languages: dto.languages ?? [],
-          hourlyRateCents: 0,
-          commissionRatePercent: 20,
-          bio: dto.bio,
-          qualifications: dto.qualifications ?? [],
-          timezone: dto.timezone || 'UTC',
-          trustScore: 50,
-          totalStudents: 0,
-          totalClassesCompleted: 0,
-          totalClassesCancelled: 0,
-          totalEarningsCents: 0,
-          rating: 0,
-          ratingCount: 0,
-          isVerified: false,
-          isDeleted: false,
-        });
+        const exists = await TutorProfileModel.findOne({ userPublicId, isDeleted: false }).lean();
+        if (!exists) {
+          const settings = await settingsService.get();
+          await TutorProfileModel.create({
+            publicId: uuidv4(),
+            userPublicId,
+            status: TutorStatus.REGISTERED,
+            subjects: dto.subjects ?? [],
+            languages: dto.languages ?? [],
+            hourlyRateCents: 0,
+            commissionRatePercent: settings.defaultTutorCommissionRatePercent,
+            bio: dto.bio,
+            qualifications: dto.qualifications ?? [],
+            timezone: dto.timezone || 'UTC',
+            trustScore: 50,
+            totalStudents: 0,
+            totalClassesCompleted: 0,
+            totalClassesCancelled: 0,
+            totalEarningsCents: 0,
+            rating: 0,
+            ratingCount: 0,
+            isVerified: false,
+            isDeleted: false,
+          });
+        }
       } catch (err) {
         console.warn('[auth] Could not create tutor profile:', (err as Error).message);
       }
     }
 
-    // Auto-create principal profile in PENDING_APPROVAL state
-    if (user.role === 'PRINCIPAL') {
+    if (role === 'PRINCIPAL') {
       try {
-        await PrincipalProfileModel.create({
-          publicId: uuidv4(),
-          userPublicId: user.publicId,
-          status: PrincipalStatus.PENDING_APPROVAL,
-          commissionRatePercent: 15,
-          totalTutors: 0,
-          totalStudents: 0,
-          totalRevenueCents: 0,
-          trustScore: 50,
-          isDeleted: false,
-        });
+        const exists = await PrincipalProfileModel.findOne({ userPublicId, isDeleted: false }).lean();
+        if (!exists) {
+          const settings = await settingsService.get();
+          await PrincipalProfileModel.create({
+            publicId: uuidv4(),
+            userPublicId,
+            status: PrincipalStatus.PENDING_APPROVAL,
+            commissionRatePercent: settings.defaultPrincipalCommissionRatePercent,
+            totalTutors: 0,
+            totalStudents: 0,
+            totalRevenueCents: 0,
+            trustScore: 50,
+            isDeleted: false,
+          });
+        }
       } catch (err) {
         console.warn('[auth] Could not create principal profile:', (err as Error).message);
       }
     }
 
-    // Auto-create student profile for self-registered students
-    if (user.role === 'STUDENT') {
+    if (role === 'STUDENT') {
       try {
-        await StudentProfileModel.create({
-          publicId: uuidv4(),
-          userPublicId: user.publicId,
-          previousTutorPublicIds: [],
-          status: StudentStatus.PENDING_APPROVAL,
-          demoClassesUsed: 0,
-          demoClassTakenWith: [],
-          totalClassesAttended: 0,
-          totalClassesCancelled: 0,
-          totalClassesMissed: 0,
-          totalClassesBooked: 0,
-          attendanceRate: 0,
-          grade: dto.grade,
-          invitedBy: user.publicId,
-          isDeleted: false,
-        });
+        const exists = await StudentProfileModel.findOne({ userPublicId, isDeleted: false }).lean();
+        if (!exists) {
+          await StudentProfileModel.create({
+            publicId: uuidv4(),
+            userPublicId,
+            previousTutorPublicIds: [],
+            status: StudentStatus.PENDING_APPROVAL,
+            demoClassesUsed: 0,
+            demoClassTakenWith: [],
+            totalClassesAttended: 0,
+            totalClassesCancelled: 0,
+            totalClassesMissed: 0,
+            totalClassesBooked: 0,
+            attendanceRate: 0,
+            grade: dto.grade,
+            invitedBy: userPublicId,
+            isDeleted: false,
+          });
+        }
       } catch (err) {
         console.warn('[auth] Could not create student profile:', (err as Error).message);
       }
     }
-
-    return { publicId: user.publicId };
   }
 
   async login(dto: LoginDto, device: DeviceInfo): Promise<TokenPair & { user: object }> {
@@ -226,6 +276,18 @@ export class AuthService {
       }
     }
 
+    return this._issueSession(user, device);
+  }
+
+  /**
+   * Mint access/refresh tokens, persist the session in Redis, record the login,
+   * and return the token pair plus the sanitized user. Shared by password login
+   * and Google sign-in.
+   */
+  private async _issueSession(
+    user: IUser,
+    device: DeviceInfo,
+  ): Promise<TokenPair & { user: object }> {
     const sessionId = generateSessionId();
     const payload = buildTokenPayload(user._id.toString(), user.publicId, user.role, sessionId);
 
@@ -264,6 +326,130 @@ export class AuthService {
     const { passwordHash: _, ...publicUser } = user;
 
     return { accessToken, refreshToken, user: publicUser };
+  }
+
+  /**
+   * Sign in (or sign up) with a verified Google ID token. New accounts are created
+   * as STUDENT, pre-verified (Google already vetted the email), and get a wallet +
+   * student profile just like a normal registration.
+   */
+  async loginWithGoogle(
+    input: { idToken?: string; code?: string; accessToken?: string },
+    device: DeviceInfo,
+  ): Promise<TokenPair & { user: object }> {
+    const { verifyGoogleIdToken, verifyGoogleAccessToken, exchangeGoogleCode } = await import('../../lib/google-auth');
+    // Web implicit flow sends an `accessToken`; web code flow sends `code`;
+    // native sends an `idToken`. Resolve whichever we got into a Google identity.
+    let identity;
+    if (input.accessToken) {
+      identity = await verifyGoogleAccessToken(input.accessToken);
+    } else {
+      const idToken = input.idToken ?? (input.code ? await exchangeGoogleCode(input.code) : null);
+      if (!idToken) throw new AuthenticationError('Missing Google credentials');
+      identity = await verifyGoogleIdToken(idToken);
+    }
+
+    if (!identity.emailVerified) {
+      throw new AuthenticationError('Your Google email is not verified.');
+    }
+
+    // Include soft-deleted rows: the address is still taken by the unique index,
+    // so creating over one fails. The isDeleted guard below is the real answer.
+    let user = await userRepository.findByEmail(identity.email, true, true);
+
+    if (user) {
+      if (user.isDeleted) throw new AuthenticationError('This account has been deactivated');
+      if (user.status === UserStatus.SUSPENDED) {
+        throw new AuthenticationError('Your account has been suspended. Please contact support.');
+      }
+      // First Google login for an unverified/pending account activates it.
+      if (!user.emailVerified || user.status === UserStatus.PENDING_VERIFICATION) {
+        await userRepository.update(user.publicId, {
+          emailVerified: true,
+          status: UserStatus.ACTIVE,
+          emailVerificationToken: undefined,
+          emailVerificationExpiry: undefined,
+        });
+        user = { ...user, emailVerified: true, status: UserStatus.ACTIVE };
+      }
+    } else {
+      // No account yet → provision a fresh STUDENT. A random password hash keeps
+      // the field required; the user signs in only via Google unless they reset it.
+      const randomSecret = crypto.randomBytes(48).toString('hex');
+      const passwordHash = await argon2.hash(randomSecret, {
+        type: argon2.argon2id,
+        memoryCost: 65536,
+        timeCost: 3,
+        parallelism: 1,
+      });
+
+      const created = await userRepository.create({
+        publicId: uuidv4(),
+        email: identity.email,
+        passwordHash,
+        firstName: identity.firstName,
+        lastName: identity.lastName || '-',
+        role: 'STUDENT',
+        status: UserStatus.ACTIVE,
+        avatarUrl: identity.picture,
+        timezone: 'UTC',
+        emailVerified: true,
+        twoFAEnabled: false,
+        loginCount: 0,
+        isDeleted: false,
+      });
+
+      try { await walletService.getOrCreateWallet(created.publicId); } catch { /* non-fatal */ }
+      try {
+        await StudentProfileModel.create({
+          publicId: uuidv4(),
+          userPublicId: created.publicId,
+          previousTutorPublicIds: [],
+          status: StudentStatus.PENDING_APPROVAL,
+          demoClassesUsed: 0,
+          demoClassTakenWith: [],
+          totalClassesAttended: 0,
+          totalClassesCancelled: 0,
+          totalClassesMissed: 0,
+          totalClassesBooked: 0,
+          attendanceRate: 0,
+          invitedBy: created.publicId,
+          isDeleted: false,
+        });
+      } catch (err) {
+        console.warn('[auth] Could not create student profile for Google user:', (err as Error).message);
+      }
+
+      // Re-fetch with sensitive fields so _issueSession has passwordHash to strip.
+      user = await userRepository.findByEmail(identity.email, true);
+    }
+
+    if (!user) throw new AuthenticationError('Could not sign in with Google');
+    return this._issueSession(user, device);
+  }
+
+  /**
+   * Re-send the verification email for a not-yet-verified account. Always resolves
+   * (no account enumeration); regenerates the token so old links stop working.
+   */
+  async resendVerification(email: string): Promise<void> {
+    const user = await userRepository.findByEmail(email);
+    if (!user || user.emailVerified || user.status !== UserStatus.PENDING_VERIFICATION) return;
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await userRepository.update(user.publicId, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiry: verificationExpiry,
+    });
+
+    domainEvents.emit(DomainEvent.USER_REGISTERED, {
+      userId: user.publicId,
+      email: user.email,
+      role: user.role,
+      verificationToken,
+    });
   }
 
   async refreshTokens(refreshToken: string): Promise<TokenPair> {
@@ -382,6 +568,8 @@ export class AuthService {
         { userPublicId: user.publicId, status: TutorStatus.REGISTERED, isDeleted: false },
         { $set: { status: TutorStatus.ACTIVE } },
       );
+      // Drop the browse cache so the newly-active tutor shows up immediately.
+      void invalidatePrefix('tutors:search:');
     }
 
     domainEvents.emit(DomainEvent.USER_EMAIL_VERIFIED, { userId: user.publicId });

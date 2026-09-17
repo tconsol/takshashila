@@ -1,12 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Users, CheckCircle2, DollarSign, Headphones, ArrowUpRight, ClipboardList, Loader2 } from 'lucide-react';
-import { PageHeader } from '../../components/shared/PageHeader';
+import {
+  Users, CheckCircle2, DollarSign, Headphones, ArrowUpRight, ClipboardList, Loader2,
+  UserCheck, CalendarCheck, GraduationCap,
+} from 'lucide-react';
+import { DashboardHero } from '../../components/shared/DashboardHero';
 import { StatsCard } from '../../components/shared/StatsCard';
+import { TrendChart } from '../../components/shared/TrendChart';
+import { BarList } from '../../components/shared/BarList';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { analyticsService } from '../../services/analytics.service';
+import { adminUsersService } from '../../services/admin-users.service';
 import { useApprovePrincipal } from '../../hooks/use-principals';
 
 function formatCurrency(cents: number) {
@@ -41,6 +47,36 @@ export function AdminDashboard() {
     staleTime: 30_000,
   });
 
+  const { data: growth, isFetching: growthFetching } = useQuery({
+    queryKey: ['user-growth', 30],
+    queryFn: () => adminUsersService.growth(30),
+    staleTime: 60_000,
+  });
+
+  const { data: students } = useQuery({
+    queryKey: ['student-breakdown'],
+    queryFn: adminUsersService.studentBreakdown,
+    staleTime: 60_000,
+  });
+
+  const { data: classStats } = useQuery({
+    queryKey: ['class-stats', 30],
+    queryFn: () => analyticsService.getClassStats(30),
+    staleTime: 60_000,
+  });
+
+  const { data: attendanceStats } = useQuery({
+    queryKey: ['attendance-stats', 30],
+    queryFn: () => analyticsService.getAttendanceStats(30),
+    staleTime: 60_000,
+  });
+
+  const { data: topTutors } = useQuery({
+    queryKey: ['top-tutors', 6],
+    queryFn: () => analyticsService.getTopTutors(6),
+    staleTime: 60_000,
+  });
+
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -62,16 +98,18 @@ export function AdminDashboard() {
   const urgentList = data?.urgentTicketsList ?? [];
 
   return (
-    <div className="animate-fade-in">
-      <PageHeader
+    <div className="space-y-6">
+      <DashboardHero
+        role="ADMIN"
         eyebrow="Operations"
         title="Admin Overview"
         description="Approve principals, moderate tutors and resolve operational escalations."
-        icon={<ClipboardList className="h-5 w-5" />}
+        icon={<ClipboardList className="h-6 w-6" />}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
+          index={0}
           title="Pending Approvals"
           value={stats?.pendingApprovals.toLocaleString() ?? ''}
           accent="amber"
@@ -79,12 +117,14 @@ export function AdminDashboard() {
           hint="Principal applications waiting"
         />
         <StatsCard
+          index={1}
           title="Active Principals"
           value={stats?.activePrincipals.toLocaleString() ?? ''}
           accent="brand"
           icon={<Users className="h-5 w-5" />}
         />
         <StatsCard
+          index={2}
           title="Payouts Pending"
           value={formatCurrency(stats?.payoutsPendingCents ?? 0)}
           accent="green"
@@ -92,6 +132,7 @@ export function AdminDashboard() {
           hint="Awaiting reconciliation"
         />
         <StatsCard
+          index={3}
           title="Open Tickets"
           value={stats?.openTickets.toLocaleString() ?? ''}
           accent="rose"
@@ -100,7 +141,88 @@ export function AdminDashboard() {
         />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatsCard
+          index={0}
+          title="Students"
+          value={(students?.total ?? 0).toLocaleString()}
+          accent="green"
+          icon={<GraduationCap className="h-5 w-5" />}
+          hint={students ? `${students.withoutTutor.toLocaleString()} without a tutor` : undefined}
+        />
+        <StatsCard
+          index={1}
+          title="Attendance Rate"
+          value={attendanceStats ? `${attendanceStats.rate}%` : '—'}
+          accent="sky"
+          icon={<UserCheck className="h-5 w-5" />}
+          hint="Last 30 days"
+        />
+        <StatsCard
+          index={2}
+          title="Classes Booked (30d)"
+          value={(classStats?.booked ?? 0).toLocaleString()}
+          accent="violet"
+          icon={<CalendarCheck className="h-5 w-5" />}
+          hint={classStats ? `${classStats.cancelled.toLocaleString()} cancelled` : undefined}
+        />
+        <StatsCard
+          index={3}
+          title="Signups (30d)"
+          value={(growth?.currentTotal ?? 0).toLocaleString()}
+          accent="brand"
+          icon={<Users className="h-5 w-5" />}
+          hint={growth?.changePercent != null
+            ? `${growth.changePercent >= 0 ? '+' : ''}${growth.changePercent}% vs prior 30d`
+            : undefined}
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>New Signups</CardTitle>
+              <p className="mt-1 text-xs text-gray-500">Daily account creations, last 30 days</p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => navigate('/dashboard/admin/users')}>
+              User directory <ArrowUpRight className="h-3 w-3" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <TrendChart
+              data={(growth?.series ?? []).map((p) => ({ date: p.date, value: p.total }))}
+              seriesLabel="Signups"
+              isFetching={growthFetching}
+              emptyMessage="No signups in the last 30 days."
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Top Tutors</CardTitle>
+              <p className="mt-1 text-xs text-gray-500">Ranked by classes completed all-time</p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => navigate('/dashboard/admin/tutors')}>
+              All tutors <ArrowUpRight className="h-3 w-3" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <BarList
+              items={(topTutors ?? []).map((t) => ({
+                label: t.name,
+                sublabel: t.subjects.slice(0, 2).join(', ') || undefined,
+                value: t.classesCompleted,
+              }))}
+              emptyMessage="No completed classes yet."
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div>
@@ -119,7 +241,7 @@ export function AdminDashboard() {
                 {pendingList.map((p) => (
                   <div
                     key={p.publicId}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10"
+                    className="flex items-center justify-between rounded-2xl border border-gray-100 p-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/30 dark:border-gray-800 dark:hover:border-brand-800/60 dark:hover:bg-brand-900/10"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-100 to-violet-100 text-xs font-semibold text-brand-700 dark:from-brand-900/40 dark:to-violet-900/40 dark:text-brand-300">
@@ -171,7 +293,7 @@ export function AdminDashboard() {
             {urgentList.length > 0 ? (
               <div className="space-y-2.5">
                 {urgentList.map((t) => (
-                  <div key={t.publicId} className="flex items-center justify-between rounded-xl border border-gray-100 p-3.5 dark:border-gray-800">
+                  <div key={t.publicId} className="flex items-center justify-between rounded-2xl border border-gray-100 p-3.5 dark:border-gray-800">
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-[180px]">{t.subject}</p>

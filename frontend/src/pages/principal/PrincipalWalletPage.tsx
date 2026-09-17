@@ -5,6 +5,8 @@ export function PrincipalWalletPage() {
     <WalletPage
       title="Principal Wallet"
       subtitle="Institutional balance and transaction history"
+      showEarnings
+      allowPayout
     />
   );
 }

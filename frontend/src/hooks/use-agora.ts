@@ -136,7 +136,13 @@ export function useAgora(classPublicId: string | null): UseAgoraReturn {
         await client.publish([audioTrack, videoTrack]);
       } catch (err) {
         if (active) {
-          const msg = err instanceof Error ? err.message : 'Failed to join classroom';
+          const code = (err as { code?: number }).code;
+          let msg = err instanceof Error ? err.message : 'Failed to join classroom';
+          if (code === 102 || code === 110) {
+            msg = 'Access denied by Agora. Check that AGORA_APP_ID / AGORA_APP_CERTIFICATE in server/.env match the Agora console project.';
+          } else if (code === 109) {
+            msg = 'Agora token expired. Restart the class session to get a fresh token.';
+          }
           setError(msg);
         }
       }

@@ -21,6 +21,15 @@ export const authService = {
     return res.data.data;
   },
 
+  async googleAuth(payload: { idToken?: string; code?: string; accessToken?: string }) {
+    const res = await api.post<ApiResponse<{ user: User } & TokenPair>>('/auth/google', payload);
+    return res.data.data;
+  },
+
+  async resendVerification(email: string) {
+    await api.post('/auth/resend-verification', { email });
+  },
+
   async getMe() {
     const res = await api.get<ApiResponse<User>>('/auth/me');
     return res.data.data;
@@ -32,6 +41,10 @@ export const authService = {
 
   async forgotPassword(data: ForgotPasswordFormData) {
     await api.post('/auth/forgot-password', data);
+  },
+
+  async resetPassword(data: { token: string; password: string }) {
+    await api.post('/auth/reset-password', data);
   },
 
   async verifyEmail(token: string) {

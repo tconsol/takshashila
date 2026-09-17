@@ -11,33 +11,28 @@ interface PageHeaderProps {
   className?: string;
 }
 
+/** Sub-page header: eyebrow, serif title, hairline close — matches DashboardHero's grammar at a smaller scale. */
 export function PageHeader({ title, description, subtitle, eyebrow, icon, actions, className }: PageHeaderProps) {
   const sub = description ?? subtitle;
   return (
-    <div className={cn('mb-6 flex flex-wrap items-start justify-between gap-4', className)}>
-      <div className="flex items-center gap-3.5 min-w-0">
-        {icon && (
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-            {icon}
+    <div className={cn('mb-6 pb-5 border-b border-rule', className)}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          {icon && (
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-rule bg-surface-sunk text-accent">
+              {icon}
+            </div>
+          )}
+          <div className="min-w-0">
+            {eyebrow && <p className="eyebrow mb-0.5">{eyebrow}</p>}
+            <h1 className="font-display text-xl font-semibold text-ink sm:text-2xl">
+              {title}
+            </h1>
+            {sub && <p className="mt-1 max-w-2xl text-sm text-ink-muted">{sub}</p>}
           </div>
-        )}
-        <div className="min-w-0">
-          {eyebrow && (
-            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-indigo-500">
-              {eyebrow}
-            </p>
-          )}
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
-            {title}
-          </h1>
-          {sub && (
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">{sub}</p>
-          )}
         </div>
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {actions && (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
-      )}
     </div>
   );
 }

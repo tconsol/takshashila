@@ -28,12 +28,7 @@ import { useMyTutors } from '../../hooks/use-tutors';
 import type { StudentProfile, ParentChildResult } from '../../services/students.service';
 import { studentsService } from '../../services/students.service';
 import { useStartConversation } from '../../features/chat/use-chat';
-
-const TABS = [
-  { key: 'my', label: 'My Students' },
-  { key: 'pending', label: 'Pending Approval' },
-  { key: 'all', label: 'All Students' },
-];
+import { useTabActivity } from '../../hooks/use-tab-activity';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'danger';
 
@@ -87,6 +82,20 @@ export function PrincipalStudentsPage() {
   const isLoading =
     activeTab === 'pending' ? pendingLoading : activeTab === 'my' ? myLoading : allLoading;
 
+  // All three lists load concurrently regardless of which tab is active, so a
+  // student moving buckets (e.g. approved out of Pending) lights up the tab
+  // it landed in even while viewing a different one.
+  const { dirty, markSeen } = useTabActivity(
+    { my: principalStudents?.items.length, pending: pending.length, all: allStudents?.items.length },
+    activeTab,
+  );
+
+  const TABS = [
+    { key: 'my', label: 'My Students', indicator: dirty.has('my') },
+    { key: 'pending', label: 'Pending Approval', indicator: dirty.has('pending') },
+    { key: 'all', label: 'All Students', indicator: dirty.has('all') },
+  ];
+
   const handleMessage = async (student: StudentProfile) => {
     try {
       const conv = await startConversation({ recipientPublicId: student.userPublicId, recipientRole: 'STUDENT' });
@@ -125,7 +134,7 @@ export function PrincipalStudentsPage() {
         }
       />
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs tabs={TABS} activeTab={activeTab} onChange={(key) => { setActiveTab(key); markSeen(key); }} />
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -659,22 +668,14 @@ function InviteStudentModal({
         )}
 
         {/* Mode tabs */}
-        <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 border border-slate-200 rounded-xl">
-          {MODES.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => { setSearchBy(key); setValue(''); setParentSearchResult(null); setSelectedChild(null); setError(''); }}
-              className={`py-1.5 rounded-lg text-xs font-medium transition-all ${
-                searchBy === key
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-white'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          tabs={MODES}
+          activeTab={searchBy}
+          onChange={(key) => {
+            setSearchBy(key as SearchMode);
+            setValue(''); setParentSearchResult(null); setSelectedChild(null); setError('');
+          }}
+        />
 
         {/* Search input */}
         {searchBy === 'email' && (
