@@ -13,8 +13,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "seed": "ts-node --project tsconfig.json src/scripts/seed.ts"
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.7.0",
