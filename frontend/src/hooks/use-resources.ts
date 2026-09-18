@@ -23,11 +23,16 @@ export function useMyResourcesAsStudent(params?: Record<string, string>) {
   });
 }
 
+// A 2-element prefix (no trailing `params`) so invalidation matches the list
+// query regardless of what params it was fetched with — passing a 3rd element
+// of `undefined` would only match a query fetched with no params at all.
+const tutorListPrefix = [...resourceKeys.all, 'tutor'] as const;
+
 export function useCreateResource() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateResourceDto) => resourcesService.create(dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: resourceKeys.myAsTutor() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tutorListPrefix }),
   });
 }
 
@@ -36,7 +41,7 @@ export function useUpdateResource() {
   return useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: { title?: string; description?: string } }) =>
       resourcesService.update(id, dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: resourceKeys.myAsTutor() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tutorListPrefix }),
   });
 }
 
@@ -44,6 +49,6 @@ export function useDeleteResource() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => resourcesService.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: resourceKeys.myAsTutor() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tutorListPrefix }),
   });
 }
