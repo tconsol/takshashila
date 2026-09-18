@@ -1,20 +1,13 @@
-﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { UserPlus } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
+import { UserFormModal } from '../../components/shared/UserFormModal';
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { api } from '../../lib/axios';
-
-interface AdminUser {
-  publicId: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  status: string;
-  lastLoginAt?: string;
-  createdAt: string;
-}
+import { adminUsersService, type DirectoryUser } from '../../services/admin-users.service';
 
 type StatusVariant = 'success' | 'danger' | 'warning' | 'default';
 
@@ -25,28 +18,55 @@ const statusVariant: Record<string, StatusVariant> = {
   INACTIVE: 'default',
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'Admin',
+  SUPER_ADMIN: 'Super Admin',
+};
+
+const CREATABLE_ROLES = [
+  { value: 'ADMIN', label: 'Admin' },
+  { value: 'SUPER_ADMIN', label: 'Super Admin' },
+];
+
 export function SuperAdminAdminsPage() {
   const qc = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
 
-  const { data: admins = [], isLoading } = useQuery<AdminUser[]>({
+  // The directory endpoint filters on a single role at a time — this page shows
+  // both admin tiers, so two paginated calls are fetched and merged.
+  const { data: admins = [], isLoading } = useQuery<DirectoryUser[]>({
     queryKey: ['superadmin', 'admins'],
-    queryFn: () => api.get('/users?role=ADMIN').then((r) => r.data.data?.items ?? []),
+    queryFn: async () => {
+      const [admins, superAdmins] = await Promise.all([
+        adminUsersService.list({ role: 'ADMIN', limit: 200 }),
+        adminUsersService.list({ role: 'SUPER_ADMIN', limit: 200 }),
+      ]);
+      return [...superAdmins.items, ...admins.items];
+    },
     retry: false,
   });
 
   const { mutateAsync: suspendUser, isPending: suspending } = useMutation({
-    mutationFn: (publicId: string) => api.post(`/users/${publicId}/suspend`),
+    mutationFn: (publicId: string) => adminUsersService.suspend(publicId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['superadmin', 'admins'] }),
   });
 
   const { mutateAsync: activateUser, isPending: activating } = useMutation({
-    mutationFn: (publicId: string) => api.post(`/users/${publicId}/activate`),
+    mutationFn: (publicId: string) => adminUsersService.activate(publicId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['superadmin', 'admins'] }),
   });
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Admins" subtitle="Manage platform administrators" />
+      <PageHeader
+        title="Admins"
+        subtitle="Manage platform administrators"
+        actions={
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <UserPlus className="h-4 w-4" /> Create admin
+          </Button>
+        }
+      />
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -62,6 +82,9 @@ export function SuperAdminAdminsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold text-gray-900 dark:text-white">{admin.firstName} {admin.lastName}</p>
+                  <Badge variant={admin.role === 'SUPER_ADMIN' ? 'default' : 'success'}>
+                    {ROLE_LABEL[admin.role] ?? admin.role}
+                  </Badge>
                   <Badge variant={statusVariant[admin.status] ?? 'default'}>
                     {admin.status.replace('_', ' ')}
                   </Badge>
@@ -89,7 +112,14 @@ export function SuperAdminAdminsPage() {
           ))}
         </div>
       )}
+
+      <UserFormModal
+        open={createOpen}
+        mode="create"
+        creatableRoles={CREATABLE_ROLES}
+        onClose={() => setCreateOpen(false)}
+        onSaved={() => qc.invalidateQueries({ queryKey: ['superadmin', 'admins'] })}
+      />
     </div>
   );
 }
-
