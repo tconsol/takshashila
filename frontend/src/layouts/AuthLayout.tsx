@@ -1,7 +1,9 @@
-import { Outlet, Navigate, Link } from 'react-router-dom';
+import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { GraduationCap, CheckCircle2, Users, Video, BarChart3, Star } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
 import { ROLE_DASHBOARD_PATHS } from '../constants/roles';
+
+const SKIP_AUTH_REDIRECT_PATHS = ['/reset-password', '/verify-email', '/accept-invite'];
 
 const HIGHLIGHTS = [
   { icon: Video,        text: 'Live HD classes',           color: 'bg-indigo-100 text-indigo-600' },
@@ -12,8 +14,10 @@ const HIGHLIGHTS = [
 
 export function AuthLayout() {
   const { isAuthenticated, user } = useAuthStore();
+  const location = useLocation();
+  const skipRedirect = SKIP_AUTH_REDIRECT_PATHS.includes(location.pathname);
 
-  if (isAuthenticated && user) {
+  if (isAuthenticated && user && !skipRedirect) {
     return <Navigate to={ROLE_DASHBOARD_PATHS[user.role]} replace />;
   }
 
