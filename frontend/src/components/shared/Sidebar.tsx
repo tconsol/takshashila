@@ -105,6 +105,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   STUDENT: [
     { label: 'Home',            href: '/dashboard/student',                  icon: LayoutDashboard },
     { label: 'Tutors',          href: '/dashboard/student/my-tutor',         icon: GraduationCap },
+    { label: 'Courses',         href: '/dashboard/student/courses',          icon: BookOpen },
     { label: 'My Organization', href: '/dashboard/student/my-organization',  icon: Building2 },
     { label: 'Classes',         href: '/dashboard/student/classes',          icon: Video,          badgeKey: ['scheduleAlert', 'classes'] },
     { label: 'Homework',        href: '/dashboard/student/worksheets',       icon: FileText,       badgeKey: 'worksheets' },

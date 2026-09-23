@@ -113,6 +113,9 @@ import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
 import { StudentWorksheetTestPage } from '../pages/student/StudentWorksheetTestPage';
 import { StudentResourcesPage } from '../pages/student/StudentResourcesPage';
 import { StudentParentRequestsPage } from '../pages/student/StudentParentRequestsPage';
+import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
+import { StudentCourseDetailPage } from '../pages/student/StudentCourseDetailPage';
+import { StudentCourseRequestsPage } from '../pages/student/StudentCourseRequestsPage';
 
 // Parent pages
 import { ParentChildrenPage } from '../pages/parent/ParentChildrenPage';
@@ -283,6 +286,9 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },
         { path: '/dashboard/student/wallet', element: <StudentWalletPage /> },
         { path: '/dashboard/student/parent-requests', element: <StudentParentRequestsPage /> },
+        { path: '/dashboard/student/courses', element: <StudentCoursesPage /> },
+        { path: '/dashboard/student/courses/:coursePublicId', element: <StudentCourseDetailPage /> },
+        { path: '/dashboard/student/course-requests', element: <StudentCourseRequestsPage /> },
       ],
     }],
   },
