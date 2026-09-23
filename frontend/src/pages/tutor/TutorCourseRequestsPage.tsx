@@ -36,7 +36,13 @@ function AcceptForm({ requestPublicId }: { requestPublicId: string }) {
         className="w-20 rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900"
       />
       <span className="text-xs text-gray-500">classes needed to cover the selected topics</span>
-      <Button size="sm" variant="gradient" loading={isPending} onClick={() => accept({ requestPublicId, classesRequired })}>
+      <Button
+        size="sm"
+        variant="gradient"
+        loading={isPending}
+        disabled={classesRequired < 1 || classesRequired > 200}
+        onClick={() => accept({ requestPublicId, classesRequired })}
+      >
         <Check className="h-3.5 w-3.5" /> Confirm accept
       </Button>
     </div>
