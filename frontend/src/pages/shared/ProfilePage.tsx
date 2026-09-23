@@ -13,9 +13,12 @@ import { Link } from 'react-router-dom';
 import { HangingIdCard } from '../../components/lightswind/HangingIdCard';
 import { TagInput } from '../../components/ui/TagInput';
 import { Tabs } from '../../components/ui/Tabs';
+import { Select } from '../../components/ui/Select';
 import { formatInTimeZone } from 'date-fns-tz';
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../stores/auth.store';
+import { useMyStudentProfile, useUpdateMyStudentProfile } from '../../hooks/use-students';
+import { GRADE_OPTIONS } from '../../constants/grades';
 
 const SUBJECT_OPTIONS = [
   'Mathematics', 'Physics', 'Chemistry', 'Biology', 'English',
@@ -63,6 +66,11 @@ const tutorProfileSchema = z.object({
   qualifications: z.string().optional(),
 });
 
+const studentAcademicSchema = z.object({
+  grade: z.string().optional(),
+  county: z.string().optional(),
+});
+
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, 'Required'),
   newPassword: z.string().min(8, 'Min 8 characters'),
@@ -73,6 +81,7 @@ const passwordSchema = z.object({
 
 type ProfileForm = z.infer<typeof profileSchema>;
 type TutorProfileForm = z.infer<typeof tutorProfileSchema>;
+type StudentAcademicForm = z.infer<typeof studentAcademicSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
 
 function Toast({ type, message }: { type: 'success' | 'error'; message: string }) {
@@ -193,7 +202,7 @@ function CopyChip({ label, value, mono = true }: { label: string; value: string;
   );
 }
 
-type Tab = 'account' | 'teaching' | 'security';
+type Tab = 'account' | 'teaching' | 'academic' | 'security';
 
 export function ProfilePage() {
   const { user, setUser } = useAuthStore();
@@ -216,11 +225,7 @@ export function ProfilePage() {
     queryFn: () => api.get('/users/me').then((r) => r.data.data),
   });
 
-  const { data: studentProfile } = useQuery({
-    queryKey: ['students', 'me'],
-    queryFn: () => api.get('/students/me').then((r) => r.data.data),
-    enabled: isStudent,
-  });
+  const { data: studentProfile } = useMyStudentProfile(isStudent);
 
   useEffect(() => {
     if (freshUser && user) setUser({ ...user, ...freshUser });
@@ -287,6 +292,19 @@ export function ProfilePage() {
     onError: (e: Error) => setTutorFeedback({ type: 'error', message: e.message || 'Update failed' }),
   });
 
+  const academicForm = useForm<StudentAcademicForm>({
+    resolver: zodResolver(studentAcademicSchema),
+    defaultValues: { grade: '', county: '' },
+  });
+
+  useEffect(() => {
+    if (!studentProfile) return;
+    academicForm.setValue('grade',  studentProfile.grade  ?? '', { shouldDirty: false });
+    academicForm.setValue('county', studentProfile.county ?? '', { shouldDirty: false });
+  }, [studentProfile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { mutateAsync: updateAcademicProfile, isPending: savingAcademic } = useUpdateMyStudentProfile();
+
   const passwordForm = useForm<PasswordForm>({ resolver: zodResolver(passwordSchema) });
 
   const { mutateAsync: changePassword, isPending: savingPassword } = useMutation({
@@ -322,6 +340,7 @@ export function ProfilePage() {
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'account', label: 'Account', icon: User },
     ...(isTutor ? [{ key: 'teaching' as Tab, label: 'Teaching Profile', icon: GraduationCap }] : []),
+    ...(isStudent ? [{ key: 'academic' as Tab, label: 'Academic Info', icon: GraduationCap }] : []),
     { key: 'security', label: 'Security', icon: ShieldCheck },
   ];
 
@@ -583,6 +602,44 @@ export function ProfilePage() {
 
             <div className="flex justify-end pt-1">
               <SaveButton pending={savingTutor} label="Save teaching profile" />
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Academic info tab (student only) */}
+      {tab === 'academic' && isStudent && (
+        <div className="rounded-2xl border border-rule bg-surface p-6 shadow-card">
+          <form onSubmit={academicForm.handleSubmit((d) => updateAcademicProfile(d))} className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Controller
+                control={academicForm.control}
+                name="grade"
+                render={({ field }) => (
+                  <Select
+                    label="Grade"
+                    options={GRADE_OPTIONS}
+                    placeholder="Select grade"
+                    error={academicForm.formState.errors.grade?.message}
+                    value={field.value}
+                    onChange={field.onChange}
+                    name={field.name}
+                  />
+                )}
+              />
+              <Field label="County" error={academicForm.formState.errors.county?.message}>
+                <Controller
+                  control={academicForm.control}
+                  name="county"
+                  render={({ field }) => (
+                    <TextInput icon={Globe} placeholder="e.g. Nairobi" {...field} />
+                  )}
+                />
+              </Field>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <SaveButton pending={savingAcademic} label="Save academic info" />
             </div>
           </form>
         </div>
