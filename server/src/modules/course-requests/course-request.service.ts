@@ -14,6 +14,10 @@ import type { IScheduledClass } from '../schedules/schedule.types';
 import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
 import { classService } from '../classes/class.service';
+import { courseService } from '../courses/course.service';
+import { TutorProfileModel } from '../tutors/tutor.model';
+import { StudentProfileModel } from '../students/student.model';
+import { CourseModel } from '../courses/course.model';
 import { walletService } from '../wallets/wallet.service';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
@@ -44,9 +48,84 @@ function timeStringToMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
+export type EnrichedCourseRequest = ICourseRequest & {
+  studentName?: string;
+  tutorName?: string;
+  courseTitle?: string;
+  topicTitles?: string[];
+};
+
+/**
+ * Attaches student/tutor names, course title and selected-topic titles to a
+ * page of CourseRequests. Rows only carry ids, so a Tutor/Student list would
+ * otherwise show nothing but a status badge and raw uuids (see
+ * demo-request.service.ts's `enrichWithSlot`/`listForAdmin` for the sibling
+ * pattern this mirrors). Resolved in a small, fixed number of batched
+ * queries per page, not per row.
+ */
+async function enrichCourseRequests(items: ICourseRequest[]): Promise<EnrichedCourseRequest[]> {
+  if (items.length === 0) return [];
+
+  const tutorIds = [...new Set(items.map((r) => r.tutorPublicId))];
+  const studentIds = [...new Set(items.map((r) => r.studentPublicId))];
+  const courseIds = [...new Set(items.map((r) => r.coursePublicId))];
+
+  const [tutorProfiles, studentProfiles, courses] = await Promise.all([
+    TutorProfileModel.find({ publicId: { $in: tutorIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+    StudentProfileModel.find({ publicId: { $in: studentIds } }, { publicId: 1, userPublicId: 1 }).lean(),
+    CourseModel.find({ publicId: { $in: courseIds } }, { publicId: 1, title: 1, topics: 1 }).lean(),
+  ]);
+
+  const { UserModel } = await import('../users/user.model');
+  const users = await UserModel.find(
+    { publicId: { $in: [...tutorProfiles, ...studentProfiles].map((p) => p.userPublicId) } },
+    { publicId: 1, firstName: 1, lastName: 1 },
+  ).lean();
+
+  const nameByUser = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+  const tutorNameByProfile = new Map(
+    tutorProfiles.map((p) => [p.publicId, nameByUser.get(p.userPublicId) ?? 'Unknown tutor']),
+  );
+  const studentNameByProfile = new Map(
+    studentProfiles.map((p) => [p.publicId, nameByUser.get(p.userPublicId) ?? 'Unknown student']),
+  );
+  const courseByPublicId = new Map(courses.map((c) => [c.publicId, c]));
+
+  return items.map((r) => {
+    const course = courseByPublicId.get(r.coursePublicId);
+    const topicTitleByPublicId = new Map((course?.topics ?? []).map((t) => [t.publicId, t.title]));
+    return {
+      ...r,
+      studentName: studentNameByProfile.get(r.studentPublicId) ?? 'Unknown student',
+      tutorName: tutorNameByProfile.get(r.tutorPublicId) ?? 'Unknown tutor',
+      courseTitle: course?.title ?? 'Unknown course',
+      topicTitles: r.selectedTopicPublicIds.map((id) => topicTitleByPublicId.get(id) ?? 'Unknown topic'),
+    };
+  });
+}
+
 export class CourseRequestService {
   async create(studentUserPublicId: string, dto: CreateCourseRequestDto): Promise<ICourseRequest> {
     const studentProfile = await studentService.getByUserPublicId(studentUserPublicId);
+
+    // Validate the course exists (NotFoundError propagates → 404), is
+    // actually published (a Student shouldn't be able to request an
+    // unpublished course by guessing/leaking its id), and that every
+    // selected topic really belongs to it.
+    const course = await courseService.getByPublicId(dto.coursePublicId);
+    if (!course.isPublished) {
+      throw new AppError('Course is not available', 400);
+    }
+    const courseTopicIds = new Set(course.topics.map((t) => t.publicId));
+    const hasUnknownTopic = dto.selectedTopicPublicIds.some((id) => !courseTopicIds.has(id));
+    if (hasUnknownTopic) {
+      throw new AppError('One or more selected topics do not belong to this course', 400);
+    }
+
+    // Verify the tutor exists BEFORE creating the row — otherwise a bad
+    // tutor id would orphan a PENDING row and the duplicate-pending guard
+    // below would then block a retry with the correct tutor id.
+    const tutorProfile = await tutorService.getByPublicId(dto.tutorPublicId);
 
     const existing = await CourseRequestModel.findOne({
       studentPublicId: studentProfile.publicId,
@@ -70,7 +149,6 @@ export class CourseRequestService {
       isDeleted: false,
     });
 
-    const tutorProfile = await tutorService.getByPublicId(dto.tutorPublicId);
     domainEvents.emit(DomainEvent.COURSE_REQUEST_CREATED, {
       tutorUserPublicId: tutorProfile.userPublicId,
       studentUserPublicId,
@@ -80,12 +158,12 @@ export class CourseRequestService {
     return created.toObject();
   }
 
-  async getForStudent(studentUserPublicId: string, query: PaginationQuery & { status?: string }): Promise<PaginatedResult<ICourseRequest>> {
+  async getForStudent(studentUserPublicId: string, query: PaginationQuery & { status?: string }): Promise<PaginatedResult<EnrichedCourseRequest>> {
     const studentProfile = await studentService.getByUserPublicId(studentUserPublicId);
     return this._list({ studentPublicId: studentProfile.publicId }, query);
   }
 
-  async getForTutor(tutorUserPublicId: string, query: PaginationQuery & { status?: string }): Promise<PaginatedResult<ICourseRequest>> {
+  async getForTutor(tutorUserPublicId: string, query: PaginationQuery & { status?: string }): Promise<PaginatedResult<EnrichedCourseRequest>> {
     const tutorProfile = await tutorService.getByUserPublicId(tutorUserPublicId);
     return this._list({ tutorPublicId: tutorProfile.publicId }, query);
   }
@@ -93,7 +171,7 @@ export class CourseRequestService {
   private async _list(
     scope: Record<string, string>,
     query: PaginationQuery & { status?: string },
-  ): Promise<PaginatedResult<ICourseRequest>> {
+  ): Promise<PaginatedResult<EnrichedCourseRequest>> {
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter: Record<string, unknown> = { ...scope, isDeleted: false };
     if (query.status) filter.status = query.status;
@@ -102,7 +180,8 @@ export class CourseRequestService {
       CourseRequestModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       CourseRequestModel.countDocuments(filter),
     ]);
-    return buildPaginatedResult(items, total, page, limit);
+    const enriched = await enrichCourseRequests(items);
+    return buildPaginatedResult(enriched, total, page, limit);
   }
 
   private async _loadOwnedByTutor(requestPublicId: string, tutorUserPublicId: string) {
@@ -123,17 +202,10 @@ export class CourseRequestService {
     const costCentsPerClass = tutorProfile.hourlyRateCents;
     const totalCostCentsCharged = costCentsPerClass * dto.classesRequired;
 
-    if (totalCostCentsCharged > 0) {
-      await walletService.debitWallet({
-        ownerPublicId: studentProfile.userPublicId,
-        amountCents: totalCostCentsCharged,
-        description: `Course series (${dto.classesRequired} classes)`,
-        idempotencyKey: `course-request-accept-${requestPublicId}`,
-        referenceId: requestPublicId,
-        referenceType: 'COURSE_REQUEST_ACCEPT',
-      });
-    }
-
+    // Atomic status transition FIRST, debit only after it succeeds. If a
+    // concurrent call already moved this request out of PENDING (lost a
+    // race), we must not have charged the student with no compensating
+    // refund — so no money moves until we know the transition landed.
     const updated = await CourseRequestModel.findOneAndUpdate(
       { publicId: requestPublicId, status: CourseRequestStatus.PENDING },
       {
@@ -147,6 +219,17 @@ export class CourseRequestService {
       { new: true },
     ).lean();
     if (!updated) throw new ConflictError('Request already processed');
+
+    if (totalCostCentsCharged > 0) {
+      await walletService.debitWallet({
+        ownerPublicId: studentProfile.userPublicId,
+        amountCents: totalCostCentsCharged,
+        description: `Course series (${dto.classesRequired} classes)`,
+        idempotencyKey: `course-request-accept-${requestPublicId}`,
+        referenceId: requestPublicId,
+        referenceType: 'COURSE_REQUEST_ACCEPT',
+      });
+    }
 
     domainEvents.emit(DomainEvent.COURSE_REQUEST_ACCEPTED, {
       tutorUserPublicId,

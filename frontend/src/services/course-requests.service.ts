@@ -22,6 +22,10 @@ export interface CourseRequest {
   costCentsPerClass?: number;
   rejectionReason?: string;
   createdAt: string;
+  studentName?: string;
+  tutorName?: string;
+  courseTitle?: string;
+  topicTitles?: string[];
 }
 
 export interface CreateCourseRequestDto {

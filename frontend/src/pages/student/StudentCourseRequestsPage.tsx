@@ -43,6 +43,7 @@ export function StudentCourseRequestsPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     {STATUS_BADGE[req.status]}
+                    {req.courseTitle && <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">{req.courseTitle}</p>}
                     {req.status === 'ACCEPTED' && (
                       <p className="mt-1 text-xs text-gray-500">
                         {req.classesCompletedCount} of {req.classesRequired} classes completed ·{' '}

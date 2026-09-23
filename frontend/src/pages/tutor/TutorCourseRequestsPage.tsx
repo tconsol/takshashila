@@ -49,7 +49,15 @@ function AcceptForm({ requestPublicId }: { requestPublicId: string }) {
   );
 }
 
-function ScheduleClassForm({ requestPublicId, topicIds }: { requestPublicId: string; topicIds: string[] }) {
+function ScheduleClassForm({
+  requestPublicId,
+  topicIds,
+  topicTitles,
+}: {
+  requestPublicId: string;
+  topicIds: string[];
+  topicTitles?: string[];
+}) {
   const [startUTC, setStartUTC] = useState('');
   const [endUTC, setEndUTC] = useState('');
   const [title, setTitle] = useState('');
@@ -64,7 +72,7 @@ function ScheduleClassForm({ requestPublicId, topicIds }: { requestPublicId: str
         <input type="datetime-local" value={endUTC} onChange={(e) => setEndUTC(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
       </div>
       <select value={topicId} onChange={(e) => setTopicId(e.target.value)} className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900">
-        {topicIds.map((id) => <option key={id} value={id}>{id}</option>)}
+        {topicIds.map((id, i) => <option key={id} value={id}>{topicTitles?.[i] ?? id}</option>)}
       </select>
       <Button
         size="sm"
@@ -103,6 +111,9 @@ function RequestCard({ request }: { request: CourseRequest }) {
             <Badge variant={request.status === 'PENDING' ? 'warning' : request.status === 'ACCEPTED' ? 'success' : 'default'} tone="soft">
               {request.status}
             </Badge>
+            <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+              {request.studentName ?? 'Student'} · {request.courseTitle ?? 'Course'}
+            </p>
             <p className="mt-1 text-xs text-gray-500">{request.selectedTopicPublicIds.length} topics selected</p>
             {request.status === 'ACCEPTED' && (
               <p className="mt-1 text-xs text-gray-500">
@@ -136,7 +147,13 @@ function RequestCard({ request }: { request: CourseRequest }) {
           </div>
         )}
 
-        {showSchedule && <ScheduleClassForm requestPublicId={request.publicId} topicIds={request.selectedTopicPublicIds} />}
+        {showSchedule && (
+          <ScheduleClassForm
+            requestPublicId={request.publicId}
+            topicIds={request.selectedTopicPublicIds}
+            topicTitles={request.topicTitles}
+          />
+        )}
       </CardContent>
     </Card>
   );
