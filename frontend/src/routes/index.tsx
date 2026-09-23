@@ -76,6 +76,7 @@ import { OversightPage } from '../pages/shared/OversightPage';
 // Admin pages
 import { AdminPrincipalsPage } from '../pages/admin/AdminPrincipalsPage';
 import { AdminAnalyticsPage } from '../pages/admin/AdminAnalyticsPage';
+import { AdminCurriculumPage } from '../pages/admin/AdminCurriculumPage';
 import { PrincipalTutorsPage } from '../pages/principal/PrincipalTutorsPage';
 import { PrincipalStudentsPage } from '../pages/principal/PrincipalStudentsPage';
 
@@ -178,6 +179,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/super-admin/principals', element: <PrincipalsDirectoryPage /> },
         { path: '/dashboard/super-admin/tutors', element: <TutorsDirectoryPage /> },
         { path: '/dashboard/super-admin/students', element: <StudentsDirectoryPage /> },
+        { path: '/dashboard/super-admin/curriculum', element: <AdminCurriculumPage /> },
         { path: '/dashboard/super-admin/finance', element: <FinanceOpsPage /> },
         { path: '/dashboard/super-admin/classes', element: <ClassesExplorerPage /> },
         { path: '/dashboard/super-admin/broadcast', element: <BroadcastPage /> },
@@ -201,6 +203,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/admin/principals', element: <PrincipalsDirectoryPage /> },
         { path: '/dashboard/admin/tutors', element: <TutorsDirectoryPage /> },
         { path: '/dashboard/admin/students', element: <StudentsDirectoryPage /> },
+        { path: '/dashboard/admin/curriculum', element: <AdminCurriculumPage /> },
         { path: '/dashboard/admin/finance', element: <FinanceOpsPage /> },
         { path: '/dashboard/admin/audit', element: <SuperAdminAuditPage /> },
         { path: '/dashboard/admin/system', element: <SuperAdminSystemPage /> },
