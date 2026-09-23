@@ -200,13 +200,15 @@ export class CourseRequestService {
     const end = new Date(dto.endUTC);
     if (end <= start) throw new AppError('endUTC must be after startUTC', 400);
 
-    const { minutes, dayOfWeek } = localMinutesOfDay(start, request.availabilityWindow.ianaTimezone);
+    const { minutes: startMinutes, dayOfWeek } = localMinutesOfDay(start, request.availabilityWindow.ianaTimezone);
+    const { minutes: endMinutes } = localMinutesOfDay(end, request.availabilityWindow.ianaTimezone);
     const windowStart = timeStringToMinutes(request.availabilityWindow.startLocalTime);
     const windowEnd = timeStringToMinutes(request.availabilityWindow.endLocalTime);
     const inWindow =
       request.availabilityWindow.daysOfWeek.includes(dayOfWeek) &&
-      minutes >= windowStart &&
-      minutes <= windowEnd;
+      startMinutes >= windowStart &&
+      startMinutes <= windowEnd &&
+      endMinutes <= windowEnd;
     if (!inWindow) {
       throw new AppError('Requested time is outside the student\'s stated availability window', 400);
     }
@@ -254,9 +256,35 @@ export class CourseRequestService {
     return created.toObject();
   }
 
+  /**
+   * Does this user own the request, as either its student or its tutor?
+   * `cancel()` is callable by either role, so we try both profile lookups —
+   * a user with no profile of a given kind (NotFoundError) simply doesn't
+   * match that side, rather than blowing up as an uncaught 500.
+   */
+  private async _actorOwnsRequest(
+    actorUserPublicId: string,
+    request: Pick<ICourseRequest, 'studentPublicId' | 'tutorPublicId'>,
+  ): Promise<boolean> {
+    const [studentResult, tutorResult] = await Promise.allSettled([
+      studentService.getByUserPublicId(actorUserPublicId),
+      tutorService.getByUserPublicId(actorUserPublicId),
+    ]);
+
+    const isStudent =
+      studentResult.status === 'fulfilled' && studentResult.value.publicId === request.studentPublicId;
+    const isTutor =
+      tutorResult.status === 'fulfilled' && tutorResult.value.publicId === request.tutorPublicId;
+
+    return isStudent || isTutor;
+  }
+
   async cancel(requestPublicId: string, actorUserPublicId: string): Promise<ICourseRequest> {
     const request = await CourseRequestModel.findOne({ publicId: requestPublicId, isDeleted: false }).lean();
     if (!request) throw new NotFoundError('Course request');
+    if (!(await this._actorOwnsRequest(actorUserPublicId, request))) {
+      throw new AppError('Not authorized', 403);
+    }
     if (request.status !== CourseRequestStatus.ACCEPTED && request.status !== CourseRequestStatus.PENDING) {
       throw new ConflictError(`Request already ${request.status.toLowerCase()}`);
     }
@@ -275,7 +303,12 @@ export class CourseRequestService {
       // (COURSE_PREPAID branch) — refunding those again here would double-pay
       // the student. Only classes that were never scheduled at all (i.e. never
       // debited individually, only bulk-charged at accept()) are refunded here.
-      const neverScheduled = (request.classesRequired ?? 0) - request.classesScheduledCount - request.classesCompletedCount;
+      //
+      // classesScheduledCount is monotonic — scheduleClass() only ever
+      // increments it, nothing ever decrements it — so it already includes
+      // classes that later completed. Subtracting classesCompletedCount too
+      // would double-count those and under-refund the student.
+      const neverScheduled = (request.classesRequired ?? 0) - request.classesScheduledCount;
       if (neverScheduled > 0 && request.costCentsPerClass) {
         const studentProfile = await studentService.getByPublicId(request.studentPublicId);
         await walletService.refundWallet({

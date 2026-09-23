@@ -132,6 +132,21 @@ describe('CourseRequestService', () => {
         }),
       ).rejects.toThrow();
     });
+
+    it('rejects a class whose start is inside the window but whose end runs past it', async () => {
+      const accepted = baseRequest({ status: CourseRequestStatus.ACCEPTED, classesRequired: 4, classesScheduledCount: 0, costCentsPerClass: 1500 });
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseRequestModel, 'findOne').mockReturnValue(lean(accepted) as never);
+
+      // Starts 18:59 (inside 16:00–19:00) but runs to 21:00 — past the window end.
+      await expect(
+        courseRequestService.scheduleClass('cr-1', 'tutor-user-1', {
+          startUTC: '2026-09-30T18:59:00.000Z',
+          endUTC: '2026-09-30T21:00:00.000Z',
+          title: 'Runs past the window',
+        }),
+      ).rejects.toThrow();
+    });
   });
 
   describe('cancel', () => {
@@ -144,6 +159,9 @@ describe('CourseRequestService', () => {
         costCentsPerClass: 1500,
       });
       jest.spyOn(CourseRequestModel, 'findOne').mockReturnValue(lean(accepted) as never);
+      // Authorization: the actor resolves to this request's student.
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(tutorService, 'getByUserPublicId').mockRejectedValue(new Error('no tutor profile') as never);
       jest.spyOn(ScheduledClassModel, 'find').mockReturnValue(lean([{ publicId: 'scheduled-class-1' }]) as never);
       const cancelClassSpy = jest.spyOn(classService, 'cancelClass').mockResolvedValue({} as never);
       jest.spyOn(studentService, 'getByPublicId').mockResolvedValue({ userPublicId: 'student-user-1' } as never);
@@ -154,8 +172,26 @@ describe('CourseRequestService', () => {
       await courseRequestService.cancel('cr-1', 'student-user-1');
 
       expect(cancelClassSpy).toHaveBeenCalledWith('scheduled-class-1', 'student-user-1', expect.objectContaining({ reason: expect.any(String) }));
-      // classesRequired(4) - classesScheduledCount(1) - classesCompletedCount(1) = 2 never-scheduled → 2 × 1500 = 3000
-      expect(refund).toHaveBeenCalledWith(expect.objectContaining({ ownerPublicId: 'student-user-1', amountCents: 3000 }));
+      // classesScheduledCount is monotonic (never decremented), so it already
+      // covers classesCompletedCount too: neverScheduled = classesRequired(4) -
+      // classesScheduledCount(1) = 3 never-scheduled → 3 × 1500 = 4500.
+      expect(refund).toHaveBeenCalledWith(expect.objectContaining({ ownerPublicId: 'student-user-1', amountCents: 4500 }));
+    });
+
+    it('rejects when the actor is neither the request\'s student nor its tutor', async () => {
+      const accepted = baseRequest({
+        status: CourseRequestStatus.ACCEPTED,
+        classesRequired: 4,
+        classesScheduledCount: 1,
+        classesCompletedCount: 1,
+        costCentsPerClass: 1500,
+      });
+      jest.spyOn(CourseRequestModel, 'findOne').mockReturnValue(lean(accepted) as never);
+      // Actor resolves to a student/tutor profile, but neither matches this request's ids.
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'some-other-student-prof' } as never);
+      jest.spyOn(tutorService, 'getByUserPublicId').mockRejectedValue(new Error('no tutor profile') as never);
+
+      await expect(courseRequestService.cancel('cr-1', 'random-user')).rejects.toThrow();
     });
   });
 });
