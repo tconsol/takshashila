@@ -27,6 +27,13 @@ export class StudentController {
     }
   }
 
+  async updateMyProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await studentService.updateMyProfile(req.user!.publicId, req.body);
+      sendSuccess(res, result, 'Profile updated');
+    } catch (error) { next(error); }
+  }
+
   async getByPublicId(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const profile = await studentService.getByPublicId(req.params.studentId);

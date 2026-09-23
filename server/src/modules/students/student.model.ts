@@ -23,6 +23,7 @@ const studentProfileSchema = new Schema<IStudentProfile>(
     attendanceRate: { type: Number, default: 0, min: 0, max: 100 },
     contactEmail: { type: String, lowercase: true, trim: true },
     grade: { type: String },
+    county: { type: String, index: true },
     notes: { type: String, maxlength: 2000 },
     invitedBy: { type: String, required: true },
     approvedBy: { type: String },

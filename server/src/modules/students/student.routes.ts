@@ -8,7 +8,7 @@ import { requireRole, requirePermission } from '../../middlewares/permission.mid
 import { validate } from '../../middlewares/validation.middleware';
 import { Permission } from '../../constants/permissions';
 import { Role } from '../../constants/roles';
-import { createStudentByTutorSchema, inviteExistingStudentSchema, createStudentByPrincipalSchema, inviteStudentByPrincipalSchema } from './student.validators';
+import { createStudentByTutorSchema, inviteExistingStudentSchema, createStudentByPrincipalSchema, inviteStudentByPrincipalSchema, updateMyStudentProfileSchema } from './student.validators';
 import { parentService } from '../parents/parent.service';
 import { StudentProfileModel } from './student.model';
 import { NotFoundError } from '../../utils/error';
@@ -26,6 +26,7 @@ router.get('/lookup', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(inviteEx
 router.post('/invite-existing', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(inviteExistingStudentSchema), studentController.inviteExistingStudent.bind(studentController));
 router.get('/me/principal', requireRole(Role.STUDENT), studentController.getMyPrincipal.bind(studentController));
 router.get('/me', requireRole(Role.STUDENT), studentController.getMyProfile.bind(studentController));
+router.patch('/me', requireRole(Role.STUDENT), validate(updateMyStudentProfileSchema), studentController.updateMyProfile.bind(studentController));
 router.post('/me/accept-invite', requireRole(Role.STUDENT), studentController.acceptInvite.bind(studentController));
 router.post('/me/decline-invite', requireRole(Role.STUDENT), studentController.declineInvite.bind(studentController));
 

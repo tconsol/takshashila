@@ -266,6 +266,19 @@ export class StudentService {
     return profile;
   }
 
+  async updateMyProfile(
+    userPublicId: string,
+    data: { grade?: string; county?: string },
+  ): Promise<IStudentProfile> {
+    const updated = await StudentProfileModel.findOneAndUpdate(
+      { userPublicId, isDeleted: false },
+      { $set: data },
+      { new: true },
+    ).lean();
+    if (!updated) throw new NotFoundError('Student profile');
+    return updated;
+  }
+
   async getByTutor(
     tutorPublicId: string,
     query: PaginationQuery,

@@ -23,6 +23,7 @@ export interface IStudentProfile {
   totalClassesBooked: number;
   attendanceRate: number;
   grade?: string;
+  county?: string;
   notes?: string;
   invitedBy: string;
   approvedBy?: string;

@@ -8,6 +8,12 @@ export const GRADE_LIST = [
 
 export type Grade = (typeof GRADE_LIST)[number];
 
+export const updateMyStudentProfileSchema = z.object({
+  grade: z.enum(GRADE_LIST).optional(),
+  county: z.string().min(1).max(100).optional(),
+});
+export type UpdateMyStudentProfileDto = z.infer<typeof updateMyStudentProfileSchema>;
+
 export const createStudentByTutorSchema = z.object({
   firstName:       z.string().min(1, 'First name is required').max(50),
   lastName:        z.string().min(1, 'Last name is required').max(50),
