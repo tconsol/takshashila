@@ -5,6 +5,7 @@ import {
   BarChart3, Shield, Headphones, GraduationCap, LogOut,
   UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText, Building2,
   Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2, ChevronRight, Server, Megaphone, ShieldAlert,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import brandLogo from '../../assets/brainbaseedulogo.png';
@@ -89,6 +90,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   TUTOR: [
     { label: 'Overview',       href: '/dashboard/tutor',                  icon: LayoutDashboard },
     { label: 'Demo Requests',  href: '/dashboard/tutor/demo-requests',    icon: Sparkles,     badgeKey: 'demoRequests' },
+    { label: 'Course Requests', href: '/dashboard/tutor/course-requests', icon: ClipboardList },
     { label: 'Students',       href: '/dashboard/tutor/students',         icon: Users,        badgeKey: 'students' },
     { label: 'Classes',        href: '/dashboard/tutor/classes',          icon: Video,        badgeKey: 'classes' },
     { label: 'Calendar',       href: '/dashboard/tutor/schedule',         icon: Calendar },

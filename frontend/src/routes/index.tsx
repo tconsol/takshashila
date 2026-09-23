@@ -97,6 +97,7 @@ import { TutorAttendancePage } from '../pages/tutor/TutorAttendancePage';
 import { TutorProgressPage } from '../pages/tutor/TutorProgressPage';
 import { TutorWalletPage } from '../pages/tutor/TutorWalletPage';
 import { TutorDemoRequestsPage } from '../pages/tutor/TutorDemoRequestsPage';
+import { TutorCourseRequestsPage } from '../pages/tutor/TutorCourseRequestsPage';
 import { TutorResourcesPage } from '../pages/tutor/TutorResourcesPage';
 import { TutorWorksheetResultsPage } from '../pages/tutor/TutorWorksheetResultsPage';
 import { TutorCreateClassPage } from '../pages/tutor/TutorCreateClassPage';
@@ -249,6 +250,7 @@ export const router = createBrowserRouter([
       children: [
         { path: '/dashboard/tutor', element: <TutorDashboard /> },
         { path: '/dashboard/tutor/demo-requests', element: <TutorDemoRequestsPage /> },
+        { path: '/dashboard/tutor/course-requests', element: <TutorCourseRequestsPage /> },
         { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/tutor/classes/create', element: <TutorCreateClassPage /> },
