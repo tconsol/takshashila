@@ -10,6 +10,7 @@ export interface StudentProfile {
   email?: string;
   status: string;
   grade?: string;
+  county?: string;
   notes?: string;
   subjects?: string[];
   demoClassesUsed: number;
@@ -106,6 +107,9 @@ export const studentsService = {
 
   getMyProfile: () =>
     api.get<{ data: StudentProfile }>('/students/me').then((r) => r.data.data),
+
+  updateMyProfile: (dto: { grade?: string; county?: string }): Promise<StudentProfile> =>
+    api.patch('/students/me', dto).then((r) => r.data.data),
 
   getByPublicId: (publicId: string) =>
     api.get<{ data: StudentProfile }>(`/students/${publicId}`).then((r) => r.data.data),

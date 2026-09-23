@@ -1,0 +1,63 @@
+// frontend/src/services/courses.service.ts
+import { api } from '../lib/axios';
+
+export interface CourseTopic {
+  publicId: string;
+  title: string;
+  order: number;
+  resourceIds: string[];
+  assignmentIds: string[];
+  worksheetIds: string[];
+}
+
+export interface Course {
+  publicId: string;
+  county: string;
+  grade: string;
+  subject: string;
+  title: string;
+  description?: string;
+  topics: CourseTopic[];
+  isPublished: boolean;
+  createdAt: string;
+}
+
+export interface CreateCourseDto {
+  county: string;
+  grade: string;
+  subject: string;
+  title: string;
+  description?: string;
+  topics: Omit<CourseTopic, 'publicId'>[] & { publicId?: string }[];
+}
+
+export interface PaginatedCourses {
+  items: Course[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const coursesService = {
+  listCatalog: (params: { county?: string; grade?: string; subject?: string }): Promise<Course[]> =>
+    api.get('/courses', { params }).then((r) => r.data.data),
+
+  listForAdmin: (params: Record<string, string>): Promise<PaginatedCourses> =>
+    api.get('/courses', { params }).then((r) => r.data.data),
+
+  getByPublicId: (coursePublicId: string): Promise<Course> =>
+    api.get(`/courses/${coursePublicId}`).then((r) => r.data.data),
+
+  create: (dto: CreateCourseDto): Promise<Course> =>
+    api.post('/courses', dto).then((r) => r.data.data),
+
+  update: (coursePublicId: string, dto: Partial<CreateCourseDto>): Promise<Course> =>
+    api.put(`/courses/${coursePublicId}`, dto).then((r) => r.data.data),
+
+  publish: (coursePublicId: string): Promise<Course> =>
+    api.post(`/courses/${coursePublicId}/publish`).then((r) => r.data.data),
+
+  unpublish: (coursePublicId: string): Promise<Course> =>
+    api.post(`/courses/${coursePublicId}/unpublish`).then((r) => r.data.data),
+};
