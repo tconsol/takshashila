@@ -38,6 +38,7 @@ import joinRequestRoutes from './modules/join-requests/join-request.routes';
 import { badgesRouter } from './modules/badges/badges.routes';
 import demoRequestRoutes from './modules/demo-requests/demo-request.routes';
 import resourceRoutes from './modules/resources/resource.routes';
+import courseRoutes from './modules/courses/course.routes';
 
 const app = express();
 
@@ -134,6 +135,7 @@ app.use(`${API_BASE}/join-requests`, joinRequestRoutes);
 app.use(`${API_BASE}/badges`, badgesRouter);
 app.use(`${API_BASE}/demo-requests`, demoRequestRoutes);
 app.use(`${API_BASE}/resources`, resourceRoutes);
+app.use(`${API_BASE}/courses`, courseRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
