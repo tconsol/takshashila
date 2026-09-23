@@ -241,6 +241,29 @@ export class ClassService {
           // Insufficient tutor balance complete the class but skip the fee.
         }
       }
+    } else if (scheduled.billingMode === BillingMode.COURSE_PREPAID) {
+      // Student already paid for this class in full when the CourseRequest was
+      // accepted (see course-requests module) — do not charge them again here.
+      // The tutor still earns per completed class, same as STUDENT_REQUESTED.
+      if (scheduled.costCents > 0 && studentAttended) {
+        const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
+        if (tutorEarningsCents > 0) {
+          try {
+            await walletService.creditWallet({
+              ownerPublicId: tutorProfile.userPublicId,
+              amountCents: tutorEarningsCents,
+              creditType: CreditType.EARNED_CREDITS,
+              description: `Earnings: ${scheduled.title}`,
+              idempotencyKey: `tutor-earning-${classPublicId}`,
+              referenceId: classPublicId,
+              referenceType: 'CLASS_COMPLETION',
+            });
+            await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
+          } catch {
+            // Could not pay the tutor complete the class anyway.
+          }
+        }
+      }
     } else {
       // Student-requested: charge student (rate + fee), pay tutor (rate − fee),
       // platform keeps the fee from both sides. Only if the student attended.
@@ -345,6 +368,23 @@ export class ClassService {
     // No refund needed students are only charged at class completion, not at
     // booking, so a cancelled class never debited the student in the first place.
 
+    if (scheduled.billingMode === BillingMode.COURSE_PREPAID && scheduled.costCents > 0) {
+      const studentProfile = await StudentProfileModel.findOne(
+        { publicId: scheduled.studentPublicId, isDeleted: false },
+        { userPublicId: 1 },
+      ).lean();
+      if (studentProfile?.userPublicId) {
+        await walletService.refundWallet({
+          ownerPublicId: studentProfile.userPublicId,
+          amountCents: scheduled.costCents,
+          description: `Refund (course class cancelled): ${scheduled.title}`,
+          idempotencyKey: `course-class-cancel-refund-${classPublicId}`,
+          referenceId: classPublicId,
+          referenceType: 'CLASS_CANCELLATION',
+        });
+      }
+    }
+
     await tutorService.recordClassCancelled(scheduled.tutorPublicId);
 
     const [cancelledTutorProfile, cancelledStudentProfile] = await Promise.all([
@@ -352,10 +392,12 @@ export class ClassService {
       StudentProfileModel.findOne({ publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
     ]);
 
-    await this._chargeCancellationFee(classPublicId, actorPublicId, {
-      tutorUserPublicId: cancelledTutorProfile?.userPublicId,
-      studentUserPublicId: cancelledStudentProfile?.userPublicId,
-    });
+    if (scheduled.billingMode !== BillingMode.COURSE_PREPAID) {
+      await this._chargeCancellationFee(classPublicId, actorPublicId, {
+        tutorUserPublicId: cancelledTutorProfile?.userPublicId,
+        studentUserPublicId: cancelledStudentProfile?.userPublicId,
+      });
+    }
 
     domainEvents.emit(DomainEvent.CLASS_CANCELLED, {
       classPublicId,
