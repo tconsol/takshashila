@@ -131,6 +131,29 @@ coursePublicId              string?
 courseTopicPublicId          string?
 ```
 
+**Billing mode addition (refinement found during implementation planning):**
+existing `BillingMode` has `STUDENT_REQUESTED` (student charged at class
+*completion*) and `TUTOR_INVITED` (tutor pays a flat fee at completion). Course
+classes are charged in bulk at Accept time (§5), *before* any class exists —
+neither existing mode fits, and reusing `STUDENT_REQUESTED` would double-charge
+the student when `completeClass()` runs its normal billing branch. Add a third
+mode:
+
+```
+COURSE_PREPAID  // student already paid in full at CourseRequest accept time
+```
+
+`completeClass()` gets a `COURSE_PREPAID` branch: skip the student debit
+entirely, but still credit the tutor `(costCents − platformFee)` exactly like
+the `STUDENT_REQUESTED` branch does — the tutor is paid per completed class
+either way; only the student-side charge moves earlier. `cancelClass()` gets a
+`COURSE_PREPAID` branch: unlike `STUDENT_REQUESTED` (no refund on cancel,
+because nothing was charged yet), a course class *was* already paid for, so
+cancelling a `SCHEDULED`/`LIVE` course class must `refundWallet()` that class's
+`costCents` back to the student immediately and decrement
+`CourseRequest.classesScheduledCount`, freeing that slot for the Tutor to
+reschedule without an additional charge.
+
 ### 3.5 `Student` extension (existing —
 `server/src/modules/students/student.model.ts`)
 
@@ -165,16 +188,33 @@ New module `server/src/modules/course-requests/` (mirrors `demo-requests/` routi
 - `POST   /course-requests/:id/cancel` — Student or Tutor. Refunds unscheduled
   remainder via `walletService.refundWallet()` (see §5), sets status `CANCELLED`.
 
-Scheduling itself does **not** get a new endpoint. Once `ACCEPTED`, the
-Tutor books each class through the existing
-`POST /classes/tutor/create` endpoint
-(`class.controller.tutorCreateClass`, `server/src/modules/classes/class.routes.ts:21`),
-passing the three new optional fields
-(`courseRequestPublicId`, `coursePublicId`, `courseTopicPublicId`) alongside
-the existing payload. `class.service.ts`'s create path increments
-`CourseRequest.classesScheduledCount` when those fields are present. This is
-the reuse decision from the brainstorming approval (Approach A) — no
-duplicate slot-booking logic.
+**Scheduling endpoint (refined during planning):** the existing
+`POST /classes/tutor/create` (`class.controller.tutorCreateClass`) is a *bulk*
+creator — one occurrence × every one of a tutor's students, always
+`BillingMode.TUTOR_INVITED`, `costCents: 0`. That shape doesn't fit a single
+prepaid class for one specific student at a specific time, so reusing that
+endpoint directly would require bolting on a second, conflicting billing path.
+Instead, add:
+
+- `POST /course-requests/:id/schedule-class` — `requireRole(Role.TUTOR)`.
+  Body: `{ startUTC, endUTC, title, description?, courseTopicPublicId? }`.
+
+This still honors Approach A's reuse principle at the right layer: it creates
+the `ScheduledClass` document directly with `ScheduledClassModel.create(...)`,
+the same low-level primitive `tutorCreateClasses` already uses with no
+`AvailabilitySlot` involved (course scheduling has no pre-existing slot to
+book against — the Tutor is picking a time freely inside the Student's stated
+window). Server-side validation on this endpoint: `CourseRequest.status` must
+be `ACCEPTED`; `classesScheduledCount < classesRequired`; the requested
+start/end's local day-of-week + time (converted using
+`availabilityWindow.ianaTimezone`) must fall inside
+`availabilityWindow.daysOfWeek` / `startLocalTime`–`endLocalTime`; if
+`courseTopicPublicId` is given it must be one of `selectedTopicPublicIds`. On
+success: create the class with `billingMode: COURSE_PREPAID`,
+`costCents: courseRequest.costCentsPerClass`, the three course-link fields
+set, and atomically `$inc classesScheduledCount` (guarded by the same
+`classesScheduledCount < classesRequired` condition to close the race between
+two concurrent schedule calls).
 
 ## 5. Credits / refund semantics
 
@@ -182,18 +222,28 @@ duplicate slot-booking logic.
   time (§4), before any class is scheduled. This matches "system charges
   the student credits" from the original ask — the Student is committing to
   the whole series up front, not paying per class.
-- **Per-class cancellation**: unchanged — goes through the existing
-  `POST /classes/:classId/cancel` → `class.controller.refundClass`
-  (`class.routes.ts:49`) path. That refund is for a single scheduled class,
-  same as today.
+- **Per-class cancellation** of a `COURSE_PREPAID` class still `SCHEDULED`/
+  `LIVE`: goes through the existing `POST /classes/:classId/cancel` →
+  `class.controller.cancelClass` (not `refundClass`, which only accepts
+  `COMPLETED` classes). `cancelClass()` gets a `COURSE_PREPAID` branch (see
+  §3.4) that refunds `costCents` to the student and decrements
+  `CourseRequest.classesScheduledCount` — different from the
+  `STUDENT_REQUESTED` branch, which refunds nothing on cancel because nothing
+  was charged yet.
+- **Per-class refund** of a `COMPLETED` `COURSE_PREPAID` class: goes through
+  the existing `POST /classes/:classId/refund` → `refundClass()`, whose
+  `costCents > 0` branch (student refund + tutor earnings reversal) already
+  works unchanged — wallet debit/credit are balance operations, not tied to
+  the original transaction, so refunding this class's `costCents` back to the
+  student is correct even though the original charge happened in bulk at
+  Accept time, not per-class.
 - **Series cancellation** (`POST /course-requests/:id/cancel`, before all N
-  classes are scheduled/completed): refund
-  `(classesRequired - classesCompletedCount - classesScheduledCount-in-flight) × costCentsPerClass`
-  via `walletService.refundWallet()`. Classes already completed are not
-  refunded. Classes already scheduled-but-not-yet-run are cancelled (reusing
-  `refundClass` per class) as part of this action, so their credits flow back
-  through the existing single-class path and are not double-refunded here —
-  the CourseRequest-level refund only covers the *never-scheduled* remainder.
+  classes are used up): for each of this `CourseRequest`'s classes still
+  `SCHEDULED`/`LIVE`, call `cancelClass()` (refunds each, per above). Then
+  refund the *never-scheduled* remainder —
+  `(classesRequired - classesScheduledCount - classesCompletedCount) × costCentsPerClass`
+  — directly via one `walletService.refundWallet()` call. Classes already
+  `COMPLETED` are never touched by series cancellation.
 
 ## 6. UI flow per role
 
@@ -224,10 +274,12 @@ duplicate slot-booking logic.
   Accept (enter `classesRequired`) or Reject (reason).
 - After Accept: request detail becomes a scheduling workspace — shows
   `classesScheduledCount / classesRequired`, "Schedule next class" button
-  opens the existing `TutorCreateClassPage` flow pre-filled with
-  `studentPublicId`, `courseRequestPublicId`, and a Topic picker limited to
-  `selectedTopicPublicIds`, constrained to the Student's stated availability
-  window.
+  opens a small inline form (date/time picker constrained to the Student's
+  stated availability window, plus a Topic dropdown limited to
+  `selectedTopicPublicIds`) that calls
+  `POST /course-requests/:id/schedule-class` directly — this is a dedicated
+  flow, not the bulk `TutorCreateClassPage` (see §4 refinement), since that
+  page's group/recurrence model doesn't fit a single prepaid class per call.
 
 ### Principal
 No new UI. Principal's existing `/teach/*` routes reuse Tutor pages
