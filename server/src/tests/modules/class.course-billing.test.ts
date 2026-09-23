@@ -11,6 +11,8 @@ import { studentService } from '../../modules/students/student.service';
 import { scheduleService } from '../../modules/schedules/schedule.service';
 import { tutorRepository } from '../../modules/tutors/tutor.repository';
 import { domainEvents } from '../../events/event-emitter';
+import { CourseRequestModel } from '../../modules/course-requests/course-request.model';
+import { CourseRequestStatus } from '../../modules/course-requests/course-request.types';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
 
@@ -58,6 +60,10 @@ describe('ClassService COURSE_PREPAID billing', () => {
     jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(
       lean({ ...coursePrepaidClass(), status: ClassStatus.COMPLETED }) as never,
     );
+    // Not the final class of the series — no status flip expected.
+    jest.spyOn(CourseRequestModel, 'findOneAndUpdate').mockReturnValue(
+      lean({ publicId: 'cr-1', status: CourseRequestStatus.ACCEPTED, classesRequired: 4, classesCompletedCount: 1 }) as never,
+    );
 
     await classService.completeClass('course-class-1', 'tutor-user-1');
 
@@ -79,5 +85,74 @@ describe('ClassService COURSE_PREPAID billing', () => {
 
     expect(refund).toHaveBeenCalledTimes(1);
     expect(refund.mock.calls[0][0]).toMatchObject({ ownerPublicId: 'student-user-1', amountCents: 1500 });
+  });
+
+  describe('refundClass on a completed COURSE_PREPAID class', () => {
+    it('refunds exactly costCents (not costCents + PLATFORM_FEE_CENTS) and reverses costCents - PLATFORM_FEE_CENTS from the tutor', async () => {
+      jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(
+        lean(coursePrepaidClass({ status: ClassStatus.COMPLETED, costCents: 1500 })) as never,
+      );
+      const reverse = jest.spyOn(walletService, 'reverseWallet').mockResolvedValue({} as never);
+      jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(
+        lean({ ...coursePrepaidClass(), status: ClassStatus.COMPLETED, isRefunded: true }) as never,
+      );
+
+      await classService.refundClass('course-class-1', 'admin-user-1', 'Refund requested');
+
+      expect(refund).toHaveBeenCalledTimes(1);
+      expect(refund.mock.calls[0][0]).toMatchObject({ ownerPublicId: 'student-user-1', amountCents: 1500 });
+      expect(reverse).toHaveBeenCalledTimes(1);
+      expect(reverse.mock.calls[0][0]).toMatchObject({ ownerPublicId: 'tutor-user-1', amountCents: 1400 });
+    });
+  });
+
+  describe('completeClass CourseRequest progress tracking', () => {
+    it('increments classesCompletedCount and flips CourseRequest status to COMPLETED when it reaches classesRequired', async () => {
+      jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(coursePrepaidClass()) as never);
+      jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(
+        lean({ ...coursePrepaidClass(), status: ClassStatus.COMPLETED }) as never,
+      );
+      const crFindOneAndUpdate = jest.spyOn(CourseRequestModel, 'findOneAndUpdate');
+      // 1st call: the $inc, returning the post-increment doc at classesRequired.
+      crFindOneAndUpdate.mockReturnValueOnce(
+        lean({ publicId: 'cr-1', status: CourseRequestStatus.ACCEPTED, classesRequired: 4, classesCompletedCount: 4 }) as never,
+      );
+      // 2nd call: the status flip to COMPLETED.
+      crFindOneAndUpdate.mockReturnValueOnce(
+        lean({ publicId: 'cr-1', status: CourseRequestStatus.COMPLETED, classesRequired: 4, classesCompletedCount: 4 }) as never,
+      );
+      const emit = jest.spyOn(domainEvents, 'emit');
+
+      await classService.completeClass('course-class-1', 'tutor-user-1');
+
+      expect(crFindOneAndUpdate).toHaveBeenNthCalledWith(
+        1,
+        { publicId: 'cr-1' },
+        { $inc: { classesCompletedCount: 1 } },
+        { new: true },
+      );
+      expect(crFindOneAndUpdate).toHaveBeenNthCalledWith(
+        2,
+        { publicId: 'cr-1' },
+        { $set: { status: CourseRequestStatus.COMPLETED } },
+      );
+      expect(emit).toHaveBeenCalledWith('COURSE_REQUEST_COMPLETED', expect.objectContaining({ requestPublicId: 'cr-1' }));
+    });
+
+    it('just increments the count, without changing status, on a non-final class', async () => {
+      jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(coursePrepaidClass()) as never);
+      jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(
+        lean({ ...coursePrepaidClass(), status: ClassStatus.COMPLETED }) as never,
+      );
+      const crFindOneAndUpdate = jest.spyOn(CourseRequestModel, 'findOneAndUpdate').mockReturnValue(
+        lean({ publicId: 'cr-1', status: CourseRequestStatus.ACCEPTED, classesRequired: 4, classesCompletedCount: 2 }) as never,
+      );
+      const emit = jest.spyOn(domainEvents, 'emit');
+
+      await classService.completeClass('course-class-1', 'tutor-user-1');
+
+      expect(crFindOneAndUpdate).toHaveBeenCalledTimes(1);
+      expect(emit).not.toHaveBeenCalledWith('COURSE_REQUEST_COMPLETED', expect.anything());
+    });
   });
 });

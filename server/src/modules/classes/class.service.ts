@@ -264,6 +264,44 @@ export class ClassService {
           }
         }
       }
+
+      // Advance the CourseRequest's progress regardless of the attendance/
+      // payment outcome above — a completed class is one class closer to the
+      // series being done. Dynamic import avoids a static circular import
+      // between classes/ and course-requests/ (course-requests/ already
+      // imports class.service).
+      if (scheduled.courseRequestPublicId) {
+        try {
+          const { CourseRequestModel } = await import('../course-requests/course-request.model');
+          const { CourseRequestStatus } = await import('../course-requests/course-request.types');
+
+          const updatedRequest = await CourseRequestModel.findOneAndUpdate(
+            { publicId: scheduled.courseRequestPublicId },
+            { $inc: { classesCompletedCount: 1 } },
+            { new: true },
+          ).lean();
+
+          if (
+            updatedRequest &&
+            updatedRequest.status !== CourseRequestStatus.COMPLETED &&
+            updatedRequest.classesCompletedCount >= (updatedRequest.classesRequired ?? Infinity)
+          ) {
+            await CourseRequestModel.findOneAndUpdate(
+              { publicId: scheduled.courseRequestPublicId },
+              { $set: { status: CourseRequestStatus.COMPLETED } },
+            );
+            domainEvents.emit(DomainEvent.COURSE_REQUEST_COMPLETED, {
+              requestPublicId: scheduled.courseRequestPublicId,
+            });
+          }
+        } catch (error) {
+          logger.warn('Could not update CourseRequest completion progress', {
+            classPublicId,
+            courseRequestPublicId: scheduled.courseRequestPublicId,
+            error: (error as Error).message,
+          });
+        }
+      }
     } else {
       // Student-requested: charge student (rate + fee), pay tutor (rate − fee),
       // platform keeps the fee from both sides. Only if the student attended.
@@ -495,6 +533,46 @@ export class ClassService {
           referenceId: classPublicId,
           referenceType: 'CLASS_REFUND',
         });
+      }
+    } else if (scheduled.billingMode === BillingMode.COURSE_PREPAID && scheduled.costCents > 0 && studentAttended) {
+      // Course classes were only ever charged `costCents` flat, in bulk, at
+      // CourseRequest accept time (see courseRequestService.accept) — no
+      // platform fee was added on top like the STUDENT_REQUESTED branch below.
+      // Refund exactly costCents; refunding costCents + PLATFORM_FEE_CENTS
+      // here would over-refund the student by the fee every time.
+      const studentProfile = await StudentProfileModel.findOne(
+        { publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 },
+      ).lean();
+      if (studentProfile?.userPublicId) {
+        const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
+
+        // 1) Refund the student exactly what they were charged (no fee).
+        await walletService.refundWallet({
+          ownerPublicId: studentProfile.userPublicId,
+          amountCents: scheduled.costCents,
+          description: `Refund: ${scheduled.title}`,
+          idempotencyKey: `class-refund-${classPublicId}`,
+          referenceId: classPublicId,
+          referenceType: 'CLASS_REFUND',
+        });
+
+        // 2) Claw back the tutor's earning (rate − fee), same as the
+        // STUDENT_REQUESTED branch — the tutor was paid this amount on
+        // completion (see completeClass's COURSE_PREPAID branch).
+        if (tutorEarningsCents > 0) {
+          try {
+            await walletService.reverseWallet({
+              ownerPublicId: tutorProfile.userPublicId,
+              amountCents: tutorEarningsCents,
+              description: `Reversal: ${scheduled.title}`,
+              idempotencyKey: `tutor-reversal-${classPublicId}`,
+              referenceId: classPublicId,
+              referenceType: 'CLASS_REFUND',
+            });
+          } catch {
+            // Tutor balance too low to claw back platform absorbs the difference.
+          }
+        }
       }
     } else if (scheduled.costCents > 0 && studentAttended) {
       const studentProfile = await StudentProfileModel.findOne(
