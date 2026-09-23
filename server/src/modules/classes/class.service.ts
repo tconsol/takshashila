@@ -374,14 +374,26 @@ export class ClassService {
         { userPublicId: 1 },
       ).lean();
       if (studentProfile?.userPublicId) {
-        await walletService.refundWallet({
-          ownerPublicId: studentProfile.userPublicId,
-          amountCents: scheduled.costCents,
-          description: `Refund (course class cancelled): ${scheduled.title}`,
-          idempotencyKey: `course-class-cancel-refund-${classPublicId}`,
-          referenceId: classPublicId,
-          referenceType: 'CLASS_CANCELLATION',
-        });
+        // Never fatal: the class is already cancelled by this point (see
+        // _chargeCancellationFee below) and must not be un-cancelled, nor
+        // block the rest of cancelClass, by a refund failure.
+        try {
+          await walletService.refundWallet({
+            ownerPublicId: studentProfile.userPublicId,
+            amountCents: scheduled.costCents,
+            description: `Refund (course class cancelled): ${scheduled.title}`,
+            idempotencyKey: `course-class-cancel-refund-${classPublicId}`,
+            referenceId: classPublicId,
+            referenceType: 'CLASS_CANCELLATION',
+          });
+        } catch (error) {
+          logger.warn('Could not refund course-prepaid class cancellation', {
+            classPublicId,
+            actorPublicId,
+            studentUserPublicId: studentProfile.userPublicId,
+            error: (error as Error).message,
+          });
+        }
       }
     }
 
