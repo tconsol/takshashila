@@ -2,6 +2,7 @@ import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { courseService } from './course.service';
 import { sendSuccess, sendCreated } from '../../utils/response';
+import { NotFoundError } from '../../utils/error';
 
 export class CourseController {
   async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -35,6 +36,11 @@ export class CourseController {
   async getByPublicId(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await courseService.getByPublicId(req.params.coursePublicId);
+      const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'SUPER_ADMIN';
+      if (!isAdmin && !result.isPublished) {
+        // Don't reveal that an unpublished course exists at this id.
+        throw new NotFoundError('Course');
+      }
       sendSuccess(res, result, 'Course fetched');
     } catch (error) { next(error); }
   }
