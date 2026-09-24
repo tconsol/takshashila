@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { locationShape, refineLocation } from '../geo/geo.validators';
+import { locationShape, refineLocation, districtIdSchema } from '../geo/geo.validators';
+import { geoService } from '../geo/geo.service';
 
 export const GRADE_LIST = [
   'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4',
@@ -10,9 +11,23 @@ export const GRADE_LIST = [
 export type Grade = (typeof GRADE_LIST)[number];
 
 export const updateMyStudentProfileSchema = z
-  .object({ grade: z.enum(GRADE_LIST), ...locationShape })
+  .object({ grade: z.enum(GRADE_LIST), ...locationShape, districtId: districtIdSchema })
   .partial()
-  .superRefine(refineLocation);
+  .superRefine((data, ctx) => {
+    refineLocation(data, ctx);
+    // A district alone is enough (the service derives the rest); if a county is
+    // also sent, the district has to be in it.
+    if (data.districtId && data.countyFips) {
+      const district = geoService.getDistrict(data.districtId);
+      if (district && district.countyFips !== data.countyFips) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['districtId'],
+          message: 'District is not in the selected county',
+        });
+      }
+    }
+  });
 export type UpdateMyStudentProfileDto = z.infer<typeof updateMyStudentProfileSchema>;
 
 export const createStudentByTutorSchema = z.object({

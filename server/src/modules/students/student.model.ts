@@ -27,6 +27,8 @@ const studentProfileSchema = new Schema<IStudentProfile>(
     state: { type: String },
     countyFips: { type: String, index: true },
     county: { type: String }, // display name, derived from countyFips
+    districtId: { type: String, index: true },
+    district: { type: String }, // display name, derived from districtId
     notes: { type: String, maxlength: 2000 },
     invitedBy: { type: String, required: true },
     approvedBy: { type: String },

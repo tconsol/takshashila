@@ -269,18 +269,31 @@ export class StudentService {
 
   async updateMyProfile(
     userPublicId: string,
-    data: { grade?: string; country?: string; state?: string; countyFips?: string },
+    data: { grade?: string; country?: string; state?: string; countyFips?: string; districtId?: string },
   ): Promise<IStudentProfile> {
     const $set: Record<string, unknown> = { ...data };
-    if (data.countyFips) {
+    let $unset: Record<string, ''> | undefined;
+    if (data.districtId) {
+      const district = geoService.getDistrict(data.districtId);
+      if (!district) throw new ValidationError({ districtId: [`Unknown school district ${data.districtId}`] });
+      Object.assign($set, {
+        country: 'US',
+        state: district.state,
+        countyFips: district.countyFips,
+        county: geoService.getCounty(district.countyFips)?.name ?? district.countyFips,
+        district: district.name,
+      });
+    } else if (data.countyFips) {
       const county = geoService.getCounty(data.countyFips);
       if (!county) throw new ValidationError({ countyFips: [`Unknown county ${data.countyFips}`] });
       $set.country = data.country ?? 'US';
       $set.county = county.name;
+      // A district belongs to one county; don't leave the old one behind.
+      $unset = { districtId: '', district: '' };
     }
     const updated = await StudentProfileModel.findOneAndUpdate(
       { userPublicId, isDeleted: false },
-      { $set },
+      $unset ? { $set, $unset } : { $set },
       { new: true },
     ).lean();
     if (!updated) throw new NotFoundError('Student profile');

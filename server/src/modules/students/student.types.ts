@@ -27,6 +27,8 @@ export interface IStudentProfile {
   state?: string;
   countyFips?: string;
   county?: string;
+  districtId?: string;
+  district?: string;
   notes?: string;
   invitedBy: string;
   approvedBy?: string;
