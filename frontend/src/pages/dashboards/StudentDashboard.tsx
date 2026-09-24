@@ -400,15 +400,13 @@ export function StudentDashboard() {
               ) : (
                 <div className="space-y-2.5">
                   {classes.map((cls, i) => {
-                    // Joinable from 10 minutes before the start until the end —
-                    // early enough to be waiting, not so early it's meaningless.
+                    // Joinable only from 15 minutes before the scheduled start
+                    // until 15 minutes after it — never based on status alone,
+                    // so a class stuck LIVE (never auto-resolved) can't stay
+                    // joinable indefinitely.
                     const startsAt = new Date(cls.scheduledStartUTC).getTime();
-                    const endsAt = cls.scheduledEndUTC
-                      ? new Date(cls.scheduledEndUTC).getTime()
-                      : startsAt + (cls.durationMinutes ?? 60) * 60_000;
-                    const joinable =
-                      cls.status === 'LIVE' ||
-                      (Date.now() >= startsAt - 10 * 60_000 && Date.now() <= endsAt);
+                    const now = Date.now();
+                    const joinable = now >= startsAt - 15 * 60_000 && now <= startsAt + 15 * 60_000;
 
                     return (
                       <motion.div

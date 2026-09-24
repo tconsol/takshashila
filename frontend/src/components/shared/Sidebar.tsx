@@ -112,6 +112,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Courses',         href: '/dashboard/student/courses',          icon: BookOpen },
     { label: 'My Organization', href: '/dashboard/student/my-organization',  icon: Building2 },
     { label: 'Classes',         href: '/dashboard/student/classes',          icon: Video,          badgeKey: ['scheduleAlert', 'classes'] },
+    { label: 'Calendar',        href: '/dashboard/student/calendar',         icon: Calendar },
     { label: 'Homework',        href: '/dashboard/student/worksheets',       icon: FileText,       badgeKey: 'worksheets' },
     { label: 'Games',           href: '/dashboard/student/games',            icon: Gamepad2 },
     { label: 'Resources',       href: '/dashboard/student/resources',        icon: FolderOpen,     badgeKey: 'resources' },

@@ -118,6 +118,7 @@ import { StudentParentRequestsPage } from '../pages/student/StudentParentRequest
 import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
 import { StudentCourseDetailPage } from '../pages/student/StudentCourseDetailPage';
 import { StudentCourseRequestsPage } from '../pages/student/StudentCourseRequestsPage';
+import { StudentCalendarPage } from '../pages/student/StudentCalendarPage';
 
 // Parent pages
 import { ParentChildrenPage } from '../pages/parent/ParentChildrenPage';
@@ -282,6 +283,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/my-organization', element: <StudentPrincipalPage /> },
         { path: '/dashboard/student/tutors', element: <TutorsBrowsePage variant="student" /> },
         { path: '/dashboard/student/classes', element: <StudentLearningPage /> },
+        { path: '/dashboard/student/calendar', element: <StudentCalendarPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
         { path: '/dashboard/student/worksheets', element: <StudentWorksheetsPage /> },
         { path: '/dashboard/student/worksheets/:worksheetId/test', element: <StudentWorksheetTestPage /> },
