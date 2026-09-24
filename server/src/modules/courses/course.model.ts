@@ -21,6 +21,8 @@ const courseSchema = new Schema<ICourse>(
     state: { type: String, required: true, index: true },
     countyFips: { type: String, required: true, index: true },
     county: { type: String, required: true }, // display name, derived from countyFips
+    districtId: { type: String, required: true, index: true },
+    district: { type: String, required: true }, // display name, derived from districtId
     grade: { type: String, required: true, index: true },
     subject: { type: String, required: true },
     title: { type: String, required: true },
@@ -33,6 +35,6 @@ const courseSchema = new Schema<ICourse>(
   { timestamps: true },
 );
 
-courseSchema.index({ countyFips: 1, grade: 1, isPublished: 1 });
+courseSchema.index({ districtId: 1, grade: 1, isPublished: 1 });
 
 export const CourseModel = mongoose.model<ICourse>('Course', courseSchema);

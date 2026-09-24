@@ -1,9 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import { CourseModel } from './course.model';
 import type { ICourse } from './course.types';
-import type { CreateCourseDto, UpdateCourseDto, CourseCatalogQueryDto } from './course.validators';
+import type { CreateCourseDto, UpdateCourseDto, CourseCatalogQueryDto, StudentCatalogQueryDto } from './course.validators';
 import { NotFoundError, ValidationError } from '../../utils/error';
 import { geoService } from '../geo/geo.service';
+import { GRADE_LIST } from '../students/student.validators';
 import type { PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 
@@ -11,10 +12,7 @@ export class CourseService {
   async create(adminUserPublicId: string, dto: CreateCourseDto): Promise<ICourse> {
     const created = await CourseModel.create({
       publicId: uuidv4(),
-      country: dto.country,
-      state: dto.state,
-      countyFips: dto.countyFips,
-      county: countyName(dto.countyFips),
+      ...locationFromDistrict(dto.districtId),
       grade: dto.grade,
       subject: dto.subject,
       title: dto.title,
@@ -35,8 +33,9 @@ export class CourseService {
   }
 
   async update(coursePublicId: string, dto: UpdateCourseDto): Promise<ICourse> {
-    const setFields: Record<string, unknown> = { ...dto };
-    if (dto.countyFips) setFields.county = countyName(dto.countyFips);
+    const { districtId, ...rest } = dto;
+    const setFields: Record<string, unknown> = { ...rest };
+    if (districtId) Object.assign(setFields, locationFromDistrict(districtId));
     if (dto.topics) {
       setFields.topics = dto.topics.map((t, i) => ({
         publicId: t.publicId ?? uuidv4(),
@@ -72,14 +71,14 @@ export class CourseService {
     return course;
   }
 
-  /** Student-facing catalog: only published courses, always scoped by countyFips+grade.
-   *  Matching on FIPS (not county name) because names repeat across states. */
-  async listCatalog(filters: { countyFips?: string; grade?: string; subject?: string }): Promise<ICourse[]> {
-    const filter: Record<string, unknown> = { isPublished: true, isDeleted: false };
-    if (filters.countyFips) filter.countyFips = filters.countyFips;
+  /** Student-facing catalog: published courses in one district. With `grade` it's the
+   *  "My grade" view; without, "All grades", ordered by grade then title. */
+  async listCatalog(filters: StudentCatalogQueryDto): Promise<ICourse[]> {
+    const filter: Record<string, unknown> = { districtId: filters.districtId, isPublished: true, isDeleted: false };
     if (filters.grade) filter.grade = filters.grade;
     if (filters.subject) filter.subject = filters.subject;
-    return CourseModel.find(filter).sort({ title: 1 }).skip(0).limit(100).lean();
+    const courses = await CourseModel.find(filter).sort({ title: 1 }).limit(500).lean();
+    return courses.sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || a.title.localeCompare(b.title));
   }
 
   /** Admin-facing listing: any county/grade/subject/published state. */
@@ -88,6 +87,7 @@ export class CourseService {
     const filter: Record<string, unknown> = { isDeleted: false };
     if (query.state) filter.state = query.state;
     if (query.countyFips) filter.countyFips = query.countyFips;
+    if (query.districtId) filter.districtId = query.districtId;
     if (query.grade) filter.grade = query.grade;
     if (query.subject) filter.subject = query.subject;
     if (query.isPublished !== undefined) filter.isPublished = query.isPublished === 'true';
@@ -100,11 +100,25 @@ export class CourseService {
   }
 }
 
-/** Validators already reject unknown FIPS codes; this guards direct service callers. */
-function countyName(countyFips: string): string {
-  const county = geoService.getCounty(countyFips);
-  if (!county) throw new ValidationError({ countyFips: [`Unknown county ${countyFips}`] });
-  return county.name;
+/** Validators already reject unknown districts; this guards direct service callers. */
+function locationFromDistrict(districtId: string) {
+  const district = geoService.getDistrict(districtId);
+  if (!district) throw new ValidationError({ districtId: [`Unknown school district ${districtId}`] });
+  return {
+    country: 'US',
+    state: district.state,
+    countyFips: district.countyFips,
+    // The district builder only keeps districts whose county is in the gazetteer.
+    county: geoService.getCounty(district.countyFips)?.name ?? district.countyFips,
+    districtId: district.id,
+    district: district.name,
+  };
+}
+
+const GRADE_RANK = new Map<string, number>(GRADE_LIST.map((g, i) => [g, i]));
+/** Unknown grade strings sort after every known grade. */
+function gradeRank(grade: string): number {
+  return GRADE_RANK.get(grade) ?? GRADE_LIST.length;
 }
 
 export const courseService = new CourseService();

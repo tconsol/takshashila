@@ -2,7 +2,8 @@ import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { courseService } from './course.service';
 import { sendSuccess, sendCreated } from '../../utils/response';
-import { NotFoundError } from '../../utils/error';
+import { NotFoundError, ValidationError } from '../../utils/error';
+import { studentCatalogQuerySchema } from './course.validators';
 
 export class CourseController {
   async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -53,8 +54,11 @@ export class CourseController {
         const result = await courseService.listForAdmin(req.query as never);
         sendSuccess(res, result, 'Courses fetched');
       } else {
-        const query = req.query as { countyFips?: string; grade?: string; subject?: string };
-        const result = await courseService.listCatalog(query);
+        const parsed = studentCatalogQuerySchema.safeParse(req.query);
+        if (!parsed.success) {
+          throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+        }
+        const result = await courseService.listCatalog(parsed.data);
         sendSuccess(res, result, 'Courses fetched');
       }
     } catch (error) { next(error); }

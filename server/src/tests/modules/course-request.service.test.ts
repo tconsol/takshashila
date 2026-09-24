@@ -131,6 +131,19 @@ describe('CourseRequestService', () => {
       expect(createSpy).toHaveBeenCalledTimes(1);
       expect(result.publicId).toBe('cr-1');
     });
+
+    it('allows requesting a course from a different grade than the student\'s', async () => {
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1', grade: 'Grade 6' } as never);
+      jest.spyOn(courseService, 'getByPublicId').mockResolvedValue(baseCourse({ grade: 'Grade 10' }) as never);
+      jest.spyOn(tutorService, 'getByPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseRequestModel, 'findOne').mockReturnValue(lean(null) as never);
+      const createSpy = jest.spyOn(CourseRequestModel, 'create').mockResolvedValue({ toObject: () => baseRequest() } as never);
+      jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+
+      await courseRequestService.create('student-user-1', baseCreateDto());
+
+      expect(createSpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('accept', () => {

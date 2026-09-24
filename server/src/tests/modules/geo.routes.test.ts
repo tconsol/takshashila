@@ -51,17 +51,20 @@ describe('POST /courses location validation', () => {
 
   const body = { grade: 'Grade 8', subject: 'Math', title: 'Algebra I', topics: [] };
 
-  it('422s a county that is not in the given state', async () => {
+  it('422s an unknown district', async () => {
     const createSpy = jest.spyOn(courseService, 'create');
-    const res = await request(app).post('/api/v1/courses').send({ ...body, state: 'VA', countyFips: '37183' });
+    const res = await request(app).post('/api/v1/courses').send({ ...body, districtId: '9999999' });
     expect(res.status).toBe(422);
     expect(createSpy).not.toHaveBeenCalled();
   });
 
-  it('accepts a valid state/county pair and defaults country to US', async () => {
+  it('accepts a valid district and strips client-sent location fields', async () => {
     const createSpy = jest.spyOn(courseService, 'create').mockResolvedValue({ publicId: 'c-1' } as never);
-    const res = await request(app).post('/api/v1/courses').send({ ...body, state: 'NC', countyFips: '37183' });
+    const res = await request(app).post('/api/v1/courses').send({ ...body, districtId: '3704720', state: 'VA', countyFips: '51059' });
     expect(res.status).toBe(201);
-    expect(createSpy).toHaveBeenCalledWith('admin-1', expect.objectContaining({ country: 'US', state: 'NC', countyFips: '37183' }));
+    const dto = createSpy.mock.calls[0][1] as unknown as Record<string, unknown>;
+    expect(dto.districtId).toBe('3704720');
+    expect(dto.state).toBeUndefined();
+    expect(dto.countyFips).toBeUndefined();
   });
 });

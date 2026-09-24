@@ -8,6 +8,8 @@ describe('Course model', () => {
       state: 'NC',
       countyFips: '37183',
       county: 'Wake County',
+      districtId: '3704720',
+      district: 'Wake County Schools',
       grade: 'Grade 8',
       subject: 'Mathematics',
       title: 'Algebra I',
@@ -25,12 +27,12 @@ describe('Course model', () => {
     expect(doc.topics[0].title).toBe('Linear Equations');
   });
 
-  it('requires state, countyFips, county, grade, subject and title', () => {
+  it('requires districtId, district, state, countyFips, county, grade, subject and title', () => {
     const doc = new CourseModel({ publicId: 'course-2', createdByAdminPublicId: 'admin-1', topics: [] });
     const err = doc.validateSync();
     expect(err).toBeDefined();
     expect(Object.keys(err!.errors)).toEqual(
-      expect.arrayContaining(['state', 'countyFips', 'county', 'grade', 'subject', 'title']),
+      expect.arrayContaining(['districtId', 'district', 'state', 'countyFips', 'county', 'grade', 'subject', 'title']),
     );
   });
 });

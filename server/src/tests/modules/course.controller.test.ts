@@ -16,7 +16,7 @@ describe('CourseController.list', () => {
     const adminSpy = jest.spyOn(courseService, 'listForAdmin').mockResolvedValue({} as never);
     const next: NextFunction = jest.fn();
 
-    await courseController.list(buildReq('STUDENT'), buildRes(), next);
+    await courseController.list(buildReq('STUDENT', { districtId: '3704720' }), buildRes(), next);
 
     expect(catalogSpy).toHaveBeenCalled();
     expect(adminSpy).not.toHaveBeenCalled();
@@ -42,5 +42,23 @@ describe('CourseController.list', () => {
 
     expect(adminSpy).toHaveBeenCalled();
     expect(catalogSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects a STUDENT catalog request without districtId (never an unscoped list)', async () => {
+    const catalogSpy = jest.spyOn(courseService, 'listCatalog').mockResolvedValue([] as never);
+    const next = jest.fn();
+
+    await courseController.list(buildReq('STUDENT'), buildRes(), next);
+
+    expect(catalogSpy).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 422 }));
+  });
+
+  it('passes districtId and optional grade through to listCatalog', async () => {
+    const catalogSpy = jest.spyOn(courseService, 'listCatalog').mockResolvedValue([] as never);
+
+    await courseController.list(buildReq('STUDENT', { districtId: '3704720' }), buildRes(), jest.fn());
+
+    expect(catalogSpy).toHaveBeenCalledWith({ districtId: '3704720' });
   });
 });
