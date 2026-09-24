@@ -1,5 +1,6 @@
+import fs from 'fs';
+import path from 'path';
 import usCounties from './us-counties.json';
-import usDistricts from './us-districts.json';
 import { US_STATES, COUNTRIES } from './us-states';
 
 export interface UsCounty {
@@ -15,6 +16,13 @@ export interface UsDistrict {
   state: string;
   countyFips: string;
 }
+
+// Read at runtime instead of `import`: a typed import of this ~1 MB literal makes
+// ts-jest type-check it in every worker, and cold-cache parallel test runs ran out
+// of memory. tsconfig `include` copies it to dist.
+const usDistricts: UsDistrict[] = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'us-districts.json'), 'utf8'),
+);
 
 /** Static US geography, loaded once. Data: US Census county gazetteer
  *  (regenerate with src/scripts/build-us-counties.ts) and NCES districts
@@ -34,7 +42,7 @@ class GeoService {
     }
     for (const list of this.byState.values()) list.sort((a, b) => a.name.localeCompare(b.name));
 
-    for (const d of usDistricts as UsDistrict[]) {
+    for (const d of usDistricts) {
       this.districtById.set(d.id, d);
       const list = this.districtsByState.get(d.state) ?? [];
       list.push(d);
