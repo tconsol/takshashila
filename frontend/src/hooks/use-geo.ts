@@ -9,6 +9,7 @@ export const geoKeys = {
   countries: ['geo', 'countries'] as const,
   states: ['geo', 'states'] as const,
   counties: (state: string) => ['geo', 'counties', state] as const,
+  districts: (state: string, county: string) => ['geo', 'districts', state, county] as const,
 };
 
 export function useCountries() {
@@ -24,6 +25,15 @@ export function useUsCounties(stateCode: string | undefined) {
     queryKey: geoKeys.counties(stateCode ?? ''),
     queryFn: () => geoService.listCounties(stateCode!),
     enabled: !!stateCode,
+    ...STATIC,
+  });
+}
+
+export function useUsDistricts(stateCode: string | undefined, countyFips: string | undefined) {
+  return useQuery({
+    queryKey: geoKeys.districts(stateCode ?? '', countyFips ?? ''),
+    queryFn: () => geoService.listDistricts(stateCode!, countyFips!),
+    enabled: !!stateCode && !!countyFips,
     ...STATIC,
   });
 }
