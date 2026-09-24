@@ -14,6 +14,8 @@ export interface StudentProfile {
   state?: string;
   countyFips?: string;
   county?: string;
+  districtId?: string;
+  district?: string;
   notes?: string;
   subjects?: string[];
   demoClassesUsed: number;
@@ -29,6 +31,7 @@ export interface UpdateMyStudentProfileDto {
   country?: string;
   state?: string;
   countyFips?: string;
+  districtId?: string;
 }
 
 export interface StudentLookupResult {

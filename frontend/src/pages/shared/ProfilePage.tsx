@@ -72,6 +72,7 @@ const studentAcademicSchema = z.object({
   country: z.string(),
   state: z.string(),
   countyFips: z.string(),
+  districtId: z.string(),
 }).refine((d) => !d.state || !!d.countyFips, { message: 'Select a county', path: ['countyFips'] });
 
 const passwordSchema = z.object({
@@ -306,6 +307,7 @@ export function ProfilePage() {
     academicForm.setValue('country',    studentProfile.country    ?? 'US', { shouldDirty: false });
     academicForm.setValue('state',      studentProfile.state      ?? '',   { shouldDirty: false });
     academicForm.setValue('countyFips', studentProfile.countyFips ?? '',   { shouldDirty: false });
+    academicForm.setValue('districtId', studentProfile.districtId ?? '',   { shouldDirty: false });
   }, [studentProfile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { mutateAsync: updateAcademicProfile, isPending: savingAcademic } = useUpdateMyStudentProfile();
@@ -619,8 +621,11 @@ export function ProfilePage() {
             onSubmit={academicForm.handleSubmit((d) =>
               updateAcademicProfile({
                 grade: d.grade || undefined,
-                // Server requires state + county together; send neither until both are picked.
-                ...(d.countyFips ? { country: d.country, state: d.state, countyFips: d.countyFips } : {}),
+                // A district implies state + county (server derives them). Otherwise the
+                // server needs state + county together; send neither until both are picked.
+                ...(d.districtId
+                  ? { districtId: d.districtId }
+                  : d.countyFips ? { country: d.country, state: d.state, countyFips: d.countyFips } : {}),
               }),
             )}
             className="space-y-6"
@@ -646,11 +651,13 @@ export function ProfilePage() {
                   country: academicForm.watch('country'),
                   state: academicForm.watch('state'),
                   countyFips: academicForm.watch('countyFips'),
+                  districtId: academicForm.watch('districtId'),
                 }}
                 onChange={(loc) => {
                   academicForm.setValue('country', loc.country, { shouldDirty: true });
                   academicForm.setValue('state', loc.state, { shouldDirty: true });
                   academicForm.setValue('countyFips', loc.countyFips, { shouldDirty: true, shouldValidate: academicForm.formState.isSubmitted });
+                  academicForm.setValue('districtId', loc.districtId, { shouldDirty: true });
                 }}
                 errors={{ countyFips: academicForm.formState.errors.countyFips?.message }}
               />
