@@ -363,7 +363,7 @@ export function StudentDashboard() {
         </motion.div>
       )}
 
-      {/* Curriculum courses the student is taking */}
+      {/* Courses the student is taking */}
       <MyCoursesSection />
 
       {/* Classes + tutor grid */}

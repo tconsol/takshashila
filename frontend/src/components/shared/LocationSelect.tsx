@@ -12,7 +12,7 @@ interface LocationSelectProps {
   onChange: (next: Location) => void;
   errors?: Partial<Record<keyof Location, string>>;
   disabled?: boolean;
-  /** Courses need a district; the student profile treats it as optional. */
+  /** Curricula need a district; the student profile treats it as optional. */
   requireDistrict?: boolean;
 }
 

@@ -588,7 +588,7 @@ export function ProfilePage() {
                       ))}
                     </div>
                     <p className="mt-1 text-xs text-ink-muted">
-                      Students see you on course pages for these grades. Leave all unselected to be listed for every grade.
+                      Students see you on curriculum pages for these grades. Leave all unselected to be listed for every grade.
                     </p>
                   </div>
                 );

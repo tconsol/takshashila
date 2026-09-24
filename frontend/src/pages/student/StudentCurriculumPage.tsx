@@ -1,21 +1,21 @@
-// frontend/src/pages/student/StudentCoursesPage.tsx
+// frontend/src/pages/student/StudentCurriculumPage.tsx
 //
 // grade/district live on the Student PROFILE (server/src/modules/students/student.model.ts),
 // not on the User/auth object, so this reads them via `useMyStudentProfile()`.
 // Two tabs: "My grade" (the student's grade in their district) and "All grades"
-// (every published course in the district, grouped by grade). The tab is kept in
+// (every published curriculum in the district, grouped by grade). The tab is kept in
 // the URL (?tab=all) so back/refresh keep it.
 import { Link, useSearchParams } from 'react-router-dom';
 import { BookOpen, ArrowRight, Inbox } from 'lucide-react';
 import { useMyStudentProfile } from '../../hooks/use-students';
-import { useCourseCatalog } from '../../hooks/use-courses';
+import { useCurriculumCatalog } from '../../hooks/use-curricula';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Spinner } from '../../components/ui/Loading';
 import { Tabs } from '../../components/ui/Tabs';
 import { GRADE_LIST } from '../../constants/grades';
-import type { Course } from '../../services/courses.service';
+import type { Curriculum } from '../../services/curricula.service';
 
 type TabKey = 'mine' | 'all';
 
@@ -37,16 +37,16 @@ function ProfileLink() {
   );
 }
 
-function CourseGrid({ courses }: { courses: Course[] }) {
+function CurriculumGrid({ curricula }: { curricula: Curriculum[] }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {courses.map((course) => (
-        <Link key={course.publicId} to={`/dashboard/student/courses/${course.publicId}`}>
+      {curricula.map((curriculum) => (
+        <Link key={curriculum.publicId} to={`/dashboard/student/curriculum/${curriculum.publicId}`}>
           <Card className="h-full hover:border-brand-300 dark:hover:border-brand-700 transition-colors">
             <CardContent>
-              <Badge variant="info" tone="soft">{course.subject}</Badge>
-              <p className="mt-2 font-semibold text-gray-900 dark:text-white">{course.title}</p>
-              <p className="mt-1 text-xs text-gray-500">{course.topics.length} topics</p>
+              <Badge variant="info" tone="soft">{curriculum.subject}</Badge>
+              <p className="mt-2 font-semibold text-gray-900 dark:text-white">{curriculum.title}</p>
+              <p className="mt-1 text-xs text-gray-500">{curriculum.topics.length} topics</p>
             </CardContent>
           </Card>
         </Link>
@@ -56,9 +56,9 @@ function CourseGrid({ courses }: { courses: Course[] }) {
 }
 
 /** Groups in GRADE_LIST order; grades the list doesn't know go last. Empty grades are omitted. */
-function groupByGrade(courses: Course[]): Array<[string, Course[]]> {
-  const groups = new Map<string, Course[]>();
-  for (const c of courses) groups.set(c.grade, [...(groups.get(c.grade) ?? []), c]);
+function groupByGrade(curricula: Curriculum[]): Array<[string, Curriculum[]]> {
+  const groups = new Map<string, Curriculum[]>();
+  for (const c of curricula) groups.set(c.grade, [...(groups.get(c.grade) ?? []), c]);
   const rank = (g: string) => {
     const i = (GRADE_LIST as readonly string[]).indexOf(g);
     return i < 0 ? GRADE_LIST.length : i;
@@ -66,15 +66,15 @@ function groupByGrade(courses: Course[]): Array<[string, Course[]]> {
   return [...groups.entries()].sort(([a], [b]) => rank(a) - rank(b));
 }
 
-export function StudentCoursesPage() {
+export function StudentCurriculumPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab: TabKey = searchParams.get('tab') === 'all' ? 'all' : 'mine';
   const { data: profile, isLoading: profileLoading } = useMyStudentProfile();
   const districtId = profile?.districtId;
   const grade = profile?.grade;
 
-  const mine = useCourseCatalog({ districtId: grade ? districtId : undefined, grade: grade || undefined });
-  const all = useCourseCatalog({ districtId });
+  const mine = useCurriculumCatalog({ districtId: grade ? districtId : undefined, grade: grade || undefined });
+  const all = useCurriculumCatalog({ districtId });
   const active = tab === 'all' ? all : mine;
 
   if (profileLoading) {
@@ -84,7 +84,7 @@ export function StudentCoursesPage() {
   if (!districtId) {
     return (
       <div className="animate-fade-in">
-        <PageHeader eyebrow="Courses" title="Curriculum" icon={<BookOpen className="h-5 w-5" />} />
+        <PageHeader eyebrow="Curricula" title="Curriculum" icon={<BookOpen className="h-5 w-5" />} />
         <Message>
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Set your school district in your profile to see your curriculum.
@@ -117,17 +117,17 @@ export function StudentCoursesPage() {
       </Message>
     );
   } else if (tab === 'mine') {
-    body = <CourseGrid courses={active.data} />;
+    body = <CurriculumGrid curricula={active.data} />;
   } else {
     body = (
       <div className="space-y-8">
-        {groupByGrade(active.data).map(([g, courses]) => (
+        {groupByGrade(active.data).map(([g, curricula]) => (
           <section key={g}>
             <div className="mb-3 flex items-center gap-2">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{g}</h2>
               {g === grade && <Badge variant="success" tone="soft">Your grade</Badge>}
             </div>
-            <CourseGrid courses={courses} />
+            <CurriculumGrid curricula={curricula} />
           </section>
         ))}
       </div>
@@ -137,7 +137,7 @@ export function StudentCoursesPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        eyebrow="Courses"
+        eyebrow="Curricula"
         title="Curriculum"
         description={tab === 'mine' && grade ? `${grade} curriculum · ${where}` : `All grades · ${where}`}
         icon={<BookOpen className="h-5 w-5" />}

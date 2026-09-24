@@ -1,4 +1,4 @@
-// frontend/src/pages/student/StudentCourseDetailPage.tsx
+// frontend/src/pages/student/StudentCreateCoursePage.tsx
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckSquare, Square, BookOpen, Star, BadgeCheck, UserX } from 'lucide-react';
@@ -6,18 +6,18 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
-import { useCourse, useCourseTutors } from '../../hooks/use-courses';
-import { useCreateCourseRequest } from '../../hooks/use-course-requests';
+import { useCurriculum, useCurriculumTutors } from '../../hooks/use-curricula';
+import { useCreateCourse } from '../../hooks/use-courses';
 import { formatCurrency } from '../../utils/currency';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function StudentCourseDetailPage() {
-  const { coursePublicId } = useParams<{ coursePublicId: string }>();
+export function StudentCreateCoursePage() {
+  const { curriculumPublicId } = useParams<{ curriculumPublicId: string }>();
   const navigate = useNavigate();
-  const { data: course, isLoading } = useCourse(coursePublicId);
-  const { data: tutors, isLoading: tutorsLoading } = useCourseTutors(coursePublicId);
-  const { mutate: createRequest, isPending } = useCreateCourseRequest();
+  const { data: curriculum, isLoading } = useCurriculum(curriculumPublicId);
+  const { data: tutors, isLoading: tutorsLoading } = useCurriculumTutors(curriculumPublicId);
+  const { mutate: createRequest, isPending } = useCreateCourse();
 
   const [selectedTopics, setSelectedTopics] = useState<Set<string>>(new Set());
   const [tutorPublicId, setTutorPublicId] = useState('');
@@ -25,7 +25,7 @@ export function StudentCourseDetailPage() {
   const [startLocalTime, setStartLocalTime] = useState('16:00');
   const [endLocalTime, setEndLocalTime] = useState('19:00');
 
-  if (isLoading || !course) {
+  if (isLoading || !curriculum) {
     return <div className="flex justify-center py-16"><Spinner /></div>;
   }
 
@@ -49,13 +49,13 @@ export function StudentCourseDetailPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader eyebrow="Courses" title={course.title} description={`${course.subject} · ${course.grade}`} icon={<BookOpen className="h-5 w-5" />} />
+      <PageHeader eyebrow="Curriculum" title={curriculum.title} description={`${curriculum.subject} · ${curriculum.grade}`} icon={<BookOpen className="h-5 w-5" />} />
 
       <Card className="mb-4">
         <CardContent>
           <p className="text-sm font-semibold mb-3">Select the topics you want covered</p>
           <div className="space-y-2">
-            {[...course.topics].sort((a, b) => a.order - b.order).map((topic) => (
+            {[...curriculum.topics].sort((a, b) => a.order - b.order).map((topic) => (
               <button
                 key={topic.publicId}
                 type="button"
@@ -82,7 +82,7 @@ export function StudentCourseDetailPage() {
           ) : !tutors || tutors.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-6 text-center">
               <UserX className="h-5 w-5 text-gray-400" />
-              <p className="text-sm text-gray-500">No tutors teach {course.subject} for {course.grade} yet.</p>
+              <p className="text-sm text-gray-500">No tutors teach {curriculum.subject} for {curriculum.grade} yet.</p>
             </div>
           ) : (
             <div role="radiogroup" aria-label="Tutor" className="grid gap-2 sm:grid-cols-2">
@@ -153,8 +153,8 @@ export function StudentCourseDetailPage() {
         onClick={() =>
           createRequest(
             {
-              coursePublicId: course.publicId,
-              selectedTopicPublicIds: [...selectedTopics],
+              curriculumPublicId: curriculum.publicId,
+              topicPublicIds: [...selectedTopics],
               tutorPublicId,
               availabilityWindow: {
                 daysOfWeek: [...days],
@@ -163,11 +163,11 @@ export function StudentCourseDetailPage() {
                 ianaTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
               },
             },
-            { onSuccess: () => navigate('/dashboard/student/course-requests') },
+            { onSuccess: () => navigate('/dashboard/student/courses') },
           )
         }
       >
-        Request this course
+        Send course to tutor
       </Button>
     </div>
   );

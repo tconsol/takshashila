@@ -22,7 +22,7 @@ export function useMyStudentProfile(enabled = true) {
   });
 }
 
-/** Lets a Student set their own grade/location — both feed the course catalog
+/** Lets a Student set their own grade/location — both feed the curriculum catalog
  *  filter (see `useMyStudentProfile` consumers), so a successful save
  *  invalidates that same query key to refresh it immediately. */
 export function useUpdateMyStudentProfile() {

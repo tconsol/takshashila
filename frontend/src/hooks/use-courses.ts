@@ -1,46 +1,35 @@
 // frontend/src/hooks/use-courses.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { coursesService } from '../services/courses.service';
-import type { CreateCourseDto } from '../services/courses.service';
+import type { CreateCourseDto, ScheduleCourseClassDto } from '../services/courses.service';
 import { useToast } from '../components/ui/Toast';
 
 export const courseKeys = {
   all: ['courses'] as const,
-  catalog: (params?: Record<string, string>) => [...courseKeys.all, 'catalog', params] as const,
-  admin: (params?: Record<string, string>) => [...courseKeys.all, 'admin', params] as const,
-  detail: (id: string) => [...courseKeys.all, 'detail', id] as const,
-  tutors: (id: string) => [...courseKeys.all, 'tutors', id] as const,
+  mine: (params?: Record<string, string>) => [...courseKeys.all, 'mine', params] as const,
+  incoming: (params?: Record<string, string>) => [...courseKeys.all, 'incoming', params] as const,
+  progress: (id: string) => [...courseKeys.all, 'progress', id] as const,
 };
 
-/** No `grade` = the "All grades" view of the district. */
-export function useCourseCatalog(params: { districtId?: string; grade?: string; subject?: string }) {
+export function useMyCourses(params?: Record<string, string>) {
   return useQuery({
-    queryKey: courseKeys.catalog({ districtId: params.districtId ?? '', grade: params.grade ?? 'all', subject: params.subject ?? '' }),
-    queryFn: () => coursesService.listCatalog(params),
-    enabled: !!params.districtId,
+    queryKey: courseKeys.mine(params),
+    queryFn: () => coursesService.getMine(params),
   });
 }
 
-export function useAdminCourses(params?: Record<string, string>) {
+export function useCourseProgress(coursePublicId: string | undefined) {
   return useQuery({
-    queryKey: courseKeys.admin(params),
-    queryFn: () => coursesService.listForAdmin(params ?? {}),
-  });
-}
-
-export function useCourse(coursePublicId: string | undefined) {
-  return useQuery({
-    queryKey: courseKeys.detail(coursePublicId ?? ''),
-    queryFn: () => coursesService.getByPublicId(coursePublicId!),
+    queryKey: courseKeys.progress(coursePublicId ?? ''),
+    queryFn: () => coursesService.getProgress(coursePublicId!),
     enabled: !!coursePublicId,
   });
 }
 
-export function useCourseTutors(coursePublicId: string | undefined) {
+export function useIncomingCourses(params?: Record<string, string>) {
   return useQuery({
-    queryKey: courseKeys.tutors(coursePublicId ?? ''),
-    queryFn: () => coursesService.listTutors(coursePublicId!),
-    enabled: !!coursePublicId,
+    queryKey: courseKeys.incoming(params),
+    queryFn: () => coursesService.getIncoming(params),
   });
 }
 
@@ -51,49 +40,65 @@ export function useCreateCourse() {
     mutationFn: (dto: CreateCourseDto) => coursesService.create(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: courseKeys.all });
-      toast.success('Course created');
+      toast.success('Course sent to tutor', 'The tutor will review and respond shortly.');
     },
-    onError: (err: Error) => toast.error('Could not create course', err.message),
+    onError: (err: Error) => toast.error('Could not send course', err.message),
   });
 }
 
-export function useUpdateCourse() {
+export function useAcceptCourse() {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: ({ coursePublicId, dto }: { coursePublicId: string; dto: Partial<CreateCourseDto> }) =>
-      coursesService.update(coursePublicId, dto),
+    mutationFn: ({ coursePublicId, classesRequired }: { coursePublicId: string; classesRequired: number }) =>
+      coursesService.accept(coursePublicId, classesRequired),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: courseKeys.all });
-      toast.success('Course updated');
+      toast.success('Course accepted', 'You can now schedule the classes.');
     },
-    onError: (err: Error) => toast.error('Could not update course', err.message),
+    onError: (err: Error) => toast.error('Could not accept course', err.message),
   });
 }
 
-export function useDeleteCourse() {
+export function useRejectCourse() {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: (coursePublicId: string) => coursesService.remove(coursePublicId),
+    mutationFn: ({ coursePublicId, reason }: { coursePublicId: string; reason: string }) =>
+      coursesService.reject(coursePublicId, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: courseKeys.all });
-      toast.success('Course deleted');
+      toast.info('Request rejected');
     },
-    onError: (err: Error) => toast.error('Could not delete course', err.message),
+    onError: (err: Error) => toast.error('Could not reject course', err.message),
   });
 }
 
-export function usePublishCourse() {
+export function useScheduleCourseClass() {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: ({ coursePublicId, publish }: { coursePublicId: string; publish: boolean }) =>
-      publish ? coursesService.publish(coursePublicId) : coursesService.unpublish(coursePublicId),
-    onSuccess: (_data, vars) => {
+    mutationFn: ({ coursePublicId, dto }: { coursePublicId: string; dto: ScheduleCourseClassDto }) =>
+      coursesService.scheduleClass(coursePublicId, dto),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: courseKeys.all });
-      toast.success(vars.publish ? 'Course published' : 'Course unpublished');
+      qc.invalidateQueries({ queryKey: ['classes'] });
+      toast.success('Class scheduled');
     },
-    onError: (err: Error) => toast.error('Could not update course', err.message),
+    onError: (err: Error) => toast.error('Could not schedule class', err.message),
+  });
+}
+
+export function useCancelCourse() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: (coursePublicId: string) => coursesService.cancel(coursePublicId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: courseKeys.all });
+      qc.invalidateQueries({ queryKey: ['classes'] });
+      toast.info('Course request cancelled');
+    },
+    onError: (err: Error) => toast.error('Could not cancel course', err.message),
   });
 }

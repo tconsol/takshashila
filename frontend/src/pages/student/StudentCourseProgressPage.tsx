@@ -3,7 +3,7 @@
 // Nested progress for one course the student is taking:
 //   Course › Topic (status) › classes + materials
 // A topic is done when all its counted classes are COMPLETED (computed server-side
-// in server/src/modules/course-requests/course-progress.ts).
+// in server/src/modules/courses/course-progress.ts).
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -13,8 +13,8 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Spinner } from '../../components/ui/Loading';
-import { useCourseProgress } from '../../hooks/use-course-requests';
-import type { ProgressClass, TopicProgress } from '../../services/course-requests.service';
+import { useCourseProgress } from '../../hooks/use-courses';
+import type { ProgressClass, TopicProgress } from '../../services/courses.service';
 
 const formatWhen = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -111,8 +111,8 @@ function TopicNode({ topic, index }: { topic: TopicProgress; index: number }) {
 }
 
 export function StudentCourseProgressPage() {
-  const { requestPublicId } = useParams<{ requestPublicId: string }>();
-  const { data, isLoading, isError } = useCourseProgress(requestPublicId);
+  const { coursePublicId } = useParams<{ coursePublicId: string }>();
+  const { data, isLoading, isError } = useCourseProgress(coursePublicId);
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner /></div>;
   if (isError || !data) {
@@ -123,7 +123,7 @@ export function StudentCourseProgressPage() {
     );
   }
 
-  const { course, request, topics, otherClasses } = data;
+  const { curriculum, course, topics, otherClasses } = data;
   const doneTopics = topics.filter((t) => t.status === 'COMPLETED').length;
   const pct = topics.length ? Math.round((doneTopics / topics.length) * 100) : 0;
 
@@ -134,8 +134,8 @@ export function StudentCourseProgressPage() {
       </Link>
       <PageHeader
         eyebrow="My courses"
-        title={course.title}
-        description={`${course.subject} · ${course.grade}${course.district ? ` · ${course.district}` : ''} · with ${request.tutorName}`}
+        title={curriculum.title}
+        description={`${curriculum.subject} · ${curriculum.grade}${curriculum.district ? ` · ${curriculum.district}` : ''} · with ${course.tutorName}`}
         icon={<BookOpen className="h-5 w-5" />}
       />
 
@@ -143,7 +143,7 @@ export function StudentCourseProgressPage() {
         <CardContent>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <span className="font-medium text-gray-900 dark:text-white">{doneTopics}/{topics.length} topics completed</span>
-            <span className="text-xs text-gray-500">{request.classesCompletedCount}/{request.classesRequired} classes completed</span>
+            <span className="text-xs text-gray-500">{course.classesCompletedCount}/{course.classesRequired} classes completed</span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden>
             <div className="h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
@@ -154,7 +154,7 @@ export function StudentCourseProgressPage() {
       <Card>
         <CardContent>
           <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-            <BookOpen className="h-4 w-4 text-gray-400" /> {course.title}
+            <BookOpen className="h-4 w-4 text-gray-400" /> {curriculum.title}
           </p>
           <ul className="space-y-2">
             {topics.map((t, i) => <TopicNode key={t.publicId} topic={t} index={i} />)}

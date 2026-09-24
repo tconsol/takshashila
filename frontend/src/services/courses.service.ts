@@ -1,50 +1,72 @@
 // frontend/src/services/courses.service.ts
 import { api } from '../lib/axios';
 
-export interface CourseTopic {
-  publicId: string;
-  title: string;
-  order: number;
-  resourceIds: string[];
-  assignmentIds: string[];
-  worksheetIds: string[];
+export interface AvailabilityWindow {
+  daysOfWeek: number[];
+  startLocalTime: string;
+  endLocalTime: string;
+  ianaTimezone: string;
 }
 
 export interface Course {
   publicId: string;
-  country: string;
-  state: string;
-  countyFips: string;
-  county: string; // display name, derived server-side from countyFips
-  districtId?: string; // absent on courses not yet migrated to a district
-  district?: string;
-  grade: string;
-  subject: string;
-  title: string;
-  description?: string;
-  topics: CourseTopic[];
-  isPublished: boolean;
+  studentPublicId: string;
+  tutorPublicId: string;
+  curriculumPublicId: string;
+  topicPublicIds: string[];
+  availabilityWindow: AvailabilityWindow;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED';
+  classesRequired?: number;
+  classesScheduledCount: number;
+  classesCompletedCount: number;
+  costCentsPerClass?: number;
+  rejectionReason?: string;
   createdAt: string;
+  studentName?: string;
+  tutorName?: string;
+  curriculumTitle?: string;
+  topicTitles?: string[];
 }
 
 export interface CreateCourseDto {
-  districtId: string;
-  grade: string;
-  subject: string;
-  title: string;
-  description?: string;
-  topics: Omit<CourseTopic, 'publicId'>[] & { publicId?: string }[];
+  curriculumPublicId: string;
+  topicPublicIds: string[];
+  tutorPublicId: string;
+  availabilityWindow: AvailabilityWindow;
 }
 
-/** A tutor a student can request this course from (GET /courses/:id/tutors). */
-export interface CourseTutor {
+export interface ScheduleCourseClassDto {
+  startUTC: string;
+  endUTC: string;
+  title: string;
+  description?: string;
+  topicPublicId: string;
+}
+
+export interface ProgressClass {
   publicId: string;
-  displayName: string;
-  rating: number;
-  ratingCount: number;
-  hourlyRateCents: number;
-  bio?: string;
-  isVerified: boolean;
+  status: string;
+  startUTC: string;
+  endUTC: string;
+}
+
+export interface MaterialRef { publicId: string; title: string }
+
+export interface TopicProgress {
+  publicId: string;
+  title: string;
+  order: number;
+  status: 'COMPLETED' | 'SCHEDULED' | 'NOT_SCHEDULED';
+  nextClass?: ProgressClass;
+  classes: ProgressClass[];
+  materials: { resources: MaterialRef[]; assignments: MaterialRef[]; worksheets: MaterialRef[] };
+}
+
+export interface CourseProgress {
+  course: { publicId: string; status: Course['status']; classesRequired: number; classesCompletedCount: number; tutorName: string };
+  curriculum: { publicId: string; title: string; subject: string; grade: string; district?: string; state?: string };
+  topics: TopicProgress[];
+  otherClasses: ProgressClass[];
 }
 
 export interface PaginatedCourses {
@@ -56,30 +78,27 @@ export interface PaginatedCourses {
 }
 
 export const coursesService = {
-  listCatalog: (params: { districtId?: string; grade?: string; subject?: string }): Promise<Course[]> =>
-    api.get('/courses', { params }).then((r) => r.data.data),
-
-  listForAdmin: (params: Record<string, string>): Promise<PaginatedCourses> =>
-    api.get('/courses', { params }).then((r) => r.data.data),
-
-  getByPublicId: (coursePublicId: string): Promise<Course> =>
-    api.get(`/courses/${coursePublicId}`).then((r) => r.data.data),
-
-  listTutors: (coursePublicId: string): Promise<CourseTutor[]> =>
-    api.get(`/courses/${coursePublicId}/tutors`).then((r) => r.data.data),
-
   create: (dto: CreateCourseDto): Promise<Course> =>
     api.post('/courses', dto).then((r) => r.data.data),
 
-  update: (coursePublicId: string, dto: Partial<CreateCourseDto>): Promise<Course> =>
-    api.put(`/courses/${coursePublicId}`, dto).then((r) => r.data.data),
+  getMine: (params?: Record<string, string>): Promise<PaginatedCourses> =>
+    api.get('/courses/mine', { params }).then((r) => r.data.data),
 
-  remove: (coursePublicId: string): Promise<void> =>
-    api.delete(`/courses/${coursePublicId}`).then(() => undefined),
+  getProgress: (coursePublicId: string): Promise<CourseProgress> =>
+    api.get(`/courses/${coursePublicId}/progress`).then((r) => r.data.data),
 
-  publish: (coursePublicId: string): Promise<Course> =>
-    api.post(`/courses/${coursePublicId}/publish`).then((r) => r.data.data),
+  getIncoming: (params?: Record<string, string>): Promise<PaginatedCourses> =>
+    api.get('/courses/incoming', { params }).then((r) => r.data.data),
 
-  unpublish: (coursePublicId: string): Promise<Course> =>
-    api.post(`/courses/${coursePublicId}/unpublish`).then((r) => r.data.data),
+  accept: (coursePublicId: string, classesRequired: number): Promise<Course> =>
+    api.post(`/courses/${coursePublicId}/accept`, { classesRequired }).then((r) => r.data.data),
+
+  reject: (coursePublicId: string, reason: string): Promise<Course> =>
+    api.post(`/courses/${coursePublicId}/reject`, { reason }).then((r) => r.data.data),
+
+  scheduleClass: (coursePublicId: string, dto: ScheduleCourseClassDto) =>
+    api.post(`/courses/${coursePublicId}/schedule-class`, dto).then((r) => r.data.data),
+
+  cancel: (coursePublicId: string): Promise<Course> =>
+    api.post(`/courses/${coursePublicId}/cancel`).then((r) => r.data.data),
 };

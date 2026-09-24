@@ -92,7 +92,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   TUTOR: [
     { label: 'Overview',       href: '/dashboard/tutor',                  icon: LayoutDashboard },
     { label: 'Demo Requests',  href: '/dashboard/tutor/demo-requests',    icon: Sparkles,     badgeKey: 'demoRequests' },
-    { label: 'Course Requests', href: '/dashboard/tutor/course-requests', icon: ClipboardList },
+    { label: 'Curriculum Requests', href: '/dashboard/tutor/courses', icon: ClipboardList },
     { label: 'Students',       href: '/dashboard/tutor/students',         icon: Users,        badgeKey: 'students' },
     { label: 'Classes',        href: '/dashboard/tutor/classes',          icon: Video,        badgeKey: 'classes' },
     { label: 'Calendar',       href: '/dashboard/tutor/schedule',         icon: Calendar },
@@ -109,7 +109,8 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   STUDENT: [
     { label: 'Home',            href: '/dashboard/student',                  icon: LayoutDashboard },
     { label: 'Tutors',          href: '/dashboard/student/my-tutor',         icon: GraduationCap },
-    { label: 'Courses',         href: '/dashboard/student/courses',          icon: BookOpen },
+    { label: 'Curriculum',      href: '/dashboard/student/curriculum',       icon: BookOpen },
+    { label: 'My courses',      href: '/dashboard/student/courses',          icon: GraduationCap },
     { label: 'My Organization', href: '/dashboard/student/my-organization',  icon: Building2 },
     { label: 'Classes',         href: '/dashboard/student/classes',          icon: Video,          badgeKey: ['scheduleAlert', 'classes'] },
     { label: 'Calendar',        href: '/dashboard/student/calendar',         icon: Calendar },

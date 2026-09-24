@@ -1,11 +1,11 @@
-// frontend/src/pages/student/StudentCourseRequestsPage.tsx
+// frontend/src/pages/student/StudentMyCoursesPage.tsx
 import { ClipboardList, Inbox } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
-import { useCourseRequestsAsStudent, useCancelCourseRequest } from '../../hooks/use-course-requests';
+import { useMyCourses, useCancelCourse } from '../../hooks/use-courses';
 
 const STATUS_BADGE = {
   PENDING: <Badge variant="warning" tone="soft">Pending</Badge>,
@@ -15,14 +15,14 @@ const STATUS_BADGE = {
   COMPLETED: <Badge variant="info" tone="soft">Completed</Badge>,
 } as const;
 
-export function StudentCourseRequestsPage() {
-  const { data, isLoading } = useCourseRequestsAsStudent({ limit: '50' });
-  const { mutate: cancel, isPending: cancelling } = useCancelCourseRequest();
+export function StudentMyCoursesPage() {
+  const { data, isLoading } = useMyCourses({ limit: '50' });
+  const { mutate: cancel, isPending: cancelling } = useCancelCourse();
   const requests = data?.items ?? [];
 
   return (
     <div className="animate-fade-in">
-      <PageHeader eyebrow="Courses" title="My Course Requests" icon={<ClipboardList className="h-5 w-5" />} />
+      <PageHeader eyebrow="Courses" title="My courses" icon={<ClipboardList className="h-5 w-5" />} />
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
@@ -31,7 +31,7 @@ export function StudentCourseRequestsPage() {
           <CardContent>
             <div className="flex flex-col items-center py-14 text-center gap-3">
               <Inbox className="h-6 w-6 text-gray-400" />
-              <p className="text-sm text-gray-500">No course requests yet. Browse the curriculum to get started.</p>
+              <p className="text-sm text-gray-500">No courses yet. Browse the curriculum, pick topics and send a course to a tutor.</p>
             </div>
           </CardContent>
         </Card>
@@ -43,7 +43,7 @@ export function StudentCourseRequestsPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     {STATUS_BADGE[req.status]}
-                    {req.courseTitle && <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">{req.courseTitle}</p>}
+                    {req.curriculumTitle && <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">{req.curriculumTitle}</p>}
                     {req.status === 'ACCEPTED' && (
                       <p className="mt-1 text-xs text-gray-500">
                         {req.classesCompletedCount} of {req.classesRequired} classes completed ·{' '}

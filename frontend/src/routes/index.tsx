@@ -115,9 +115,9 @@ import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
 import { StudentWorksheetTestPage } from '../pages/student/StudentWorksheetTestPage';
 import { StudentResourcesPage } from '../pages/student/StudentResourcesPage';
 import { StudentParentRequestsPage } from '../pages/student/StudentParentRequestsPage';
-import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
-import { StudentCourseDetailPage } from '../pages/student/StudentCourseDetailPage';
-import { StudentCourseRequestsPage } from '../pages/student/StudentCourseRequestsPage';
+import { StudentCurriculumPage } from '../pages/student/StudentCurriculumPage';
+import { StudentCreateCoursePage } from '../pages/student/StudentCreateCoursePage';
+import { StudentMyCoursesPage } from '../pages/student/StudentMyCoursesPage';
 import { StudentCourseProgressPage } from '../pages/student/StudentCourseProgressPage';
 import { StudentCalendarPage } from '../pages/student/StudentCalendarPage';
 
@@ -255,7 +255,7 @@ export const router = createBrowserRouter([
       children: [
         { path: '/dashboard/tutor', element: <TutorDashboard /> },
         { path: '/dashboard/tutor/demo-requests', element: <TutorDemoRequestsPage /> },
-        { path: '/dashboard/tutor/course-requests', element: <TutorCourseRequestsPage /> },
+        { path: '/dashboard/tutor/courses', element: <TutorCourseRequestsPage /> },
         { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/tutor/classes/create', element: <TutorCreateClassPage /> },
@@ -294,10 +294,10 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },
         { path: '/dashboard/student/wallet', element: <StudentWalletPage /> },
         { path: '/dashboard/student/parent-requests', element: <StudentParentRequestsPage /> },
-        { path: '/dashboard/student/courses', element: <StudentCoursesPage /> },
-        { path: '/dashboard/student/courses/:coursePublicId', element: <StudentCourseDetailPage /> },
-        { path: '/dashboard/student/course-requests', element: <StudentCourseRequestsPage /> },
-        { path: '/dashboard/student/my-courses/:requestPublicId', element: <StudentCourseProgressPage /> },
+        { path: '/dashboard/student/curriculum', element: <StudentCurriculumPage /> },
+        { path: '/dashboard/student/curriculum/:curriculumPublicId', element: <StudentCreateCoursePage /> },
+        { path: '/dashboard/student/courses', element: <StudentMyCoursesPage /> },
+        { path: '/dashboard/student/courses/:coursePublicId', element: <StudentCourseProgressPage /> },
       ],
     }],
   },

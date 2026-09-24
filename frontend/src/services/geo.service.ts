@@ -6,7 +6,7 @@ export interface UsState { code: string; name: string }
 export interface UsCounty { fips: string; name: string; state: string }
 export interface UsDistrict { id: string; name: string; state: string; countyFips: string }
 
-/** A course's or student's location. `districtId` (NCES LEAID) is the course match key;
+/** A curriculum's or student's location. `districtId` (NCES LEAID) is the curriculum match key;
  *  county and state narrow the district list. Empty string = not chosen. */
 export interface Location {
   country: string;
