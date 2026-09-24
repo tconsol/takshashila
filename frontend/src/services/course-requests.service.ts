@@ -40,7 +40,7 @@ export interface ScheduleCourseClassDto {
   endUTC: string;
   title: string;
   description?: string;
-  courseTopicPublicId?: string;
+  courseTopicPublicId: string;
 }
 
 export interface ProgressClass {

@@ -61,7 +61,8 @@ function ScheduleClassForm({
   const [startUTC, setStartUTC] = useState('');
   const [endUTC, setEndUTC] = useState('');
   const [title, setTitle] = useState('');
-  const [topicId, setTopicId] = useState(topicIds[0] ?? '');
+  // No default: the tutor must consciously pick the topic this class covers.
+  const [topicId, setTopicId] = useState('');
   const { mutate: schedule, isPending } = useScheduleCourseClass();
 
   return (
@@ -71,14 +72,23 @@ function ScheduleClassForm({
         <input type="datetime-local" value={startUTC} onChange={(e) => setStartUTC(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
         <input type="datetime-local" value={endUTC} onChange={(e) => setEndUTC(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
       </div>
-      <select value={topicId} onChange={(e) => setTopicId(e.target.value)} className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900">
-        {topicIds.map((id, i) => <option key={id} value={id}>{topicTitles?.[i] ?? id}</option>)}
-      </select>
+      <label className="block text-xs font-medium text-gray-500">
+        Topic this class covers <span className="text-red-500">*</span>
+        <select
+          required
+          value={topicId}
+          onChange={(e) => setTopicId(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900"
+        >
+          <option value="" disabled>Select a topic</option>
+          {topicIds.map((id, i) => <option key={id} value={id}>{topicTitles?.[i] ?? id}</option>)}
+        </select>
+      </label>
       <Button
         size="sm"
         variant="gradient"
         loading={isPending}
-        disabled={!title || !startUTC || !endUTC}
+        disabled={!title || !startUTC || !endUTC || !topicId}
         onClick={() =>
           schedule({
             requestPublicId,
@@ -86,7 +96,7 @@ function ScheduleClassForm({
               title,
               startUTC: new Date(startUTC).toISOString(),
               endUTC: new Date(endUTC).toISOString(),
-              courseTopicPublicId: topicId || undefined,
+              courseTopicPublicId: topicId,
             },
           })
         }

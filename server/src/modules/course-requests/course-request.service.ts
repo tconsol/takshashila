@@ -356,7 +356,7 @@ export class CourseRequestService {
     if (request.classesScheduledCount >= (request.classesRequired ?? 0)) {
       throw new ConflictError('All classes for this course request are already scheduled');
     }
-    if (dto.courseTopicPublicId && !request.selectedTopicPublicIds.includes(dto.courseTopicPublicId)) {
+    if (!request.selectedTopicPublicIds.includes(dto.courseTopicPublicId)) {
       throw new AppError('Topic is not part of this course request', 400);
     }
 

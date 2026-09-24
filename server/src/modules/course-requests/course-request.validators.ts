@@ -25,7 +25,9 @@ export const scheduleCourseClassSchema = z.object({
   endUTC: z.string().datetime(),
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
-  courseTopicPublicId: z.string().optional(),
+  // Required for course classes: the student's progress page marks topics done from
+  // their classes. Ordinary 1:1 classes are scheduled elsewhere and stay topic-free.
+  courseTopicPublicId: z.string().min(1, 'Select the topic this class covers'),
 });
 
 export type CreateCourseRequestDto = z.infer<typeof createCourseRequestSchema>;

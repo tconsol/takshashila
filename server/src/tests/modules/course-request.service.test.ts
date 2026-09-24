@@ -242,6 +242,7 @@ describe('CourseRequestService', () => {
           startUTC: '2026-09-30T20:00:00.000Z',
           endUTC: '2026-09-30T21:00:00.000Z',
           title: 'Late session',
+          courseTopicPublicId: 'topic-1',
         }),
       ).rejects.toThrow();
     });
@@ -256,6 +257,7 @@ describe('CourseRequestService', () => {
           startUTC: '2026-09-30T17:00:00.000Z',
           endUTC: '2026-09-30T18:00:00.000Z',
           title: 'One too many',
+          courseTopicPublicId: 'topic-1',
         }),
       ).rejects.toThrow();
     });
@@ -271,8 +273,24 @@ describe('CourseRequestService', () => {
           startUTC: '2026-09-30T18:59:00.000Z',
           endUTC: '2026-09-30T21:00:00.000Z',
           title: 'Runs past the window',
+          courseTopicPublicId: 'topic-1',
         }),
       ).rejects.toThrow();
+    });
+
+    it('rejects a topic the student did not select for this request', async () => {
+      const accepted = baseRequest({ status: CourseRequestStatus.ACCEPTED, classesRequired: 4, classesScheduledCount: 0, costCentsPerClass: 1500 });
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseRequestModel, 'findOne').mockReturnValue(lean(accepted) as never);
+
+      await expect(
+        courseRequestService.scheduleClass('cr-1', 'tutor-user-1', {
+          startUTC: '2026-09-30T17:00:00.000Z',
+          endUTC: '2026-09-30T18:00:00.000Z',
+          title: 'Wrong topic',
+          courseTopicPublicId: 'topic-2',
+        }),
+      ).rejects.toMatchObject({ statusCode: 400 });
     });
   });
 
