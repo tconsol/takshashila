@@ -11,11 +11,12 @@ export const courseKeys = {
   detail: (id: string) => [...courseKeys.all, 'detail', id] as const,
 };
 
-export function useCourseCatalog(params: { countyFips?: string; grade?: string; subject?: string }) {
+/** No `grade` = the "All grades" view of the district. */
+export function useCourseCatalog(params: { districtId?: string; grade?: string; subject?: string }) {
   return useQuery({
-    queryKey: courseKeys.catalog(params as Record<string, string>),
+    queryKey: courseKeys.catalog({ districtId: params.districtId ?? '', grade: params.grade ?? 'all', subject: params.subject ?? '' }),
     queryFn: () => coursesService.listCatalog(params),
-    enabled: !!params.countyFips && !!params.grade,
+    enabled: !!params.districtId,
   });
 }
 

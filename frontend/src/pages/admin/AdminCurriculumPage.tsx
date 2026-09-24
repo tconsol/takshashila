@@ -1,13 +1,14 @@
 // frontend/src/pages/admin/AdminCurriculumPage.tsx
 import { useState } from 'react';
-import { GraduationCap, Plus, Eye, EyeOff, Trash2, Save } from 'lucide-react';
+import { GraduationCap, Plus, Eye, EyeOff, Trash2, Save, AlertTriangle, MapPin } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
-import { useAdminCourses, useCreateCourse, usePublishCourse } from '../../hooks/use-courses';
-import type { CourseTopic } from '../../services/courses.service';
+import { useAdminCourses, useCreateCourse, usePublishCourse, useUpdateCourse } from '../../hooks/use-courses';
+import { Modal } from '../../components/ui/Modal';
+import type { Course, CourseTopic } from '../../services/courses.service';
 import type { Location } from '../../services/geo.service';
 import { Select } from '../../components/ui/Select';
 import { LocationSelect, EMPTY_LOCATION } from '../../components/shared/LocationSelect';
@@ -29,8 +30,8 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
   return (
     <Card className="mb-4">
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <LocationSelect value={location} onChange={setLocation} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <LocationSelect value={location} onChange={setLocation} requireDistrict />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Select label="Grade" options={GRADE_OPTIONS} value={grade} onChange={(e) => setGrade(e.target.value)} />
@@ -53,10 +54,10 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
         <Button
           variant="gradient"
           loading={isPending}
-          disabled={!location.countyFips || !grade || !subject || !title || topics.some((t) => !t.title)}
+          disabled={!location.districtId || !grade || !subject || !title || topics.some((t) => !t.title)}
           onClick={() =>
             create(
-              { ...location, grade, subject, title, topics: topics.map((t, i) => ({ ...t, order: i })) },
+              { districtId: location.districtId, grade, subject, title, topics: topics.map((t, i) => ({ ...t, order: i })) },
               { onSuccess: onDone },
             )
           }
@@ -68,9 +69,50 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
   );
 }
 
+/** For courses authored before districts existed (see migrate-course-districts.ts). */
+function AssignDistrictModal({ course, onClose }: { course: Course; onClose: () => void }) {
+  const { mutate: update, isPending } = useUpdateCourse();
+  const [location, setLocation] = useState<Location>({
+    country: 'US',
+    state: course.state ?? '',
+    countyFips: course.countyFips ?? '',
+    districtId: '',
+  });
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Assign district — ${course.title}`}
+      footer={
+        <Button
+          variant="gradient"
+          loading={isPending}
+          disabled={!location.districtId}
+          onClick={() =>
+            update({ coursePublicId: course.publicId, dto: { districtId: location.districtId } }, { onSuccess: onClose })
+          }
+        >
+          <Save className="h-3.5 w-3.5" /> Save district
+        </Button>
+      }
+    >
+      <div className="grid gap-3">
+        <LocationSelect value={location} onChange={setLocation} requireDistrict />
+      </div>
+    </Modal>
+  );
+}
+
 export function AdminCurriculumPage() {
   const [showNew, setShowNew] = useState(false);
-  const { data, isLoading } = useAdminCourses({ limit: '100' });
+  const [filter, setFilter] = useState<Location>(EMPTY_LOCATION);
+  const [assigning, setAssigning] = useState<Course | null>(null);
+  const params: Record<string, string> = { limit: '100' };
+  if (filter.state) params.state = filter.state;
+  if (filter.countyFips) params.countyFips = filter.countyFips;
+  if (filter.districtId) params.districtId = filter.districtId;
+  const { data, isLoading } = useAdminCourses(params);
   const { mutate: setPublished, isPending: publishing } = usePublishCourse();
   const courses = data?.items ?? [];
 
@@ -79,12 +121,17 @@ export function AdminCurriculumPage() {
       <PageHeader
         eyebrow="Platform"
         title="Curriculum"
-        description="Author curricula per US county and grade for students to browse and request."
+        description="Author curricula per US school district and grade for students to browse and request."
         icon={<GraduationCap className="h-5 w-5" />}
         actions={<Button variant="gradient" onClick={() => setShowNew((v) => !v)}><Plus className="h-3.5 w-3.5" /> New course</Button>}
       />
 
       {showNew && <NewCourseForm onDone={() => setShowNew(false)} />}
+
+      <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <LocationSelect value={filter} onChange={setFilter} />
+      </div>
+      {assigning && <AssignDistrictModal course={assigning} onClose={() => setAssigning(null)} />}
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
@@ -98,17 +145,29 @@ export function AdminCurriculumPage() {
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-gray-900 dark:text-white">{course.title}</p>
                       {course.isPublished ? <Badge variant="success" tone="soft">Published</Badge> : <Badge variant="default" tone="soft">Draft</Badge>}
+                      {!course.districtId && (
+                        <Badge variant="warning" tone="soft"><AlertTriangle className="h-3 w-3" /> No district</Badge>
+                      )}
                     </div>
-                    <p className="text-xs text-gray-500">{course.county ?? '—'}, {course.state ?? '—'} · {course.grade} · {course.subject} · {course.topics.length} topics</p>
+                    <p className="text-xs text-gray-500">
+                      {course.district ? `${course.district} · ` : ''}{course.county ?? '—'}, {course.state ?? '—'} · {course.grade} · {course.subject} · {course.topics.length} topics
+                    </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    loading={publishing}
-                    onClick={() => setPublished({ coursePublicId: course.publicId, publish: !course.isPublished })}
-                  >
-                    {course.isPublished ? <><EyeOff className="h-3.5 w-3.5" /> Unpublish</> : <><Eye className="h-3.5 w-3.5" /> Publish</>}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {!course.districtId && (
+                      <Button size="sm" variant="outline" onClick={() => setAssigning(course)}>
+                        <MapPin className="h-3.5 w-3.5" /> Assign district
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      loading={publishing}
+                      onClick={() => setPublished({ coursePublicId: course.publicId, publish: !course.isPublished })}
+                    >
+                      {course.isPublished ? <><EyeOff className="h-3.5 w-3.5" /> Unpublish</> : <><Eye className="h-3.5 w-3.5" /> Publish</>}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

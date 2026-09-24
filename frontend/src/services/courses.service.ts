@@ -16,6 +16,8 @@ export interface Course {
   state: string;
   countyFips: string;
   county: string; // display name, derived server-side from countyFips
+  districtId?: string; // absent on courses not yet migrated to a district
+  district?: string;
   grade: string;
   subject: string;
   title: string;
@@ -26,9 +28,7 @@ export interface Course {
 }
 
 export interface CreateCourseDto {
-  country: string;
-  state: string;
-  countyFips: string;
+  districtId: string;
   grade: string;
   subject: string;
   title: string;
@@ -45,7 +45,7 @@ export interface PaginatedCourses {
 }
 
 export const coursesService = {
-  listCatalog: (params: { countyFips?: string; grade?: string; subject?: string }): Promise<Course[]> =>
+  listCatalog: (params: { districtId?: string; grade?: string; subject?: string }): Promise<Course[]> =>
     api.get('/courses', { params }).then((r) => r.data.data),
 
   listForAdmin: (params: Record<string, string>): Promise<PaginatedCourses> =>
