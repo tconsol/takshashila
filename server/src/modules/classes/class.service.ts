@@ -242,8 +242,8 @@ export class ClassService {
         }
       }
     } else if (scheduled.billingMode === BillingMode.COURSE_PREPAID) {
-      // Student already paid for this class in full when the CourseRequest was
-      // accepted (see course-requests module) — do not charge them again here.
+      // Student already paid for this class in full when the Course was
+      // accepted (see courses module) — do not charge them again here.
       // The tutor still earns per completed class, same as STUDENT_REQUESTED.
       if (scheduled.costCents > 0 && studentAttended) {
         const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
@@ -265,39 +265,39 @@ export class ClassService {
         }
       }
 
-      // Advance the CourseRequest's progress regardless of the attendance/
+      // Advance the Course's progress regardless of the attendance/
       // payment outcome above — a completed class is one class closer to the
       // series being done. Dynamic import avoids a static circular import
-      // between classes/ and course-requests/ (course-requests/ already
+      // between classes/ and courses/ (courses/ already
       // imports class.service).
-      if (scheduled.courseRequestPublicId) {
+      if (scheduled.coursePublicId) {
         try {
-          const { CourseRequestModel } = await import('../course-requests/course-request.model');
-          const { CourseRequestStatus } = await import('../course-requests/course-request.types');
+          const { CourseModel } = await import('../courses/course.model');
+          const { CourseStatus } = await import('../courses/course.types');
 
-          const updatedRequest = await CourseRequestModel.findOneAndUpdate(
-            { publicId: scheduled.courseRequestPublicId },
+          const updatedRequest = await CourseModel.findOneAndUpdate(
+            { publicId: scheduled.coursePublicId },
             { $inc: { classesCompletedCount: 1 } },
             { new: true },
           ).lean();
 
           if (
             updatedRequest &&
-            updatedRequest.status !== CourseRequestStatus.COMPLETED &&
+            updatedRequest.status !== CourseStatus.COMPLETED &&
             updatedRequest.classesCompletedCount >= (updatedRequest.classesRequired ?? Infinity)
           ) {
-            await CourseRequestModel.findOneAndUpdate(
-              { publicId: scheduled.courseRequestPublicId },
-              { $set: { status: CourseRequestStatus.COMPLETED } },
+            await CourseModel.findOneAndUpdate(
+              { publicId: scheduled.coursePublicId },
+              { $set: { status: CourseStatus.COMPLETED } },
             );
-            domainEvents.emit(DomainEvent.COURSE_REQUEST_COMPLETED, {
-              requestPublicId: scheduled.courseRequestPublicId,
+            domainEvents.emit(DomainEvent.COURSE_COMPLETED, {
+              coursePublicId: scheduled.coursePublicId,
             });
           }
         } catch (error) {
-          logger.warn('Could not update CourseRequest completion progress', {
+          logger.warn('Could not update Course completion progress', {
             classPublicId,
-            courseRequestPublicId: scheduled.courseRequestPublicId,
+            coursePublicId: scheduled.coursePublicId,
             error: (error as Error).message,
           });
         }
@@ -420,6 +420,7 @@ export class ClassService {
             ownerPublicId: studentProfile.userPublicId,
             amountCents: scheduled.costCents,
             description: `Refund (course class cancelled): ${scheduled.title}`,
+            // Persisted in wallettransactions — do not rename (see rename spec §3.5).
             idempotencyKey: `course-class-cancel-refund-${classPublicId}`,
             referenceId: classPublicId,
             referenceType: 'CLASS_CANCELLATION',
@@ -535,8 +536,8 @@ export class ClassService {
         });
       }
     } else if (scheduled.billingMode === BillingMode.COURSE_PREPAID && scheduled.costCents > 0 && studentAttended) {
-      // Course classes were only ever charged `costCents` flat, in bulk, at
-      // CourseRequest accept time (see courseRequestService.accept) — no
+      // Curriculum classes were only ever charged `costCents` flat, in bulk, at
+      // Course accept time (see courseService.accept) — no
       // platform fee was added on top like the STUDENT_REQUESTED branch below.
       // Refund exactly costCents; refunding costCents + PLATFORM_FEE_CENTS
       // here would over-refund the student by the fee every time.

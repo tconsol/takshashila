@@ -1,28 +1,34 @@
-export interface ICourseTopic {
-  publicId: string;
-  title: string;
-  order: number;
-  resourceIds: string[];
-  assignmentIds: string[];
-  worksheetIds: string[];
+export const CourseStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED',
+  CANCELLED: 'CANCELLED',
+  COMPLETED: 'COMPLETED',
+} as const;
+export type CourseStatus = (typeof CourseStatus)[keyof typeof CourseStatus];
+
+export interface IAvailabilityWindow {
+  daysOfWeek: number[]; // 0 (Sun) – 6 (Sat)
+  startLocalTime: string; // "16:00"
+  endLocalTime: string; // "19:00"
+  ianaTimezone: string;
 }
 
 export interface ICourse {
   _id: string;
   publicId: string;
-  country: string;
-  state: string;
-  countyFips: string;
-  county: string;
-  districtId: string; // NCES LEAID; state/countyFips/county/district are derived from it
-  district: string;
-  grade: string;
-  subject: string;
-  title: string;
-  description?: string;
-  topics: ICourseTopic[];
-  createdByAdminPublicId: string;
-  isPublished: boolean;
+  studentPublicId: string;
+  tutorPublicId: string;
+  curriculumPublicId: string;
+  topicPublicIds: string[];
+  availabilityWindow: IAvailabilityWindow;
+  status: CourseStatus;
+  classesRequired?: number;
+  classesScheduledCount: number;
+  classesCompletedCount: number;
+  costCentsPerClass?: number;
+  totalCostCentsCharged?: number;
+  rejectionReason?: string;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;

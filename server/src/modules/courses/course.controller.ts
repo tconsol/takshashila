@@ -1,85 +1,62 @@
 import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { courseService } from './course.service';
-import { sendSuccess, sendCreated } from '../../utils/response';
-import { NotFoundError, ValidationError } from '../../utils/error';
-import { studentCatalogQuerySchema } from './course.validators';
-import { tutorService } from '../tutors/tutor.service';
+import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 
 export class CourseController {
   async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await courseService.create(req.user!.publicId, req.body);
-      sendCreated(res, result, 'Course created');
+      sendCreated(res, result, 'Course sent to tutor');
     } catch (error) { next(error); }
   }
 
-  async update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async getMine(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await courseService.update(req.params.coursePublicId, req.body);
-      sendSuccess(res, result, 'Course updated');
+      const result = await courseService.getForStudent(req.user!.publicId, req.query as Record<string, string>);
+      sendPaginated(res, result, 'Courses fetched');
     } catch (error) { next(error); }
   }
 
-  async publish(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async getProgress(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await courseService.setPublished(req.params.coursePublicId, true);
-      sendSuccess(res, result, 'Course published');
+      const result = await courseService.getProgress(req.params.coursePublicId, req.user!.publicId);
+      sendSuccess(res, result, 'Curriculum progress fetched');
     } catch (error) { next(error); }
   }
 
-  async unpublish(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async getIncoming(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await courseService.setPublished(req.params.coursePublicId, false);
-      sendSuccess(res, result, 'Course unpublished');
+      const result = await courseService.getForTutor(req.user!.publicId, req.query as Record<string, string>);
+      sendPaginated(res, result, 'Courses fetched');
     } catch (error) { next(error); }
   }
 
-  async remove(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async accept(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      await courseService.softDelete(req.params.coursePublicId);
-      sendSuccess(res, null, 'Course deleted');
+      const result = await courseService.accept(req.params.coursePublicId, req.user!.publicId, req.body);
+      sendSuccess(res, result, 'Course accepted');
     } catch (error) { next(error); }
   }
 
-  /** Tutor picker for a course: ACTIVE tutors teaching its subject + grade. */
-  async listTutors(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async reject(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const course = await courseService.getByPublicId(req.params.coursePublicId);
-      const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'SUPER_ADMIN';
-      if (!isAdmin && !course.isPublished) throw new NotFoundError('Course');
-      const tutors = await tutorService.findForCourse({ subject: course.subject, grade: course.grade });
-      sendSuccess(res, tutors, 'Tutors fetched');
+      const result = await courseService.reject(req.params.coursePublicId, req.user!.publicId, req.body);
+      sendSuccess(res, result, 'Course rejected');
     } catch (error) { next(error); }
   }
 
-  async getByPublicId(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async scheduleClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await courseService.getByPublicId(req.params.coursePublicId);
-      const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'SUPER_ADMIN';
-      if (!isAdmin && !result.isPublished) {
-        // Don't reveal that an unpublished course exists at this id.
-        throw new NotFoundError('Course');
-      }
-      sendSuccess(res, result, 'Course fetched');
+      const result = await courseService.scheduleClass(req.params.coursePublicId, req.user!.publicId, req.body);
+      sendCreated(res, result, 'Class scheduled');
     } catch (error) { next(error); }
   }
 
-  /** Admin/SuperAdmin management listing vs. the Student-facing published catalog. */
-  async list(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async cancel(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'SUPER_ADMIN';
-      if (isAdmin) {
-        const result = await courseService.listForAdmin(req.query as never);
-        sendSuccess(res, result, 'Courses fetched');
-      } else {
-        const parsed = studentCatalogQuerySchema.safeParse(req.query);
-        if (!parsed.success) {
-          throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>);
-        }
-        const result = await courseService.listCatalog(parsed.data);
-        sendSuccess(res, result, 'Courses fetched');
-      }
+      const result = await courseService.cancel(req.params.coursePublicId, req.user!.publicId);
+      sendSuccess(res, result, 'Course cancelled');
     } catch (error) { next(error); }
   }
 }

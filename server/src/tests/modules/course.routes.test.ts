@@ -1,9 +1,9 @@
 import request from 'supertest';
 import app from '../../app'; // app.ts uses `export default app;` — not a named export
-import { courseRequestService } from '../../modules/course-requests/course-request.service';
+import { courseService } from '../../modules/courses/course.service';
 
 // No other module in this repo has a `*.routes.test.ts` (confirmed by search —
-// only `class.*.test.ts`, `course-request.model.test.ts`, etc. exist at this
+// only `class.*.test.ts`, `course.model.test.ts`, etc. exist at this
 // layer), so there is no existing auth-bypass convention to mirror. This
 // suite mocks the auth middleware directly, which is the simplest approach
 // consistent with how every other test in this repo mocks singleton
@@ -28,13 +28,13 @@ jest.mock('../../middlewares/auth.middleware', () => {
   };
 });
 
-describe('POST /course-requests', () => {
+describe('POST /courses', () => {
   it('rejects a request with no selected topics (validator)', async () => {
     const res = await request(app)
-      .post('/api/v1/course-requests')
+      .post('/api/v1/courses')
       .send({
-        coursePublicId: 'course-1',
-        selectedTopicPublicIds: [],
+        curriculumPublicId: 'curriculum-1',
+        topicPublicIds: [],
         tutorPublicId: 'tutor-1',
         availabilityWindow: { daysOfWeek: [1], startLocalTime: '16:00', endLocalTime: '19:00', ianaTimezone: 'UTC' },
       });
@@ -47,12 +47,12 @@ describe('POST /course-requests', () => {
   });
 
   it('creates a request and returns 201 for a valid payload', async () => {
-    jest.spyOn(courseRequestService, 'create').mockResolvedValue({ publicId: 'cr-1' } as never);
+    jest.spyOn(courseService, 'create').mockResolvedValue({ publicId: 'cr-1' } as never);
     const res = await request(app)
-      .post('/api/v1/course-requests')
+      .post('/api/v1/courses')
       .send({
-        coursePublicId: 'course-1',
-        selectedTopicPublicIds: ['topic-1'],
+        curriculumPublicId: 'curriculum-1',
+        topicPublicIds: ['topic-1'],
         tutorPublicId: 'tutor-1',
         availabilityWindow: { daysOfWeek: [1], startLocalTime: '16:00', endLocalTime: '19:00', ianaTimezone: 'UTC' },
       });

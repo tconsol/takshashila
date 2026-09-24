@@ -4,9 +4,9 @@ export type DistrictResolution =
   | { status: 'resolved'; district: UsDistrict }
   | { status: 'unresolved'; candidates: number };
 
-/** A county-scoped course can only be moved to a district automatically when
+/** A county-scoped curriculum can only be moved to a district automatically when
  *  its county has exactly one district. */
-export function resolveCourseDistrict(state?: string, countyFips?: string): DistrictResolution {
+export function resolveCurriculumDistrict(state?: string, countyFips?: string): DistrictResolution {
   if (!state || !countyFips) return { status: 'unresolved', candidates: 0 };
   const districts = geoService.listDistricts(state, countyFips) ?? [];
   return districts.length === 1

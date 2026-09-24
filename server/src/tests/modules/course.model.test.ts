@@ -1,38 +1,29 @@
+// server/src/tests/modules/course.model.test.ts
 import { CourseModel } from '../../modules/courses/course.model';
+import { CourseStatus } from '../../modules/courses/course.types';
 
 describe('Course model', () => {
-  it('validates a course with ordered topics and attached content ids', () => {
+  it('validates a pending request with an availability window', () => {
     const doc = new CourseModel({
-      publicId: 'course-1',
-      country: 'US',
-      state: 'NC',
-      countyFips: '37183',
-      county: 'Wake County',
-      districtId: '3704720',
-      district: 'Wake County Schools',
-      grade: 'Grade 8',
-      subject: 'Mathematics',
-      title: 'Algebra I',
-      createdByAdminPublicId: 'admin-1',
-      isPublished: false,
-      topics: [
-        { publicId: 'topic-1', title: 'Linear Equations', order: 0, resourceIds: ['res-1'], assignmentIds: [], worksheetIds: ['ws-1'] },
-        { publicId: 'topic-2', title: 'Quadratic Equations', order: 1, resourceIds: [], assignmentIds: ['a-1'], worksheetIds: [] },
-      ],
+      publicId: 'cr-1',
+      studentPublicId: 'student-1',
+      tutorPublicId: 'tutor-1',
+      curriculumPublicId: 'curriculum-1',
+      topicPublicIds: ['topic-1', 'topic-2'],
+      availabilityWindow: {
+        daysOfWeek: [1, 2, 3, 4, 5],
+        startLocalTime: '16:00',
+        endLocalTime: '19:00',
+        ianaTimezone: 'America/New_York',
+      },
+      status: CourseStatus.PENDING,
+      classesScheduledCount: 0,
+      classesCompletedCount: 0,
       isDeleted: false,
     });
 
     expect(doc.validateSync()).toBeUndefined();
-    expect(doc.topics).toHaveLength(2);
-    expect(doc.topics[0].title).toBe('Linear Equations');
-  });
-
-  it('requires districtId, district, state, countyFips, county, grade, subject and title', () => {
-    const doc = new CourseModel({ publicId: 'course-2', createdByAdminPublicId: 'admin-1', topics: [] });
-    const err = doc.validateSync();
-    expect(err).toBeDefined();
-    expect(Object.keys(err!.errors)).toEqual(
-      expect.arrayContaining(['districtId', 'district', 'state', 'countyFips', 'county', 'grade', 'subject', 'title']),
-    );
+    expect(doc.status).toBe('PENDING');
+    expect(doc.availabilityWindow.daysOfWeek).toEqual([1, 2, 3, 4, 5]);
   });
 });

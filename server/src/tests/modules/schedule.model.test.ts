@@ -1,8 +1,8 @@
 import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
 import { BillingMode, ClassStatus, ClassType } from '../../modules/schedules/schedule.types';
 
-describe('ScheduledClass course fields', () => {
-  it('accepts COURSE_PREPAID billing mode and optional course link fields', () => {
+describe('ScheduledClass curriculum fields', () => {
+  it('accepts COURSE_PREPAID billing mode and optional curriculum link fields', () => {
     const doc = new ScheduledClassModel({
       publicId: 'class-1',
       tutorPublicId: 'tutor-1',
@@ -17,19 +17,19 @@ describe('ScheduledClass course fields', () => {
       costCents: 1500,
       billingMode: BillingMode.COURSE_PREPAID,
       idempotencyKey: 'course-class-1',
-      courseRequestPublicId: 'cr-1',
-      coursePublicId: 'course-1',
-      courseTopicPublicId: 'topic-2',
+      coursePublicId: 'cr-1',
+      curriculumPublicId: 'curriculum-1',
+      topicPublicId: 'topic-2',
       isDeleted: false,
     });
 
     const err = doc.validateSync();
     expect(err).toBeUndefined();
     expect(doc.billingMode).toBe('COURSE_PREPAID');
-    expect(doc.courseRequestPublicId).toBe('cr-1');
+    expect(doc.coursePublicId).toBe('cr-1');
   });
 
-  it('still allows a plain class with no course fields', () => {
+  it('still allows a plain class with no curriculum fields', () => {
     const doc = new ScheduledClassModel({
       publicId: 'class-2',
       tutorPublicId: 'tutor-1',
@@ -47,6 +47,6 @@ describe('ScheduledClass course fields', () => {
     });
 
     expect(doc.validateSync()).toBeUndefined();
-    expect(doc.courseRequestPublicId).toBeUndefined();
+    expect(doc.coursePublicId).toBeUndefined();
   });
 });

@@ -1,52 +1,36 @@
 import { z } from 'zod';
-import { GRADE_LIST } from '../students/student.validators';
-import { districtIdSchema } from '../geo/geo.validators';
-import { normalizeSubject } from '../../utils/taxonomy';
 
-const topicInputSchema = z.object({
-  publicId: z.string().optional(), // present when editing an existing topic
+export const createCourseSchema = z.object({
+  curriculumPublicId: z.string().min(1),
+  topicPublicIds: z.array(z.string()).min(1, 'Select at least one topic'),
+  tutorPublicId: z.string().min(1),
+  availabilityWindow: z.object({
+    daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1),
+    startLocalTime: z.string().regex(/^\d{2}:\d{2}$/),
+    endLocalTime: z.string().regex(/^\d{2}:\d{2}$/),
+    ianaTimezone: z.string().min(1),
+  }),
+});
+
+export const acceptCourseSchema = z.object({
+  classesRequired: z.number().int().min(1).max(200),
+});
+
+export const rejectCourseSchema = z.object({
+  reason: z.string().min(1).max(500),
+});
+
+export const scheduleCourseClassSchema = z.object({
+  startUTC: z.string().datetime(),
+  endUTC: z.string().datetime(),
   title: z.string().min(1).max(200),
-  order: z.number().int().min(0),
-  resourceIds: z.array(z.string()).default([]),
-  assignmentIds: z.array(z.string()).default([]),
-  worksheetIds: z.array(z.string()).default([]),
-});
-
-/** Location is never accepted from clients: the service derives state/county/district
- *  names from `districtId`, and Zod strips any other location keys sent. */
-const courseBaseSchema = z.object({
-  districtId: districtIdSchema,
-  grade: z.enum(GRADE_LIST),
-  // Same canonical spelling as tutor subjects, so the tutor picker can match them.
-  subject: z.string().min(1).max(100).transform(normalizeSubject),
-  title: z.string().min(1).max(200),
-  description: z.string().max(2000).optional(),
-  topics: z.array(topicInputSchema).default([]),
-});
-
-export const createCourseSchema = courseBaseSchema;
-
-export const updateCourseSchema = courseBaseSchema.partial();
-
-export const courseCatalogQuerySchema = z.object({
-  state: z.string().optional(),
-  countyFips: z.string().optional(),
-  districtId: z.string().optional(),
-  grade: z.string().optional(),
-  subject: z.string().optional(),
-  isPublished: z.enum(['true', 'false']).optional(),
-  page: z.coerce.number().int().min(1).optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
-});
-
-/** Student catalog: always district-scoped; no grade = "All grades". */
-export const studentCatalogQuerySchema = z.object({
-  districtId: districtIdSchema,
-  grade: z.enum(GRADE_LIST).optional(),
-  subject: z.string().optional(),
+  description: z.string().max(1000).optional(),
+  // Required for course classes: the student's progress page marks topics done from
+  // their classes. Ordinary 1:1 classes are scheduled elsewhere and stay topic-free.
+  topicPublicId: z.string().min(1, 'Select the topic this class covers'),
 });
 
 export type CreateCourseDto = z.infer<typeof createCourseSchema>;
-export type UpdateCourseDto = z.infer<typeof updateCourseSchema>;
-export type CourseCatalogQueryDto = z.infer<typeof courseCatalogQuerySchema>;
-export type StudentCatalogQueryDto = z.infer<typeof studentCatalogQuerySchema>;
+export type AcceptCourseDto = z.infer<typeof acceptCourseSchema>;
+export type RejectCourseDto = z.infer<typeof rejectCourseSchema>;
+export type ScheduleCourseClassDto = z.infer<typeof scheduleCourseClassSchema>;

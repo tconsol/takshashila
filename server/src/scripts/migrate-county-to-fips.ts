@@ -1,5 +1,5 @@
 /**
- * One-off migration: backfill country/state/countyFips on courses and student
+ * One-off migration: backfill country/state/countyFips on curricula and student
  * profiles that only have the legacy free-text `county`.
  *
  * Dry run by default — prints what it would change. Pass --apply to write.
@@ -9,7 +9,7 @@
  * Usage: npx ts-node src/scripts/migrate-county-to-fips.ts [--apply] [--state=VA]
  *
  * Records that can't be resolved are listed and left untouched; fix them by hand
- * in the curriculum editor (courses) or ask the student to re-pick in Profile.
+ * in the curriculum editor (curricula) or ask the student to re-pick in Profile.
  */
 import mongoose from 'mongoose';
 import { connectDatabase, disconnectDatabase } from '../config/database';
@@ -18,10 +18,10 @@ import { resolveLegacyCounty } from './resolve-legacy-county';
 const apply = process.argv.includes('--apply');
 const stateArg = process.argv.find((a) => a.startsWith('--state='))?.split('=')[1];
 
-// Raw collections, not models: the Course schema now requires countyFips,
+// Raw collections, not models: the Curriculum schema now requires countyFips,
 // so legacy documents would fail model validation.
 const TARGETS = [
-  { collection: 'courses', label: 'course' },
+  { collection: 'curricula', label: 'curriculum' },
   { collection: 'studentprofiles', label: 'student' },
 ] as const;
 

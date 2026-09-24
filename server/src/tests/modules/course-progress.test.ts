@@ -1,8 +1,8 @@
 import request from 'supertest';
 import app from '../../app';
-import { computeTopicProgress } from '../../modules/course-requests/course-progress';
-import { courseRequestService } from '../../modules/course-requests/course-request.service';
-import { CourseRequestModel } from '../../modules/course-requests/course-request.model';
+import { computeTopicProgress } from '../../modules/courses/course-progress';
+import { courseService } from '../../modules/courses/course.service';
+import { CourseModel } from '../../modules/courses/course.model';
 import { studentService } from '../../modules/students/student.service';
 
 jest.mock('../../middlewares/auth.middleware', () => {
@@ -16,7 +16,7 @@ jest.mock('../../middlewares/auth.middleware', () => {
 const NOW = new Date('2026-09-25T12:00:00Z');
 const at = (iso: string) => new Date(iso);
 const cls = (publicId: string, topic: string | undefined, status: string, start: string) => ({
-  publicId, courseTopicPublicId: topic, status, startUTC: at(start), endUTC: at(start),
+  publicId, topicPublicId: topic, status, startUTC: at(start), endUTC: at(start),
 });
 
 const topics = [
@@ -81,30 +81,30 @@ describe('computeTopicProgress', () => {
   });
 });
 
-describe('courseRequestService.getProgress', () => {
+describe('courseService.getProgress', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('404s a request that belongs to another student', async () => {
     jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-me' } as never);
-    jest.spyOn(CourseRequestModel, 'findOne').mockReturnValue({ lean: () => Promise.resolve(null) } as never);
+    jest.spyOn(CourseModel, 'findOne').mockReturnValue({ lean: () => Promise.resolve(null) } as never);
 
-    await expect(courseRequestService.getProgress('cr-1', 'user-1')).rejects.toMatchObject({ statusCode: 404 });
-    expect(CourseRequestModel.findOne).toHaveBeenCalledWith({ publicId: 'cr-1', studentPublicId: 'student-me', isDeleted: false });
+    await expect(courseService.getProgress('cr-1', 'user-1')).rejects.toMatchObject({ statusCode: 404 });
+    expect(CourseModel.findOne).toHaveBeenCalledWith({ publicId: 'cr-1', studentPublicId: 'student-me', isDeleted: false });
   });
 });
 
-describe('GET /course-requests', () => {
+describe('GET /courses', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('/mine passes a comma-separated status filter through', async () => {
-    const spy = jest.spyOn(courseRequestService, 'getForStudent').mockResolvedValue({ items: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } } as never);
-    await request(app).get('/api/v1/course-requests/mine?status=ACCEPTED,COMPLETED');
+    const spy = jest.spyOn(courseService, 'getForStudent').mockResolvedValue({ items: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } } as never);
+    await request(app).get('/api/v1/courses/mine?status=ACCEPTED,COMPLETED');
     expect(spy).toHaveBeenCalledWith('user-1', expect.objectContaining({ status: 'ACCEPTED,COMPLETED' }));
   });
 
   it('/:id/progress returns the progress for the caller', async () => {
-    const spy = jest.spyOn(courseRequestService, 'getProgress').mockResolvedValue({ topics: [] } as never);
-    const res = await request(app).get('/api/v1/course-requests/cr-1/progress');
+    const spy = jest.spyOn(courseService, 'getProgress').mockResolvedValue({ topics: [] } as never);
+    const res = await request(app).get('/api/v1/courses/cr-1/progress');
     expect(res.status).toBe(200);
     expect(spy).toHaveBeenCalledWith('cr-1', 'user-1');
   });
@@ -115,12 +115,12 @@ describe('_list status filter', () => {
 
   it('turns a comma-separated status into $in', async () => {
     jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-me' } as never);
-    const findSpy = jest.spyOn(CourseRequestModel, 'find').mockReturnValue({
+    const findSpy = jest.spyOn(CourseModel, 'find').mockReturnValue({
       sort: () => ({ skip: () => ({ limit: () => ({ lean: () => Promise.resolve([]) }) }) }),
     } as never);
-    jest.spyOn(CourseRequestModel, 'countDocuments').mockResolvedValue(0 as never);
+    jest.spyOn(CourseModel, 'countDocuments').mockResolvedValue(0 as never);
 
-    await courseRequestService.getForStudent('user-1', { status: 'ACCEPTED,COMPLETED' });
+    await courseService.getForStudent('user-1', { status: 'ACCEPTED,COMPLETED' });
 
     expect(findSpy).toHaveBeenCalledWith(expect.objectContaining({ status: { $in: ['ACCEPTED', 'COMPLETED'] } }));
   });

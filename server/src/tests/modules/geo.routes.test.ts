@@ -1,8 +1,8 @@
 import request from 'supertest';
 import app from '../../app';
-import { courseService } from '../../modules/courses/course.service';
+import { curriculumService } from '../../modules/curricula/curriculum.service';
 
-// Same auth stub as course-request.routes.test.ts; role is ADMIN so course create is allowed.
+// Same auth stub as course.routes.test.ts; role is ADMIN so curriculum create is allowed.
 jest.mock('../../middlewares/auth.middleware', () => {
   const stub = (req: never, _res: never, next: () => void) => {
     (req as { user: unknown }).user = { publicId: 'admin-1', role: 'ADMIN' };
@@ -46,21 +46,21 @@ describe('GET /geo', () => {
   });
 });
 
-describe('POST /courses location validation', () => {
+describe('POST /curricula location validation', () => {
   afterEach(() => jest.restoreAllMocks());
 
   const body = { grade: 'Grade 8', subject: 'Math', title: 'Algebra I', topics: [] };
 
   it('422s an unknown district', async () => {
-    const createSpy = jest.spyOn(courseService, 'create');
-    const res = await request(app).post('/api/v1/courses').send({ ...body, districtId: '9999999' });
+    const createSpy = jest.spyOn(curriculumService, 'create');
+    const res = await request(app).post('/api/v1/curricula').send({ ...body, districtId: '9999999' });
     expect(res.status).toBe(422);
     expect(createSpy).not.toHaveBeenCalled();
   });
 
   it('accepts a valid district and strips client-sent location fields', async () => {
-    const createSpy = jest.spyOn(courseService, 'create').mockResolvedValue({ publicId: 'c-1' } as never);
-    const res = await request(app).post('/api/v1/courses').send({ ...body, districtId: '3704720', state: 'VA', countyFips: '51059' });
+    const createSpy = jest.spyOn(curriculumService, 'create').mockResolvedValue({ publicId: 'c-1' } as never);
+    const res = await request(app).post('/api/v1/curricula').send({ ...body, districtId: '3704720', state: 'VA', countyFips: '51059' });
     expect(res.status).toBe(201);
     const dto = createSpy.mock.calls[0][1] as unknown as Record<string, unknown>;
     expect(dto.districtId).toBe('3704720');

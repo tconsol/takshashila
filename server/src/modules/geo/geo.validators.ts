@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { US_STATE_CODES } from './us-states';
 import { geoService } from './geo.service';
 
-/** Location fields shared by Course and Student profile. The county NAME is never
+/** Location fields shared by Curriculum and Student profile. The county NAME is never
  *  accepted from clients — services derive it from `countyFips`. */
 export const locationShape = {
   country: z.literal('US').default('US'),
@@ -35,7 +35,7 @@ export function refineLocation(
   }
 }
 
-export const courseLocationSchema = z.object(locationShape).superRefine(refineLocation);
+export const curriculumLocationSchema = z.object(locationShape).superRefine(refineLocation);
 export const partialLocationSchema = z.object(locationShape).partial().superRefine(refineLocation);
 
 /** NCES LEAID of a district in us-districts.json. Services derive every other

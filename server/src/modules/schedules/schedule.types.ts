@@ -13,8 +13,8 @@ export type ClassType = (typeof ClassType)[keyof typeof ClassType];
  *   tutor earns (rate − platform fee). Platform keeps a fee from both sides.
  * - TUTOR_INVITED: tutor created the class and invited students. Students attend free;
  *   the tutor pays the platform fee (both sides) and earns nothing.
- * - COURSE_PREPAID: student already paid the full course-request series up front
- *   (see CourseRequest). On completion the student is NOT charged again — only
+ * - COURSE_PREPAID: student already paid the full course series up front
+ *   (see Course). On completion the student is NOT charged again — only
  *   the tutor earns (rate − platform fee), same math as STUDENT_REQUESTED. On
  *   cancellation (unlike STUDENT_REQUESTED) the class's cost IS refunded, because
  *   it was already collected.
@@ -125,10 +125,10 @@ export interface IScheduledClass {
   autoResolvedAt?: Date;
   isRefunded?: boolean;
   refundedAt?: Date;
-  /** Set only when this class was scheduled against an accepted CourseRequest. */
-  courseRequestPublicId?: string;
+  /** Set only when this class was scheduled against an accepted Course. */
   coursePublicId?: string;
-  courseTopicPublicId?: string;
+  curriculumPublicId?: string;
+  topicPublicId?: string;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;

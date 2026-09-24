@@ -6,7 +6,7 @@ import { TutorStatus } from './tutor.types';
 import type { ITutorProfile, TutorSearchFilters } from './tutor.types';
 
 /** Public fields shown on the student's tutor picker — no earnings or internal scores. */
-export interface CourseTutorCard {
+export interface CurriculumTutorCard {
   publicId: string;
   displayName: string;
   rating: number;
@@ -226,17 +226,17 @@ export class TutorService {
     };
   }
 
-  /** Tutors a student can send a course request to: ACTIVE, teaching the course's
+  /** Tutors a student can send a course request to: ACTIVE, teaching the curriculum's
    *  subject (exact, case-insensitive — both sides are normalised on write) and its
    *  grade. A tutor with no gradesTaught is treated as teaching every grade. */
-  async findForCourse(course: { subject: string; grade: string }): Promise<CourseTutorCard[]> {
-    const escaped = course.subject.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  async findForCurriculum(curriculum: { subject: string; grade: string }): Promise<CurriculumTutorCard[]> {
+    const escaped = curriculum.subject.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const tutors = await TutorProfileModel.find({
       isDeleted: false,
       status: TutorStatus.ACTIVE,
       subjects: new RegExp(`^${escaped}$`, 'i'),
       $or: [
-        { gradesTaught: course.grade },
+        { gradesTaught: curriculum.grade },
         { gradesTaught: { $exists: false } },
         { gradesTaught: { $size: 0 } },
       ],

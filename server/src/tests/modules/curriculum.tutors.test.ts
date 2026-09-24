@@ -3,9 +3,9 @@ import app from '../../app';
 import { tutorService } from '../../modules/tutors/tutor.service';
 import { TutorProfileModel } from '../../modules/tutors/tutor.model';
 import { userRepository } from '../../modules/users/user.repository';
-import { courseService } from '../../modules/courses/course.service';
+import { curriculumService } from '../../modules/curricula/curriculum.service';
 import { updateTutorProfileSchema } from '../../modules/tutors/tutor.validators';
-import { createCourseSchema } from '../../modules/courses/course.validators';
+import { createCurriculumSchema } from '../../modules/curricula/curriculum.validators';
 
 jest.mock('../../middlewares/auth.middleware', () => {
   const stub = (req: never, _res: never, next: () => void) => {
@@ -17,14 +17,14 @@ jest.mock('../../middlewares/auth.middleware', () => {
 
 const findChain = (v: unknown) => ({ sort: () => ({ limit: () => ({ lean: () => Promise.resolve(v) }) }) });
 
-describe('tutorService.findForCourse', () => {
+describe('tutorService.findForCurriculum', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('queries ACTIVE tutors for the subject (case-insensitive) who teach the grade or have no grades set', async () => {
     const findSpy = jest.spyOn(TutorProfileModel, 'find').mockReturnValue(findChain([]) as never);
     jest.spyOn(userRepository, 'findManyByPublicIds').mockResolvedValue([]);
 
-    await tutorService.findForCourse({ subject: 'mathematics', grade: 'Grade 8' });
+    await tutorService.findForCurriculum({ subject: 'mathematics', grade: 'Grade 8' });
 
     const filter = (findSpy.mock.calls[0] as unknown as [Record<string, unknown>])[0];
     expect(filter.isDeleted).toBe(false);
@@ -43,7 +43,7 @@ describe('tutorService.findForCourse', () => {
     const findSpy = jest.spyOn(TutorProfileModel, 'find').mockReturnValue(findChain([]) as never);
     jest.spyOn(userRepository, 'findManyByPublicIds').mockResolvedValue([]);
 
-    await tutorService.findForCourse({ subject: 'C++', grade: 'Grade 8' });
+    await tutorService.findForCurriculum({ subject: 'C++', grade: 'Grade 8' });
 
     const subjects = (findSpy.mock.calls[0] as unknown as [Record<string, unknown>])[0].subjects as RegExp;
     expect(subjects.test('C++')).toBe(true);
@@ -61,7 +61,7 @@ describe('tutorService.findForCourse', () => {
       { publicId: 'u-1', firstName: 'Ada', lastName: 'Lovelace' },
     ] as never);
 
-    const result = await tutorService.findForCourse({ subject: 'Mathematics', grade: 'Grade 8' });
+    const result = await tutorService.findForCurriculum({ subject: 'Mathematics', grade: 'Grade 8' });
 
     expect(result).toEqual([
       { publicId: 't-1', displayName: 'Ada Lovelace', rating: 4.5, ratingCount: 10, hourlyRateCents: 2500, bio: 'Hi', isVerified: true },
@@ -69,25 +69,25 @@ describe('tutorService.findForCourse', () => {
   });
 });
 
-describe('GET /courses/:coursePublicId/tutors', () => {
+describe('GET /curricula/:curriculumPublicId/tutors', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('lists tutors for a published course using its subject and grade', async () => {
-    jest.spyOn(courseService, 'getByPublicId').mockResolvedValue({ publicId: 'c-1', subject: 'Mathematics', grade: 'Grade 8', isPublished: true } as never);
-    const spy = jest.spyOn(tutorService, 'findForCourse').mockResolvedValue([{ publicId: 't-1' }] as never);
+  it('lists tutors for a published curriculum using its subject and grade', async () => {
+    jest.spyOn(curriculumService, 'getByPublicId').mockResolvedValue({ publicId: 'c-1', subject: 'Mathematics', grade: 'Grade 8', isPublished: true } as never);
+    const spy = jest.spyOn(tutorService, 'findForCurriculum').mockResolvedValue([{ publicId: 't-1' }] as never);
 
-    const res = await request(app).get('/api/v1/courses/c-1/tutors');
+    const res = await request(app).get('/api/v1/curricula/c-1/tutors');
 
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([{ publicId: 't-1' }]);
     expect(spy).toHaveBeenCalledWith({ subject: 'Mathematics', grade: 'Grade 8' });
   });
 
-  it('404s an unpublished course for a student', async () => {
-    jest.spyOn(courseService, 'getByPublicId').mockResolvedValue({ publicId: 'c-1', isPublished: false } as never);
-    const spy = jest.spyOn(tutorService, 'findForCourse');
+  it('404s an unpublished curriculum for a student', async () => {
+    jest.spyOn(curriculumService, 'getByPublicId').mockResolvedValue({ publicId: 'c-1', isPublished: false } as never);
+    const spy = jest.spyOn(tutorService, 'findForCurriculum');
 
-    expect((await request(app).get('/api/v1/courses/c-1/tutors')).status).toBe(404);
+    expect((await request(app).get('/api/v1/curricula/c-1/tutors')).status).toBe(404);
     expect(spy).not.toHaveBeenCalled();
   });
 });
@@ -98,8 +98,8 @@ describe('validators', () => {
     expect(updateTutorProfileSchema.safeParse({ gradesTaught: ['Grade 13'] }).success).toBe(false);
   });
 
-  it('course subject is normalised the same way tutor subjects are', () => {
-    const parsed = createCourseSchema.parse({
+  it('curriculum subject is normalised the same way tutor subjects are', () => {
+    const parsed = createCurriculumSchema.parse({
       districtId: '3704720', grade: 'Grade 8', subject: '  maths ', title: 'Algebra', topics: [],
     });
     expect(parsed.subject).toBe('Mathematics');

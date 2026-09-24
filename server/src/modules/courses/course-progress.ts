@@ -16,7 +16,7 @@ interface TopicInput {
 }
 
 interface ClassInput extends ProgressClass {
-  courseTopicPublicId?: string;
+  topicPublicId?: string;
 }
 
 export interface TopicProgress extends TopicInput {
@@ -33,7 +33,7 @@ const byStart = (a: ProgressClass, b: ProgressClass) => a.startUTC.getTime() - b
 const view = (c: ClassInput): ProgressClass => ({ publicId: c.publicId, status: c.status, startUTC: c.startUTC, endUTC: c.endUTC });
 
 /**
- * Per-topic status for a course request. A topic is COMPLETED when it has at least
+ * Per-topic status for a course. A topic is COMPLETED when it has at least
  * one counted class and all of them are COMPLETED (MISSED/FAILED count as not done).
  * Otherwise it's SCHEDULED if a class is upcoming (or LIVE), else NOT_SCHEDULED.
  * Classes not tagged to one of `topics` come back as `otherClasses`.
@@ -45,7 +45,7 @@ export function computeTopicProgress(topics: TopicInput[], classes: ClassInput[]
   const result: TopicProgress[] = [...topics]
     .sort((a, b) => a.order - b.order)
     .map((topic) => {
-      const own = counted.filter((c) => c.courseTopicPublicId === topic.publicId).map(view).sort(byStart);
+      const own = counted.filter((c) => c.topicPublicId === topic.publicId).map(view).sort(byStart);
       const next = own.find((c) => c.status === ClassStatus.LIVE || (UPCOMING.has(c.status) && c.startUTC >= now));
       const done = own.length > 0 && own.every((c) => c.status === ClassStatus.COMPLETED);
       return {
@@ -57,7 +57,7 @@ export function computeTopicProgress(topics: TopicInput[], classes: ClassInput[]
     });
 
   const otherClasses = counted
-    .filter((c) => !c.courseTopicPublicId || !topicIds.has(c.courseTopicPublicId))
+    .filter((c) => !c.topicPublicId || !topicIds.has(c.topicPublicId))
     .map(view)
     .sort(byStart);
 

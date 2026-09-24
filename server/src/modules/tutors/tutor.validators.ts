@@ -18,7 +18,7 @@ export const createTutorProfileSchema = z.object({
 
 export const updateTutorProfileSchema = z.object({
   subjects: subjectList.optional(),
-  // Empty = teaches every grade (see tutorService.findForCourse).
+  // Empty = teaches every grade (see tutorService.findForCurriculum).
   gradesTaught: z.array(z.enum(GRADE_LIST)).optional(),
   languages: languageList.optional(),
   hourlyRateCents: z.number().int().min(0).optional(),

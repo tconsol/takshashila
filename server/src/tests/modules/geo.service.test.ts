@@ -1,5 +1,5 @@
 import { geoService } from '../../modules/geo/geo.service';
-import { courseLocationSchema, partialLocationSchema, districtIdSchema } from '../../modules/geo/geo.validators';
+import { curriculumLocationSchema, partialLocationSchema, districtIdSchema } from '../../modules/geo/geo.validators';
 
 describe('GeoService', () => {
   it('lists the 50 states + DC', () => {
@@ -58,19 +58,19 @@ describe('districtIdSchema', () => {
 
 describe('location validators', () => {
   it('accepts a county that belongs to the given state, defaulting country to US', () => {
-    const parsed = courseLocationSchema.parse({ state: 'NC', countyFips: '37183' });
+    const parsed = curriculumLocationSchema.parse({ state: 'NC', countyFips: '37183' });
     expect(parsed).toEqual({ country: 'US', state: 'NC', countyFips: '37183' });
   });
 
   it('rejects a county from a different state', () => {
-    const result = courseLocationSchema.safeParse({ state: 'VA', countyFips: '37183' });
+    const result = curriculumLocationSchema.safeParse({ state: 'VA', countyFips: '37183' });
     expect(result.success).toBe(false);
     expect(result.success ? [] : result.error.flatten().fieldErrors.countyFips).toBeDefined();
   });
 
   it('rejects a non-US country and an unknown state', () => {
-    expect(courseLocationSchema.safeParse({ country: 'CA', state: 'NC', countyFips: '37183' }).success).toBe(false);
-    expect(courseLocationSchema.safeParse({ state: 'ZZ', countyFips: '37183' }).success).toBe(false);
+    expect(curriculumLocationSchema.safeParse({ country: 'CA', state: 'NC', countyFips: '37183' }).success).toBe(false);
+    expect(curriculumLocationSchema.safeParse({ state: 'ZZ', countyFips: '37183' }).success).toBe(false);
   });
 
   it('partial: allows omitting location entirely, but not only one of state/countyFips', () => {

@@ -1,83 +1,374 @@
 import { courseService } from '../../modules/courses/course.service';
 import { CourseModel } from '../../modules/courses/course.model';
+import { CourseStatus } from '../../modules/courses/course.types';
+import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
+import { StudentProfileModel } from '../../modules/students/student.model';
+import { TutorProfileModel } from '../../modules/tutors/tutor.model';
+import { CurriculumModel } from '../../modules/curricula/curriculum.model';
+import { curriculumService } from '../../modules/curricula/curriculum.service';
+import { walletService } from '../../modules/wallets/wallet.service';
+import { studentService } from '../../modules/students/student.service';
+import { tutorService } from '../../modules/tutors/tutor.service';
+import { classService } from '../../modules/classes/class.service';
+import { domainEvents } from '../../events/event-emitter';
+import { NotFoundError } from '../../utils/error';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
-const catalogChain = (v: unknown) => ({ sort: () => ({ limit: () => lean(v) }) });
+
+function baseRequest(over: Record<string, unknown> = {}) {
+  return {
+    publicId: 'cr-1',
+    studentPublicId: 'student-prof-1',
+    tutorPublicId: 'tutor-prof-1',
+    curriculumPublicId: 'curriculum-1',
+    topicPublicIds: ['topic-1'],
+    availabilityWindow: {
+      daysOfWeek: [1, 2, 3, 4, 5],
+      startLocalTime: '16:00',
+      endLocalTime: '19:00',
+      ianaTimezone: 'UTC',
+    },
+    status: CourseStatus.PENDING,
+    classesScheduledCount: 0,
+    classesCompletedCount: 0,
+    isDeleted: false,
+    ...over,
+  };
+}
+
+function baseCurriculum(over: Record<string, unknown> = {}) {
+  return {
+    publicId: 'curriculum-1',
+    title: 'Algebra I',
+    county: 'Fairfax',
+    grade: '9',
+    subject: 'Math',
+    isPublished: true,
+    topics: [
+      { publicId: 'topic-1', title: 'Linear equations', order: 0 },
+      { publicId: 'topic-2', title: 'Quadratics', order: 1 },
+    ],
+    ...over,
+  };
+}
+
+function baseCreateDto(over: Record<string, unknown> = {}) {
+  return {
+    curriculumPublicId: 'curriculum-1',
+    topicPublicIds: ['topic-1'],
+    tutorPublicId: 'tutor-prof-1',
+    availabilityWindow: {
+      daysOfWeek: [1, 2, 3],
+      startLocalTime: '16:00',
+      endLocalTime: '19:00',
+      ianaTimezone: 'UTC',
+    },
+    ...over,
+  };
+}
 
 describe('CourseService', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('create() derives every location field from the district', async () => {
-    const created = { toObject: () => ({ publicId: 'course-1', title: 'Algebra I' }) };
-    const createSpy = jest.spyOn(CourseModel, 'create').mockResolvedValue(created as never);
+  describe('create', () => {
+    it('propagates NotFoundError when the curriculum does not exist', async () => {
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(curriculumService, 'getByPublicId').mockRejectedValue(new NotFoundError('Curriculum') as never);
+      const createSpy = jest.spyOn(CourseModel, 'create');
 
-    const result = await courseService.create('admin-user-1', {
-      districtId: '3704720',
-      grade: 'Grade 8',
-      subject: 'Mathematics',
-      title: 'Algebra I',
-      topics: [],
-    } as never);
+      await expect(
+        courseService.create('student-user-1', baseCreateDto()),
+      ).rejects.toThrow(NotFoundError);
+      expect(createSpy).not.toHaveBeenCalled();
+    });
 
-    expect(createSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        createdByAdminPublicId: 'admin-user-1',
-        isPublished: false,
-        country: 'US',
-        state: 'NC',
-        countyFips: '37183',
-        county: 'Wake County',
-        districtId: '3704720',
-        district: 'Wake County Schools',
-      }),
-    );
-    expect(result.title).toBe('Algebra I');
+    it('rejects with 400 when the curriculum is not published', async () => {
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(curriculumService, 'getByPublicId').mockResolvedValue(baseCurriculum({ isPublished: false }) as never);
+      const createSpy = jest.spyOn(CourseModel, 'create');
+
+      await expect(
+        courseService.create('student-user-1', baseCreateDto()),
+      ).rejects.toThrow('Curriculum is not available');
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects with 400 when a selected topic does not belong to the curriculum', async () => {
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(curriculumService, 'getByPublicId').mockResolvedValue(baseCurriculum() as never);
+      const createSpy = jest.spyOn(CourseModel, 'create');
+
+      await expect(
+        courseService.create('student-user-1', baseCreateDto({ topicPublicIds: ['not-a-real-topic'] })),
+      ).rejects.toThrow('One or more selected topics do not belong to this curriculum');
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it('throws before creating the row when the tutor id is bad', async () => {
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(curriculumService, 'getByPublicId').mockResolvedValue(baseCurriculum() as never);
+      jest.spyOn(tutorService, 'getByPublicId').mockRejectedValue(new NotFoundError('Tutor') as never);
+      const createSpy = jest.spyOn(CourseModel, 'create');
+
+      await expect(
+        courseService.create('student-user-1', baseCreateDto()),
+      ).rejects.toThrow(NotFoundError);
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it('creates the request when curriculum/topics/tutor are all valid', async () => {
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(curriculumService, 'getByPublicId').mockResolvedValue(baseCurriculum() as never);
+      jest.spyOn(tutorService, 'getByPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(null) as never);
+      const createSpy = jest.spyOn(CourseModel, 'create').mockResolvedValue(
+        { toObject: () => baseRequest() } as never,
+      );
+      jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+
+      const result = await courseService.create('student-user-1', baseCreateDto());
+
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      expect(result.publicId).toBe('cr-1');
+    });
+
+    it('allows requesting a curriculum from a different grade than the student\'s', async () => {
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1', grade: 'Grade 6' } as never);
+      jest.spyOn(curriculumService, 'getByPublicId').mockResolvedValue(baseCurriculum({ grade: 'Grade 10' }) as never);
+      jest.spyOn(tutorService, 'getByPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(null) as never);
+      const createSpy = jest.spyOn(CourseModel, 'create').mockResolvedValue({ toObject: () => baseRequest() } as never);
+      jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+
+      await courseService.create('student-user-1', baseCreateDto());
+
+      expect(createSpy).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('create() rejects an unknown district', async () => {
-    await expect(
-      courseService.create('admin-user-1', { districtId: '9999999', grade: 'Grade 8', subject: 'M', title: 'T', topics: [] } as never),
-    ).rejects.toMatchObject({ statusCode: 422 });
+  describe('accept', () => {
+    it('charges the student classesRequired × tutor rate and marks ACCEPTED', async () => {
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue(
+        { publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1', hourlyRateCents: 1500 } as never,
+      );
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(baseRequest()) as never);
+      jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'student-prof-1', userPublicId: 'student-user-1' }) as never);
+      const debit = jest.spyOn(walletService, 'debitWallet').mockResolvedValue({} as never);
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(
+        lean(baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4, costCentsPerClass: 1500 })) as never,
+      );
+      jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+
+      const result = await courseService.accept('cr-1', 'tutor-user-1', { classesRequired: 4 });
+
+      expect(debit).toHaveBeenCalledWith(
+        expect.objectContaining({ ownerPublicId: 'student-user-1', amountCents: 6000 }), // 4 × 1500
+      );
+      expect(result.status).toBe('ACCEPTED');
+    });
+
+    it('rejects accepting a request that is not PENDING', async () => {
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1', hourlyRateCents: 1500 } as never);
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(baseRequest({ status: CourseStatus.ACCEPTED })) as never);
+
+      await expect(courseService.accept('cr-1', 'tutor-user-1', { classesRequired: 4 })).rejects.toThrow();
+    });
+
+    it('never debits the wallet when the status transition loses a race (findOneAndUpdate returns null)', async () => {
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue(
+        { publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1', hourlyRateCents: 1500 } as never,
+      );
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(baseRequest()) as never);
+      jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'student-prof-1', userPublicId: 'student-user-1' }) as never);
+      const debit = jest.spyOn(walletService, 'debitWallet').mockResolvedValue({} as never);
+      // Simulate the request having been cancelled/accepted concurrently.
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean(null) as never);
+
+      await expect(
+        courseService.accept('cr-1', 'tutor-user-1', { classesRequired: 4 }),
+      ).rejects.toThrow('Request already processed');
+      expect(debit).not.toHaveBeenCalled();
+    });
   });
 
-  it('update() re-derives location when the district changes', async () => {
-    const updateSpy = jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean({ publicId: 'course-1' }) as never);
+  describe('scheduleClass', () => {
+    it('creates a COURSE_PREPAID class and increments classesScheduledCount when inside the window', async () => {
+      const accepted = baseRequest({
+        status: CourseStatus.ACCEPTED,
+        classesRequired: 4,
+        classesScheduledCount: 1,
+        costCentsPerClass: 1500,
+      });
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+      const createSpy = jest.spyOn(ScheduledClassModel, 'create').mockResolvedValue(
+        { toObject: () => ({ publicId: 'new-class-1' }) } as never,
+      );
+      const incSpy = jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean({ ...accepted, classesScheduledCount: 2 }) as never);
+      jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
 
-    await courseService.update('course-1', { districtId: '5101260' } as never);
+      // Wednesday (day 3) 17:00–18:00 UTC — inside daysOfWeek [1..5], 16:00–19:00 window
+      await courseService.scheduleClass('cr-1', 'tutor-user-1', {
+        startUTC: '2026-09-30T17:00:00.000Z', // a Wednesday
+        endUTC: '2026-09-30T18:00:00.000Z',
+        title: 'Algebra I – Session 2',
+        topicPublicId: 'topic-1',
+      });
 
-    expect(updateSpy).toHaveBeenCalledWith(
-      expect.anything(),
-      {
-        $set: expect.objectContaining({
-          state: 'VA', countyFips: '51059', county: 'Fairfax County',
-          districtId: '5101260', district: 'Fairfax County Public Schools',
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          billingMode: 'COURSE_PREPAID',
+          costCents: 1500,
+          coursePublicId: 'cr-1',
+          curriculumPublicId: 'curriculum-1',
+          topicPublicId: 'topic-1',
         }),
-      },
-      expect.anything(),
-    );
+      );
+      expect(incSpy).toHaveBeenCalledWith(
+        { publicId: 'cr-1', classesScheduledCount: { $lt: 4 } },
+        { $inc: { classesScheduledCount: 1 } },
+        { new: true },
+      );
+    });
+
+    it('rejects a time outside the stated availability window', async () => {
+      const accepted = baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4, classesScheduledCount: 0, costCentsPerClass: 1500 });
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+
+      // 20:00 UTC is after the 19:00 window end
+      await expect(
+        courseService.scheduleClass('cr-1', 'tutor-user-1', {
+          startUTC: '2026-09-30T20:00:00.000Z',
+          endUTC: '2026-09-30T21:00:00.000Z',
+          title: 'Late session',
+          topicPublicId: 'topic-1',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects once classesScheduledCount already equals classesRequired', async () => {
+      const full = baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4, classesScheduledCount: 4, costCentsPerClass: 1500 });
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(full) as never);
+
+      await expect(
+        courseService.scheduleClass('cr-1', 'tutor-user-1', {
+          startUTC: '2026-09-30T17:00:00.000Z',
+          endUTC: '2026-09-30T18:00:00.000Z',
+          title: 'One too many',
+          topicPublicId: 'topic-1',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects a class whose start is inside the window but whose end runs past it', async () => {
+      const accepted = baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4, classesScheduledCount: 0, costCentsPerClass: 1500 });
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+
+      // Starts 18:59 (inside 16:00–19:00) but runs to 21:00 — past the window end.
+      await expect(
+        courseService.scheduleClass('cr-1', 'tutor-user-1', {
+          startUTC: '2026-09-30T18:59:00.000Z',
+          endUTC: '2026-09-30T21:00:00.000Z',
+          title: 'Runs past the window',
+          topicPublicId: 'topic-1',
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects a topic the student did not select for this request', async () => {
+      const accepted = baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4, classesScheduledCount: 0, costCentsPerClass: 1500 });
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+
+      await expect(
+        courseService.scheduleClass('cr-1', 'tutor-user-1', {
+          startUTC: '2026-09-30T17:00:00.000Z',
+          endUTC: '2026-09-30T18:00:00.000Z',
+          title: 'Wrong topic',
+          topicPublicId: 'topic-2',
+        }),
+      ).rejects.toMatchObject({ statusCode: 400 });
+    });
   });
 
-  it('listCatalog() filters by district and grade when grade is given', async () => {
-    const findSpy = jest.spyOn(CourseModel, 'find').mockReturnValue(catalogChain([]) as never);
+  describe('cancel', () => {
+    it('cancels remaining scheduled classes and refunds the never-scheduled remainder', async () => {
+      const accepted = baseRequest({
+        status: CourseStatus.ACCEPTED,
+        classesRequired: 4,
+        classesScheduledCount: 1,
+        classesCompletedCount: 1,
+        costCentsPerClass: 1500,
+      });
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+      // Authorization: the actor resolves to this request's student.
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(tutorService, 'getByUserPublicId').mockRejectedValue(new Error('no tutor profile') as never);
+      jest.spyOn(ScheduledClassModel, 'find').mockReturnValue(lean([{ publicId: 'scheduled-class-1' }]) as never);
+      const cancelClassSpy = jest.spyOn(classService, 'cancelClass').mockResolvedValue({} as never);
+      jest.spyOn(studentService, 'getByPublicId').mockResolvedValue({ userPublicId: 'student-user-1' } as never);
+      const refund = jest.spyOn(walletService, 'refundWallet').mockResolvedValue({} as never);
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean({ ...accepted, status: CourseStatus.CANCELLED }) as never);
+      jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
 
-    await courseService.listCatalog({ districtId: '3704720', grade: 'Grade 8' });
+      await courseService.cancel('cr-1', 'student-user-1');
 
-    expect(findSpy).toHaveBeenCalledWith({ districtId: '3704720', grade: 'Grade 8', isPublished: true, isDeleted: false });
+      expect(cancelClassSpy).toHaveBeenCalledWith('scheduled-class-1', 'student-user-1', expect.objectContaining({ reason: expect.any(String) }));
+      // classesScheduledCount is monotonic (never decremented), so it already
+      // covers classesCompletedCount too: neverScheduled = classesRequired(4) -
+      // classesScheduledCount(1) = 3 never-scheduled → 3 × 1500 = 4500.
+      expect(refund).toHaveBeenCalledWith(expect.objectContaining({ ownerPublicId: 'student-user-1', amountCents: 4500 }));
+    });
+
+    it('rejects when the actor is neither the request\'s student nor its tutor', async () => {
+      const accepted = baseRequest({
+        status: CourseStatus.ACCEPTED,
+        classesRequired: 4,
+        classesScheduledCount: 1,
+        classesCompletedCount: 1,
+        costCentsPerClass: 1500,
+      });
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+      // Actor resolves to a student/tutor profile, but neither matches this request's ids.
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'some-other-student-prof' } as never);
+      jest.spyOn(tutorService, 'getByUserPublicId').mockRejectedValue(new Error('no tutor profile') as never);
+
+      await expect(courseService.cancel('cr-1', 'random-user')).rejects.toThrow();
+    });
   });
 
-  it('listCatalog() without grade returns all grades, ordered Grade 9 before Grade 10, then by title', async () => {
-    const findSpy = jest.spyOn(CourseModel, 'find').mockReturnValue(
-      catalogChain([
-        { title: 'A', grade: 'Grade 10' },
-        { title: 'B', grade: 'Grade 9' },
-        { title: 'A', grade: 'Grade 9' },
-        { title: 'Z', grade: 'Grade 1' },
-      ]) as never,
-    );
+  describe('getForTutor enrichment', () => {
+    it('attaches studentName, tutorName, curriculumTitle and topicTitles for a known fixture', async () => {
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      const chainable = (v: unknown) => ({
+        sort: () => ({ skip: () => ({ limit: () => ({ lean: () => Promise.resolve(v) }) }) }),
+      });
+      jest.spyOn(CourseModel, 'find').mockReturnValue(
+        chainable([baseRequest({ topicPublicIds: ['topic-1', 'topic-2'] })]) as never,
+      );
+      jest.spyOn(CourseModel, 'countDocuments').mockResolvedValue(1 as never);
+      jest.spyOn(TutorProfileModel, 'find').mockReturnValue(lean([{ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' }]) as never);
+      jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([{ publicId: 'student-prof-1', userPublicId: 'student-user-1' }]) as never);
+      jest.spyOn(CurriculumModel, 'find').mockReturnValue(lean([baseCurriculum()]) as never);
+      const { UserModel } = await import('../../modules/users/user.model');
+      jest.spyOn(UserModel, 'find').mockReturnValue(
+        lean([
+          { publicId: 'tutor-user-1', firstName: 'Tara', lastName: 'Tutor' },
+          { publicId: 'student-user-1', firstName: 'Sam', lastName: 'Student' },
+        ]) as never,
+      );
 
-    const result = await courseService.listCatalog({ districtId: '3704720' });
+      const result = await courseService.getForTutor('tutor-user-1', { limit: '20' } as never);
 
-    expect(findSpy).toHaveBeenCalledWith({ districtId: '3704720', isPublished: true, isDeleted: false });
-    expect(result.map((c) => `${c.grade}/${c.title}`)).toEqual(['Grade 1/Z', 'Grade 9/A', 'Grade 9/B', 'Grade 10/A']);
+      expect(result.items[0]).toMatchObject({
+        studentName: 'Sam Student',
+        tutorName: 'Tara Tutor',
+        curriculumTitle: 'Algebra I',
+        topicTitles: ['Linear equations', 'Quadratics'],
+      });
+    });
   });
 });
