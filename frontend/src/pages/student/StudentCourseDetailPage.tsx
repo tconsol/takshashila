@@ -1,13 +1,14 @@
 // frontend/src/pages/student/StudentCourseDetailPage.tsx
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckSquare, Square, BookOpen } from 'lucide-react';
+import { CheckSquare, Square, BookOpen, Star, BadgeCheck, UserX } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
-import { useCourse } from '../../hooks/use-courses';
+import { useCourse, useCourseTutors } from '../../hooks/use-courses';
 import { useCreateCourseRequest } from '../../hooks/use-course-requests';
+import { formatCurrency } from '../../utils/currency';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -15,6 +16,7 @@ export function StudentCourseDetailPage() {
   const { coursePublicId } = useParams<{ coursePublicId: string }>();
   const navigate = useNavigate();
   const { data: course, isLoading } = useCourse(coursePublicId);
+  const { data: tutors, isLoading: tutorsLoading } = useCourseTutors(coursePublicId);
   const { mutate: createRequest, isPending } = useCreateCourseRequest();
 
   const [selectedTopics, setSelectedTopics] = useState<Set<string>>(new Set());
@@ -43,7 +45,7 @@ export function StudentCourseDetailPage() {
     });
   };
 
-  const canSubmit = selectedTopics.size > 0 && tutorPublicId.trim().length > 0 && days.size > 0;
+  const canSubmit = selectedTopics.size > 0 && !!tutorPublicId && days.size > 0;
 
   return (
     <div className="animate-fade-in">
@@ -74,13 +76,50 @@ export function StudentCourseDetailPage() {
 
       <Card className="mb-4">
         <CardContent>
-          <p className="text-sm font-semibold mb-3">Tutor</p>
-          <input
-            value={tutorPublicId}
-            onChange={(e) => setTutorPublicId(e.target.value)}
-            placeholder="Paste tutor ID (from their profile page)"
-            className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm bg-white dark:bg-gray-900"
-          />
+          <p className="text-sm font-semibold mb-3">Choose a tutor</p>
+          {tutorsLoading ? (
+            <div className="flex justify-center py-6"><Spinner /></div>
+          ) : !tutors || tutors.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <UserX className="h-5 w-5 text-gray-400" />
+              <p className="text-sm text-gray-500">No tutors teach {course.subject} for {course.grade} yet.</p>
+            </div>
+          ) : (
+            <div role="radiogroup" aria-label="Tutor" className="grid gap-2 sm:grid-cols-2">
+              {tutors.map((tutor) => {
+                const selected = tutor.publicId === tutorPublicId;
+                return (
+                  <button
+                    key={tutor.publicId}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setTutorPublicId(tutor.publicId)}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      selected
+                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
+                        : 'border-gray-100 dark:border-gray-800 hover:border-brand-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1 text-sm font-semibold text-gray-900 dark:text-white">
+                        {tutor.displayName}
+                        {tutor.isVerified && <BadgeCheck className="h-3.5 w-3.5 text-brand-600" aria-label="Verified" />}
+                      </span>
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {formatCurrency(tutor.hourlyRateCents)}/hr
+                      </span>
+                    </div>
+                    <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                      {tutor.ratingCount > 0 ? `${tutor.rating.toFixed(1)} (${tutor.ratingCount})` : 'New'}
+                    </p>
+                    {tutor.bio && <p className="mt-1 line-clamp-2 text-xs text-gray-500">{tutor.bio}</p>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -116,7 +155,7 @@ export function StudentCourseDetailPage() {
             {
               coursePublicId: course.publicId,
               selectedTopicPublicIds: [...selectedTopics],
-              tutorPublicId: tutorPublicId.trim(),
+              tutorPublicId,
               availabilityWindow: {
                 daysOfWeek: [...days],
                 startLocalTime,

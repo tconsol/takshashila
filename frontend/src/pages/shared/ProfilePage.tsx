@@ -18,14 +18,9 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { api } from '../../lib/axios';
 import { useAuthStore } from '../../stores/auth.store';
 import { useMyStudentProfile, useUpdateMyStudentProfile } from '../../hooks/use-students';
-import { GRADE_OPTIONS } from '../../constants/grades';
+import { GRADE_OPTIONS, GRADE_LIST } from '../../constants/grades';
+import { SUBJECT_OPTIONS } from '../../constants/subjects';
 import { LocationSelect, EMPTY_LOCATION } from '../../components/shared/LocationSelect';
-
-const SUBJECT_OPTIONS = [
-  'Mathematics', 'Physics', 'Chemistry', 'Biology', 'English',
-  'Computer Science', 'History', 'Economics', 'Geography',
-  'Political Science', 'Sanskrit', 'Hindi', 'Art', 'Music',
-];
 
 const LANGUAGE_OPTIONS = [
   'English', 'Hindi', 'Tamil', 'Telugu', 'Kannada',
@@ -62,6 +57,7 @@ const profileSchema = z.object({
 const tutorProfileSchema = z.object({
   bio: z.string().max(1000).optional(),
   subjects: z.array(z.string()).default([]),
+  gradesTaught: z.array(z.string()).default([]),
   languages: z.array(z.string()).default([]),
   hourlyRateUSD: z.coerce.number().int().min(0, 'Rate cannot be negative').default(0),
   qualifications: z.string().optional(),
@@ -270,10 +266,11 @@ export function ProfilePage() {
 
   const tutorForm = useForm<TutorProfileForm>({
     resolver: zodResolver(tutorProfileSchema),
-    defaultValues: { bio: '', subjects: [], languages: [], hourlyRateUSD: 0, qualifications: '' },
+    defaultValues: { bio: '', subjects: [], gradesTaught: [], languages: [], hourlyRateUSD: 0, qualifications: '' },
     values: tutorData ? {
       bio: tutorData.bio ?? '',
       subjects: tutorData.subjects ?? [],
+      gradesTaught: tutorData.gradesTaught ?? [],
       languages: tutorData.languages ?? [],
       hourlyRateUSD: Math.round((tutorData.hourlyRateCents ?? 0) / 100),
       qualifications: (tutorData.qualifications ?? []).join(', '),
@@ -284,6 +281,7 @@ export function ProfilePage() {
     mutationFn: (d: TutorProfileForm) => api.put('/tutors/me', {
       bio: d.bio || undefined,
       subjects: d.subjects,
+      gradesTaught: d.gradesTaught,
       languages: d.languages,
       hourlyRateCents: d.hourlyRateUSD * 100,
       qualifications: d.qualifications ? d.qualifications.split(',').map((q) => q.trim()).filter(Boolean) : [],
@@ -562,6 +560,39 @@ export function ProfilePage() {
                   hint="Type anything — spelling is standardised when you save, so 'maths' and 'Mathematics' become one subject."
                 />
               )}
+            />
+
+            <Controller
+              control={tutorForm.control}
+              name="gradesTaught"
+              render={({ field }) => {
+                const selected = new Set(field.value);
+                const toggle = (g: string) =>
+                  field.onChange(GRADE_LIST.filter((x) => (x === g ? !selected.has(x) : selected.has(x))));
+                return (
+                  <div>
+                    <p className="mb-1.5 text-sm font-medium text-ink">Grades you teach</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {GRADE_LIST.map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          onClick={() => toggle(g)}
+                          aria-pressed={selected.has(g)}
+                          className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                            selected.has(g) ? 'bg-accent text-accent-ink' : 'bg-surface-sunk text-ink-muted hover:text-ink'
+                          }`}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      Students see you on course pages for these grades. Leave all unselected to be listed for every grade.
+                    </p>
+                  </div>
+                );
+              }}
             />
 
             <Controller

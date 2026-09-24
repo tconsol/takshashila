@@ -13,6 +13,7 @@ import type { Location } from '../../services/geo.service';
 import { Select } from '../../components/ui/Select';
 import { LocationSelect, EMPTY_LOCATION } from '../../components/shared/LocationSelect';
 import { GRADE_OPTIONS } from '../../constants/grades';
+import { SUBJECT_OPTIONS } from '../../constants/subjects';
 
 type TopicDraft = Omit<CourseTopic, 'publicId'> & { publicId?: string };
 
@@ -63,7 +64,14 @@ function CourseForm({ course, onDone }: { course?: Course; onDone: () => void })
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Select label="Grade" options={GRADE_OPTIONS} value={grade} onChange={(e) => setGrade(e.target.value)} />
-          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className={inputClass} />
+          <Select
+            label="Subject"
+            // Keep an older course's free-text subject selectable while editing it.
+            options={[...new Set([...SUBJECT_OPTIONS, ...(subject ? [subject] : [])])].map((s) => ({ value: s, label: s }))}
+            placeholder="Select subject"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+          />
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Course title" className={inputClass} />
         </div>
         <textarea

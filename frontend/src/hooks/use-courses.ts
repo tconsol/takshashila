@@ -9,6 +9,7 @@ export const courseKeys = {
   catalog: (params?: Record<string, string>) => [...courseKeys.all, 'catalog', params] as const,
   admin: (params?: Record<string, string>) => [...courseKeys.all, 'admin', params] as const,
   detail: (id: string) => [...courseKeys.all, 'detail', id] as const,
+  tutors: (id: string) => [...courseKeys.all, 'tutors', id] as const,
 };
 
 /** No `grade` = the "All grades" view of the district. */
@@ -31,6 +32,14 @@ export function useCourse(coursePublicId: string | undefined) {
   return useQuery({
     queryKey: courseKeys.detail(coursePublicId ?? ''),
     queryFn: () => coursesService.getByPublicId(coursePublicId!),
+    enabled: !!coursePublicId,
+  });
+}
+
+export function useCourseTutors(coursePublicId: string | undefined) {
+  return useQuery({
+    queryKey: courseKeys.tutors(coursePublicId ?? ''),
+    queryFn: () => coursesService.listTutors(coursePublicId!),
     enabled: !!coursePublicId,
   });
 }

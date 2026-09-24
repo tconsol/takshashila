@@ -7,6 +7,7 @@ export interface TutorProfile {
   email?: string;
   bio?: string;
   subjects: string[];
+  gradesTaught?: string[];
   languages?: string[];
   hourlyRateCents?: number;
   status: string;

@@ -36,6 +36,17 @@ export interface CreateCourseDto {
   topics: Omit<CourseTopic, 'publicId'>[] & { publicId?: string }[];
 }
 
+/** A tutor a student can request this course from (GET /courses/:id/tutors). */
+export interface CourseTutor {
+  publicId: string;
+  displayName: string;
+  rating: number;
+  ratingCount: number;
+  hourlyRateCents: number;
+  bio?: string;
+  isVerified: boolean;
+}
+
 export interface PaginatedCourses {
   items: Course[];
   total: number;
@@ -53,6 +64,9 @@ export const coursesService = {
 
   getByPublicId: (coursePublicId: string): Promise<Course> =>
     api.get(`/courses/${coursePublicId}`).then((r) => r.data.data),
+
+  listTutors: (coursePublicId: string): Promise<CourseTutor[]> =>
+    api.get(`/courses/${coursePublicId}/tutors`).then((r) => r.data.data),
 
   create: (dto: CreateCourseDto): Promise<Course> =>
     api.post('/courses', dto).then((r) => r.data.data),
