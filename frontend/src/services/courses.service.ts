@@ -60,6 +60,9 @@ export const coursesService = {
   update: (coursePublicId: string, dto: Partial<CreateCourseDto>): Promise<Course> =>
     api.put(`/courses/${coursePublicId}`, dto).then((r) => r.data.data),
 
+  remove: (coursePublicId: string): Promise<void> =>
+    api.delete(`/courses/${coursePublicId}`).then(() => undefined),
+
   publish: (coursePublicId: string): Promise<Course> =>
     api.post(`/courses/${coursePublicId}/publish`).then((r) => r.data.data),
 

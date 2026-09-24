@@ -62,6 +62,19 @@ export function useUpdateCourse() {
   });
 }
 
+export function useDeleteCourse() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: (coursePublicId: string) => coursesService.remove(coursePublicId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: courseKeys.all });
+      toast.success('Course deleted');
+    },
+    onError: (err: Error) => toast.error('Could not delete course', err.message),
+  });
+}
+
 export function usePublishCourse() {
   const qc = useQueryClient();
   const toast = useToast();
