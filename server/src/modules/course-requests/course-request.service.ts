@@ -19,6 +19,10 @@ import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
 import { CourseModel } from '../courses/course.model';
 import { walletService } from '../wallets/wallet.service';
+import { ResourceModel } from '../resources/resource.model';
+import { AssignmentModel } from '../assignments/assignment.model';
+import { WorksheetModel } from '../worksheets/worksheet.model';
+import { computeTopicProgress } from './course-progress';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
@@ -163,6 +167,80 @@ export class CourseRequestService {
     return this._list({ studentPublicId: studentProfile.publicId }, query);
   }
 
+  /** Nested progress for one of the caller's own requests: selected topics with status,
+   *  classes and attached materials, plus classes the tutor didn't tag with a topic. */
+  async getProgress(requestPublicId: string, studentUserPublicId: string) {
+    const studentProfile = await studentService.getByUserPublicId(studentUserPublicId);
+    const request = await CourseRequestModel.findOne({
+      publicId: requestPublicId,
+      studentPublicId: studentProfile.publicId,
+      isDeleted: false,
+    }).lean();
+    if (!request) throw new NotFoundError('Course request');
+
+    // Deleted courses included on purpose: the student's history still needs them.
+    const [course, classes, [enriched]] = await Promise.all([
+      CourseModel.findOne({ publicId: request.coursePublicId }).lean(),
+      ScheduledClassModel.find(
+        { courseRequestPublicId: request.publicId, isDeleted: false },
+        { publicId: 1, status: 1, startUTC: 1, endUTC: 1, courseTopicPublicId: 1 },
+      ).lean(),
+      enrichCourseRequests([request]),
+    ]);
+    if (!course) throw new NotFoundError('Course');
+
+    const selected = new Set(request.selectedTopicPublicIds);
+    const topics = course.topics.filter((t) => selected.has(t.publicId));
+    const ids = (key: 'resourceIds' | 'assignmentIds' | 'worksheetIds') => topics.flatMap((t) => t[key] ?? []);
+    const titleProjection = { publicId: 1, title: 1 };
+    const [resources, assignments, worksheets] = await Promise.all([
+      ResourceModel.find({ publicId: { $in: ids('resourceIds') }, isDeleted: false }, titleProjection).lean(),
+      AssignmentModel.find({ publicId: { $in: ids('assignmentIds') }, isDeleted: false }, titleProjection).lean(),
+      WorksheetModel.find({ publicId: { $in: ids('worksheetIds') }, isDeleted: false }, titleProjection).lean(),
+    ]);
+    const titleMap = (docs: Array<{ publicId: string; title: string }>) => new Map(docs.map((d) => [d.publicId, d.title]));
+    const byType = { resources: titleMap(resources), assignments: titleMap(assignments), worksheets: titleMap(worksheets) };
+    const pick = (list: string[] | undefined, map: Map<string, string>) =>
+      (list ?? []).flatMap((id) => (map.has(id) ? [{ publicId: id, title: map.get(id)! }] : []));
+
+    const progress = computeTopicProgress(
+      topics.map((t) => ({ publicId: t.publicId, title: t.title, order: t.order })),
+      classes,
+      new Date(),
+    );
+    const topicById = new Map(topics.map((t) => [t.publicId, t]));
+
+    return {
+      request: {
+        publicId: request.publicId,
+        status: request.status,
+        classesRequired: request.classesRequired ?? 0,
+        classesCompletedCount: request.classesCompletedCount,
+        tutorName: enriched.tutorName,
+      },
+      course: {
+        publicId: course.publicId,
+        title: course.title,
+        subject: course.subject,
+        grade: course.grade,
+        district: course.district,
+        state: course.state,
+      },
+      topics: progress.topics.map((t) => {
+        const source = topicById.get(t.publicId)!;
+        return {
+          ...t,
+          materials: {
+            resources: pick(source.resourceIds, byType.resources),
+            assignments: pick(source.assignmentIds, byType.assignments),
+            worksheets: pick(source.worksheetIds, byType.worksheets),
+          },
+        };
+      }),
+      otherClasses: progress.otherClasses,
+    };
+  }
+
   async getForTutor(tutorUserPublicId: string, query: PaginationQuery & { status?: string }): Promise<PaginatedResult<EnrichedCourseRequest>> {
     const tutorProfile = await tutorService.getByUserPublicId(tutorUserPublicId);
     return this._list({ tutorPublicId: tutorProfile.publicId }, query);
@@ -174,7 +252,10 @@ export class CourseRequestService {
   ): Promise<PaginatedResult<EnrichedCourseRequest>> {
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter: Record<string, unknown> = { ...scope, isDeleted: false };
-    if (query.status) filter.status = query.status;
+    if (query.status) {
+      const statuses = query.status.split(',').map((s) => s.trim()).filter(Boolean);
+      filter.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
+    }
 
     const [items, total] = await Promise.all([
       CourseRequestModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),

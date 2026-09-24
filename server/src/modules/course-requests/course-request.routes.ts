@@ -16,6 +16,7 @@ router.use(authMiddleware);
 
 router.post('/', requireRole(Role.STUDENT), validate(createCourseRequestSchema), courseRequestController.create.bind(courseRequestController));
 router.get('/mine', requireRole(Role.STUDENT), courseRequestController.getMine.bind(courseRequestController));
+router.get('/:requestPublicId/progress', requireRole(Role.STUDENT), courseRequestController.getProgress.bind(courseRequestController));
 router.get('/incoming', requireRole(Role.TUTOR), courseRequestController.getIncoming.bind(courseRequestController));
 router.post('/:requestPublicId/accept', requireRole(Role.TUTOR), validate(acceptCourseRequestSchema), courseRequestController.accept.bind(courseRequestController));
 router.post('/:requestPublicId/reject', requireRole(Role.TUTOR), validate(rejectCourseRequestSchema), courseRequestController.reject.bind(courseRequestController));

@@ -18,6 +18,13 @@ export class CourseRequestController {
     } catch (error) { next(error); }
   }
 
+  async getProgress(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await courseRequestService.getProgress(req.params.requestPublicId, req.user!.publicId);
+      sendSuccess(res, result, 'Course progress fetched');
+    } catch (error) { next(error); }
+  }
+
   async getIncoming(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await courseRequestService.getForTutor(req.user!.publicId, req.query as Record<string, string>);
