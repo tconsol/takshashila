@@ -4,6 +4,9 @@ describe('Course model', () => {
   it('validates a course with ordered topics and attached content ids', () => {
     const doc = new CourseModel({
       publicId: 'course-1',
+      country: 'US',
+      state: 'NC',
+      countyFips: '37183',
       county: 'Wake County',
       grade: 'Grade 8',
       subject: 'Mathematics',
@@ -22,12 +25,12 @@ describe('Course model', () => {
     expect(doc.topics[0].title).toBe('Linear Equations');
   });
 
-  it('requires county, grade, subject and title', () => {
+  it('requires state, countyFips, county, grade, subject and title', () => {
     const doc = new CourseModel({ publicId: 'course-2', createdByAdminPublicId: 'admin-1', topics: [] });
     const err = doc.validateSync();
     expect(err).toBeDefined();
     expect(Object.keys(err!.errors)).toEqual(
-      expect.arrayContaining(['county', 'grade', 'subject', 'title']),
+      expect.arrayContaining(['state', 'countyFips', 'county', 'grade', 'subject', 'title']),
     );
   });
 });

@@ -8,10 +8,14 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { useAdminCourses, useCreateCourse, usePublishCourse } from '../../hooks/use-courses';
 import type { CourseTopic } from '../../services/courses.service';
+import type { Location } from '../../services/geo.service';
+import { Select } from '../../components/ui/Select';
+import { LocationSelect, EMPTY_LOCATION } from '../../components/shared/LocationSelect';
+import { GRADE_OPTIONS } from '../../constants/grades';
 
 function NewCourseForm({ onDone }: { onDone: () => void }) {
   const { mutate: create, isPending } = useCreateCourse();
-  const [county, setCounty] = useState('');
+  const [location, setLocation] = useState<Location>(EMPTY_LOCATION);
   const [grade, setGrade] = useState('Grade 8');
   const [subject, setSubject] = useState('');
   const [title, setTitle] = useState('');
@@ -25,9 +29,11 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
   return (
     <Card className="mb-4">
       <CardContent className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <LocationSelect value={location} onChange={setLocation} />
+        </div>
         <div className="grid grid-cols-2 gap-2">
-          <input value={county} onChange={(e) => setCounty(e.target.value)} placeholder="County" className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm bg-white dark:bg-gray-900" />
-          <input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="Grade (e.g. Grade 8)" className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm bg-white dark:bg-gray-900" />
+          <Select label="Grade" options={GRADE_OPTIONS} value={grade} onChange={(e) => setGrade(e.target.value)} />
           <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm bg-white dark:bg-gray-900" />
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Course title" className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm bg-white dark:bg-gray-900" />
         </div>
@@ -47,10 +53,10 @@ function NewCourseForm({ onDone }: { onDone: () => void }) {
         <Button
           variant="gradient"
           loading={isPending}
-          disabled={!county || !grade || !subject || !title || topics.some((t) => !t.title)}
+          disabled={!location.countyFips || !grade || !subject || !title || topics.some((t) => !t.title)}
           onClick={() =>
             create(
-              { county, grade, subject, title, topics: topics.map((t, i) => ({ ...t, order: i })) },
+              { ...location, grade, subject, title, topics: topics.map((t, i) => ({ ...t, order: i })) },
               { onSuccess: onDone },
             )
           }
@@ -73,7 +79,7 @@ export function AdminCurriculumPage() {
       <PageHeader
         eyebrow="Platform"
         title="Curriculum"
-        description="Author county+grade curricula for students to browse and request."
+        description="Author curricula per US county and grade for students to browse and request."
         icon={<GraduationCap className="h-5 w-5" />}
         actions={<Button variant="gradient" onClick={() => setShowNew((v) => !v)}><Plus className="h-3.5 w-3.5" /> New course</Button>}
       />
@@ -93,7 +99,7 @@ export function AdminCurriculumPage() {
                       <p className="font-semibold text-gray-900 dark:text-white">{course.title}</p>
                       {course.isPublished ? <Badge variant="success" tone="soft">Published</Badge> : <Badge variant="default" tone="soft">Draft</Badge>}
                     </div>
-                    <p className="text-xs text-gray-500">{course.county} · {course.grade} · {course.subject} · {course.topics.length} topics</p>
+                    <p className="text-xs text-gray-500">{course.county ?? '—'}, {course.state ?? '—'} · {course.grade} · {course.subject} · {course.topics.length} topics</p>
                   </div>
                   <Button
                     size="sm"

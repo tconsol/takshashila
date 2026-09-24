@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studentsService } from '../services/students.service';
 import { tutorsService } from '../services/tutors.service';
-import type { CreateStudentDto, CreateStudentByPrincipalDto, InviteStudentByPrincipalDto } from '../services/students.service';
+import type { CreateStudentDto, CreateStudentByPrincipalDto, InviteStudentByPrincipalDto, UpdateMyStudentProfileDto } from '../services/students.service';
 import { useToast } from '../components/ui/Toast';
 
 export const studentKeys = {
@@ -22,17 +22,17 @@ export function useMyStudentProfile(enabled = true) {
   });
 }
 
-/** Lets a Student set their own grade/county — both feed the course catalog
+/** Lets a Student set their own grade/location — both feed the course catalog
  *  filter (see `useMyStudentProfile` consumers), so a successful save
  *  invalidates that same query key to refresh it immediately. */
 export function useUpdateMyStudentProfile() {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: (dto: { grade?: string; county?: string }) => studentsService.updateMyProfile(dto),
+    mutationFn: (dto: UpdateMyStudentProfileDto) => studentsService.updateMyProfile(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: studentKeys.myProfile() });
-      toast.success('Profile updated!', 'Your grade and county have been saved.');
+      toast.success('Profile updated!', 'Your grade and location have been saved.');
     },
     onError: (err: Error) => {
       toast.error('Update failed', err.message);

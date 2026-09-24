@@ -10,6 +10,9 @@ export interface ICourseTopic {
 export interface ICourse {
   _id: string;
   publicId: string;
+  country: string;
+  state: string;
+  countyFips: string;
   county: string;
   grade: string;
   subject: string;

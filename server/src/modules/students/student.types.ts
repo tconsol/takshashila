@@ -23,6 +23,9 @@ export interface IStudentProfile {
   totalClassesBooked: number;
   attendanceRate: number;
   grade?: string;
+  country?: string;
+  state?: string;
+  countyFips?: string;
   county?: string;
   notes?: string;
   invitedBy: string;

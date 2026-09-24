@@ -5,7 +5,8 @@ import { StudentProfileModel } from './student.model';
 import { StudentStatus } from './student.types';
 import type { IStudentProfile, TransferStudentDto } from './student.types';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
-import { NotFoundError, ConflictError, AppError } from '../../utils/error';
+import { NotFoundError, ConflictError, AppError, ValidationError } from '../../utils/error';
+import { geoService } from '../geo/geo.service';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { walletService } from '../wallets/wallet.service';
@@ -268,11 +269,18 @@ export class StudentService {
 
   async updateMyProfile(
     userPublicId: string,
-    data: { grade?: string; county?: string },
+    data: { grade?: string; country?: string; state?: string; countyFips?: string },
   ): Promise<IStudentProfile> {
+    const $set: Record<string, unknown> = { ...data };
+    if (data.countyFips) {
+      const county = geoService.getCounty(data.countyFips);
+      if (!county) throw new ValidationError({ countyFips: [`Unknown county ${data.countyFips}`] });
+      $set.country = data.country ?? 'US';
+      $set.county = county.name;
+    }
     const updated = await StudentProfileModel.findOneAndUpdate(
       { userPublicId, isDeleted: false },
-      { $set: data },
+      { $set },
       { new: true },
     ).lean();
     if (!updated) throw new NotFoundError('Student profile');

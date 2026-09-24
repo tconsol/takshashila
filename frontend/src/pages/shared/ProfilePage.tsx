@@ -19,6 +19,7 @@ import { api } from '../../lib/axios';
 import { useAuthStore } from '../../stores/auth.store';
 import { useMyStudentProfile, useUpdateMyStudentProfile } from '../../hooks/use-students';
 import { GRADE_OPTIONS } from '../../constants/grades';
+import { LocationSelect, EMPTY_LOCATION } from '../../components/shared/LocationSelect';
 
 const SUBJECT_OPTIONS = [
   'Mathematics', 'Physics', 'Chemistry', 'Biology', 'English',
@@ -68,8 +69,10 @@ const tutorProfileSchema = z.object({
 
 const studentAcademicSchema = z.object({
   grade: z.string().optional(),
-  county: z.string().optional(),
-});
+  country: z.string(),
+  state: z.string(),
+  countyFips: z.string(),
+}).refine((d) => !d.state || !!d.countyFips, { message: 'Select a county', path: ['countyFips'] });
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, 'Required'),
@@ -294,13 +297,15 @@ export function ProfilePage() {
 
   const academicForm = useForm<StudentAcademicForm>({
     resolver: zodResolver(studentAcademicSchema),
-    defaultValues: { grade: '', county: '' },
+    defaultValues: { grade: '', ...EMPTY_LOCATION },
   });
 
   useEffect(() => {
     if (!studentProfile) return;
     academicForm.setValue('grade',  studentProfile.grade  ?? '', { shouldDirty: false });
-    academicForm.setValue('county', studentProfile.county ?? '', { shouldDirty: false });
+    academicForm.setValue('country',    studentProfile.country    ?? 'US', { shouldDirty: false });
+    academicForm.setValue('state',      studentProfile.state      ?? '',   { shouldDirty: false });
+    academicForm.setValue('countyFips', studentProfile.countyFips ?? '',   { shouldDirty: false });
   }, [studentProfile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { mutateAsync: updateAcademicProfile, isPending: savingAcademic } = useUpdateMyStudentProfile();
@@ -610,7 +615,16 @@ export function ProfilePage() {
       {/* Academic info tab (student only) */}
       {tab === 'academic' && isStudent && (
         <div className="rounded-2xl border border-rule bg-surface p-6 shadow-card">
-          <form onSubmit={academicForm.handleSubmit((d) => updateAcademicProfile(d))} className="space-y-6">
+          <form
+            onSubmit={academicForm.handleSubmit((d) =>
+              updateAcademicProfile({
+                grade: d.grade || undefined,
+                // Server requires state + county together; send neither until both are picked.
+                ...(d.countyFips ? { country: d.country, state: d.state, countyFips: d.countyFips } : {}),
+              }),
+            )}
+            className="space-y-6"
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               <Controller
                 control={academicForm.control}
@@ -627,15 +641,19 @@ export function ProfilePage() {
                   />
                 )}
               />
-              <Field label="County" error={academicForm.formState.errors.county?.message}>
-                <Controller
-                  control={academicForm.control}
-                  name="county"
-                  render={({ field }) => (
-                    <TextInput icon={Globe} placeholder="e.g. Nairobi" {...field} />
-                  )}
-                />
-              </Field>
+              <LocationSelect
+                value={{
+                  country: academicForm.watch('country'),
+                  state: academicForm.watch('state'),
+                  countyFips: academicForm.watch('countyFips'),
+                }}
+                onChange={(loc) => {
+                  academicForm.setValue('country', loc.country, { shouldDirty: true });
+                  academicForm.setValue('state', loc.state, { shouldDirty: true });
+                  academicForm.setValue('countyFips', loc.countyFips, { shouldDirty: true, shouldValidate: academicForm.formState.isSubmitted });
+                }}
+                errors={{ countyFips: academicForm.formState.errors.countyFips?.message }}
+              />
             </div>
 
             <div className="flex justify-end pt-1">

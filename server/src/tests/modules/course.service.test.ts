@@ -14,7 +14,9 @@ describe('CourseService', () => {
     const createSpy = jest.spyOn(CourseModel, 'create').mockResolvedValue(created as never);
 
     const result = await courseService.create('admin-user-1', {
-      county: 'Wake County',
+      country: 'US',
+      state: 'NC',
+      countyFips: '37183',
       grade: 'Grade 8',
       subject: 'Mathematics',
       title: 'Algebra I',
@@ -22,19 +24,38 @@ describe('CourseService', () => {
     } as never);
 
     expect(createSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ createdByAdminPublicId: 'admin-user-1', isPublished: false, county: 'Wake County' }),
+      expect.objectContaining({
+        createdByAdminPublicId: 'admin-user-1',
+        isPublished: false,
+        country: 'US',
+        state: 'NC',
+        countyFips: '37183',
+        county: 'Wake County', // derived from the FIPS code, not sent by the client
+      }),
     );
     expect(result.title).toBe('Algebra I');
   });
 
-  it('listCatalog() only returns published courses matching county+grade', async () => {
+  it('update() re-derives the county name when the location changes', async () => {
+    const updateSpy = jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean({ publicId: 'course-1' }) as never);
+
+    await courseService.update('course-1', { state: 'VA', countyFips: '51059' } as never);
+
+    expect(updateSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      { $set: expect.objectContaining({ state: 'VA', countyFips: '51059', county: 'Fairfax County' }) },
+      expect.anything(),
+    );
+  });
+
+  it('listCatalog() only returns published courses matching countyFips+grade', async () => {
     const findSpy = jest.spyOn(CourseModel, 'find').mockReturnValue(leanChain([]) as never);
     jest.spyOn(CourseModel, 'countDocuments').mockResolvedValue(0 as never);
 
-    await courseService.listCatalog({ county: 'Wake County', grade: 'Grade 8' });
+    await courseService.listCatalog({ countyFips: '37183', grade: 'Grade 8' });
 
     expect(findSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ county: 'Wake County', grade: 'Grade 8', isPublished: true, isDeleted: false }),
+      expect.objectContaining({ countyFips: '37183', grade: 'Grade 8', isPublished: true, isDeleted: false }),
     );
   });
 });

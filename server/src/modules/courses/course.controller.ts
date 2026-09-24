@@ -53,7 +53,7 @@ export class CourseController {
         const result = await courseService.listForAdmin(req.query as never);
         sendSuccess(res, result, 'Courses fetched');
       } else {
-        const query = req.query as { county?: string; grade?: string; subject?: string };
+        const query = req.query as { countyFips?: string; grade?: string; subject?: string };
         const result = await courseService.listCatalog(query);
         sendSuccess(res, result, 'Courses fetched');
       }

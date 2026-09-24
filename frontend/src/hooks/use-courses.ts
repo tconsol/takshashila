@@ -11,11 +11,11 @@ export const courseKeys = {
   detail: (id: string) => [...courseKeys.all, 'detail', id] as const,
 };
 
-export function useCourseCatalog(params: { county?: string; grade?: string; subject?: string }) {
+export function useCourseCatalog(params: { countyFips?: string; grade?: string; subject?: string }) {
   return useQuery({
     queryKey: courseKeys.catalog(params as Record<string, string>),
     queryFn: () => coursesService.listCatalog(params),
-    enabled: !!params.county && !!params.grade,
+    enabled: !!params.countyFips && !!params.grade,
   });
 }
 

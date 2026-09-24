@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { locationShape, refineLocation } from '../geo/geo.validators';
 
 export const GRADE_LIST = [
   'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4',
@@ -8,10 +9,10 @@ export const GRADE_LIST = [
 
 export type Grade = (typeof GRADE_LIST)[number];
 
-export const updateMyStudentProfileSchema = z.object({
-  grade: z.enum(GRADE_LIST).optional(),
-  county: z.string().min(1).max(100).optional(),
-});
+export const updateMyStudentProfileSchema = z
+  .object({ grade: z.enum(GRADE_LIST), ...locationShape })
+  .partial()
+  .superRefine(refineLocation);
 export type UpdateMyStudentProfileDto = z.infer<typeof updateMyStudentProfileSchema>;
 
 export const createStudentByTutorSchema = z.object({

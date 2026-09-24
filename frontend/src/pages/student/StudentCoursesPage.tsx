@@ -16,15 +16,16 @@ import { useCourseCatalog } from '../../hooks/use-courses';
 
 export function StudentCoursesPage() {
   const { data: profile, isLoading: profileLoading } = useMyStudentProfile();
+  const countyFips = profile?.countyFips;
   const county = profile?.county;
   const grade = profile?.grade;
-  const { data: courses, isLoading } = useCourseCatalog({ county, grade });
+  const { data: courses, isLoading } = useCourseCatalog({ countyFips, grade });
 
   if (profileLoading) {
     return <div className="flex justify-center py-16"><Spinner /></div>;
   }
 
-  if (!county || !grade) {
+  if (!countyFips || !grade) {
     return (
       <div className="animate-fade-in">
         <PageHeader eyebrow="Courses" title="Curriculum" icon={<BookOpen className="h-5 w-5" />} />
@@ -32,7 +33,7 @@ export function StudentCoursesPage() {
           <CardContent>
             <div className="flex flex-col items-center py-14 text-center gap-3">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Set your grade and county in your profile to see your curriculum.
+                Set your grade, state and county in your profile to see your curriculum.
               </p>
               <Link to="/profile" className="text-sm text-brand-600 hover:underline">
                 Go to profile <ArrowRight className="inline h-3.5 w-3.5" />
@@ -49,7 +50,7 @@ export function StudentCoursesPage() {
       <PageHeader
         eyebrow="Courses"
         title="Curriculum"
-        description={`${grade} curriculum for ${county}`}
+        description={`${grade} curriculum for ${county}, ${profile?.state}`}
         icon={<BookOpen className="h-5 w-5" />}
       />
 
@@ -60,7 +61,7 @@ export function StudentCoursesPage() {
           <CardContent>
             <div className="flex flex-col items-center py-14 text-center gap-3">
               <Inbox className="h-6 w-6 text-gray-400" />
-              <p className="text-sm text-gray-500">No published curriculum yet for {grade} in {county}.</p>
+              <p className="text-sm text-gray-500">No published curriculum yet for {grade} in {county}, {profile?.state}.</p>
             </div>
           </CardContent>
         </Card>

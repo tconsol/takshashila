@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { GRADE_LIST } from '../students/student.validators';
+import { locationShape, refineLocation } from '../geo/geo.validators';
 
 const topicInputSchema = z.object({
   publicId: z.string().optional(), // present when editing an existing topic
@@ -10,8 +11,8 @@ const topicInputSchema = z.object({
   worksheetIds: z.array(z.string()).default([]),
 });
 
-export const createCourseSchema = z.object({
-  county: z.string().min(1).max(100),
+const courseBaseSchema = z.object({
+  ...locationShape,
   grade: z.enum(GRADE_LIST),
   subject: z.string().min(1).max(100),
   title: z.string().min(1).max(200),
@@ -19,10 +20,13 @@ export const createCourseSchema = z.object({
   topics: z.array(topicInputSchema).default([]),
 });
 
-export const updateCourseSchema = createCourseSchema.partial();
+export const createCourseSchema = courseBaseSchema.superRefine(refineLocation);
+
+export const updateCourseSchema = courseBaseSchema.partial().superRefine(refineLocation);
 
 export const courseCatalogQuerySchema = z.object({
-  county: z.string().optional(),
+  state: z.string().optional(),
+  countyFips: z.string().optional(),
   grade: z.string().optional(),
   subject: z.string().optional(),
   isPublished: z.enum(['true', 'false']).optional(),

@@ -39,6 +39,7 @@ import { badgesRouter } from './modules/badges/badges.routes';
 import demoRequestRoutes from './modules/demo-requests/demo-request.routes';
 import resourceRoutes from './modules/resources/resource.routes';
 import courseRoutes from './modules/courses/course.routes';
+import geoRoutes from './modules/geo/geo.routes';
 import courseRequestRoutes from './modules/course-requests/course-request.routes';
 
 const app = express();
@@ -138,6 +139,7 @@ app.use(`${API_BASE}/demo-requests`, demoRequestRoutes);
 app.use(`${API_BASE}/resources`, resourceRoutes);
 app.use(`${API_BASE}/courses`, courseRoutes);
 app.use(`${API_BASE}/course-requests`, courseRequestRoutes);
+app.use(`${API_BASE}/geo`, geoRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
