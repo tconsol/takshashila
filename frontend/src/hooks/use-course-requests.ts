@@ -8,12 +8,21 @@ export const courseRequestKeys = {
   all: ['course-requests'] as const,
   mine: (params?: Record<string, string>) => [...courseRequestKeys.all, 'mine', params] as const,
   incoming: (params?: Record<string, string>) => [...courseRequestKeys.all, 'incoming', params] as const,
+  progress: (id: string) => [...courseRequestKeys.all, 'progress', id] as const,
 };
 
 export function useCourseRequestsAsStudent(params?: Record<string, string>) {
   return useQuery({
     queryKey: courseRequestKeys.mine(params),
     queryFn: () => courseRequestsService.getMine(params),
+  });
+}
+
+export function useCourseProgress(requestPublicId: string | undefined) {
+  return useQuery({
+    queryKey: courseRequestKeys.progress(requestPublicId ?? ''),
+    queryFn: () => courseRequestsService.getProgress(requestPublicId!),
+    enabled: !!requestPublicId,
   });
 }
 

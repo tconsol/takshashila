@@ -43,6 +43,32 @@ export interface ScheduleCourseClassDto {
   courseTopicPublicId?: string;
 }
 
+export interface ProgressClass {
+  publicId: string;
+  status: string;
+  startUTC: string;
+  endUTC: string;
+}
+
+export interface MaterialRef { publicId: string; title: string }
+
+export interface TopicProgress {
+  publicId: string;
+  title: string;
+  order: number;
+  status: 'COMPLETED' | 'SCHEDULED' | 'NOT_SCHEDULED';
+  nextClass?: ProgressClass;
+  classes: ProgressClass[];
+  materials: { resources: MaterialRef[]; assignments: MaterialRef[]; worksheets: MaterialRef[] };
+}
+
+export interface CourseProgress {
+  request: { publicId: string; status: CourseRequest['status']; classesRequired: number; classesCompletedCount: number; tutorName: string };
+  course: { publicId: string; title: string; subject: string; grade: string; district?: string; state?: string };
+  topics: TopicProgress[];
+  otherClasses: ProgressClass[];
+}
+
 export interface PaginatedCourseRequests {
   items: CourseRequest[];
   total: number;
@@ -57,6 +83,9 @@ export const courseRequestsService = {
 
   getMine: (params?: Record<string, string>): Promise<PaginatedCourseRequests> =>
     api.get('/course-requests/mine', { params }).then((r) => r.data.data),
+
+  getProgress: (requestPublicId: string): Promise<CourseProgress> =>
+    api.get(`/course-requests/${requestPublicId}/progress`).then((r) => r.data.data),
 
   getIncoming: (params?: Record<string, string>): Promise<PaginatedCourseRequests> =>
     api.get('/course-requests/incoming', { params }).then((r) => r.data.data),

@@ -118,6 +118,7 @@ import { StudentParentRequestsPage } from '../pages/student/StudentParentRequest
 import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
 import { StudentCourseDetailPage } from '../pages/student/StudentCourseDetailPage';
 import { StudentCourseRequestsPage } from '../pages/student/StudentCourseRequestsPage';
+import { StudentCourseProgressPage } from '../pages/student/StudentCourseProgressPage';
 import { StudentCalendarPage } from '../pages/student/StudentCalendarPage';
 
 // Parent pages
@@ -296,6 +297,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/courses', element: <StudentCoursesPage /> },
         { path: '/dashboard/student/courses/:coursePublicId', element: <StudentCourseDetailPage /> },
         { path: '/dashboard/student/course-requests', element: <StudentCourseRequestsPage /> },
+        { path: '/dashboard/student/my-courses/:requestPublicId', element: <StudentCourseProgressPage /> },
       ],
     }],
   },

@@ -17,6 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { Avatar } from '../../components/ui/Avatar';
 import { LiveClassBanner } from '../../features/live-class/LiveClassBanner';
+import { MyCoursesSection } from '../../features/courses/MyCoursesSection';
 import { useMyTutor, useStudentPrincipal, useMyTutorLinks } from '../../hooks/use-students';
 import { useParentLinkRequests } from '../../hooks/use-student-parent-requests';
 import { api } from '../../lib/axios';
@@ -361,6 +362,9 @@ export function StudentDashboard() {
           </div>
         </motion.div>
       )}
+
+      {/* Curriculum courses the student is taking */}
+      <MyCoursesSection />
 
       {/* Classes + tutor grid */}
       <div className="grid gap-6 lg:grid-cols-3">
