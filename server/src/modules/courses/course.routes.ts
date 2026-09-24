@@ -13,6 +13,7 @@ router.get('/', courseController.list.bind(courseController));
 router.get('/:coursePublicId', courseController.getByPublicId.bind(courseController));
 router.post('/', requireRole(Role.SUPER_ADMIN, Role.ADMIN), validate(createCourseSchema), courseController.create.bind(courseController));
 router.put('/:coursePublicId', requireRole(Role.SUPER_ADMIN, Role.ADMIN), validate(updateCourseSchema), courseController.update.bind(courseController));
+router.delete('/:coursePublicId', requireRole(Role.SUPER_ADMIN, Role.ADMIN), courseController.remove.bind(courseController));
 router.post('/:coursePublicId/publish', requireRole(Role.SUPER_ADMIN, Role.ADMIN), courseController.publish.bind(courseController));
 router.post('/:coursePublicId/unpublish', requireRole(Role.SUPER_ADMIN, Role.ADMIN), courseController.unpublish.bind(courseController));
 

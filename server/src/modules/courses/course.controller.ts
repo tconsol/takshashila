@@ -34,6 +34,13 @@ export class CourseController {
     } catch (error) { next(error); }
   }
 
+  async remove(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await courseService.softDelete(req.params.coursePublicId);
+      sendSuccess(res, null, 'Course deleted');
+    } catch (error) { next(error); }
+  }
+
   async getByPublicId(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await courseService.getByPublicId(req.params.coursePublicId);

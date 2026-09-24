@@ -2,7 +2,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { CourseModel } from './course.model';
 import type { ICourse } from './course.types';
 import type { CreateCourseDto, UpdateCourseDto, CourseCatalogQueryDto, StudentCatalogQueryDto } from './course.validators';
-import { NotFoundError, ValidationError } from '../../utils/error';
+import { NotFoundError, ValidationError, ConflictError } from '../../utils/error';
+import { CourseRequestModel } from '../course-requests/course-request.model';
+import { CourseRequestStatus } from '../course-requests/course-request.types';
 import { geoService } from '../geo/geo.service';
 import { GRADE_LIST } from '../students/student.validators';
 import type { PaginatedResult } from '../../shared/types';
@@ -63,6 +65,25 @@ export class CourseService {
     ).lean();
     if (!updated) throw new NotFoundError('Course');
     return updated;
+  }
+
+  /** Soft delete. Refused while students hold PENDING or ACCEPTED (prepaid) requests —
+   *  admins can unpublish instead. Finished requests keep resolving the course title. */
+  async softDelete(coursePublicId: string): Promise<void> {
+    const course = await CourseModel.findOne({ publicId: coursePublicId, isDeleted: false }).lean();
+    if (!course) throw new NotFoundError('Course');
+    const active = await CourseRequestModel.countDocuments({
+      coursePublicId,
+      status: { $in: [CourseRequestStatus.PENDING, CourseRequestStatus.ACCEPTED] },
+      isDeleted: false,
+    });
+    if (active > 0) {
+      throw new ConflictError(`Course has ${active} active request${active === 1 ? '' : 's'} — unpublish it instead`);
+    }
+    await CourseModel.updateOne(
+      { publicId: coursePublicId, isDeleted: false },
+      { $set: { isDeleted: true, isPublished: false } },
+    );
   }
 
   async getByPublicId(coursePublicId: string): Promise<ICourse> {
