@@ -4,6 +4,17 @@ import crypto from 'crypto';
 import { tutorRepository } from './tutor.repository';
 import { TutorStatus } from './tutor.types';
 import type { ITutorProfile, TutorSearchFilters } from './tutor.types';
+
+/** Public fields shown on the student's tutor picker — no earnings or internal scores. */
+export interface CourseTutorCard {
+  publicId: string;
+  displayName: string;
+  rating: number;
+  ratingCount: number;
+  hourlyRateCents: number;
+  bio?: string;
+  isVerified: boolean;
+}
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { NotFoundError, ConflictError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
@@ -13,6 +24,7 @@ import { UserStatus } from '../users/user.types';
 import { DomainEvent } from '../../constants/events';
 import type { UpdateTutorProfileDto } from './tutor.validators';
 import { PrincipalProfileModel } from '../principals/principal.model';
+import { TutorProfileModel } from './tutor.model';
 import { settingsService } from '../settings/settings.service';
 
 export class TutorService {
@@ -212,6 +224,42 @@ export class TutorService {
       items: hydrated,
       pagination: { ...result.pagination, total: Math.max(0, result.pagination.total - dropped) },
     };
+  }
+
+  /** Tutors a student can send a course request to: ACTIVE, teaching the course's
+   *  subject (exact, case-insensitive — both sides are normalised on write) and its
+   *  grade. A tutor with no gradesTaught is treated as teaching every grade. */
+  async findForCourse(course: { subject: string; grade: string }): Promise<CourseTutorCard[]> {
+    const escaped = course.subject.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const tutors = await TutorProfileModel.find({
+      isDeleted: false,
+      status: TutorStatus.ACTIVE,
+      subjects: new RegExp(`^${escaped}$`, 'i'),
+      $or: [
+        { gradesTaught: course.grade },
+        { gradesTaught: { $exists: false } },
+        { gradesTaught: { $size: 0 } },
+      ],
+    })
+      .sort({ rating: -1, ratingCount: -1 })
+      .limit(50)
+      .lean();
+
+    const users = await userRepository.findManyByPublicIds(tutors.map((t) => t.userPublicId));
+    const userMap = new Map(users.map((u) => [u.publicId, u]));
+    return tutors.flatMap((t) => {
+      const u = userMap.get(t.userPublicId);
+      if (!u) return [];
+      return [{
+        publicId: t.publicId,
+        displayName: `${u.firstName} ${u.lastName}`,
+        rating: t.rating,
+        ratingCount: t.ratingCount,
+        hourlyRateCents: t.hourlyRateCents,
+        bio: t.bio,
+        isVerified: t.isVerified,
+      }];
+    });
   }
 
   async getByPrincipal(

@@ -10,6 +10,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/', courseController.list.bind(courseController));
+router.get('/:coursePublicId/tutors', courseController.listTutors.bind(courseController));
 router.get('/:coursePublicId', courseController.getByPublicId.bind(courseController));
 router.post('/', requireRole(Role.SUPER_ADMIN, Role.ADMIN), validate(createCourseSchema), courseController.create.bind(courseController));
 router.put('/:coursePublicId', requireRole(Role.SUPER_ADMIN, Role.ADMIN), validate(updateCourseSchema), courseController.update.bind(courseController));

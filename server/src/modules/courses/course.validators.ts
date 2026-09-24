@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { GRADE_LIST } from '../students/student.validators';
 import { districtIdSchema } from '../geo/geo.validators';
+import { normalizeSubject } from '../../utils/taxonomy';
 
 const topicInputSchema = z.object({
   publicId: z.string().optional(), // present when editing an existing topic
@@ -16,7 +17,8 @@ const topicInputSchema = z.object({
 const courseBaseSchema = z.object({
   districtId: districtIdSchema,
   grade: z.enum(GRADE_LIST),
-  subject: z.string().min(1).max(100),
+  // Same canonical spelling as tutor subjects, so the tutor picker can match them.
+  subject: z.string().min(1).max(100).transform(normalizeSubject),
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
   topics: z.array(topicInputSchema).default([]),

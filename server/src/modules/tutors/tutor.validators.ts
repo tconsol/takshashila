@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { normalizeSubjects, normalizeLanguages } from '../../utils/taxonomy';
+import { GRADE_LIST } from '../students/student.validators';
 
 // Tutors type these free-hand, so canonicalise at the edge: every downstream
 // reader (search, analytics, the directory filter) then sees one spelling.
@@ -17,6 +18,8 @@ export const createTutorProfileSchema = z.object({
 
 export const updateTutorProfileSchema = z.object({
   subjects: subjectList.optional(),
+  // Empty = teaches every grade (see tutorService.findForCourse).
+  gradesTaught: z.array(z.enum(GRADE_LIST)).optional(),
   languages: languageList.optional(),
   hourlyRateCents: z.number().int().min(0).optional(),
   bio: z.string().max(1000).optional(),

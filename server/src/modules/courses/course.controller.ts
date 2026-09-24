@@ -4,6 +4,7 @@ import { courseService } from './course.service';
 import { sendSuccess, sendCreated } from '../../utils/response';
 import { NotFoundError, ValidationError } from '../../utils/error';
 import { studentCatalogQuerySchema } from './course.validators';
+import { tutorService } from '../tutors/tutor.service';
 
 export class CourseController {
   async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -38,6 +39,17 @@ export class CourseController {
     try {
       await courseService.softDelete(req.params.coursePublicId);
       sendSuccess(res, null, 'Course deleted');
+    } catch (error) { next(error); }
+  }
+
+  /** Tutor picker for a course: ACTIVE tutors teaching its subject + grade. */
+  async listTutors(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const course = await courseService.getByPublicId(req.params.coursePublicId);
+      const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'SUPER_ADMIN';
+      if (!isAdmin && !course.isPublished) throw new NotFoundError('Course');
+      const tutors = await tutorService.findForCourse({ subject: course.subject, grade: course.grade });
+      sendSuccess(res, tutors, 'Tutors fetched');
     } catch (error) { next(error); }
   }
 

@@ -15,6 +15,7 @@ export interface ITutorProfile {
   principalPublicId?: string;
   status: TutorStatus;
   subjects: string[];
+  gradesTaught?: string[];
   languages: string[];
   hourlyRateCents: number;
   commissionRatePercent: number;

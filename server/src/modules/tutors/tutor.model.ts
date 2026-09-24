@@ -15,6 +15,7 @@ const tutorProfileSchema = new Schema<ITutorProfile>(
       index: true,
     },
     subjects: [{ type: String, trim: true }],
+    gradesTaught: [{ type: String }], // empty = teaches every grade
     languages: [{ type: String, trim: true }],
     hourlyRateCents: { type: Number, default: 0, min: 0 },
     commissionRatePercent: { type: Number, default: 20, min: 0, max: 100 },
