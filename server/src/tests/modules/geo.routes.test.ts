@@ -31,6 +31,19 @@ describe('GET /geo', () => {
     const bad = await request(app).get('/api/v1/geo/states/ZZ/counties');
     expect(bad.status).toBe(404);
   });
+
+  it('lists districts for a state, filters by county, 404s an unknown state, 422s a county outside the state', async () => {
+    const all = await request(app).get('/api/v1/geo/states/nc/districts');
+    expect(all.status).toBe(200);
+    expect(all.body.data.length).toBeGreaterThan(100);
+
+    const wake = await request(app).get('/api/v1/geo/states/NC/districts?countyFips=37183');
+    expect(wake.status).toBe(200);
+    expect(wake.body.data).toEqual([{ id: '3704720', name: 'Wake County Schools', state: 'NC', countyFips: '37183' }]);
+
+    expect((await request(app).get('/api/v1/geo/states/ZZ/districts')).status).toBe(404);
+    expect((await request(app).get('/api/v1/geo/states/VA/districts?countyFips=37183')).status).toBe(422);
+  });
 });
 
 describe('POST /courses location validation', () => {

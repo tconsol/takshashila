@@ -37,3 +37,10 @@ export function refineLocation(
 
 export const courseLocationSchema = z.object(locationShape).superRefine(refineLocation);
 export const partialLocationSchema = z.object(locationShape).partial().superRefine(refineLocation);
+
+/** NCES LEAID of a district in us-districts.json. Services derive every other
+ *  location field from it. */
+export const districtIdSchema = z
+  .string()
+  .regex(/^\d{7}$/, 'District id must be 7 digits')
+  .refine((id) => !!geoService.getDistrict(id), { message: 'Unknown school district' });
