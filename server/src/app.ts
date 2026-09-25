@@ -41,6 +41,7 @@ import resourceRoutes from './modules/resources/resource.routes';
 import curriculumRoutes from './modules/curricula/curriculum.routes';
 import geoRoutes from './modules/geo/geo.routes';
 import courseRoutes from './modules/courses/course.routes';
+import programRoutes from './modules/programs/program.routes';
 
 const app = express();
 
@@ -139,6 +140,7 @@ app.use(`${API_BASE}/demo-requests`, demoRequestRoutes);
 app.use(`${API_BASE}/resources`, resourceRoutes);
 app.use(`${API_BASE}/curricula`, curriculumRoutes);
 app.use(`${API_BASE}/courses`, courseRoutes);
+app.use(`${API_BASE}/programs`, programRoutes);
 app.use(`${API_BASE}/geo`, geoRoutes);
 
 app.use(notFoundMiddleware);

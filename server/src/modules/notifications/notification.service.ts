@@ -222,6 +222,23 @@ export class NotificationService {
       }
     });
 
+    domainEvents.on(DomainEvent.PROGRAM_ENROLLED, async (payload: { programPublicId: string; tutorPublicId: string }) => {
+      try {
+        const { TutorProfileModel } = await import('../tutors/tutor.model');
+        const tutor = await TutorProfileModel.findOne({ publicId: payload.tutorPublicId }, { userPublicId: 1 }).lean();
+        if (!tutor) return;
+        await this.create({
+          recipientPublicId: tutor.userPublicId,
+          type: 'SYSTEM' as const,
+          title: 'New skill program enrollment',
+          body: 'A student enrolled in your skill program. Schedule their first session.',
+          data: { programPublicId: payload.programPublicId },
+        });
+      } catch (e) {
+        logger.error('Failed to create PROGRAM_ENROLLED notification', { error: e });
+      }
+    });
+
     domainEvents.on(DomainEvent.ASSIGNMENT_SUBMITTED, async (payload: { assignmentPublicId: string; studentPublicId: string; graderTutorPublicId?: string }) => {
       try {
         await this.create({
