@@ -21,7 +21,7 @@ router.use(authMiddleware);
 router.post('/', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
-    const worksheet = await worksheetService.create(tutor.publicId, req.body);
+    const worksheet = await worksheetService.create(tutor, req.body);
 
     // Notify assigned students (or all students of this tutor) via socket
     try {

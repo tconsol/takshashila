@@ -11,19 +11,22 @@ import type {
 import { NotFoundError, ConflictError, AppError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { resolveTutorAttachment } from '../curricula/curriculum-attachment';
+import type { TutorAuthor } from '../../shared/material.types';
 
 /** Curriculum assignments may have no due date — those are never late. */
 const isLate = (dueDate?: Date) => !!dueDate && new Date() > dueDate;
 
 export class AssignmentService {
-  async create(dto: CreateAssignmentDto, tutorPublicId: string): Promise<IAssignment> {
+  async create(dto: CreateAssignmentDto, tutor: TutorAuthor): Promise<IAssignment> {
+    const attachment = await resolveTutorAttachment(tutor, dto);
     const assignment = await AssignmentModel.create({
       publicId: uuidv4(),
       classPublicId: dto.classPublicId,
-      tutorPublicId,
+      tutorPublicId: tutor.publicId,
       title: dto.title,
       description: dto.description,
-      dueDate: new Date(dto.dueDate),
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       maxScore: dto.maxScore ?? 100,
       attachmentPublicIds: dto.attachmentPublicIds ?? [],
       isFileAttachment: dto.isFileAttachment ?? false,
@@ -32,6 +35,9 @@ export class AssignmentService {
       fileOriginalName: dto.fileOriginalName,
       status: AssignmentStatus.DRAFT,
       isDeleted: false,
+      ...attachment,
+      authorRole: 'TUTOR',
+      authorUserPublicId: tutor.userPublicId,
     });
     return assignment.toObject();
   }

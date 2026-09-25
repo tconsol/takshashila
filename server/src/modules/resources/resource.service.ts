@@ -5,12 +5,15 @@ import { NotFoundError, AppError } from '../../utils/error';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import { mediaService } from '../media/media.service';
+import { resolveTutorAttachment } from '../curricula/curriculum-attachment';
+import type { TutorAuthor } from '../../shared/material.types';
 
 export class ResourceService {
-  async create(tutorPublicId: string, dto: CreateResourceDto): Promise<IResource> {
+  async create(tutor: TutorAuthor, dto: CreateResourceDto): Promise<IResource> {
+    const attachment = await resolveTutorAttachment(tutor, dto);
     const resource = await ResourceModel.create({
       publicId: uuidv4(),
-      tutorPublicId,
+      tutorPublicId: tutor.publicId,
       classPublicId: dto.classPublicId,
       title: dto.title,
       description: dto.description,
@@ -18,6 +21,9 @@ export class ResourceService {
       fileName: dto.fileName,
       mimeType: dto.mimeType,
       sizeBytes: dto.sizeBytes,
+      ...attachment,
+      authorRole: 'TUTOR',
+      authorUserPublicId: tutor.userPublicId,
     });
     return resource.toObject();
   }

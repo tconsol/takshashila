@@ -57,6 +57,8 @@ export interface IWorksheetSubmission {
 }
 
 export interface CreateWorksheetDto {
+  curriculumPublicId?: string;
+  topicPublicIds?: string[];
   classPublicId?: string;
   title: string;
   subject?: string;

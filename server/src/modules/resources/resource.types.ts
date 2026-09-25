@@ -18,6 +18,8 @@ export interface IResource extends CurriculumAttachment {
 }
 
 export interface CreateResourceDto {
+  curriculumPublicId?: string;
+  topicPublicIds?: string[];
   classPublicId?: string;
   title: string;
   description?: string;

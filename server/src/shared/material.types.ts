@@ -8,3 +8,11 @@ export interface CurriculumAttachment {
   authorRole?: MaterialAuthorRole;
   authorUserPublicId?: string;
 }
+
+/** The tutor/principal creating a material — enough to validate and stamp the attachment. */
+export interface TutorAuthor {
+  publicId: string;
+  userPublicId: string;
+  subjects: string[];
+  gradesTaught?: string[];
+}

@@ -16,7 +16,7 @@ router.use(authMiddleware);
 router.post('/', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
-    const assignment = await assignmentService.create(req.body, tutor.publicId);
+    const assignment = await assignmentService.create(req.body, tutor);
     sendCreated(res, assignment, 'Assignment created');
   } catch (e) { next(e); }
 });

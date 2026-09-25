@@ -5,18 +5,21 @@ import { WorksheetStatus } from './worksheet.types';
 import { NotFoundError, AppError, ConflictError } from '../../utils/error';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
+import { resolveTutorAttachment } from '../curricula/curriculum-attachment';
+import type { TutorAuthor } from '../../shared/material.types';
 
 export class WorksheetService {
-  async create(tutorPublicId: string, dto: CreateWorksheetDto): Promise<IWorksheet> {
+  async create(tutor: TutorAuthor, dto: CreateWorksheetDto): Promise<IWorksheet> {
     if (!dto.isFileAttachment && (!dto.questions || dto.questions.length === 0)) {
       throw new AppError('Worksheet must have at least one question', 400);
     }
     if (dto.isFileAttachment && !dto.filePublicId) {
       throw new AppError('File attachment requires a filePublicId', 400);
     }
+    const attachment = await resolveTutorAttachment(tutor, dto);
     const worksheet = await WorksheetModel.create({
       publicId: uuidv4(),
-      tutorPublicId,
+      tutorPublicId: tutor.publicId,
       classPublicId: dto.classPublicId,
       title: dto.title,
       subject: dto.subject,
@@ -29,6 +32,9 @@ export class WorksheetService {
       fileOriginalName: dto.fileOriginalName,
       assignedToStudentPublicIds: dto.assignedToStudentPublicIds ?? [],
       status: WorksheetStatus.PUBLISHED,
+      ...attachment,
+      authorRole: 'TUTOR',
+      authorUserPublicId: tutor.userPublicId,
     });
     return worksheet.toObject();
   }
