@@ -121,6 +121,9 @@ import { StudentMyCoursesPage } from '../pages/student/StudentMyCoursesPage';
 import { StudentCourseProgressPage } from '../pages/student/StudentCourseProgressPage';
 import { StudentAssignmentDetailPage } from '../pages/student/StudentAssignmentDetailPage';
 import { TutorCoursePage } from '../pages/tutor/TutorCoursePage';
+import { TutorProgramsPage } from '../pages/tutor/TutorProgramsPage';
+import { TutorProgramPage } from '../pages/tutor/TutorProgramPage';
+import { TutorProgramEnrollmentPage } from '../pages/tutor/TutorProgramEnrollmentPage';
 import { ParentCoursesPage } from '../pages/parent/ParentCoursesPage';
 import { ParentCoursePage } from '../pages/parent/ParentCoursePage';
 import { AdminCurriculumStructurePage } from '../pages/admin/AdminCurriculumStructurePage';
@@ -264,6 +267,9 @@ export const router = createBrowserRouter([
         { path: '/dashboard/tutor/demo-requests', element: <TutorDemoRequestsPage /> },
         { path: '/dashboard/tutor/course-requests', element: <TutorCourseRequestsPage /> },
         { path: '/dashboard/tutor/course-requests/:coursePublicId', element: <TutorCoursePage /> },
+        { path: '/dashboard/tutor/programs', element: <TutorProgramsPage /> },
+        { path: '/dashboard/tutor/programs/enrollments/:enrollmentPublicId', element: <TutorProgramEnrollmentPage /> },
+        { path: '/dashboard/tutor/programs/:programPublicId', element: <TutorProgramPage /> },
         { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/tutor/classes/create', element: <TutorCreateClassPage /> },

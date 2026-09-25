@@ -60,6 +60,7 @@ interface NodeProps {
   index: number;
   showStatus: boolean;
   hideClasses?: boolean;
+  hideMaterials?: boolean;
   onOpenMaterial: (m: StructureMaterial) => void;
   renderMaterialExtra?: (m: StructureMaterial) => ReactNode;
   renderTopicActions?: (topic: StructureTopic) => ReactNode;
@@ -88,7 +89,7 @@ function MaterialRow({ m, onOpen, extra }: { m: StructureMaterial; onOpen: () =>
   );
 }
 
-function TopicNode({ topic, index, showStatus, hideClasses, onOpenMaterial, renderMaterialExtra, renderTopicActions }: NodeProps) {
+function TopicNode({ topic, index, showStatus, hideClasses, hideMaterials, onOpenMaterial, renderMaterialExtra, renderTopicActions }: NodeProps) {
   const [open, setOpen] = useState(!showStatus || topic.status !== 'COMPLETED');
   const done = showStatus && topic.status === 'COMPLETED';
 
@@ -121,7 +122,7 @@ function TopicNode({ topic, index, showStatus, hideClasses, onOpenMaterial, rend
               )}
             </div>
           )}
-          <div>
+          {!hideMaterials && <div>
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Materials</p>
             {topic.materials.length === 0 ? (
               <p className="text-xs text-gray-400">No materials yet.</p>
@@ -132,7 +133,7 @@ function TopicNode({ topic, index, showStatus, hideClasses, onOpenMaterial, rend
                 ))}
               </ul>
             )}
-          </div>
+          </div>}
         </div>
       )}
     </li>
@@ -140,12 +141,13 @@ function TopicNode({ topic, index, showStatus, hideClasses, onOpenMaterial, rend
 }
 
 export function CourseStructureTree({
-  topics, otherClasses, showStatus, hideClasses, onOpenMaterial, renderMaterialExtra, renderTopicActions,
+  topics, otherClasses, showStatus, hideClasses, hideMaterials, onOpenMaterial, renderMaterialExtra, renderTopicActions,
 }: {
   topics: StructureTopic[];
   otherClasses: ProgressClass[];
   showStatus: boolean;
   hideClasses?: boolean;
+  hideMaterials?: boolean;
   onOpenMaterial: (m: StructureMaterial) => void;
   renderMaterialExtra?: (m: StructureMaterial) => ReactNode;
   renderTopicActions?: (topic: StructureTopic) => ReactNode;
@@ -160,6 +162,7 @@ export function CourseStructureTree({
             index={i}
             showStatus={showStatus}
             hideClasses={hideClasses}
+            hideMaterials={hideMaterials}
             onOpenMaterial={onOpenMaterial}
             renderMaterialExtra={renderMaterialExtra}
             renderTopicActions={renderTopicActions}
