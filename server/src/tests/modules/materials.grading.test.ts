@@ -57,7 +57,10 @@ describe('admin-item submissions', () => {
 
   it('lists a course\'s submissions for one item to that course\'s tutor only', async () => {
     jest.spyOn(TutorProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'tp-B' }) as never);
-    jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean({ publicId: 'c-1', tutorPublicId: 'tp-B', studentPublicId: 'sp-1' }) as never);
+    jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean({
+      publicId: 'c-1', tutorPublicId: 'tp-B', studentPublicId: 'sp-1', status: 'ACCEPTED', curriculumPublicId: 'cur-1', topicPublicIds: ['t-1'],
+    }) as never);
+    jest.spyOn(AssignmentModel, 'exists').mockResolvedValue({ _id: 'x' } as never);
     const find = jest.spyOn(SubmissionModel, 'find').mockReturnValue({ sort: () => lean([]) } as never);
     await courseService.getMaterialSubmissions('c-1', 'tu-B', 'assignment', 'a-1');
     expect(find).toHaveBeenCalledWith({ assignmentPublicId: 'a-1', studentPublicId: 'sp-1', isDeleted: false });

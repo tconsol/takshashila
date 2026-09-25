@@ -37,7 +37,8 @@ export async function canViewMaterial(viewer: Viewer, m: MaterialLike): Promise<
   if (!m.curriculumPublicId) return true;
   if (viewer.role === 'ADMIN' || viewer.role === 'SUPER_ADMIN') return true;
 
-  if (viewer.role === 'TUTOR') {
+  // Principals teach through an auto-created tutor profile.
+  if (viewer.role === 'TUTOR' || viewer.role === 'PRINCIPAL') {
     const tutor = await TutorProfileModel.findOne({ userPublicId: viewer.userPublicId, isDeleted: false }).lean();
     if (!tutor) return false;
     if (m.authorRole !== 'ADMIN') return m.tutorPublicId === tutor.publicId;
@@ -53,6 +54,30 @@ export async function canViewMaterial(viewer: Viewer, m: MaterialLike): Promise<
   }
 
   return false;
+}
+
+/**
+ * Extra filter for a student's generic Homework/Resources lists: legacy items as before,
+ * plus tutor-authored curriculum items only where the student has an active course with
+ * that tutor on that curriculum sharing a topic. Admin items are reached via the course
+ * structure only.
+ */
+export async function studentMaterialScope(studentPublicId: string): Promise<Record<string, unknown>> {
+  const courses = await CourseModel.find(
+    { studentPublicId, status: { $in: ACTIVE_COURSE_STATUSES }, isDeleted: false },
+    { curriculumPublicId: 1, tutorPublicId: 1, topicPublicIds: 1 },
+  ).lean();
+  return {
+    $or: [
+      { curriculumPublicId: { $exists: false } },
+      ...courses.map((c) => ({
+        curriculumPublicId: c.curriculumPublicId,
+        tutorPublicId: c.tutorPublicId,
+        topicPublicIds: { $in: c.topicPublicIds },
+        authorRole: { $ne: 'ADMIN' },
+      })),
+    ],
+  };
 }
 
 /** Mongo filter for the materials a course's structure shows. */

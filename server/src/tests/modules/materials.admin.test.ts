@@ -2,6 +2,7 @@
 import request from 'supertest';
 import app from '../../app';
 import { CurriculumModel } from '../../modules/curricula/curriculum.model';
+import { CourseModel } from '../../modules/courses/course.model';
 import { ResourceModel } from '../../modules/resources/resource.model';
 import { AssignmentModel } from '../../modules/assignments/assignment.model';
 import { WorksheetModel, WorksheetSubmissionModel } from '../../modules/worksheets/worksheet.model';
@@ -78,6 +79,7 @@ describe('admin worksheets stay out of generic student lists', () => {
     const find = jest.spyOn(WorksheetModel, 'find').mockReturnValue({ sort: () => ({ skip: () => ({ limit: () => lean([]) }) }) } as never);
     jest.spyOn(WorksheetModel, 'countDocuments').mockResolvedValue(0 as never);
     jest.spyOn(WorksheetSubmissionModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(CourseModel, 'find').mockReturnValue(lean([]) as never); // studentMaterialScope
     await worksheetService.getForStudent('sp-1', {});
     expect(find).toHaveBeenCalledWith(expect.objectContaining({ authorRole: { $ne: 'ADMIN' } }));
   });

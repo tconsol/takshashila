@@ -21,8 +21,8 @@ import { CurriculumModel } from '../curricula/curriculum.model';
 import { walletService } from '../wallets/wallet.service';
 import { computeTopicProgress } from './course-progress';
 import { ParentProfileModel } from '../parents/parent.model';
-import { SubmissionModel } from '../assignments/assignment.model';
-import { WorksheetSubmissionModel } from '../worksheets/worksheet.model';
+import { AssignmentModel, SubmissionModel } from '../assignments/assignment.model';
+import { WorksheetModel, WorksheetSubmissionModel } from '../worksheets/worksheet.model';
 import { materialFilterForCourse, ACTIVE_COURSE_STATUSES, type Viewer } from './material-access';
 import { loadMaterialsByTopic, curriculumSummary } from './course-structure';
 import { AppError, ConflictError, NotFoundError, ValidationError } from '../../utils/error';
@@ -174,6 +174,10 @@ export class CourseService {
     const course = await CourseModel.findOne({ publicId: coursePublicId, isDeleted: false }).lean();
     if (!course) throw new NotFoundError('Course');
     const viewerRole = await this._structureRole(course, viewer);
+    // Students/parents only see courses the tutor has accepted (or completed).
+    if ((viewerRole === 'STUDENT' || viewerRole === 'PARENT') && !ACTIVE_COURSE_STATUSES.includes(course.status as never)) {
+      throw new NotFoundError('Course');
+    }
 
     // Deleted curricula included on purpose: the student's history still needs them.
     const [curriculum, classes, [enriched], byTopic] = await Promise.all([
@@ -226,7 +230,7 @@ export class CourseService {
       const p = await ParentProfileModel.findOne({ userPublicId: viewer.userPublicId }).lean();
       if (p?.childStudentPublicIds?.includes(course.studentPublicId)) return 'PARENT';
     }
-    if (viewer.role === 'TUTOR') {
+    if (viewer.role === 'TUTOR' || viewer.role === 'PRINCIPAL') {
       const t = await TutorProfileModel.findOne({ userPublicId: viewer.userPublicId, isDeleted: false }).lean();
       if (t?.publicId === course.tutorPublicId) return 'TUTOR';
     }
@@ -238,6 +242,12 @@ export class CourseService {
     const tutor = await TutorProfileModel.findOne({ userPublicId: tutorUserPublicId, isDeleted: false }).lean();
     const course = await CourseModel.findOne({ publicId: coursePublicId, isDeleted: false }).lean();
     if (!tutor || !course || course.tutorPublicId !== tutor.publicId) throw new NotFoundError('Course');
+    if (!ACTIVE_COURSE_STATUSES.includes(course.status as never)) throw new NotFoundError('Course');
+    if (kind !== 'assignment' && kind !== 'worksheet') throw new ValidationError({ kind: ['kind must be assignment or worksheet'] });
+    // Only admin items shown in this course's structure — tutor items have their own submissions view.
+    const Model = (kind === 'assignment' ? AssignmentModel : WorksheetModel) as typeof AssignmentModel;
+    const belongs = await Model.exists({ publicId: materialPublicId, authorRole: 'ADMIN', ...materialFilterForCourse(course) });
+    if (!belongs) throw new NotFoundError('Material');
     if (kind === 'assignment') {
       return SubmissionModel.find({ assignmentPublicId: materialPublicId, studentPublicId: course.studentPublicId, isDeleted: false })
         .sort({ submittedAt: -1 }).lean();

@@ -52,7 +52,8 @@ router.post('/:assignmentId/close', requireRole(Role.TUTOR, Role.PRINCIPAL), asy
 // Tutor: view submissions for an assignment
 router.get('/:assignmentId/submissions', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const submissions = await assignmentService.getSubmissionsForAssignment(req.params.assignmentId);
+    const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
+    const submissions = await assignmentService.getSubmissionsForAssignment(req.params.assignmentId, tutor.publicId);
     sendSuccess(res, submissions, 'Submissions fetched');
   } catch (e) { next(e); }
 });

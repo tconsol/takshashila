@@ -145,6 +145,7 @@ export class WorksheetService {
       authorRole: { $ne: 'ADMIN' },
     };
     if (query.type) filter.type = query.type;
+    filter.$and = [await access.studentMaterialScope(studentPublicId)];
 
     const [items, total] = await Promise.all([
       WorksheetModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -239,10 +240,12 @@ export class WorksheetService {
     worksheetPublicId: string,
     tutorPublicId: string,
   ): Promise<IWorksheetSubmission[]> {
-    const worksheet = await WorksheetModel.findOne({ publicId: worksheetPublicId, tutorPublicId, isDeleted: false }).lean();
-    if (!worksheet) throw new NotFoundError('Worksheet not found');
+    const worksheet = await WorksheetModel.findOne({ publicId: worksheetPublicId, isDeleted: false }).lean();
+    const isAdminItem = worksheet?.authorRole === 'ADMIN';
+    if (!worksheet || (!isAdminItem && worksheet.tutorPublicId !== tutorPublicId)) throw new NotFoundError('Worksheet not found');
 
-    return WorksheetSubmissionModel.find({ worksheetPublicId, isDeleted: false })
+    // Admin (curriculum) worksheets: each tutor sees only the students they grade.
+    return WorksheetSubmissionModel.find({ worksheetPublicId, isDeleted: false, ...(isAdminItem ? { graderTutorPublicId: tutorPublicId } : {}) })
       .sort({ submittedAt: -1 })
       .lean();
   }

@@ -238,8 +238,12 @@ export class AssignmentService {
     return updated!;
   }
 
-  async getSubmissionsForAssignment(assignmentPublicId: string): Promise<ISubmission[]> {
-    return SubmissionModel.find({ assignmentPublicId, isDeleted: false })
+  async getSubmissionsForAssignment(assignmentPublicId: string, tutorPublicId: string): Promise<ISubmission[]> {
+    const assignment = await AssignmentModel.findOne({ publicId: assignmentPublicId, isDeleted: false }).lean();
+    const isAdminItem = assignment?.authorRole === 'ADMIN';
+    if (!assignment || (!isAdminItem && assignment.tutorPublicId !== tutorPublicId)) throw new NotFoundError('Assignment');
+    // Admin (curriculum) assignments: each tutor sees only the students they grade.
+    return SubmissionModel.find({ assignmentPublicId, isDeleted: false, ...(isAdminItem ? { graderTutorPublicId: tutorPublicId } : {}) })
       .sort({ submittedAt: -1 })
       .lean();
   }

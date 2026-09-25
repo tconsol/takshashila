@@ -69,7 +69,8 @@ describe('canViewMaterial', () => {
   it('a parent with no children, or any other role, is denied', async () => {
     jest.spyOn(ParentProfileModel, 'findOne').mockReturnValue(lean({ childStudentPublicIds: [] }) as never);
     expect(await canViewMaterial({ role: 'PARENT', userPublicId: 'pu-1' }, adminItem)).toBe(false);
-    expect(await canViewMaterial({ role: 'PRINCIPAL', userPublicId: 'x' }, adminItem)).toBe(false);
+    // Principals now resolve through their tutor profile (review fix I2); roles with no teaching profile are denied.
+    expect(await canViewMaterial({ role: 'SUPPORT', userPublicId: 'x' }, adminItem)).toBe(false);
   });
 });
 

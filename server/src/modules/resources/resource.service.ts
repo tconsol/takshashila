@@ -7,7 +7,11 @@ import { parsePaginationQuery, buildPaginatedResult } from '../../utils/paginati
 import { mediaService } from '../media/media.service';
 import { resolveTutorAttachment } from '../curricula/curriculum-attachment';
 import { resolveAdminAttachment } from '../curricula/curriculum-attachment';
+import { studentMaterialScope } from '../courses/material-access';
 import type { TutorAuthor } from '../../shared/material.types';
+
+const pickDefined = (o: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 
 export class ResourceService {
   async create(tutor: TutorAuthor, dto: CreateResourceDto): Promise<IResource> {
@@ -69,7 +73,7 @@ export class ResourceService {
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter: Record<string, unknown> = { tutorPublicId, isDeleted: false };
     if (query.classPublicId) filter.classPublicId = query.classPublicId;
-    void studentPublicId; // Student can see all resources from their tutor
+    filter.$and = [await studentMaterialScope(studentPublicId)];
 
     const [items, total] = await Promise.all([
       ResourceModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -92,7 +96,8 @@ export class ResourceService {
   async update(publicId: string, tutorPublicId: string, dto: UpdateResourceDto): Promise<IResource> {
     const resource = await ResourceModel.findOneAndUpdate(
       { publicId, tutorPublicId, isDeleted: false },
-      { $set: dto },
+      // Whitelist: the body is unvalidated, and authorship/attachment fields must not be editable here.
+      { $set: pickDefined({ title: dto.title, description: dto.description }) },
       { new: true },
     ).lean();
     if (!resource) throw new NotFoundError('Resource not found');
