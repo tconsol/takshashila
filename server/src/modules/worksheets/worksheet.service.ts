@@ -6,6 +6,7 @@ import { NotFoundError, AppError, ConflictError } from '../../utils/error';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import { resolveTutorAttachment } from '../curricula/curriculum-attachment';
+import { resolveAdminAttachment } from '../curricula/curriculum-attachment';
 import type { TutorAuthor } from '../../shared/material.types';
 
 export class WorksheetService {
@@ -35,6 +36,31 @@ export class WorksheetService {
       ...attachment,
       authorRole: 'TUTOR',
       authorUserPublicId: tutor.userPublicId,
+    });
+    return worksheet.toObject();
+  }
+
+  async createForCurriculum(adminUserPublicId: string, curriculumPublicId: string, dto: CreateWorksheetDto): Promise<IWorksheet> {
+    if (!dto.isFileAttachment && (!dto.questions || dto.questions.length === 0)) {
+      throw new AppError('Worksheet must have at least one question', 400);
+    }
+    const attachment = await resolveAdminAttachment(curriculumPublicId, dto.topicPublicIds);
+    const worksheet = await WorksheetModel.create({
+      publicId: uuidv4(),
+      title: dto.title,
+      subject: dto.subject,
+      type: dto.type,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+      questions: dto.isFileAttachment ? [] : (dto.questions ?? []),
+      isFileAttachment: dto.isFileAttachment ?? false,
+      filePublicId: dto.filePublicId,
+      fileMimeType: dto.fileMimeType,
+      fileOriginalName: dto.fileOriginalName,
+      assignedToStudentPublicIds: [],
+      status: WorksheetStatus.PUBLISHED,
+      ...attachment,
+      authorRole: 'ADMIN',
+      authorUserPublicId: adminUserPublicId,
     });
     return worksheet.toObject();
   }
@@ -114,6 +140,8 @@ export class WorksheetService {
       ],
       status: WorksheetStatus.PUBLISHED,
       isDeleted: false,
+      // Curriculum (admin) worksheets are reached through the course structure only.
+      authorRole: { $ne: 'ADMIN' },
     };
     if (query.type) filter.type = query.type;
 

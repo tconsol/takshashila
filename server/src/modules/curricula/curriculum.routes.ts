@@ -20,4 +20,10 @@ router.delete('/:curriculumPublicId', requireRole(Role.SUPER_ADMIN, Role.ADMIN),
 router.post('/:curriculumPublicId/publish', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculumController.publish.bind(curriculumController));
 router.post('/:curriculumPublicId/unpublish', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculumController.unpublish.bind(curriculumController));
 
+const ADMINS = requireRole(Role.SUPER_ADMIN, Role.ADMIN);
+router.post('/:curriculumPublicId/resources', ADMINS, curriculumController.createResource.bind(curriculumController));
+router.post('/:curriculumPublicId/assignments', ADMINS, curriculumController.createAssignment.bind(curriculumController));
+router.post('/:curriculumPublicId/worksheets', ADMINS, curriculumController.createWorksheet.bind(curriculumController));
+router.delete('/:curriculumPublicId/materials/:kind/:materialPublicId', ADMINS, curriculumController.deleteMaterial.bind(curriculumController));
+
 export default router;

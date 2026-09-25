@@ -8,10 +8,11 @@ import type {
   SubmitAssignmentDto,
   GradeSubmissionDto,
 } from './assignment.types';
-import { NotFoundError, ConflictError, AppError } from '../../utils/error';
+import { NotFoundError, ConflictError, AppError, ValidationError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { resolveTutorAttachment } from '../curricula/curriculum-attachment';
+import { resolveAdminAttachment } from '../curricula/curriculum-attachment';
 import type { TutorAuthor } from '../../shared/material.types';
 
 /** Curriculum assignments may have no due date — those are never late. */
@@ -38,6 +39,29 @@ export class AssignmentService {
       ...attachment,
       authorRole: 'TUTOR',
       authorUserPublicId: tutor.userPublicId,
+    });
+    return assignment.toObject();
+  }
+
+  async createForCurriculum(adminUserPublicId: string, curriculumPublicId: string, dto: CreateAssignmentDto): Promise<IAssignment> {
+    const attachment = await resolveAdminAttachment(curriculumPublicId, dto.topicPublicIds);
+    if (!dto.title?.trim() || !dto.description?.trim()) throw new ValidationError({ title: ['Title and description are required'] });
+    const assignment = await AssignmentModel.create({
+      publicId: uuidv4(),
+      title: dto.title,
+      description: dto.description,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+      maxScore: dto.maxScore ?? 100,
+      attachmentPublicIds: dto.attachmentPublicIds ?? [],
+      isFileAttachment: dto.isFileAttachment ?? false,
+      filePublicId: dto.filePublicId,
+      fileMimeType: dto.fileMimeType,
+      fileOriginalName: dto.fileOriginalName,
+      status: AssignmentStatus.PUBLISHED,
+      isDeleted: false,
+      ...attachment,
+      authorRole: 'ADMIN',
+      authorUserPublicId: adminUserPublicId,
     });
     return assignment.toObject();
   }

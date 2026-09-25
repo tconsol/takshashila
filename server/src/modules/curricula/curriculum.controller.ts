@@ -7,6 +7,10 @@ import { curriculumCatalogQuerySchema } from './curriculum.validators';
 import { tutorService } from '../tutors/tutor.service';
 import { listAttachableCurricula } from './curriculum-attachment';
 import { getCurriculumStructure } from '../courses/course-structure';
+import { softDeleteCurriculumMaterial } from './curriculum-materials';
+import { resourceService } from '../resources/resource.service';
+import { assignmentService } from '../assignments/assignment.service';
+import { worksheetService } from '../worksheets/worksheet.service';
 
 export class CurriculumController {
   async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -41,6 +45,25 @@ export class CurriculumController {
     try {
       await curriculumService.softDelete(req.params.curriculumPublicId);
       sendSuccess(res, null, 'Curriculum deleted');
+    } catch (error) { next(error); }
+  }
+
+  async createResource(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try { sendCreated(res, await resourceService.createForCurriculum(req.user!.publicId, req.params.curriculumPublicId, req.body), 'Resource added'); }
+    catch (error) { next(error); }
+  }
+  async createAssignment(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try { sendCreated(res, await assignmentService.createForCurriculum(req.user!.publicId, req.params.curriculumPublicId, req.body), 'Assignment added'); }
+    catch (error) { next(error); }
+  }
+  async createWorksheet(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try { sendCreated(res, await worksheetService.createForCurriculum(req.user!.publicId, req.params.curriculumPublicId, req.body), 'Worksheet added'); }
+    catch (error) { next(error); }
+  }
+  async deleteMaterial(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await softDeleteCurriculumMaterial(req.params.kind, req.params.curriculumPublicId, req.params.materialPublicId);
+      sendSuccess(res, null, 'Material deleted');
     } catch (error) { next(error); }
   }
 

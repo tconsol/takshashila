@@ -6,6 +6,7 @@ import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import { mediaService } from '../media/media.service';
 import { resolveTutorAttachment } from '../curricula/curriculum-attachment';
+import { resolveAdminAttachment } from '../curricula/curriculum-attachment';
 import type { TutorAuthor } from '../../shared/material.types';
 
 export class ResourceService {
@@ -24,6 +25,23 @@ export class ResourceService {
       ...attachment,
       authorRole: 'TUTOR',
       authorUserPublicId: tutor.userPublicId,
+    });
+    return resource.toObject();
+  }
+
+  async createForCurriculum(adminUserPublicId: string, curriculumPublicId: string, dto: CreateResourceDto): Promise<IResource> {
+    const attachment = await resolveAdminAttachment(curriculumPublicId, dto.topicPublicIds);
+    const resource = await ResourceModel.create({
+      publicId: uuidv4(),
+      title: dto.title,
+      description: dto.description,
+      mediaPublicId: dto.mediaPublicId,
+      fileName: dto.fileName,
+      mimeType: dto.mimeType,
+      sizeBytes: dto.sizeBytes,
+      ...attachment,
+      authorRole: 'ADMIN',
+      authorUserPublicId: adminUserPublicId,
     });
     return resource.toObject();
   }
