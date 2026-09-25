@@ -51,11 +51,13 @@ export async function uploadDocument(file: File): Promise<{ filePublicId: string
     mediaType: 'DOCUMENT',
   });
   const { uploadUrl, gcsObjectKey } = urlData.data;
-  await fetch(uploadUrl, {
+  const put = await fetch(uploadUrl, {
     method: 'PUT',
     body: file,
     headers: { 'Content-Type': file.type || 'application/octet-stream' },
   });
+  // Don't confirm (and later save) a file that never reached storage.
+  if (!put.ok) throw new Error(`Upload failed: ${put.status}`);
   const { data: confirmData } = await api.post('/media/confirm', {
     gcsObjectKey,
     originalName: file.name,

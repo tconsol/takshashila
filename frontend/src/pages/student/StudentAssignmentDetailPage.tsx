@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { useAssignment, useMySubmission, useSubmitAssignment } from '../../hooks/use-assignments';
 import { api } from '../../lib/axios';
+import { useToast } from '../../components/ui/Toast';
 
 export function StudentAssignmentDetailPage() {
   const { assignmentId = '' } = useParams<{ assignmentId: string }>();
@@ -17,6 +18,7 @@ export function StudentAssignmentDetailPage() {
   const { data: submission } = useMySubmission(assignmentId);
   const { mutate: submit, isPending } = useSubmitAssignment();
   const [content, setContent] = useState('');
+  const toast = useToast();
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner /></div>;
   if (isError || !assignment) {
@@ -24,8 +26,16 @@ export function StudentAssignmentDetailPage() {
   }
 
   const openAttachment = async () => {
-    const { data } = await api.get(`/media/${assignment.filePublicId}/read-url`);
-    window.open((data.data as { url: string }).url, '_blank');
+    // Open the tab synchronously so pop-up blockers allow it, then point it at the signed URL.
+    const tab = window.open('', '_blank');
+    try {
+      const { data } = await api.get(`/media/${assignment.filePublicId}/read-url`);
+      const url = (data.data as { url: string }).url;
+      if (tab) tab.location.href = url; else window.location.href = url;
+    } catch (err) {
+      tab?.close();
+      toast.error('Could not open attachment', (err as Error).message);
+    }
   };
 
   return (
