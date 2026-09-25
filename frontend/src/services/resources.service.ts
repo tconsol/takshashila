@@ -15,6 +15,8 @@ export interface Resource {
 }
 
 export interface CreateResourceDto {
+  curriculumPublicId: string;
+  topicPublicIds: string[];
   classPublicId?: string;
   title: string;
   description?: string;

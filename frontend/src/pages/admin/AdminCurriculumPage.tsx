@@ -37,7 +37,7 @@ function CurriculumForm({ curriculum, onDone }: { curriculum?: Curriculum; onDon
     curriculum ? [...curriculum.topics].sort((a, b) => a.order - b.order) : [],
   );
 
-  const addTopic = () => setTopics((t) => [...t, { title: '', order: t.length, resourceIds: [], assignmentIds: [], worksheetIds: [] }]);
+  const addTopic = () => setTopics((t) => [...t, { title: '', order: t.length }]);
   const updateTopicTitle = (i: number, value: string) =>
     setTopics((t) => t.map((topic, idx) => (idx === i ? { ...topic, title: value } : topic)));
   const removeTopic = (i: number) => setTopics((t) => t.filter((_, idx) => idx !== i));

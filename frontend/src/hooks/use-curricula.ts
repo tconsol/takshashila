@@ -10,6 +10,7 @@ export const curriculumKeys = {
   admin: (params?: Record<string, string>) => [...curriculumKeys.all, 'admin', params] as const,
   detail: (id: string) => [...curriculumKeys.all, 'detail', id] as const,
   tutors: (id: string) => [...curriculumKeys.all, 'tutors', id] as const,
+  attachable: ['curricula', 'attachable'] as const,
 };
 
 /** No `grade` = the "All grades" view of the district. */
@@ -96,4 +97,8 @@ export function usePublishCurriculum() {
     },
     onError: (err: Error) => toast.error('Could not update curriculum', err.message),
   });
+}
+
+export function useAttachableCurricula(enabled = true) {
+  return useQuery({ queryKey: curriculumKeys.attachable, queryFn: curriculaService.listAttachable, enabled, staleTime: 60_000 });
 }

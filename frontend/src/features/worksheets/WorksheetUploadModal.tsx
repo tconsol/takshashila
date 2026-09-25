@@ -9,6 +9,7 @@ import { useCreateWorksheet } from '../../hooks/use-worksheets';
 import type { IQuestion, CreateWorksheetDto } from '../../services/worksheets.service';
 import type { ClassRecord } from '../../services/classes.service';
 import { api } from '../../lib/axios';
+import { CurriculumTopicPicker, EMPTY_ATTACHMENT, isAttachmentComplete } from '../../components/shared/CurriculumTopicPicker';
 
 interface Props {
   open: boolean;
@@ -141,6 +142,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
   const [allStudents, setAllStudents] = useState(true);
   const [previewExpanded, setPreviewExpanded] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState(EMPTY_ATTACHMENT);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const { mutateAsync: createWorksheet, isPending: creating } = useCreateWorksheet();
@@ -151,6 +153,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
     setSelectedFile(null); setFileMode(null);
     setQuestions([]); setUploadedFile(null);
     setParseError(null); setSelectedStudents([]); setAllStudents(true); setSubmitError(null);
+    setAttachment(EMPTY_ATTACHMENT);
     onClose();
   };
 
@@ -191,7 +194,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
     }
   };
 
-  const canProceed = title.trim().length >= 2 && !parseError && !uploading &&
+  const canProceed = title.trim().length >= 2 && !parseError && !uploading && isAttachmentComplete(attachment) &&
     (fileMode === 'excel' ? questions.length > 0 : fileMode === 'attachment' ? !!uploadedFile : false);
 
   const handleSubmit = async () => {
@@ -204,6 +207,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
       type,
       dueDate: type === 'ASSIGNMENT' && dueDate ? dueDate : undefined,
       assignedToStudentPublicIds: allStudents ? [] : selectedStudents,
+      ...attachment,
       ...(fileMode === 'excel'
         ? { questions }
         : { isFileAttachment: true, ...uploadedFile }),
@@ -264,6 +268,7 @@ export function WorksheetUploadModal({ open, onClose, cls, type, students }: Pro
     >
       {step === 'upload' && (
         <div className="space-y-5">
+          <CurriculumTopicPicker value={attachment} onChange={setAttachment} />
           {/* Format hint */}
           <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4">
             <div className="flex items-center justify-between mb-2">

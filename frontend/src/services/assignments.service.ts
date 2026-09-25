@@ -33,6 +33,8 @@ export interface Submission {
 }
 
 export interface CreateAssignmentDto {
+  curriculumPublicId: string;
+  topicPublicIds: string[];
   classPublicId: string;
   title: string;
   description: string;

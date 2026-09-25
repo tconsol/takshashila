@@ -5,9 +5,6 @@ export interface CurriculumTopic {
   publicId: string;
   title: string;
   order: number;
-  resourceIds: string[];
-  assignmentIds: string[];
-  worksheetIds: string[];
 }
 
 export interface Curriculum {
@@ -55,7 +52,14 @@ export interface PaginatedCurricula {
   totalPages: number;
 }
 
+export interface AttachableCurriculum {
+  publicId: string; title: string; subject: string; grade: string; district?: string; state: string;
+  topics: { publicId: string; title: string; order: number }[];
+}
+
 export const curriculaService = {
+  listAttachable: (): Promise<AttachableCurriculum[]> => api.get('/curricula/attachable').then((r) => r.data.data),
+
   listCatalog: (params: { districtId?: string; grade?: string; subject?: string }): Promise<Curriculum[]> =>
     api.get('/curricula', { params }).then((r) => r.data.data),
 

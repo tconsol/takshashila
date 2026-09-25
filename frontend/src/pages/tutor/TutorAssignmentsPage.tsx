@@ -2,7 +2,6 @@ import { useState, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Upload, FileSpreadsheet, File, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -25,7 +24,9 @@ import {
 } from '../../hooks/use-assignments';
 import { useCreateWorksheet } from '../../hooks/use-worksheets';
 import { useMyClassesAsTutor } from '../../hooks/use-classes';
-import { api } from '../../lib/axios';
+import { uploadDocument } from '../../lib/media-upload';
+import { isExcelFile, parseExcelQuestions } from '../../lib/excel-questions';
+import { CurriculumTopicPicker, EMPTY_ATTACHMENT, isAttachmentComplete } from '../../components/shared/CurriculumTopicPicker';
 import type { Assignment, Submission } from '../../services/assignments.service';
 import type { IQuestion } from '../../services/worksheets.service';
 
@@ -60,65 +61,6 @@ const TABS = [
 ];
 
 const EXCEL_EXTS = ['.xlsx', '.xls'];
-function isExcelFile(file: File) {
-  return EXCEL_EXTS.some((ext) => file.name.toLowerCase().endsWith(ext));
-}
-
-function parseExcel(file: File): Promise<IQuestion[]> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 }) as string[][];
-        const questions: IQuestion[] = [];
-        const errors: string[] = [];
-        for (let i = 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (!row || row.every((c) => !c)) continue;
-          const [q, optA, optB, optC, optD, correct, explanation] = row.map((c) => String(c ?? '').trim());
-          if (!q) { errors.push(`Row ${i + 1}: empty question`); continue; }
-          if (!optA || !optB || !optC || !optD) { errors.push(`Row ${i + 1}: need 4 options`); continue; }
-          const cu = correct?.toUpperCase();
-          if (!['A', 'B', 'C', 'D'].includes(cu)) { errors.push(`Row ${i + 1}: correct must be A/B/C/D`); continue; }
-          const correctIndex = ({ A: 0, B: 1, C: 2, D: 3 } as Record<string, 0 | 1 | 2 | 3>)[cu];
-          questions.push({ questionText: q, options: [optA, optB, optC, optD], correctIndex, explanation: explanation || '' });
-        }
-        if (errors.length > 0) { reject(new Error(errors.slice(0, 5).join('\n'))); return; }
-        if (questions.length === 0) { reject(new Error('No valid questions found')); return; }
-        resolve(questions);
-      } catch { reject(new Error('Invalid Excel file')); }
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-async function uploadFile(file: File): Promise<{ filePublicId: string; fileMimeType: string; fileOriginalName: string }> {
-  const { data: urlData } = await api.post('/media/upload-url', {
-    originalName: file.name,
-    mimeType: file.type || 'application/octet-stream',
-    sizeBytes: file.size,
-    mediaType: 'DOCUMENT',
-  });
-  const { uploadUrl, gcsObjectKey } = urlData.data;
-  await fetch(uploadUrl, {
-    method: 'PUT',
-    body: file,
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
-  });
-  const { data: confirmData } = await api.post('/media/confirm', {
-    gcsObjectKey,
-    originalName: file.name,
-    mimeType: file.type || 'application/octet-stream',
-    sizeBytes: file.size,
-    mediaType: 'DOCUMENT',
-  });
-  return { filePublicId: confirmData.data.publicId, fileMimeType: file.type || 'application/octet-stream', fileOriginalName: file.name };
-}
-
 type FileState =
   | { kind: 'none' }
   | { kind: 'parsing' | 'uploading' }
@@ -136,6 +78,7 @@ export function TutorAssignmentsPage() {
   const [gradeFeedback, setGradeFeedback] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [fileState, setFileState] = useState<FileState>({ kind: 'none' });
+  const [attachment, setAttachment] = useState(EMPTY_ATTACHMENT);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: assignments = [], isLoading } = useMyAssignments();
@@ -173,7 +116,7 @@ export function TutorAssignmentsPage() {
     if (isExcelFile(file)) {
       setFileState({ kind: 'parsing' });
       try {
-        const questions = await parseExcel(file);
+        const questions = await parseExcelQuestions(file);
         setFileState({ kind: 'excel', questions, name: file.name });
       } catch (err) {
         setFileState({ kind: 'error', message: err instanceof Error ? err.message : 'Parse failed' });
@@ -181,7 +124,7 @@ export function TutorAssignmentsPage() {
     } else {
       setFileState({ kind: 'uploading' });
       try {
-        const result = await uploadFile(file);
+        const result = await uploadDocument(file);
         setFileState({ kind: 'attachment', ...result });
       } catch (err) {
         const e = err as { response?: { data?: { message?: string } }; message?: string };
@@ -205,6 +148,7 @@ export function TutorAssignmentsPage() {
           dueDate: data.dueDate,
           questions: fileState.questions,
           assignedToStudentPublicIds: [],
+          ...attachment,
         });
         toastSuccess('Quiz assignment created in Worksheets');
       } else if (fileState.kind === 'attachment') {
@@ -214,12 +158,14 @@ export function TutorAssignmentsPage() {
           filePublicId: fileState.filePublicId,
           fileMimeType: fileState.fileMimeType,
           fileOriginalName: fileState.fileOriginalName,
+          ...attachment,
         });
       } else {
-        await createAssignment(data);
+        await createAssignment({ ...data, ...attachment });
       }
       reset();
       setFileState({ kind: 'none' });
+      setAttachment(EMPTY_ATTACHMENT);
       setShowCreate(false);
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
@@ -311,8 +257,8 @@ export function TutorAssignmentsPage() {
         size="lg"
         footer={
           <>
-            <Button variant="ghost" onClick={() => { setShowCreate(false); reset(); setFileState({ kind: 'none' }); }}>Cancel</Button>
-            <Button onClick={handleSubmit(onSubmit)} loading={isBusy}>
+            <Button variant="ghost" onClick={() => { setShowCreate(false); reset(); setFileState({ kind: 'none' }); setAttachment(EMPTY_ATTACHMENT); }}>Cancel</Button>
+            <Button onClick={handleSubmit(onSubmit)} loading={isBusy} disabled={!isAttachmentComplete(attachment)}>
               {fileState.kind === 'excel' ? 'Create Quiz Assignment' : 'Create Assignment'}
             </Button>
           </>
@@ -338,6 +284,8 @@ export function TutorAssignmentsPage() {
               />
             )}
           />
+
+          <CurriculumTopicPicker value={attachment} onChange={setAttachment} />
 
           <Input label="Title" error={errors.title?.message} {...register('title')} />
 

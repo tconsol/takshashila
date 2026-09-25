@@ -10,7 +10,8 @@ import { Spinner } from '../../components/ui/Loading';
 import { useMyResourcesAsTutor, useCreateResource, useUpdateResource, useDeleteResource } from '../../hooks/use-resources';
 import { resourcesService } from '../../services/resources.service';
 import type { Resource } from '../../services/resources.service';
-import { api } from '../../lib/axios';
+import { uploadResourceFile } from '../../lib/media-upload';
+import { CurriculumTopicPicker, EMPTY_ATTACHMENT, isAttachmentComplete } from '../../components/shared/CurriculumTopicPicker';
 
 const MAX_BYTES = 50 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
@@ -40,52 +41,13 @@ function mimeLabel(mimeType: string): string {
   return map[mimeType] ?? 'File';
 }
 
-function getMediaType(mimeType: string): string {
-  if (mimeType.startsWith('image/')) return 'DOCUMENT';
-  if (mimeType.startsWith('video/')) return 'VIDEO';
-  return 'DOCUMENT';
-}
-
-async function uploadFile(file: File, onProgress: (pct: number) => void): Promise<{ mediaPublicId: string; fileName: string; mimeType: string; sizeBytes: number }> {
-  const { data: urlRes } = await api.post('/media/upload-url', {
-    originalName: file.name,
-    mimeType: file.type,
-    sizeBytes: file.size,
-    mediaType: getMediaType(file.type),
-  });
-  const { uploadUrl, gcsObjectKey } = urlRes.data as { uploadUrl: string; gcsObjectKey: string };
-
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', uploadUrl);
-    xhr.setRequestHeader('Content-Type', file.type);
-    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`)));
-    xhr.onerror = () => reject(new Error('Network error'));
-    xhr.send(file);
-  });
-
-  const { data: confirmRes } = await api.post('/media/confirm', {
-    gcsObjectKey,
-    originalName: file.name,
-    mimeType: file.type,
-    sizeBytes: file.size,
-    mediaType: getMediaType(file.type),
-  });
-  return {
-    mediaPublicId: (confirmRes.data as { publicId: string }).publicId,
-    fileName: file.name,
-    mimeType: file.type,
-    sizeBytes: file.size,
-  };
-}
-
 export function TutorResourcesPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [editTarget, setEditTarget] = useState<Resource | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [attachment, setAttachment] = useState(EMPTY_ATTACHMENT);
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState(0);
@@ -103,6 +65,7 @@ export function TutorResourcesPage() {
     setTitle('');
     setDescription('');
     setSelectedFile(null);
+    setAttachment(EMPTY_ATTACHMENT);
     setFileError(null);
     setSubmitError(null);
     setShowUpload(true);
@@ -134,10 +97,11 @@ export function TutorResourcesPage() {
         await updateResource({ id: editTarget.publicId, dto: { title: title.trim(), description: description.trim() || undefined } });
       } else {
         if (!selectedFile) { setSubmitError('Please select a file'); return; }
+        if (!isAttachmentComplete(attachment)) { setSubmitError('Pick a curriculum and at least one topic'); return; }
         setUploading(true);
-        const uploaded = await uploadFile(selectedFile, setUploadPct);
+        const uploaded = await uploadResourceFile(selectedFile, setUploadPct);
         setUploading(false);
-        await createResource({ title: title.trim(), description: description.trim() || undefined, ...uploaded });
+        await createResource({ title: title.trim(), description: description.trim() || undefined, ...uploaded, ...attachment });
       }
       setShowUpload(false);
     } catch (err) {
@@ -221,13 +185,14 @@ export function TutorResourcesPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setShowUpload(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} loading={uploading || creating || updating}>
+            <Button onClick={handleSubmit} loading={uploading || creating || updating} disabled={!editTarget && !isAttachmentComplete(attachment)}>
               {editTarget ? 'Save Changes' : 'Upload'}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
+          {!editTarget && <CurriculumTopicPicker value={attachment} onChange={setAttachment} />}
           <Input
             label="Title *"
             value={title}
