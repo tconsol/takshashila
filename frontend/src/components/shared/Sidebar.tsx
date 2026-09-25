@@ -92,7 +92,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   TUTOR: [
     { label: 'Overview',       href: '/dashboard/tutor',                  icon: LayoutDashboard },
     { label: 'Demo Requests',  href: '/dashboard/tutor/demo-requests',    icon: Sparkles,     badgeKey: 'demoRequests' },
-    { label: 'Curriculum Requests', href: '/dashboard/tutor/courses', icon: ClipboardList },
+    { label: 'Course Requests', href: '/dashboard/tutor/course-requests', icon: ClipboardList },
     { label: 'Students',       href: '/dashboard/tutor/students',         icon: Users,        badgeKey: 'students' },
     { label: 'Classes',        href: '/dashboard/tutor/classes',          icon: Video,        badgeKey: 'classes' },
     { label: 'Calendar',       href: '/dashboard/tutor/schedule',         icon: Calendar },

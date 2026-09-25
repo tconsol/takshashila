@@ -255,7 +255,7 @@ export const router = createBrowserRouter([
       children: [
         { path: '/dashboard/tutor', element: <TutorDashboard /> },
         { path: '/dashboard/tutor/demo-requests', element: <TutorDemoRequestsPage /> },
-        { path: '/dashboard/tutor/courses', element: <TutorCourseRequestsPage /> },
+        { path: '/dashboard/tutor/course-requests', element: <TutorCourseRequestsPage /> },
         { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/tutor/classes/create', element: <TutorCreateClassPage /> },

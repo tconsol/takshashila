@@ -35,7 +35,7 @@ export const DomainEvent = {
   DEMO_REQUEST_ACCEPTED: 'DEMO_REQUEST_ACCEPTED',
   DEMO_REQUEST_REJECTED: 'DEMO_REQUEST_REJECTED',
 
-  // ─── Curriculum Requests ───────────────────────────────────
+  // ─── Courses (sent to tutors as requests) ───────────────────────────────────
   COURSE_CREATED: 'COURSE_CREATED',
   COURSE_ACCEPTED: 'COURSE_ACCEPTED',
   COURSE_REJECTED: 'COURSE_REJECTED',
