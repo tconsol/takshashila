@@ -107,3 +107,11 @@ export function useCancelCourse() {
     onError: (err: Error) => toast.error('Could not cancel course', err.message),
   });
 }
+
+export function useMaterialSubmissions(coursePublicId: string, kind: 'assignment' | 'worksheet', materialPublicId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...courseKeys.all, 'material-submissions', coursePublicId, kind, materialPublicId],
+    queryFn: () => coursesService.getMaterialSubmissions(coursePublicId, kind, materialPublicId),
+    enabled,
+  });
+}

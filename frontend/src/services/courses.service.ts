@@ -96,6 +96,10 @@ export const coursesService = {
 
   listForParent: (): Promise<Course[]> => api.get('/courses/children').then((r) => r.data.data),
 
+  getMaterialSubmissions: (coursePublicId: string, kind: 'assignment' | 'worksheet', materialPublicId: string) =>
+    api.get(`/courses/${coursePublicId}/materials/${kind}/${materialPublicId}/submissions`)
+      .then((r) => r.data.data as Array<{ publicId: string; status?: string; score?: number; content?: string; submittedAt?: string; feedback?: string }>),
+
   getIncoming: (params?: Record<string, string>): Promise<PaginatedCourses> =>
     api.get('/courses/incoming', { params }).then((r) => r.data.data),
 
