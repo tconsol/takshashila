@@ -20,11 +20,15 @@ import { isWithinAvailability } from '../../shared/availability';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { logger } from '../../lib/logger';
 
-/** Price split per session; the last session carries the rounding remainder. */
-export function sessionCost(priceCents: number, sessionCount: number, sessionNumber: number): number {
-  const share = Math.floor(priceCents / sessionCount);
-  return sessionNumber === sessionCount ? priceCents - share * (sessionCount - 1) : share;
+/**
+ * Every session costs the same flat share, so booking order (and rebooking after a
+ * cancellation) never changes prices. The rounding remainder is refunded when the
+ * enrollment completes or is cancelled.
+ */
+export function sessionCost(priceCents: number, sessionCount: number, _sessionNumber?: number): number {
+  return Math.floor(priceCents / sessionCount);
 }
 
 const SESSION_LENGTH_TOLERANCE_MIN = 15;
@@ -132,7 +136,9 @@ export class ProgramEnrollmentService {
           idempotencyKey: `program-enroll-undo-${enrollmentPublicId}`,
           referenceId: enrollmentPublicId,
           referenceType: 'PROGRAM_CANCEL',
-        }).catch(() => undefined);
+        }).catch((refundError) => logger.error('Enrollment failed and its refund also failed — reconcile manually', {
+          enrollmentPublicId, studentUserPublicId, amountCents: program.priceCents, error: (refundError as Error).message,
+        }));
       }
       await releaseSeat();
       throw error;
@@ -153,6 +159,7 @@ export class ProgramEnrollmentService {
     const start = new Date(dto.startUTC);
     const end = new Date(dto.endUTC);
     if (end <= start) throw new AppError('endUTC must be after startUTC', 400);
+    if (start <= new Date()) throw new AppError('Sessions must be scheduled in the future', 400);
     const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60_000);
     if (durationMinutes > program.sessionMinutes + SESSION_LENGTH_TOLERANCE_MIN) {
       throw new AppError(`Sessions are ${program.sessionMinutes} minutes long`, 400);
@@ -181,14 +188,20 @@ export class ProgramEnrollmentService {
         ianaTimezone: enrollment.availabilityWindow.ianaTimezone,
         durationMinutes,
         title: dto.title,
-        costCents: sessionCost(enrollment.priceCentsPaid, enrollment.sessionCount, claimed.sessionsScheduledCount),
+        costCents: sessionCost(enrollment.priceCentsPaid, enrollment.sessionCount),
         billingMode: BillingMode.PROGRAM_PREPAID,
-        idempotencyKey: `program-class-${enrollmentPublicId}-${claimed.sessionsScheduledCount}`,
+        idempotencyKey: `program-class-${enrollmentPublicId}-${uuidv4()}`,
         programEnrollmentPublicId: enrollmentPublicId,
         programPublicId: enrollment.programPublicId,
         programModulePublicId: dto.programModulePublicId,
         isDeleted: false,
       });
+      // The enrollment may have been cancelled between our claim and this insert.
+      const still = await ProgramEnrollmentModel.findOne({ publicId: enrollmentPublicId }, { status: 1 }).lean();
+      if (still?.status !== EnrollmentStatus.ACTIVE) {
+        await ScheduledClassModel.deleteOne({ publicId: created.publicId });
+        throw new ConflictError('Enrollment was cancelled');
+      }
       domainEvents.emit(DomainEvent.PROGRAM_SESSION_SCHEDULED, {
         enrollmentPublicId,
         classPublicId: created.publicId,
@@ -196,7 +209,10 @@ export class ProgramEnrollmentService {
       });
       return created.toObject();
     } catch (error) {
-      await ProgramEnrollmentModel.updateOne({ publicId: enrollmentPublicId }, { $inc: { sessionsScheduledCount: -1 } });
+      await ProgramEnrollmentModel.updateOne(
+        { publicId: enrollmentPublicId, sessionsScheduledCount: { $gt: 0 } },
+        { $inc: { sessionsScheduledCount: -1 } },
+      );
       throw error;
     }
   }
@@ -210,26 +226,38 @@ export class ProgramEnrollmentService {
     ]);
     const isParty = student?.publicId === enrollment.studentPublicId || tutor?.publicId === enrollment.tutorPublicId;
     if (!isParty) throw new NotFoundError('Enrollment');
-    if (enrollment.status !== EnrollmentStatus.ACTIVE) throw new ConflictError(`Enrollment already ${enrollment.status.toLowerCase()}`);
+    // Claim first: flipping ACTIVE → CANCELLED before touching sessions stops a concurrent
+    // scheduleSession (it requires ACTIVE) and makes a second cancel a no-op.
+    const claimed = await ProgramEnrollmentModel.findOneAndUpdate(
+      { publicId: enrollmentPublicId, status: EnrollmentStatus.ACTIVE },
+      { $set: { status: EnrollmentStatus.CANCELLED, cancelledBy: actorUserPublicId } },
+      { new: true },
+    ).lean();
+    if (!claimed) throw new ConflictError(`Enrollment already ${enrollment.status.toLowerCase()}`);
 
     const upcoming = await ScheduledClassModel.find(
       { programEnrollmentPublicId: enrollmentPublicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] }, isDeleted: false },
       { publicId: 1 },
     ).lean();
     for (const cls of upcoming) {
-      // cancelClass refunds each prepaid session's own cost.
-      await classService.cancelClass(cls.publicId, actorUserPublicId, { reason: 'Program enrollment cancelled' });
+      // Program sessions aren't refunded individually; the refund below covers them.
+      await classService.cancelClass(cls.publicId, actorUserPublicId, { reason: 'Program enrollment cancelled' }).catch((error) =>
+        logger.warn('Could not cancel program session', { classPublicId: cls.publicId, error: (error as Error).message }));
     }
 
-    const booked = await ScheduledClassModel.find({ programEnrollmentPublicId: enrollmentPublicId, isDeleted: false }, { costCents: 1 }).lean();
-    const neverBooked = enrollment.priceCentsPaid - booked.reduce((sum, c) => sum + (c.costCents ?? 0), 0);
-    if (neverBooked > 0) {
+    // Refund everything not yet taught: price − Σ costs of completed sessions.
+    const completed = await ScheduledClassModel.find(
+      { programEnrollmentPublicId: enrollmentPublicId, status: ClassStatus.COMPLETED, isDeleted: false },
+      { costCents: 1 },
+    ).lean();
+    const refundable = enrollment.priceCentsPaid - completed.reduce((sum, c) => sum + (c.costCents ?? 0), 0);
+    if (refundable > 0) {
       const studentProfile = await StudentProfileModel.findOne({ publicId: enrollment.studentPublicId }, { userPublicId: 1 }).lean();
       if (!studentProfile) throw new NotFoundError('Student profile');
       await walletService.refundWallet({
         ownerPublicId: studentProfile.userPublicId,
-        amountCents: neverBooked,
-        description: 'Skill program cancelled — unscheduled sessions refunded',
+        amountCents: refundable,
+        description: 'Skill program cancelled — untaught sessions refunded',
         // Persisted in wallettransactions — do not rename.
         idempotencyKey: `program-cancel-${enrollmentPublicId}`,
         referenceId: enrollmentPublicId,
@@ -237,16 +265,9 @@ export class ProgramEnrollmentService {
       });
     }
 
-    const updated = await ProgramEnrollmentModel.findOneAndUpdate(
-      { publicId: enrollmentPublicId, status: EnrollmentStatus.ACTIVE },
-      { $set: { status: EnrollmentStatus.CANCELLED, cancelledBy: actorUserPublicId } },
-      { new: true },
-    ).lean();
-    if (updated) {
-      await ProgramModel.updateOne({ publicId: enrollment.programPublicId }, { $inc: { activeEnrollmentCount: -1 } });
-      domainEvents.emit(DomainEvent.PROGRAM_ENROLLMENT_CANCELLED, { enrollmentPublicId, actorUserPublicId });
-    }
-    return updated ?? enrollment;
+    await ProgramModel.updateOne({ publicId: enrollment.programPublicId }, { $inc: { activeEnrollmentCount: -1 } });
+    domainEvents.emit(DomainEvent.PROGRAM_ENROLLMENT_CANCELLED, { enrollmentPublicId, actorUserPublicId });
+    return claimed;
   }
 
   async listMine(studentUserPublicId: string): Promise<EnrichedEnrollment[]> {

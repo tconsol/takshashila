@@ -19,6 +19,29 @@ function parseClassFilters(query: Record<string, unknown>) {
   };
 }
 
+/**
+ * Completing a class pays the tutor and cancelling it moves prepaid money, so only the
+ * class's tutor (complete/cancel), its student (cancel) or an admin may do it. 404 otherwise.
+ */
+async function assertClassParty(req: AuthRequest, classPublicId: string, opts: { allowStudent: boolean }): Promise<void> {
+  const role = req.user!.role;
+  if (role === 'ADMIN' || role === 'SUPER_ADMIN') return;
+  const { ScheduledClassModel } = await import('../schedules/schedule.model');
+  const cls = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }, { tutorPublicId: 1, studentPublicId: 1 }).lean();
+  if (cls) {
+    const { TutorProfileModel } = await import('../tutors/tutor.model');
+    const tutor = await TutorProfileModel.findOne({ userPublicId: req.user!.publicId, isDeleted: false }, { publicId: 1 }).lean();
+    if (tutor?.publicId === cls.tutorPublicId) return;
+    if (opts.allowStudent) {
+      const { StudentProfileModel } = await import('../students/student.model');
+      const student = await StudentProfileModel.findOne({ userPublicId: req.user!.publicId, isDeleted: false }, { publicId: 1 }).lean();
+      if (student?.publicId === cls.studentPublicId) return;
+    }
+  }
+  const { NotFoundError } = await import('../../utils/error');
+  throw new NotFoundError('Scheduled class');
+}
+
 export class ClassController {
   async bookClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -43,6 +66,7 @@ export class ClassController {
 
   async completeClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      await assertClassParty(req, req.params.classId, { allowStudent: false });
       const cls = await classService.completeClass(req.params.classId, req.user!.publicId);
       sendSuccess(res, cls, 'Class completed');
     } catch (error) { next(error); }
@@ -50,6 +74,7 @@ export class ClassController {
 
   async cancelClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      await assertClassParty(req, req.params.classId, { allowStudent: true });
       const cls = await classService.cancelClass(req.params.classId, req.user!.publicId, req.body);
       sendSuccess(res, cls, 'Class cancelled');
     } catch (error) { next(error); }

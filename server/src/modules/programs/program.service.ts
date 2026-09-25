@@ -6,7 +6,9 @@ import type { IProgram, IProgramModule } from './program.types';
 import type { CreateProgramDto, UpdateProgramDto, ProgramCatalogQuery } from './program.validators';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { UserModel } from '../users/user.model';
-import { ConflictError, NotFoundError } from '../../utils/error';
+import { ConflictError, NotFoundError, ValidationError } from '../../utils/error';
+import { PLATFORM_FEE_CENTS } from '../../utils/currency';
+import { isPriceAllowed } from './program.validators';
 import type { PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 
@@ -69,10 +71,16 @@ export class ProgramService {
       // Students have paid for these terms.
       if (dto.priceCents !== undefined && dto.priceCents !== program.priceCents) throw new ConflictError('Price is locked once students have enrolled');
       if (dto.sessionCount !== undefined && dto.sessionCount !== program.sessionCount) throw new ConflictError('Session count is locked once students have enrolled');
+      if (dto.sessionMinutes !== undefined && dto.sessionMinutes !== program.sessionMinutes) throw new ConflictError('Session length is locked once students have enrolled');
       if (dto.modules) {
         const kept = new Set(dto.modules.flatMap((m) => (m.publicId ? [m.publicId] : [])));
         if (program.modules.some((m) => !kept.has(m.publicId))) throw new ConflictError('Modules can only be added once students have enrolled');
       }
+    }
+    const price = dto.priceCents ?? program.priceCents;
+    const sessions = dto.sessionCount ?? program.sessionCount;
+    if (!isPriceAllowed(price, sessions)) {
+      throw new ValidationError({ priceCents: [`Price must be free or at least $${(PLATFORM_FEE_CENTS / 100).toFixed(2)} per session`] });
     }
     if (dto.maxEnrollees !== undefined && dto.maxEnrollees < program.activeEnrollmentCount) {
       throw new ConflictError(`Max enrollees cannot be below the ${program.activeEnrollmentCount} active students`);

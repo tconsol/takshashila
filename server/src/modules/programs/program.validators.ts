@@ -1,6 +1,11 @@
 // server/src/modules/programs/program.validators.ts
 import { z } from 'zod';
 import { ProgramCategory, ProgramLevel } from './program.types';
+import { PLATFORM_FEE_CENTS } from '../../utils/currency';
+
+/** Free, or at least the platform fee per session (so the tutor never earns 0 on a paid program). */
+export const isPriceAllowed = (priceCents: number, sessionCount: number) =>
+  priceCents === 0 || priceCents >= sessionCount * PLATFORM_FEE_CENTS;
 
 const moduleInput = z.object({
   publicId: z.string().min(1).optional(), // present when editing an existing module
@@ -25,7 +30,11 @@ const programFields = {
 const ageOrder = (d: { ageMin?: number; ageMax?: number }) => d.ageMin === undefined || d.ageMax === undefined || d.ageMin <= d.ageMax;
 const AGE_MSG = { message: 'Minimum age must not exceed maximum age', path: ['ageMax'] };
 
-export const createProgramSchema = z.object(programFields).refine(ageOrder, AGE_MSG);
+export const createProgramSchema = z.object(programFields).refine(ageOrder, AGE_MSG)
+  .refine((d) => isPriceAllowed(d.priceCents, d.sessionCount), {
+    message: `Price must be free or at least $${(PLATFORM_FEE_CENTS / 100).toFixed(2)} per session`,
+    path: ['priceCents'],
+  });
 export const updateProgramSchema = z
   .object({ ...programFields, sessionMinutes: z.number().int().min(15).max(240) })
   .partial()
@@ -40,13 +49,25 @@ export const programCatalogQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional(),
 });
 
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+const isTimeZone = (tz: string) => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const enrollSchema = z.object({
-  availabilityWindow: z.object({
-    daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1),
-    startLocalTime: z.string().regex(/^\d{2}:\d{2}$/),
-    endLocalTime: z.string().regex(/^\d{2}:\d{2}$/),
-    ianaTimezone: z.string().min(1),
-  }),
+  availabilityWindow: z
+    .object({
+      daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1),
+      startLocalTime: z.string().regex(HHMM, 'Use HH:MM'),
+      endLocalTime: z.string().regex(HHMM, 'Use HH:MM'),
+      ianaTimezone: z.string().min(1).refine(isTimeZone, 'Unknown timezone'),
+    })
+    .refine((w) => w.startLocalTime < w.endLocalTime, { message: 'End time must be after start time', path: ['endLocalTime'] }),
 });
 
 export const scheduleSessionSchema = z.object({

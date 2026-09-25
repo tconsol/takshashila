@@ -23,10 +23,9 @@ const enrollment = {
 };
 
 describe('sessionCost', () => {
-  it('splits the price so the sessions sum exactly to it', () => {
+  it('charges every session the same flat share', () => {
     const costs = [1, 2, 3].map((n) => sessionCost(1000, 3, n));
-    expect(costs).toEqual([333, 333, 334]);
-    expect(costs.reduce((a, b) => a + b, 0)).toBe(1000);
+    expect(costs).toEqual([333, 333, 333]); // flat share; remainder refunded at the end
   });
 });
 
@@ -84,7 +83,14 @@ describe('enroll', () => {
 });
 
 describe('scheduleSession', () => {
-  const dto = { startUTC: '2026-09-28T16:00:00.000Z', endUTC: '2026-09-28T17:00:00.000Z', title: 'Session', programModulePublicId: 'm-1' };
+  // Next Monday, always in the future.
+  const monday = (h: number, m = 0, addDays = 0) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7 || 7) + addDays);
+    d.setUTCHours(h, m, 0, 0);
+    return d.toISOString();
+  };
+  const dto = { startUTC: monday(16), endUTC: monday(17), title: 'Session', programModulePublicId: 'm-1' };
   beforeEach(() => {
     jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tp-1' } as never);
     jest.spyOn(ProgramEnrollmentModel, 'findOne').mockReturnValue(lean(enrollment) as never);
@@ -93,12 +99,12 @@ describe('scheduleSession', () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  it('books a PROGRAM_PREPAID class priced from the post-increment session number', async () => {
+  it('books a PROGRAM_PREPAID class at the flat per-session price', async () => {
     jest.spyOn(ProgramEnrollmentModel, 'findOneAndUpdate').mockReturnValue(lean({ ...enrollment, sessionsScheduledCount: 3 }) as never);
     const create = jest.spyOn(ScheduledClassModel, 'create').mockResolvedValue({ toObject: () => ({}) } as never);
     await programEnrollmentService.scheduleSession('e-1', 'tu-1', dto);
     expect(create).toHaveBeenCalledWith(expect.objectContaining({
-      billingMode: 'PROGRAM_PREPAID', costCents: 334, programEnrollmentPublicId: 'e-1', programModulePublicId: 'm-1', studentPublicId: 'sp-1',
+      billingMode: 'PROGRAM_PREPAID', costCents: 333, programEnrollmentPublicId: 'e-1', programModulePublicId: 'm-1', studentPublicId: 'sp-1',
     }));
   });
 
@@ -107,9 +113,9 @@ describe('scheduleSession', () => {
     await expect(programEnrollmentService.scheduleSession('e-1', 'tu-9', dto)).rejects.toMatchObject({ statusCode: 404 });
     jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tp-1' } as never);
     await expect(programEnrollmentService.scheduleSession('e-1', 'tu-1', { ...dto, programModulePublicId: 'm-9' })).rejects.toMatchObject({ statusCode: 400 });
-    await expect(programEnrollmentService.scheduleSession('e-1', 'tu-1', { ...dto, startUTC: '2026-09-27T16:00:00.000Z', endUTC: '2026-09-27T17:00:00.000Z' }))
+    await expect(programEnrollmentService.scheduleSession('e-1', 'tu-1', { ...dto, startUTC: monday(16, 0, -1), endUTC: monday(17, 0, -1) }))
       .rejects.toMatchObject({ statusCode: 400 }); // Sunday
-    await expect(programEnrollmentService.scheduleSession('e-1', 'tu-1', { ...dto, endUTC: '2026-09-28T18:30:00.000Z' }))
+    await expect(programEnrollmentService.scheduleSession('e-1', 'tu-1', { ...dto, endUTC: monday(18, 30) }))
       .rejects.toMatchObject({ statusCode: 400 }); // 150 min > 60 + 15
   });
 

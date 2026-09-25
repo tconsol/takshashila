@@ -177,22 +177,49 @@ export class ClassService {
     return updated;
   }
 
-  /** One more program session done; completes the enrollment (and frees its seat) on the last one. */
+  /**
+   * Recount a program enrollment's completed sessions (idempotent — safe under double
+   * completion). On the last one: mark COMPLETED, refund the rounding remainder
+   * (price − Σ completed session costs) and free the seat.
+   */
   async recordProgramSessionCompleted(enrollmentPublicId: string): Promise<void> {
     // Dynamic import avoids a static cycle: programs/ imports class.service for cancellations.
     const { ProgramEnrollmentModel, ProgramModel } = await import('../programs/program.model');
+    const completed = await ScheduledClassModel.find(
+      { programEnrollmentPublicId: enrollmentPublicId, status: ClassStatus.COMPLETED, isDeleted: false },
+      { costCents: 1 },
+    ).lean();
     const updated = await ProgramEnrollmentModel.findOneAndUpdate(
       { publicId: enrollmentPublicId },
-      { $inc: { sessionsCompletedCount: 1 } },
+      { $set: { sessionsCompletedCount: completed.length } },
       { new: true },
     ).lean();
-    if (!updated || updated.status !== 'ACTIVE' || updated.sessionsCompletedCount < updated.sessionCount) return;
-    const completed = await ProgramEnrollmentModel.findOneAndUpdate(
+    if (!updated || updated.status !== 'ACTIVE' || completed.length < updated.sessionCount) return;
+
+    const done = await ProgramEnrollmentModel.findOneAndUpdate(
       { publicId: enrollmentPublicId, status: 'ACTIVE' },
       { $set: { status: 'COMPLETED' } },
       { new: true },
     ).lean();
-    if (!completed) return; // someone else completed/cancelled it first
+    if (!done) return; // someone else completed/cancelled it first
+
+    const remainder = updated.priceCentsPaid - completed.reduce((sum, c) => sum + (c.costCents ?? 0), 0);
+    if (remainder > 0) {
+      const student = await StudentProfileModel.findOne({ publicId: updated.studentPublicId }, { userPublicId: 1 }).lean();
+      if (student?.userPublicId) {
+        await walletService.refundWallet({
+          ownerPublicId: student.userPublicId,
+          amountCents: remainder,
+          description: 'Skill program completed — rounding remainder refunded',
+          // Persisted in wallettransactions — do not rename.
+          idempotencyKey: `program-complete-remainder-${enrollmentPublicId}`,
+          referenceId: enrollmentPublicId,
+          referenceType: 'PROGRAM_COMPLETE',
+        }).catch((error) => logger.error('Could not refund program completion remainder', {
+          enrollmentPublicId, amountCents: remainder, error: (error as Error).message,
+        }));
+      }
+    }
     await ProgramModel.updateOne({ publicId: updated.programPublicId }, { $inc: { activeEnrollmentCount: -1 } });
     domainEvents.emit(DomainEvent.PROGRAM_ENROLLMENT_COMPLETED, { enrollmentPublicId });
   }
@@ -208,11 +235,13 @@ export class ClassService {
       throw new ConflictError(`Cannot complete class in status: ${scheduled.status}`);
     }
 
+    // Guarded on status so a double-click or a race with the sweep completes (and pays) only once.
     const updated = await ScheduledClassModel.findOneAndUpdate(
-      { publicId: classPublicId },
+      { publicId: classPublicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] } },
       { $set: { status: ClassStatus.COMPLETED, needsTutorDecision: false } },
       { new: true },
     ).lean();
+    if (!updated) throw new ConflictError('Class was already completed or cancelled');
 
     const studentProfileForEvent = await StudentProfileModel.findOne(
       { publicId: scheduled.studentPublicId, isDeleted: false },
@@ -438,7 +467,17 @@ export class ClassService {
     // No refund needed students are only charged at class completion, not at
     // booking, so a cancelled class never debited the student in the first place.
 
-    if (isPrepaid(scheduled.billingMode) && scheduled.costCents > 0) {
+    // Program sessions are not refunded one by one: the slot is freed so the tutor books a
+    // replacement, and money only returns when the enrollment is cancelled or completes.
+    if (scheduled.billingMode === BillingMode.PROGRAM_PREPAID && scheduled.programEnrollmentPublicId) {
+      const { ProgramEnrollmentModel } = await import('../programs/program.model');
+      await ProgramEnrollmentModel.updateOne(
+        { publicId: scheduled.programEnrollmentPublicId, status: 'ACTIVE', sessionsScheduledCount: { $gt: 0 } },
+        { $inc: { sessionsScheduledCount: -1 } },
+      );
+    }
+
+    if (scheduled.billingMode === BillingMode.COURSE_PREPAID && scheduled.costCents > 0) {
       const studentProfile = await StudentProfileModel.findOne(
         { publicId: scheduled.studentPublicId, isDeleted: false },
         { userPublicId: 1 },
@@ -451,7 +490,7 @@ export class ClassService {
           await walletService.refundWallet({
             ownerPublicId: studentProfile.userPublicId,
             amountCents: scheduled.costCents,
-            description: `Refund (prepaid class cancelled): ${scheduled.title}`,
+            description: `Refund (course class cancelled): ${scheduled.title}`,
             // Persisted in wallettransactions — do not rename (see rename spec §3.5).
             idempotencyKey: `course-class-cancel-refund-${classPublicId}`,
             referenceId: classPublicId,
