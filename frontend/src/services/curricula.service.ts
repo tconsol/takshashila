@@ -1,5 +1,6 @@
 // frontend/src/services/curricula.service.ts
 import { api } from '../lib/axios';
+import type { StructureMaterial } from './courses.service';
 
 export interface CurriculumTopic {
   publicId: string;
@@ -57,7 +58,14 @@ export interface AttachableCurriculum {
   topics: { publicId: string; title: string; order: number }[];
 }
 
+export interface CurriculumStructure {
+  curriculum: { publicId: string; title: string; subject: string; grade: string; district?: string; state?: string };
+  topics: Array<{ publicId: string; title: string; order: number; materials: StructureMaterial[] }>;
+}
+
 export const curriculaService = {
+  getStructure: (id: string): Promise<CurriculumStructure> => api.get(`/curricula/${id}/structure`).then((r) => r.data.data),
+
   listAttachable: (): Promise<AttachableCurriculum[]> => api.get('/curricula/attachable').then((r) => r.data.data),
 
   listCatalog: (params: { districtId?: string; grade?: string; subject?: string }): Promise<Curriculum[]> =>

@@ -1,6 +1,7 @@
 // frontend/src/pages/admin/AdminCurriculumPage.tsx
 import { useState } from 'react';
-import { GraduationCap, Plus, Eye, EyeOff, Trash2, Save, AlertTriangle, MapPin, Pencil } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { GraduationCap, Plus, Eye, EyeOff, Trash2, Save, AlertTriangle, MapPin, Pencil, ListTree } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -172,6 +173,7 @@ function AssignDistrictModal({ curriculum, onClose }: { curriculum: Curriculum; 
 }
 
 export function AdminCurriculumPage() {
+  const base = useLocation().pathname.startsWith('/dashboard/super-admin') ? '/dashboard/super-admin/curriculum' : '/dashboard/admin/curriculum';
   const [showNew, setShowNew] = useState(false);
   const [filter, setFilter] = useState<Location>(EMPTY_LOCATION);
   const [assigning, setAssigning] = useState<Curriculum | null>(null);
@@ -230,6 +232,9 @@ export function AdminCurriculumPage() {
                         <MapPin className="h-3.5 w-3.5" /> Assign district
                       </Button>
                     )}
+                    <Link to={`${base}/${curriculum.publicId}`}>
+                      <Button size="sm" variant="outline"><ListTree className="h-3.5 w-3.5" /> Structure</Button>
+                    </Link>
                     <Button size="sm" variant="outline" onClick={() => { setShowNew(false); setEditing(curriculum); }}>
                       <Pencil className="h-3.5 w-3.5" /> Edit
                     </Button>

@@ -1,6 +1,7 @@
 // frontend/src/pages/tutor/TutorCourseRequestsPage.tsx
 import { useState } from 'react';
-import { ClipboardList, Check, X, Inbox, CalendarPlus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ClipboardList, Check, X, Inbox, CalendarPlus, BookOpen } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -143,6 +144,11 @@ function RequestCard({ request }: { request: Course }) {
             <Button size="sm" variant="outline" onClick={() => setShowSchedule((v) => !v)}>
               <CalendarPlus className="h-3.5 w-3.5" /> Schedule next class
             </Button>
+          )}
+          {(request.status === 'ACCEPTED' || request.status === 'COMPLETED') && (
+            <Link to={`/dashboard/tutor/course-requests/${request.publicId}`}>
+              <Button size="sm" variant="outline"><BookOpen className="h-3.5 w-3.5" /> View course</Button>
+            </Link>
           )}
         </div>
 

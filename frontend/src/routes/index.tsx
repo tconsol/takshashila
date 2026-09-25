@@ -120,6 +120,10 @@ import { StudentCreateCoursePage } from '../pages/student/StudentCreateCoursePag
 import { StudentMyCoursesPage } from '../pages/student/StudentMyCoursesPage';
 import { StudentCourseProgressPage } from '../pages/student/StudentCourseProgressPage';
 import { StudentAssignmentDetailPage } from '../pages/student/StudentAssignmentDetailPage';
+import { TutorCoursePage } from '../pages/tutor/TutorCoursePage';
+import { ParentCoursesPage } from '../pages/parent/ParentCoursesPage';
+import { ParentCoursePage } from '../pages/parent/ParentCoursePage';
+import { AdminCurriculumStructurePage } from '../pages/admin/AdminCurriculumStructurePage';
 import { StudentCalendarPage } from '../pages/student/StudentCalendarPage';
 
 // Parent pages
@@ -183,6 +187,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/super-admin/tutors', element: <TutorsDirectoryPage /> },
         { path: '/dashboard/super-admin/students', element: <StudentsDirectoryPage /> },
         { path: '/dashboard/super-admin/curriculum', element: <AdminCurriculumPage /> },
+        { path: '/dashboard/super-admin/curriculum/:curriculumPublicId', element: <AdminCurriculumStructurePage /> },
         { path: '/dashboard/super-admin/finance', element: <FinanceOpsPage /> },
         { path: '/dashboard/super-admin/classes', element: <ClassesExplorerPage /> },
         { path: '/dashboard/super-admin/broadcast', element: <BroadcastPage /> },
@@ -207,6 +212,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/admin/tutors', element: <TutorsDirectoryPage /> },
         { path: '/dashboard/admin/students', element: <StudentsDirectoryPage /> },
         { path: '/dashboard/admin/curriculum', element: <AdminCurriculumPage /> },
+        { path: '/dashboard/admin/curriculum/:curriculumPublicId', element: <AdminCurriculumStructurePage /> },
         { path: '/dashboard/admin/finance', element: <FinanceOpsPage /> },
         { path: '/dashboard/admin/audit', element: <SuperAdminAuditPage /> },
         { path: '/dashboard/admin/system', element: <SuperAdminSystemPage /> },
@@ -257,6 +263,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/tutor', element: <TutorDashboard /> },
         { path: '/dashboard/tutor/demo-requests', element: <TutorDemoRequestsPage /> },
         { path: '/dashboard/tutor/course-requests', element: <TutorCourseRequestsPage /> },
+        { path: '/dashboard/tutor/course-requests/:coursePublicId', element: <TutorCoursePage /> },
         { path: '/dashboard/tutor/principals', element: <TutorPrincipalsPage /> },
         { path: '/dashboard/tutor/classes', element: <TutorClassesPage /> },
         { path: '/dashboard/tutor/classes/create', element: <TutorCreateClassPage /> },
@@ -312,6 +319,8 @@ export const router = createBrowserRouter([
       children: [
         { path: '/dashboard/parent', element: <ParentDashboard /> },
         { path: '/dashboard/parent/children', element: <ParentChildrenPage /> },
+        { path: '/dashboard/parent/courses', element: <ParentCoursesPage /> },
+        { path: '/dashboard/parent/courses/:coursePublicId', element: <ParentCoursePage /> },
         { path: '/dashboard/parent/children/:studentPublicId', element: <ParentChildDetailPage /> },
         { path: '/dashboard/parent/tutors', element: <ParentTutorsPage /> },
         { path: '/dashboard/parent/principals', element: <ParentPrincipalsPage /> },

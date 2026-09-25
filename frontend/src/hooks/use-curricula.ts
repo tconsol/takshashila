@@ -102,3 +102,11 @@ export function usePublishCurriculum() {
 export function useAttachableCurricula(enabled = true) {
   return useQuery({ queryKey: curriculumKeys.attachable, queryFn: curriculaService.listAttachable, enabled, staleTime: 60_000 });
 }
+
+export function useCurriculumStructure(curriculumPublicId: string) {
+  return useQuery({
+    queryKey: [...curriculumKeys.all, 'structure', curriculumPublicId],
+    queryFn: () => curriculaService.getStructure(curriculumPublicId),
+    enabled: !!curriculumPublicId,
+  });
+}
