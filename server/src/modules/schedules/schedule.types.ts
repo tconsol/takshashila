@@ -18,13 +18,19 @@ export type ClassType = (typeof ClassType)[keyof typeof ClassType];
  *   the tutor earns (rate − platform fee), same math as STUDENT_REQUESTED. On
  *   cancellation (unlike STUDENT_REQUESTED) the class's cost IS refunded, because
  *   it was already collected.
+ * - PROGRAM_PREPAID: student paid a Skill Program up front — same rules as COURSE_PREPAID.
  */
 export const BillingMode = {
   STUDENT_REQUESTED: 'STUDENT_REQUESTED',
   TUTOR_INVITED: 'TUTOR_INVITED',
   COURSE_PREPAID: 'COURSE_PREPAID',
+  PROGRAM_PREPAID: 'PROGRAM_PREPAID',
 } as const;
 export type BillingMode = (typeof BillingMode)[keyof typeof BillingMode];
+
+/** Paid up front in bulk (course or skill program): no per-class charge; cancelled classes are refunded. */
+export const isPrepaid = (mode: BillingMode | string): boolean =>
+  mode === BillingMode.COURSE_PREPAID || mode === BillingMode.PROGRAM_PREPAID;
 
 export const ClassStatus = {
   SCHEDULED: 'SCHEDULED',
@@ -129,6 +135,9 @@ export interface IScheduledClass {
   coursePublicId?: string;
   curriculumPublicId?: string;
   topicPublicId?: string;
+  programEnrollmentPublicId?: string;
+  programPublicId?: string;
+  programModulePublicId?: string;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;

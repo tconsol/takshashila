@@ -28,31 +28,9 @@ import { loadMaterialsByTopic, curriculumSummary } from './course-structure';
 import { AppError, ConflictError, NotFoundError, ValidationError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { isWithinAvailability } from '../../shared/availability';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
-
-/** Minutes since local midnight, for comparing against an availabilityWindow. */
-function localMinutesOfDay(isoTime: Date, ianaTimezone: string): { minutes: number; dayOfWeek: number } {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: ianaTimezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    weekday: 'short',
-  }).formatToParts(isoTime);
-
-  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
-  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
-  const weekdayShort = parts.find((p) => p.type === 'weekday')?.value ?? 'Sun';
-  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-
-  return { minutes: hour * 60 + minute, dayOfWeek: dayMap[weekdayShort] ?? 0 };
-}
-
-function timeStringToMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
-}
 
 export type EnrichedCourse = ICourse & {
   studentName?: string;
@@ -397,15 +375,7 @@ export class CourseService {
     const end = new Date(dto.endUTC);
     if (end <= start) throw new AppError('endUTC must be after startUTC', 400);
 
-    const { minutes: startMinutes, dayOfWeek } = localMinutesOfDay(start, request.availabilityWindow.ianaTimezone);
-    const { minutes: endMinutes } = localMinutesOfDay(end, request.availabilityWindow.ianaTimezone);
-    const windowStart = timeStringToMinutes(request.availabilityWindow.startLocalTime);
-    const windowEnd = timeStringToMinutes(request.availabilityWindow.endLocalTime);
-    const inWindow =
-      request.availabilityWindow.daysOfWeek.includes(dayOfWeek) &&
-      startMinutes >= windowStart &&
-      startMinutes <= windowEnd &&
-      endMinutes <= windowEnd;
+    const inWindow = isWithinAvailability(request.availabilityWindow, start, end);
     if (!inWindow) {
       throw new AppError('Requested time is outside the student\'s stated availability window', 400);
     }
