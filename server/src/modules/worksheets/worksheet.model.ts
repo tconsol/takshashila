@@ -64,6 +64,7 @@ const submissionSchema = new Schema<IWorksheetSubmission>(
     publicId: { type: String, default: uuidv4, unique: true, index: true },
     worksheetPublicId: { type: String, required: true, index: true },
     studentPublicId: { type: String, required: true, index: true },
+    graderTutorPublicId: { type: String, index: true }, // admin items: the student's course tutor
     answers: [{ type: Number }],
     score: { type: Number, required: true, min: 0, max: 100 },
     correctCount: { type: Number, required: true, min: 0 },

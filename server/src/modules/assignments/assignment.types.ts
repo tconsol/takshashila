@@ -40,6 +40,7 @@ export interface ISubmission {
   publicId: string;
   assignmentPublicId: string;
   studentPublicId: string;
+  graderTutorPublicId?: string;
   content?: string;
   attachmentPublicIds: string[];
   submittedAt?: Date;

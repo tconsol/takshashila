@@ -43,6 +43,7 @@ const submissionSchema = new Schema<ISubmission>(
     publicId: { type: String, default: uuidv4, unique: true, index: true },
     assignmentPublicId: { type: String, required: true, index: true },
     studentPublicId: { type: String, required: true, index: true },
+    graderTutorPublicId: { type: String, index: true }, // admin items: the student's course tutor
     content: { type: String, maxlength: 10000 },
     attachmentPublicIds: [{ type: String }],
     submittedAt: { type: Date },

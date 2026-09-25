@@ -45,6 +45,7 @@ export interface IWorksheetSubmission {
   publicId: string;
   worksheetPublicId: string;
   studentPublicId: string;
+  graderTutorPublicId?: string;
   answers: number[];
   score: number;
   correctCount: number;

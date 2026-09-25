@@ -13,6 +13,7 @@ import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { resolveTutorAttachment } from '../curricula/curriculum-attachment';
 import { resolveAdminAttachment } from '../curricula/curriculum-attachment';
+import * as access from '../courses/material-access';
 import type { TutorAuthor } from '../../shared/material.types';
 
 /** Curriculum assignments may have no due date — those are never late. */
@@ -157,6 +158,12 @@ export class AssignmentService {
       throw new AppError('Assignment is not open for submissions', 422);
     }
 
+    // Admin (curriculum) items are graded by the tutor of the student's course.
+    const graderTutorPublicId = assignment.authorRole === 'ADMIN'
+      ? await access.findGraderTutor(studentPublicId, assignment)
+      : undefined;
+    const grader = graderTutorPublicId ? { graderTutorPublicId } : {};
+
     const existing = await SubmissionModel.findOne({ assignmentPublicId, studentPublicId, isDeleted: false });
     if (existing) {
       const updated = await SubmissionModel.findOneAndUpdate(
@@ -167,6 +174,7 @@ export class AssignmentService {
             attachmentPublicIds: dto.attachmentPublicIds ?? [],
             submittedAt: new Date(),
             status: isLate(assignment.dueDate) ? SubmissionStatus.LATE : SubmissionStatus.SUBMITTED,
+            ...grader,
           },
         },
         { new: true },
@@ -183,6 +191,7 @@ export class AssignmentService {
       submittedAt: new Date(),
       status: isLate(assignment.dueDate) ? SubmissionStatus.LATE : SubmissionStatus.SUBMITTED,
       isDeleted: false,
+      ...grader,
     });
 
     domainEvents.emit(DomainEvent.ASSIGNMENT_SUBMITTED, {
@@ -202,7 +211,11 @@ export class AssignmentService {
     if (!submission) throw new NotFoundError('Submission');
 
     const assignment = await AssignmentModel.findOne({ publicId: submission.assignmentPublicId });
-    if (!assignment || assignment.tutorPublicId !== tutorPublicId) {
+    const allowed = !!assignment && (
+      assignment.tutorPublicId === tutorPublicId ||
+      (assignment.authorRole === 'ADMIN' && submission.graderTutorPublicId === tutorPublicId)
+    );
+    if (!assignment || !allowed) {
       throw new AppError('Not authorized to grade this submission', 403);
     }
     if (dto.score > assignment.maxScore) {

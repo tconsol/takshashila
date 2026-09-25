@@ -7,6 +7,7 @@ import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import { resolveTutorAttachment } from '../curricula/curriculum-attachment';
 import { resolveAdminAttachment } from '../curricula/curriculum-attachment';
+import * as access from '../courses/material-access';
 import type { TutorAuthor } from '../../shared/material.types';
 
 export class WorksheetService {
@@ -214,6 +215,10 @@ export class WorksheetService {
       ? Math.round((correctCount / worksheet.questions.length) * 100)
       : 0;
 
+    const graderTutorPublicId = worksheet.authorRole === 'ADMIN'
+      ? await access.findGraderTutor(studentPublicId, worksheet)
+      : undefined;
+
     const submission = await WorksheetSubmissionModel.create({
       publicId: uuidv4(),
       worksheetPublicId,
@@ -224,6 +229,7 @@ export class WorksheetService {
       totalQuestions: worksheet.questions.length,
       timeTakenSeconds: dto.timeTakenSeconds,
       submittedAt: new Date(),
+      ...(graderTutorPublicId ? { graderTutorPublicId } : {}),
     });
 
     return submission.toObject();

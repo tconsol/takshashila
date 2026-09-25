@@ -21,9 +21,11 @@ import { CurriculumModel } from '../curricula/curriculum.model';
 import { walletService } from '../wallets/wallet.service';
 import { computeTopicProgress } from './course-progress';
 import { ParentProfileModel } from '../parents/parent.model';
+import { SubmissionModel } from '../assignments/assignment.model';
+import { WorksheetSubmissionModel } from '../worksheets/worksheet.model';
 import { materialFilterForCourse, ACTIVE_COURSE_STATUSES, type Viewer } from './material-access';
 import { loadMaterialsByTopic, curriculumSummary } from './course-structure';
-import { AppError, ConflictError, NotFoundError } from '../../utils/error';
+import { AppError, ConflictError, NotFoundError, ValidationError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
@@ -229,6 +231,22 @@ export class CourseService {
       if (t?.publicId === course.tutorPublicId) return 'TUTOR';
     }
     throw new NotFoundError('Course');
+  }
+
+  /** One item's submissions from this course's student, for the course's tutor (admin items panel). */
+  async getMaterialSubmissions(coursePublicId: string, tutorUserPublicId: string, kind: string, materialPublicId: string) {
+    const tutor = await TutorProfileModel.findOne({ userPublicId: tutorUserPublicId, isDeleted: false }).lean();
+    const course = await CourseModel.findOne({ publicId: coursePublicId, isDeleted: false }).lean();
+    if (!tutor || !course || course.tutorPublicId !== tutor.publicId) throw new NotFoundError('Course');
+    if (kind === 'assignment') {
+      return SubmissionModel.find({ assignmentPublicId: materialPublicId, studentPublicId: course.studentPublicId, isDeleted: false })
+        .sort({ submittedAt: -1 }).lean();
+    }
+    if (kind === 'worksheet') {
+      return WorksheetSubmissionModel.find({ worksheetPublicId: materialPublicId, studentPublicId: course.studentPublicId, isDeleted: false })
+        .sort({ submittedAt: -1 }).lean();
+    }
+    throw new ValidationError({ kind: ['kind must be assignment or worksheet'] });
   }
 
   async getForParent(parentUserPublicId: string): Promise<EnrichedCourse[]> {

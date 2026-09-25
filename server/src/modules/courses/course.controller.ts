@@ -25,6 +25,13 @@ export class CourseController {
     } catch (error) { next(error); }
   }
 
+  async getMaterialSubmissions(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { coursePublicId, kind, materialPublicId } = req.params;
+      sendSuccess(res, await courseService.getMaterialSubmissions(coursePublicId, req.user!.publicId, kind, materialPublicId), 'Submissions fetched');
+    } catch (error) { next(error); }
+  }
+
   async getForParent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       sendSuccess(res, await courseService.getForParent(req.user!.publicId), 'Courses fetched');
