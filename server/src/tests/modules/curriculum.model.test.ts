@@ -1,7 +1,7 @@
 import { CurriculumModel } from '../../modules/curricula/curriculum.model';
 
 describe('Curriculum model', () => {
-  it('validates a curriculum with ordered topics and attached content ids', () => {
+  it('validates a curriculum with ordered topics', () => {
     const doc = new CurriculumModel({
       publicId: 'curriculum-1',
       country: 'US',
@@ -16,8 +16,8 @@ describe('Curriculum model', () => {
       createdByAdminPublicId: 'admin-1',
       isPublished: false,
       topics: [
-        { publicId: 'topic-1', title: 'Linear Equations', order: 0, resourceIds: ['res-1'], assignmentIds: [], worksheetIds: ['ws-1'] },
-        { publicId: 'topic-2', title: 'Quadratic Equations', order: 1, resourceIds: [], assignmentIds: ['a-1'], worksheetIds: [] },
+        { publicId: 'topic-1', title: 'Linear Equations', order: 0 },
+        { publicId: 'topic-2', title: 'Quadratic Equations', order: 1 },
       ],
       isDeleted: false,
     });
