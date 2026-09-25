@@ -158,13 +158,14 @@ export class AssignmentService {
       throw new AppError('Assignment is not open for submissions', 422);
     }
 
-    // Admin (curriculum) items are graded by the tutor of the student's course.
-    const graderTutorPublicId = assignment.authorRole === 'ADMIN'
+    const existing = await SubmissionModel.findOne({ assignmentPublicId, studentPublicId, isDeleted: false });
+
+    // Admin (curriculum) items are graded by the tutor of the student's course. Keep the
+    // first grader on resubmission so a submission never switches tutors mid-grading.
+    const graderTutorPublicId = assignment.authorRole === 'ADMIN' && !existing?.graderTutorPublicId
       ? await access.findGraderTutor(studentPublicId, assignment)
       : undefined;
     const grader = graderTutorPublicId ? { graderTutorPublicId } : {};
-
-    const existing = await SubmissionModel.findOne({ assignmentPublicId, studentPublicId, isDeleted: false });
     if (existing) {
       const updated = await SubmissionModel.findOneAndUpdate(
         { assignmentPublicId, studentPublicId },
@@ -197,6 +198,7 @@ export class AssignmentService {
     domainEvents.emit(DomainEvent.ASSIGNMENT_SUBMITTED, {
       assignmentPublicId,
       studentPublicId,
+      ...grader,
     });
 
     return submission.toObject();

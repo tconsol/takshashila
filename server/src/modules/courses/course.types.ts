@@ -29,6 +29,7 @@ export interface ICourse {
   costCentsPerClass?: number;
   totalCostCentsCharged?: number;
   rejectionReason?: string;
+  acceptedAt?: Date;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;

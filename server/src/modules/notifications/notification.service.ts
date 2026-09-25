@@ -222,7 +222,7 @@ export class NotificationService {
       }
     });
 
-    domainEvents.on(DomainEvent.ASSIGNMENT_SUBMITTED, async (payload: { assignmentPublicId: string; studentPublicId: string }) => {
+    domainEvents.on(DomainEvent.ASSIGNMENT_SUBMITTED, async (payload: { assignmentPublicId: string; studentPublicId: string; graderTutorPublicId?: string }) => {
       try {
         await this.create({
           recipientPublicId: payload.studentPublicId,
@@ -231,6 +231,20 @@ export class NotificationService {
           body: 'Your assignment has been submitted successfully.',
           data: { assignmentPublicId: payload.assignmentPublicId },
         });
+        // Curriculum (admin) assignments: tell the tutor who grades this student.
+        if (payload.graderTutorPublicId) {
+          const { TutorProfileModel } = await import('../tutors/tutor.model');
+          const tutor = await TutorProfileModel.findOne({ publicId: payload.graderTutorPublicId }, { userPublicId: 1 }).lean();
+          if (tutor) {
+            await this.create({
+              recipientPublicId: tutor.userPublicId,
+              type: 'ASSIGNMENT_PUBLISHED' as const,
+              title: 'New submission to grade',
+              body: 'A student submitted a curriculum assignment for you to grade.',
+              data: { assignmentPublicId: payload.assignmentPublicId },
+            });
+          }
+        }
       } catch (e) {
         logger.error('Failed to create ASSIGNMENT_SUBMITTED notification', { error: e });
       }

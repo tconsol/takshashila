@@ -27,7 +27,7 @@ async function studentIdsFor(viewer: Viewer): Promise<string[]> {
     return s ? [s.publicId] : [];
   }
   if (viewer.role === 'PARENT') {
-    const p = await ParentProfileModel.findOne({ userPublicId: viewer.userPublicId }).lean();
+    const p = await ParentProfileModel.findOne({ userPublicId: viewer.userPublicId, isDeleted: false }).lean();
     return p?.childStudentPublicIds ?? [];
   }
   return [];
@@ -92,6 +92,7 @@ export function materialFilterForCourse(course: { curriculumPublicId: string; to
 
 /** Tutor who handles a student's submission for an admin-authored item. */
 export async function findGraderTutor(studentPublicId: string, m: MaterialLike): Promise<string | undefined> {
-  const course = await CourseModel.findOne({ studentPublicId, ...courseScope(m) }).sort({ updatedAt: -1 }).lean();
+  // Acceptance time, not updatedAt: updatedAt moves on every class completion.
+  const course = await CourseModel.findOne({ studentPublicId, ...courseScope(m) }).sort({ acceptedAt: -1, createdAt: -1 }).lean();
   return course?.tutorPublicId;
 }

@@ -63,7 +63,7 @@ describe('admin-item submissions', () => {
     jest.spyOn(AssignmentModel, 'exists').mockResolvedValue({ _id: 'x' } as never);
     const find = jest.spyOn(SubmissionModel, 'find').mockReturnValue({ sort: () => lean([]) } as never);
     await courseService.getMaterialSubmissions('c-1', 'tu-B', 'assignment', 'a-1');
-    expect(find).toHaveBeenCalledWith({ assignmentPublicId: 'a-1', studentPublicId: 'sp-1', isDeleted: false });
+    expect(find).toHaveBeenCalledWith({ assignmentPublicId: 'a-1', studentPublicId: 'sp-1', isDeleted: false, graderTutorPublicId: 'tp-B' });
 
     jest.spyOn(TutorProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'tp-Z' }) as never);
     await expect(courseService.getMaterialSubmissions('c-1', 'tu-Z', 'assignment', 'a-1')).rejects.toMatchObject({ statusCode: 404 });

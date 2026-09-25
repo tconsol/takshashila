@@ -262,6 +262,7 @@ export class WorksheetService {
   }
 
   async countUnsubmittedForStudent(studentPublicId: string): Promise<number> {
+    // Same scope as getForStudent, so the badge matches the Homework list.
     const filter = {
       $or: [
         { assignedToStudentPublicIds: studentPublicId },
@@ -269,6 +270,8 @@ export class WorksheetService {
       ],
       status: WorksheetStatus.PUBLISHED,
       isDeleted: false,
+      authorRole: { $ne: 'ADMIN' },
+      $and: [await access.studentMaterialScope(studentPublicId)],
     };
     const total = await WorksheetModel.countDocuments(filter);
     const submitted = await WorksheetSubmissionModel.countDocuments({ studentPublicId, isDeleted: false });

@@ -227,7 +227,7 @@ export class CourseService {
       if (s?.publicId === course.studentPublicId) return 'STUDENT';
     }
     if (viewer.role === 'PARENT') {
-      const p = await ParentProfileModel.findOne({ userPublicId: viewer.userPublicId }).lean();
+      const p = await ParentProfileModel.findOne({ userPublicId: viewer.userPublicId, isDeleted: false }).lean();
       if (p?.childStudentPublicIds?.includes(course.studentPublicId)) return 'PARENT';
     }
     if (viewer.role === 'TUTOR' || viewer.role === 'PRINCIPAL') {
@@ -249,18 +249,18 @@ export class CourseService {
     const belongs = await Model.exists({ publicId: materialPublicId, authorRole: 'ADMIN', ...materialFilterForCourse(course) });
     if (!belongs) throw new NotFoundError('Material');
     if (kind === 'assignment') {
-      return SubmissionModel.find({ assignmentPublicId: materialPublicId, studentPublicId: course.studentPublicId, isDeleted: false })
+      return SubmissionModel.find({ assignmentPublicId: materialPublicId, studentPublicId: course.studentPublicId, isDeleted: false, graderTutorPublicId: tutor.publicId })
         .sort({ submittedAt: -1 }).lean();
     }
     if (kind === 'worksheet') {
-      return WorksheetSubmissionModel.find({ worksheetPublicId: materialPublicId, studentPublicId: course.studentPublicId, isDeleted: false })
+      return WorksheetSubmissionModel.find({ worksheetPublicId: materialPublicId, studentPublicId: course.studentPublicId, isDeleted: false, graderTutorPublicId: tutor.publicId })
         .sort({ submittedAt: -1 }).lean();
     }
     throw new ValidationError({ kind: ['kind must be assignment or worksheet'] });
   }
 
   async getForParent(parentUserPublicId: string): Promise<EnrichedCourse[]> {
-    const parent = await ParentProfileModel.findOne({ userPublicId: parentUserPublicId }).lean();
+    const parent = await ParentProfileModel.findOne({ userPublicId: parentUserPublicId, isDeleted: false }).lean();
     const children = parent?.childStudentPublicIds ?? [];
     if (children.length === 0) return [];
     const courses = await CourseModel.find({
@@ -322,6 +322,7 @@ export class CourseService {
       {
         $set: {
           status: CourseStatus.ACCEPTED,
+          acceptedAt: new Date(),
           classesRequired: dto.classesRequired,
           costCentsPerClass,
           totalCostCentsCharged,

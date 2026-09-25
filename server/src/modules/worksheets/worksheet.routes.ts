@@ -121,8 +121,10 @@ router.post('/:worksheetId/submit', requireRole(Role.STUDENT), async (req: AuthR
     try {
       const worksheet = await worksheetService.getByPublicId(req.params.worksheetId);
       const { tutorRepository } = await import('../tutors/tutor.repository');
-      const tutorProfile = worksheet.tutorPublicId
-        ? await tutorRepository.findByPublicId(worksheet.tutorPublicId).catch(() => null)
+      // Curriculum (admin) worksheets have no owner — notify the tutor who grades this student.
+      const notifyTutorId = worksheet.tutorPublicId ?? submission.graderTutorPublicId;
+      const tutorProfile = notifyTutorId
+        ? await tutorRepository.findByPublicId(notifyTutorId).catch(() => null)
         : null;
       if (tutorProfile) {
         void realtime.emitTo(`user:${tutorProfile.userPublicId}`, 'worksheet:submitted', {
