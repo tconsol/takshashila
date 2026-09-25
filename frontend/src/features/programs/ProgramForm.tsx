@@ -8,6 +8,10 @@ import { Select } from '../../components/ui/Select';
 import { PROGRAM_CATEGORIES, PROGRAM_LEVELS } from '../../constants/programs';
 import { useCreateProgram, useUpdateProgram } from '../../hooks/use-programs';
 import type { Program, ProgramInput } from '../../services/programs.service';
+import { formatCurrency } from '../../utils/currency';
+
+/** Must match PLATFORM_FEE_CENTS on the server (server/src/utils/currency.ts). */
+const PLATFORM_FEE_CENTS = 100;
 
 type ModuleDraft = { publicId?: string; title: string; description?: string };
 const num = (v: string) => (v.trim() === '' ? undefined : Number(v));
@@ -29,7 +33,11 @@ export function ProgramForm({ program, onDone }: { program?: Program; onDone: ()
   const [modules, setModules] = useState<ModuleDraft[]>(program ? [...program.modules].sort((a, b) => a.order - b.order) : [{ title: '' }]);
   const locked = !!program && program.activeEnrollmentCount > 0;
 
-  const ready = title.trim() && modules.length > 0 && modules.every((m) => m.title.trim()) && Number(sessionCount) >= 1 && price !== '';
+  const priceCents = price === '' ? 0 : Math.round(Number(price) * 100);
+  const perSession = Number(sessionCount) > 0 ? Math.floor(priceCents / Number(sessionCount)) : 0;
+  // Mirrors the server rule: free, or at least the platform fee per session.
+  const priceOk = priceCents === 0 || priceCents >= Number(sessionCount) * PLATFORM_FEE_CENTS;
+  const ready = priceOk && title.trim() && modules.length > 0 && modules.every((m) => m.title.trim()) && Number(sessionCount) >= 1 && price !== '';
 
   const save = () => {
     const dto: ProgramInput = {
@@ -70,10 +78,17 @@ export function ProgramForm({ program, onDone }: { program?: Program; onDone: ()
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <Input label="Sessions" type="number" value={sessionCount} onChange={(e) => setSessionCount(e.target.value)} disabled={locked} />
-          <Input label="Minutes per session" type="number" value={sessionMinutes} onChange={(e) => setSessionMinutes(e.target.value)} />
+          <Input label="Minutes per session" type="number" value={sessionMinutes} onChange={(e) => setSessionMinutes(e.target.value)} disabled={locked} />
           <Input label="Total price ($)" type="number" value={price} onChange={(e) => setPrice(e.target.value)} disabled={locked} />
         </div>
-        {locked && <p className="text-xs text-gray-500">Students have enrolled: sessions and price are locked, and modules can only be added.</p>}
+        {priceCents > 0 && Number(sessionCount) > 0 && (
+          <p className={`text-xs ${priceOk ? 'text-gray-500' : 'text-red-500'}`}>
+            {priceOk
+              ? `Each session is ${formatCurrency(perSession)}; you earn ${formatCurrency(Math.max(0, perSession - PLATFORM_FEE_CENTS))} per completed session after the ${formatCurrency(PLATFORM_FEE_CENTS)} platform fee.`
+              : `A paid program must be at least ${formatCurrency(PLATFORM_FEE_CENTS)} per session (${formatCurrency(PLATFORM_FEE_CENTS * Number(sessionCount))} total), or free.`}
+          </p>
+        )}
+        {locked && <p className="text-xs text-gray-500">Students have enrolled: sessions, session length and price are locked, and modules can only be added.</p>}
 
         <div className="space-y-2">
           <p className="text-xs font-medium text-gray-500">Modules (in order)</p>

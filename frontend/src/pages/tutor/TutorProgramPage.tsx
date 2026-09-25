@@ -1,5 +1,6 @@
 // frontend/src/pages/tutor/TutorProgramPage.tsx
 import { useState } from 'react';
+import { zonedTimeToUtc } from 'date-fns-tz';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarPlus, Sparkles, Users } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -23,7 +24,8 @@ function ScheduleForm({ enrollment, modules, sessionMinutes, programTitle }: {
   return (
     <div className="mt-3 space-y-2 rounded-xl border border-gray-100 dark:border-gray-800 p-3">
       <p className="text-xs text-gray-500">
-        Available {w.daysOfWeek.map((d) => DAYS[d]).join(', ')} · {w.startLocalTime}–{w.endLocalTime} ({w.ianaTimezone}) · {sessionMinutes} min sessions
+        Available {w.daysOfWeek.map((d) => DAYS[d]).join(', ')} · {w.startLocalTime}–{w.endLocalTime} ({w.ianaTimezone}) · {sessionMinutes} min sessions.
+        {' '}Enter the time in the student's timezone ({w.ianaTimezone}).
       </p>
       <div className="flex flex-wrap gap-2">
         <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)}
@@ -35,7 +37,8 @@ function ScheduleForm({ enrollment, modules, sessionMinutes, programTitle }: {
         </select>
         <Button size="sm" variant="gradient" loading={isPending} disabled={!start || !moduleId}
           onClick={() => {
-            const s = new Date(start);
+            // The input is read in the student's timezone, not the tutor's browser timezone.
+            const s = zonedTimeToUtc(start, w.ianaTimezone);
             const e = new Date(s.getTime() + sessionMinutes * 60_000);
             const title = `${programTitle} — ${modules.find((m) => m.publicId === moduleId)?.title ?? 'Session'}`;
             schedule({ enrollmentId: enrollment.publicId, dto: { startUTC: s.toISOString(), endUTC: e.toISOString(), title, programModulePublicId: moduleId } });

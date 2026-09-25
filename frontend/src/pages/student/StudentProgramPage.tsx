@@ -69,8 +69,9 @@ export function StudentProgramPage() {
                 <span className="text-xs text-gray-400">to</span>
                 <input type="time" value={endLocalTime} onChange={(e) => setEnd(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
               </div>
-              <Button variant="gradient" loading={isPending} disabled={days.size === 0}
-                onClick={() => enroll(
+              {startLocalTime >= endLocalTime && <p className="text-xs text-red-500">End time must be after start time.</p>}
+              <Button variant="gradient" loading={isPending} disabled={days.size === 0 || startLocalTime >= endLocalTime}
+                onClick={() => window.confirm(`Enroll in "${program.title}"? ${formatCurrency(program.priceCents)} will be charged from your wallet now.`) && enroll(
                   { id: program.publicId, availabilityWindow: { daysOfWeek: [...days], startLocalTime, endLocalTime, ianaTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone } },
                   { onSuccess: (e) => navigate(`/dashboard/student/skills/enrollments/${e.publicId}`) },
                 )}>
