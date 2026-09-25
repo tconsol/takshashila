@@ -4,6 +4,7 @@ import { CourseModel } from '../../modules/courses/course.model';
 import { TutorProfileModel } from '../../modules/tutors/tutor.model';
 import { StudentProfileModel } from '../../modules/students/student.model';
 import { ParentProfileModel } from '../../modules/parents/parent.model';
+import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
 const adminItem = { curriculumPublicId: 'cur-1', topicPublicIds: ['t-1'], authorRole: 'ADMIN' as const };
@@ -12,8 +13,11 @@ const tutorItem = { curriculumPublicId: 'cur-1', topicPublicIds: ['t-1'], author
 describe('canViewMaterial', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('legacy items (no curriculum) are not gated', async () => {
-    expect(await canViewMaterial({ role: 'STUDENT', userPublicId: 'u' }, { tutorPublicId: 'tp-A' })).toBe(true);
+  it('legacy items (no curriculum) follow the legacy rules — a student with no link to the tutor is denied', async () => {
+    jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'sp-1' }) as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([{ publicId: 'sp-1', tutorPublicId: 'tp-Z' }]) as never);
+    jest.spyOn(ScheduledClassModel, 'distinct').mockResolvedValue([] as never);
+    expect(await canViewMaterial({ role: 'STUDENT', userPublicId: 'u' }, { tutorPublicId: 'tp-A' }, 'resource')).toBe(false);
   });
 
   it('admins see everything', async () => {

@@ -109,7 +109,7 @@ router.get('/student/me', requireRole(Role.STUDENT), async (req: AuthRequest, re
 
 router.post('/:worksheetId/submit', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await assertCanViewMaterial(req.user!, await worksheetService.getByPublicId(req.params.worksheetId));
+    await assertCanViewMaterial(req.user!, await worksheetService.getByPublicId(req.params.worksheetId), 'worksheet');
     const student = await studentService.getByUserPublicId(req.user!.publicId);
     const submission = await worksheetService.submitAnswers(
       req.params.worksheetId,
@@ -164,7 +164,7 @@ router.get('/principal/all', requireRole(Role.PRINCIPAL), async (req: AuthReques
 router.get('/:worksheetId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const worksheet = await worksheetService.getByPublicId(req.params.worksheetId);
-    await assertCanViewMaterial(req.user!, worksheet);
+    await assertCanViewMaterial(req.user!, worksheet, 'worksheet');
     sendSuccess(res, worksheet, 'Worksheet fetched');
   } catch (e) { next(e); }
 });

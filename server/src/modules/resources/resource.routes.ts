@@ -76,7 +76,7 @@ router.get('/student/me', requireRole(Role.STUDENT), async (req: AuthRequest, re
 
 router.get('/:resourceId/read-url', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await assertCanViewMaterial(req.user!, await resourceService.getByPublicId(req.params.resourceId));
+    await assertCanViewMaterial(req.user!, await resourceService.getByPublicId(req.params.resourceId), 'resource');
     const url = await resourceService.getReadUrl(req.params.resourceId, req.user!.publicId);
     sendSuccess(res, { url }, 'Read URL generated');
   } catch (e) { next(e); }
@@ -87,7 +87,7 @@ router.get('/:resourceId/read-url', async (req: AuthRequest, res: Response, next
 router.get('/:resourceId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const resource = await resourceService.getByPublicId(req.params.resourceId);
-    await assertCanViewMaterial(req.user!, resource);
+    await assertCanViewMaterial(req.user!, resource, 'resource');
     sendSuccess(res, resource, 'Resource fetched');
   } catch (e) { next(e); }
 });

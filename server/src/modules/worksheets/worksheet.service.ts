@@ -145,7 +145,7 @@ export class WorksheetService {
       authorRole: { $ne: 'ADMIN' },
     };
     if (query.type) filter.type = query.type;
-    filter.$and = [await access.studentMaterialScope(studentPublicId)];
+    filter.$and = [await access.studentMaterialScope(studentPublicId, 'worksheet')];
 
     const [items, total] = await Promise.all([
       WorksheetModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -271,7 +271,7 @@ export class WorksheetService {
       status: WorksheetStatus.PUBLISHED,
       isDeleted: false,
       authorRole: { $ne: 'ADMIN' },
-      $and: [await access.studentMaterialScope(studentPublicId)],
+      $and: [await access.studentMaterialScope(studentPublicId, 'worksheet')],
     };
     const total = await WorksheetModel.countDocuments(filter);
     const submitted = await WorksheetSubmissionModel.countDocuments({ studentPublicId, isDeleted: false });

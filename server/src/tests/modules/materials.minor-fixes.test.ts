@@ -8,6 +8,8 @@ import { assignmentService } from '../../modules/assignments/assignment.service'
 import { CourseModel } from '../../modules/courses/course.model';
 import { TutorProfileModel } from '../../modules/tutors/tutor.model';
 import { ParentProfileModel } from '../../modules/parents/parent.model';
+import { StudentProfileModel } from '../../modules/students/student.model';
+import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
 import { courseService } from '../../modules/courses/course.service';
 import { canViewMaterial, findGraderTutor } from '../../modules/courses/material-access';
 import * as access from '../../modules/courses/material-access';
@@ -31,12 +33,17 @@ describe('minor review fixes', () => {
 
   it('M1: unsubmitted count uses the same scope as the Homework list (no admin items)', async () => {
     jest.spyOn(CourseModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(ScheduledClassModel, 'distinct').mockResolvedValue([] as never);
     const count = jest.spyOn(WorksheetModel, 'countDocuments').mockResolvedValue(0 as never);
     jest.spyOn(WorksheetSubmissionModel, 'countDocuments').mockResolvedValue(0 as never);
     await worksheetService.countUnsubmittedForStudent('sp-1');
     expect(count).toHaveBeenCalledWith(expect.objectContaining({
       authorRole: { $ne: 'ADMIN' },
-      $and: [{ $or: [{ curriculumPublicId: { $exists: false } }] }],
+      $and: [{ $or: [
+        { curriculumPublicId: { $exists: false }, assignedToStudentPublicIds: 'sp-1' },
+        { curriculumPublicId: { $exists: false }, tutorPublicId: { $in: [] } },
+      ] }],
     }));
   });
 

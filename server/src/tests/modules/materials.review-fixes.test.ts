@@ -10,6 +10,7 @@ import { worksheetService } from '../../modules/worksheets/worksheet.service';
 import { WorksheetModel, WorksheetSubmissionModel } from '../../modules/worksheets/worksheet.model';
 import { assignmentService } from '../../modules/assignments/assignment.service';
 import { AssignmentModel, SubmissionModel } from '../../modules/assignments/assignment.model';
+import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
 const sortLean = (v: unknown) => ({ sort: () => lean(v) });
@@ -43,13 +44,15 @@ describe('review fixes', () => {
     )).toBe(true);
   });
 
-  it('I3: student list scope = legacy items or items matching an active course (curriculum, tutor, topic)', async () => {
+  it('I3: student list scope = legacy items from their tutors or items matching an active course', async () => {
     jest.spyOn(CourseModel, 'find').mockReturnValue(lean([
       { curriculumPublicId: 'cur-1', tutorPublicId: 'tp-A', topicPublicIds: ['t-1'] },
     ]) as never);
-    expect(await studentMaterialScope('sp-1')).toEqual({
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([{ publicId: 'sp-1', tutorPublicId: 'tp-A' }]) as never);
+    jest.spyOn(ScheduledClassModel, 'distinct').mockResolvedValue([] as never);
+    expect(await studentMaterialScope('sp-1', 'resource')).toEqual({
       $or: [
-        { curriculumPublicId: { $exists: false } },
+        { curriculumPublicId: { $exists: false }, tutorPublicId: { $in: ['tp-A'] } },
         { curriculumPublicId: 'cur-1', tutorPublicId: 'tp-A', topicPublicIds: { $in: ['t-1'] }, authorRole: { $ne: 'ADMIN' } },
       ],
     });
@@ -57,16 +60,23 @@ describe('review fixes', () => {
 
   it('I3: worksheet and resource student lists apply that scope', async () => {
     jest.spyOn(CourseModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(ScheduledClassModel, 'distinct').mockResolvedValue([] as never);
     const wFind = jest.spyOn(WorksheetModel, 'find').mockReturnValue({ sort: () => ({ skip: () => ({ limit: () => lean([]) }) }) } as never);
     jest.spyOn(WorksheetModel, 'countDocuments').mockResolvedValue(0 as never);
     jest.spyOn(WorksheetSubmissionModel, 'find').mockReturnValue(lean([]) as never);
     await worksheetService.getForStudent('sp-1', {});
-    expect((wFind.mock.calls[0] as unknown as [Record<string, unknown>])[0].$and).toEqual([{ $or: [{ curriculumPublicId: { $exists: false } }] }]);
+    expect((wFind.mock.calls[0] as unknown as [Record<string, unknown>])[0].$and).toEqual([{ $or: [
+      { curriculumPublicId: { $exists: false }, assignedToStudentPublicIds: 'sp-1' },
+      { curriculumPublicId: { $exists: false }, tutorPublicId: { $in: [] } },
+    ] }]);
 
     const rFind = jest.spyOn(ResourceModel, 'find').mockReturnValue({ sort: () => ({ skip: () => ({ limit: () => lean([]) }) }) } as never);
     jest.spyOn(ResourceModel, 'countDocuments').mockResolvedValue(0 as never);
     await resourceService.getForStudent('sp-1', 'tp-A', {});
-    expect((rFind.mock.calls[0] as unknown as [Record<string, unknown>])[0].$and).toEqual([{ $or: [{ curriculumPublicId: { $exists: false } }] }]);
+    expect((rFind.mock.calls[0] as unknown as [Record<string, unknown>])[0].$and).toEqual([{ $or: [
+      { curriculumPublicId: { $exists: false }, tutorPublicId: { $in: [] } },
+    ] }]);
   });
 
   it('I4: assignment submissions — owner only for tutor items, own graded students for admin items', async () => {

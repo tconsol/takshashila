@@ -8,6 +8,8 @@ import { assignmentService } from './assignment.service';
 import { tutorService } from '../tutors/tutor.service';
 import { studentService } from '../students/student.service';
 import { assertCanViewMaterial } from '../courses/assert-material-access';
+import { canViewClass } from '../courses/material-access';
+import { NotFoundError } from '../../utils/error';
 import { sendSuccess, sendCreated } from '../../utils/response';
 
 const router = Router();
@@ -79,6 +81,9 @@ router.delete('/:assignmentId', requireRole(Role.TUTOR, Role.PRINCIPAL), async (
 // By class (tutor or student)
 router.get('/class/:classId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    if (!(await canViewClass({ role: req.user!.role, userPublicId: req.user!.publicId }, req.params.classId))) {
+      throw new NotFoundError('Class');
+    }
     const assignments = await assignmentService.getByClass(req.params.classId);
     sendSuccess(res, assignments, 'Assignments fetched');
   } catch (e) { next(e); }
@@ -87,7 +92,7 @@ router.get('/class/:classId', async (req: AuthRequest, res: Response, next: Next
 // Student: submit
 router.post('/:assignmentId/submit', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await assertCanViewMaterial(req.user!, await assignmentService.getByPublicId(req.params.assignmentId));
+    await assertCanViewMaterial(req.user!, await assignmentService.getByPublicId(req.params.assignmentId), 'assignment');
     const student = await studentService.getByUserPublicId(req.user!.publicId);
     const submission = await assignmentService.submit(req.params.assignmentId, student.publicId, req.body);
     sendCreated(res, submission, 'Assignment submitted');
@@ -115,7 +120,7 @@ router.get('/principal/all', requireRole(Role.PRINCIPAL), async (req: AuthReques
 router.get('/:assignmentId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const assignment = await assignmentService.getByPublicId(req.params.assignmentId);
-    await assertCanViewMaterial(req.user!, assignment);
+    await assertCanViewMaterial(req.user!, assignment, 'assignment');
     sendSuccess(res, assignment, 'Assignment fetched');
   } catch (e) { next(e); }
 });

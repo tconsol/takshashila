@@ -3,6 +3,8 @@ import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { mediaService } from './media.service';
+import { canReadMedia } from './media-access';
+import { NotFoundError } from '../../utils/error';
 import { sendSuccess, sendCreated } from '../../utils/response';
 
 const router = Router();
@@ -24,6 +26,9 @@ router.post('/confirm', async (req: AuthRequest, res: Response, next: NextFuncti
 
 router.get('/:fileId/read-url', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    if (!(await canReadMedia({ role: req.user!.role, userPublicId: req.user!.publicId }, req.params.fileId))) {
+      throw new NotFoundError('Media file');
+    }
     const url = await mediaService.getReadUrl(req.params.fileId, req.user!.publicId);
     sendSuccess(res, { url }, 'Read URL generated');
   } catch (e) { next(e); }

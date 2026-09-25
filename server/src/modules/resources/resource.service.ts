@@ -73,7 +73,7 @@ export class ResourceService {
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter: Record<string, unknown> = { tutorPublicId, isDeleted: false };
     if (query.classPublicId) filter.classPublicId = query.classPublicId;
-    filter.$and = [await studentMaterialScope(studentPublicId)];
+    filter.$and = [await studentMaterialScope(studentPublicId, 'resource')];
 
     const [items, total] = await Promise.all([
       ResourceModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
