@@ -1,3 +1,4 @@
+import { StudentProfileModel } from '../../modules/students/student.model';
 import request from 'supertest';
 import app from '../../app';
 import { computeTopicProgress } from '../../modules/courses/course-progress';
@@ -81,15 +82,14 @@ describe('computeTopicProgress', () => {
   });
 });
 
-describe('courseService.getProgress', () => {
+describe('courseService.getStructure (progress alias)', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('404s a request that belongs to another student', async () => {
-    jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-me' } as never);
-    jest.spyOn(CourseModel, 'findOne').mockReturnValue({ lean: () => Promise.resolve(null) } as never);
+  it('404s a course that belongs to another student', async () => {
+    jest.spyOn(CourseModel, 'findOne').mockReturnValue({ lean: () => Promise.resolve({ publicId: 'cr-1', studentPublicId: 'someone-else', tutorPublicId: 't', isDeleted: false }) } as never);
+    jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue({ lean: () => Promise.resolve({ publicId: 'student-me' }) } as never);
 
-    await expect(courseService.getProgress('cr-1', 'user-1')).rejects.toMatchObject({ statusCode: 404 });
-    expect(CourseModel.findOne).toHaveBeenCalledWith({ publicId: 'cr-1', studentPublicId: 'student-me', isDeleted: false });
+    await expect(courseService.getStructure('cr-1', { role: 'STUDENT', userPublicId: 'user-1' })).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 
@@ -102,11 +102,11 @@ describe('GET /courses', () => {
     expect(spy).toHaveBeenCalledWith('user-1', expect.objectContaining({ status: 'ACCEPTED,COMPLETED' }));
   });
 
-  it('/:id/progress returns the progress for the caller', async () => {
-    const spy = jest.spyOn(courseService, 'getProgress').mockResolvedValue({ topics: [] } as never);
-    const res = await request(app).get('/api/v1/courses/cr-1/progress');
-    expect(res.status).toBe(200);
-    expect(spy).toHaveBeenCalledWith('cr-1', 'user-1');
+  it('/:id/progress and /:id/structure return the structure for the caller', async () => {
+    const spy = jest.spyOn(courseService, 'getStructure').mockResolvedValue({ topics: [] } as never);
+    expect((await request(app).get('/api/v1/courses/cr-1/progress')).status).toBe(200);
+    expect((await request(app).get('/api/v1/courses/cr-1/structure')).status).toBe(200);
+    expect(spy).toHaveBeenCalledWith('cr-1', { role: 'STUDENT', userPublicId: 'user-1' });
   });
 });
 

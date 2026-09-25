@@ -18,10 +18,16 @@ export class CourseController {
     } catch (error) { next(error); }
   }
 
-  async getProgress(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  async getStructure(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await courseService.getProgress(req.params.coursePublicId, req.user!.publicId);
-      sendSuccess(res, result, 'Curriculum progress fetched');
+      const result = await courseService.getStructure(req.params.coursePublicId, { role: req.user!.role, userPublicId: req.user!.publicId });
+      sendSuccess(res, result, 'Course structure fetched');
+    } catch (error) { next(error); }
+  }
+
+  async getForParent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      sendSuccess(res, await courseService.getForParent(req.user!.publicId), 'Courses fetched');
     } catch (error) { next(error); }
   }
 

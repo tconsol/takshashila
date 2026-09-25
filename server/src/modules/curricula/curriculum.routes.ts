@@ -11,6 +11,7 @@ router.use(authMiddleware);
 
 router.get('/', curriculumController.list.bind(curriculumController));
 router.get('/attachable', requireRole(Role.TUTOR, Role.PRINCIPAL), curriculumController.listAttachable.bind(curriculumController));
+router.get('/:curriculumPublicId/structure', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculumController.getStructure.bind(curriculumController));
 router.get('/:curriculumPublicId/tutors', curriculumController.listTutors.bind(curriculumController));
 router.get('/:curriculumPublicId', curriculumController.getByPublicId.bind(curriculumController));
 router.post('/', requireRole(Role.SUPER_ADMIN, Role.ADMIN), validate(createCurriculumSchema), curriculumController.create.bind(curriculumController));

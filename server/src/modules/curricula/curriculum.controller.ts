@@ -6,6 +6,7 @@ import { NotFoundError, ValidationError } from '../../utils/error';
 import { curriculumCatalogQuerySchema } from './curriculum.validators';
 import { tutorService } from '../tutors/tutor.service';
 import { listAttachableCurricula } from './curriculum-attachment';
+import { getCurriculumStructure } from '../courses/course-structure';
 
 export class CurriculumController {
   async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -40,6 +41,12 @@ export class CurriculumController {
     try {
       await curriculumService.softDelete(req.params.curriculumPublicId);
       sendSuccess(res, null, 'Curriculum deleted');
+    } catch (error) { next(error); }
+  }
+
+  async getStructure(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      sendSuccess(res, await getCurriculumStructure(req.params.curriculumPublicId), 'Curriculum structure fetched');
     } catch (error) { next(error); }
   }
 

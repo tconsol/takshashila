@@ -16,7 +16,11 @@ router.use(authMiddleware);
 
 router.post('/', requireRole(Role.STUDENT), validate(createCourseSchema), courseController.create.bind(courseController));
 router.get('/mine', requireRole(Role.STUDENT), courseController.getMine.bind(courseController));
-router.get('/:coursePublicId/progress', requireRole(Role.STUDENT), courseController.getProgress.bind(courseController));
+const STRUCTURE_ROLES = [Role.STUDENT, Role.PARENT, Role.TUTOR, Role.ADMIN, Role.SUPER_ADMIN];
+router.get('/children', requireRole(Role.PARENT), courseController.getForParent.bind(courseController));
+router.get('/:coursePublicId/structure', requireRole(...STRUCTURE_ROLES), courseController.getStructure.bind(courseController));
+// Kept for the student progress page until the frontend moves to /structure.
+router.get('/:coursePublicId/progress', requireRole(...STRUCTURE_ROLES), courseController.getStructure.bind(courseController));
 router.get('/incoming', requireRole(Role.TUTOR), courseController.getIncoming.bind(courseController));
 router.post('/:coursePublicId/accept', requireRole(Role.TUTOR), validate(acceptCourseSchema), courseController.accept.bind(courseController));
 router.post('/:coursePublicId/reject', requireRole(Role.TUTOR), validate(rejectCourseSchema), courseController.reject.bind(courseController));

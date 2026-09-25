@@ -19,10 +19,10 @@ import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
 import { CurriculumModel } from '../curricula/curriculum.model';
 import { walletService } from '../wallets/wallet.service';
-import { ResourceModel } from '../resources/resource.model';
-import { AssignmentModel } from '../assignments/assignment.model';
-import { WorksheetModel } from '../worksheets/worksheet.model';
 import { computeTopicProgress } from './course-progress';
+import { ParentProfileModel } from '../parents/parent.model';
+import { materialFilterForCourse, ACTIVE_COURSE_STATUSES, type Viewer } from './material-access';
+import { loadMaterialsByTopic, curriculumSummary } from './course-structure';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
@@ -167,77 +167,80 @@ export class CourseService {
     return this._list({ studentPublicId: studentProfile.publicId }, query);
   }
 
-  /** Nested progress for one of the caller's own requests: selected topics with status,
-   *  classes and attached materials, plus classes the tutor didn't tag with a topic. */
-  async getProgress(coursePublicId: string, studentUserPublicId: string) {
-    const studentProfile = await studentService.getByUserPublicId(studentUserPublicId);
-    const course = await CourseModel.findOne({
-      publicId: coursePublicId,
-      studentPublicId: studentProfile.publicId,
-      isDeleted: false,
-    }).lean();
+  /** Nested structure of one course (curriculum-materials spec §6.1). Status only for student/parent. */
+  async getStructure(coursePublicId: string, viewer: Viewer) {
+    const course = await CourseModel.findOne({ publicId: coursePublicId, isDeleted: false }).lean();
     if (!course) throw new NotFoundError('Course');
+    const viewerRole = await this._structureRole(course, viewer);
 
     // Deleted curricula included on purpose: the student's history still needs them.
-    const [curriculum, classes, [enriched]] = await Promise.all([
+    const [curriculum, classes, [enriched], byTopic] = await Promise.all([
       CurriculumModel.findOne({ publicId: course.curriculumPublicId }).lean(),
       ScheduledClassModel.find(
         { coursePublicId: course.publicId, isDeleted: false },
         { publicId: 1, status: 1, startUTC: 1, endUTC: 1, topicPublicId: 1 },
       ).lean(),
       enrichCourses([course]),
+      loadMaterialsByTopic(materialFilterForCourse(course)),
     ]);
     if (!curriculum) throw new NotFoundError('Curriculum');
 
     const selected = new Set(course.topicPublicIds);
     const topics = curriculum.topics.filter((t) => selected.has(t.publicId));
-    const materialFilter = {
-      curriculumPublicId: curriculum.publicId,
-      topicPublicIds: { $in: [...selected] },
-      isDeleted: false,
-      $or: [{ authorRole: 'ADMIN' }, { tutorPublicId: course.tutorPublicId }],
-    };
-    const projection = { publicId: 1, title: 1, topicPublicIds: 1 };
-    const [resources, assignments, worksheets] = await Promise.all([
-      ResourceModel.find(materialFilter, projection).lean(),
-      AssignmentModel.find(materialFilter, projection).lean(),
-      WorksheetModel.find(materialFilter, projection).lean(),
-    ]);
-    const forTopic = (docs: Array<{ publicId: string; title: string; topicPublicIds?: string[] }>, topicId: string) =>
-      docs.filter((d) => d.topicPublicIds?.includes(topicId)).map((d) => ({ publicId: d.publicId, title: d.title }));
-
     const progress = computeTopicProgress(
       topics.map((t) => ({ publicId: t.publicId, title: t.title, order: t.order })),
       classes,
       new Date(),
     );
+    const showStatus = viewerRole === 'STUDENT' || viewerRole === 'PARENT';
 
     return {
+      viewerRole,
       course: {
         publicId: course.publicId,
         status: course.status,
         classesRequired: course.classesRequired ?? 0,
         classesCompletedCount: course.classesCompletedCount,
         tutorName: enriched.tutorName,
+        studentName: enriched.studentName,
       },
-      curriculum: {
-        publicId: curriculum.publicId,
-        title: curriculum.title,
-        subject: curriculum.subject,
-        grade: curriculum.grade,
-        district: curriculum.district,
-        state: curriculum.state,
-      },
-      topics: progress.topics.map((t) => ({
-        ...t,
-        materials: {
-          resources: forTopic(resources, t.publicId),
-          assignments: forTopic(assignments, t.publicId),
-          worksheets: forTopic(worksheets, t.publicId),
-        },
+      curriculum: curriculumSummary(curriculum),
+      topics: progress.topics.map(({ status, nextClass, ...rest }) => ({
+        ...rest,
+        ...(showStatus ? { status, ...(nextClass ? { nextClass } : {}) } : {}),
+        materials: byTopic.get(rest.publicId) ?? [],
       })),
       otherClasses: progress.otherClasses,
     };
+  }
+
+  private async _structureRole(course: ICourse, viewer: Viewer): Promise<'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN'> {
+    if (viewer.role === 'ADMIN' || viewer.role === 'SUPER_ADMIN') return 'ADMIN';
+    if (viewer.role === 'STUDENT') {
+      const s = await StudentProfileModel.findOne({ userPublicId: viewer.userPublicId, isDeleted: false }).lean();
+      if (s?.publicId === course.studentPublicId) return 'STUDENT';
+    }
+    if (viewer.role === 'PARENT') {
+      const p = await ParentProfileModel.findOne({ userPublicId: viewer.userPublicId }).lean();
+      if (p?.childStudentPublicIds?.includes(course.studentPublicId)) return 'PARENT';
+    }
+    if (viewer.role === 'TUTOR') {
+      const t = await TutorProfileModel.findOne({ userPublicId: viewer.userPublicId, isDeleted: false }).lean();
+      if (t?.publicId === course.tutorPublicId) return 'TUTOR';
+    }
+    throw new NotFoundError('Course');
+  }
+
+  async getForParent(parentUserPublicId: string): Promise<EnrichedCourse[]> {
+    const parent = await ParentProfileModel.findOne({ userPublicId: parentUserPublicId }).lean();
+    const children = parent?.childStudentPublicIds ?? [];
+    if (children.length === 0) return [];
+    const courses = await CourseModel.find({
+      studentPublicId: { $in: children },
+      status: { $in: ACTIVE_COURSE_STATUSES },
+      isDeleted: false,
+    }).sort({ updatedAt: -1 }).lean();
+    return enrichCourses(courses);
   }
 
   async getForTutor(tutorUserPublicId: string, query: PaginationQuery & { status?: string }): Promise<PaginatedResult<EnrichedCourse>> {
