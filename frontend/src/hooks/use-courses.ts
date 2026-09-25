@@ -8,7 +8,8 @@ export const courseKeys = {
   all: ['courses'] as const,
   mine: (params?: Record<string, string>) => [...courseKeys.all, 'mine', params] as const,
   incoming: (params?: Record<string, string>) => [...courseKeys.all, 'incoming', params] as const,
-  progress: (id: string) => [...courseKeys.all, 'progress', id] as const,
+  structure: (id: string) => [...courseKeys.all, 'structure', id] as const,
+  children: () => [...courseKeys.all, 'children'] as const,
 };
 
 export function useMyCourses(params?: Record<string, string>) {
@@ -18,12 +19,16 @@ export function useMyCourses(params?: Record<string, string>) {
   });
 }
 
-export function useCourseProgress(coursePublicId: string | undefined) {
+export function useCourseStructure(coursePublicId: string | undefined) {
   return useQuery({
-    queryKey: courseKeys.progress(coursePublicId ?? ''),
-    queryFn: () => coursesService.getProgress(coursePublicId!),
+    queryKey: courseKeys.structure(coursePublicId ?? ''),
+    queryFn: () => coursesService.getStructure(coursePublicId!),
     enabled: !!coursePublicId,
   });
+}
+
+export function useChildrenCourses() {
+  return useQuery({ queryKey: courseKeys.children(), queryFn: coursesService.listForParent });
 }
 
 export function useIncomingCourses(params?: Record<string, string>) {

@@ -119,6 +119,7 @@ import { StudentCurriculumPage } from '../pages/student/StudentCurriculumPage';
 import { StudentCreateCoursePage } from '../pages/student/StudentCreateCoursePage';
 import { StudentMyCoursesPage } from '../pages/student/StudentMyCoursesPage';
 import { StudentCourseProgressPage } from '../pages/student/StudentCourseProgressPage';
+import { StudentAssignmentDetailPage } from '../pages/student/StudentAssignmentDetailPage';
 import { StudentCalendarPage } from '../pages/student/StudentCalendarPage';
 
 // Parent pages
@@ -286,6 +287,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/classes', element: <StudentLearningPage /> },
         { path: '/dashboard/student/calendar', element: <StudentCalendarPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
+        { path: '/dashboard/student/assignments/:assignmentId', element: <StudentAssignmentDetailPage /> },
         { path: '/dashboard/student/worksheets', element: <StudentWorksheetsPage /> },
         { path: '/dashboard/student/worksheets/:worksheetId/test', element: <StudentWorksheetTestPage /> },
         { path: '/dashboard/student/resources', element: <StudentResourcesPage /> },

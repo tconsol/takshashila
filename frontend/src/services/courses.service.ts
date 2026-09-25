@@ -50,22 +50,29 @@ export interface ProgressClass {
   endUTC: string;
 }
 
-export interface MaterialRef { publicId: string; title: string }
+export interface StructureMaterial {
+  kind: 'resource' | 'assignment' | 'worksheet';
+  publicId: string;
+  title: string;
+  authorRole: 'TUTOR' | 'ADMIN';
+  authorName: string;
+}
 
-export interface TopicProgress {
+export interface StructureTopic {
   publicId: string;
   title: string;
   order: number;
-  status: 'COMPLETED' | 'SCHEDULED' | 'NOT_SCHEDULED';
+  status?: 'COMPLETED' | 'SCHEDULED' | 'NOT_SCHEDULED';
   nextClass?: ProgressClass;
   classes: ProgressClass[];
-  materials: { resources: MaterialRef[]; assignments: MaterialRef[]; worksheets: MaterialRef[] };
+  materials: StructureMaterial[];
 }
 
-export interface CourseProgress {
-  course: { publicId: string; status: Course['status']; classesRequired: number; classesCompletedCount: number; tutorName: string };
+export interface CourseStructure {
+  viewerRole: 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
+  course: { publicId: string; status: Course['status']; classesRequired: number; classesCompletedCount: number; tutorName: string; studentName: string };
   curriculum: { publicId: string; title: string; subject: string; grade: string; district?: string; state?: string };
-  topics: TopicProgress[];
+  topics: StructureTopic[];
   otherClasses: ProgressClass[];
 }
 
@@ -84,8 +91,10 @@ export const coursesService = {
   getMine: (params?: Record<string, string>): Promise<PaginatedCourses> =>
     api.get('/courses/mine', { params }).then((r) => r.data.data),
 
-  getProgress: (coursePublicId: string): Promise<CourseProgress> =>
-    api.get(`/courses/${coursePublicId}/progress`).then((r) => r.data.data),
+  getStructure: (coursePublicId: string): Promise<CourseStructure> =>
+    api.get(`/courses/${coursePublicId}/structure`).then((r) => r.data.data),
+
+  listForParent: (): Promise<Course[]> => api.get('/courses/children').then((r) => r.data.data),
 
   getIncoming: (params?: Record<string, string>): Promise<PaginatedCourses> =>
     api.get('/courses/incoming', { params }).then((r) => r.data.data),
