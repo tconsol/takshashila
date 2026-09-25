@@ -1,6 +1,7 @@
 // frontend/src/hooks/use-curricula.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { curriculaService } from '../services/curricula.service';
+import type { MaterialKind } from '../services/curricula.service';
 import type { CreateCurriculumDto } from '../services/curricula.service';
 import { useToast } from '../components/ui/Toast';
 
@@ -108,5 +109,27 @@ export function useCurriculumStructure(curriculumPublicId: string) {
     queryKey: [...curriculumKeys.all, 'structure', curriculumPublicId],
     queryFn: () => curriculaService.getStructure(curriculumPublicId),
     enabled: !!curriculumPublicId,
+  });
+}
+
+export function useAddCurriculumMaterial() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({ curriculumPublicId, kind, body }: { curriculumPublicId: string; kind: MaterialKind; body: Record<string, unknown> }) =>
+      curriculaService.addMaterial(curriculumPublicId, kind, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: curriculumKeys.all }); toast.success('Material added'); },
+    onError: (err: Error) => toast.error('Could not add material', err.message),
+  });
+}
+
+export function useDeleteCurriculumMaterial() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({ curriculumPublicId, kind, materialPublicId }: { curriculumPublicId: string; kind: MaterialKind; materialPublicId: string }) =>
+      curriculaService.deleteMaterial(curriculumPublicId, kind, materialPublicId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: curriculumKeys.all }); toast.success('Material deleted'); },
+    onError: (err: Error) => toast.error('Could not delete material', err.message),
   });
 }

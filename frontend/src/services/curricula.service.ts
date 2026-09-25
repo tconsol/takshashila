@@ -63,7 +63,13 @@ export interface CurriculumStructure {
   topics: Array<{ publicId: string; title: string; order: number; materials: StructureMaterial[] }>;
 }
 
+export type MaterialKind = 'resource' | 'assignment' | 'worksheet';
+
 export const curriculaService = {
+  addMaterial: (curriculumPublicId: string, kind: MaterialKind, body: Record<string, unknown>) =>
+    api.post(`/curricula/${curriculumPublicId}/${kind}s`, body).then((r) => r.data.data),
+  deleteMaterial: (curriculumPublicId: string, kind: MaterialKind, materialPublicId: string) =>
+    api.delete(`/curricula/${curriculumPublicId}/materials/${kind}/${materialPublicId}`).then(() => undefined),
   getStructure: (id: string): Promise<CurriculumStructure> => api.get(`/curricula/${id}/structure`).then((r) => r.data.data),
 
   listAttachable: (): Promise<AttachableCurriculum[]> => api.get('/curricula/attachable').then((r) => r.data.data),
