@@ -7,9 +7,6 @@ const topicInputSchema = z.object({
   publicId: z.string().optional(), // present when editing an existing topic
   title: z.string().min(1).max(200),
   order: z.number().int().min(0),
-  resourceIds: z.array(z.string()).default([]),
-  assignmentIds: z.array(z.string()).default([]),
-  worksheetIds: z.array(z.string()).default([]),
 });
 
 /** Location is never accepted from clients: the service derives state/county/district

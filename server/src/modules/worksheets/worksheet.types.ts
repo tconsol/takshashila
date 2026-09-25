@@ -1,3 +1,5 @@
+import type { CurriculumAttachment } from '../../shared/material.types';
+
 export const WorksheetStatus = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',
@@ -17,10 +19,10 @@ export interface IQuestion {
   explanation: string;
 }
 
-export interface IWorksheet {
+export interface IWorksheet extends CurriculumAttachment {
   _id: string;
   publicId: string;
-  tutorPublicId: string;
+  tutorPublicId?: string;
   classPublicId?: string;
   title: string;
   subject?: string;

@@ -191,24 +191,26 @@ export class CourseService {
 
     const selected = new Set(course.topicPublicIds);
     const topics = curriculum.topics.filter((t) => selected.has(t.publicId));
-    const ids = (key: 'resourceIds' | 'assignmentIds' | 'worksheetIds') => topics.flatMap((t) => t[key] ?? []);
-    const titleProjection = { publicId: 1, title: 1 };
+    const materialFilter = {
+      curriculumPublicId: curriculum.publicId,
+      topicPublicIds: { $in: [...selected] },
+      isDeleted: false,
+      $or: [{ authorRole: 'ADMIN' }, { tutorPublicId: course.tutorPublicId }],
+    };
+    const projection = { publicId: 1, title: 1, topicPublicIds: 1 };
     const [resources, assignments, worksheets] = await Promise.all([
-      ResourceModel.find({ publicId: { $in: ids('resourceIds') }, isDeleted: false }, titleProjection).lean(),
-      AssignmentModel.find({ publicId: { $in: ids('assignmentIds') }, isDeleted: false }, titleProjection).lean(),
-      WorksheetModel.find({ publicId: { $in: ids('worksheetIds') }, isDeleted: false }, titleProjection).lean(),
+      ResourceModel.find(materialFilter, projection).lean(),
+      AssignmentModel.find(materialFilter, projection).lean(),
+      WorksheetModel.find(materialFilter, projection).lean(),
     ]);
-    const titleMap = (docs: Array<{ publicId: string; title: string }>) => new Map(docs.map((d) => [d.publicId, d.title]));
-    const byType = { resources: titleMap(resources), assignments: titleMap(assignments), worksheets: titleMap(worksheets) };
-    const pick = (list: string[] | undefined, map: Map<string, string>) =>
-      (list ?? []).flatMap((id) => (map.has(id) ? [{ publicId: id, title: map.get(id)! }] : []));
+    const forTopic = (docs: Array<{ publicId: string; title: string; topicPublicIds?: string[] }>, topicId: string) =>
+      docs.filter((d) => d.topicPublicIds?.includes(topicId)).map((d) => ({ publicId: d.publicId, title: d.title }));
 
     const progress = computeTopicProgress(
       topics.map((t) => ({ publicId: t.publicId, title: t.title, order: t.order })),
       classes,
       new Date(),
     );
-    const topicById = new Map(topics.map((t) => [t.publicId, t]));
 
     return {
       course: {
@@ -226,17 +228,14 @@ export class CourseService {
         district: curriculum.district,
         state: curriculum.state,
       },
-      topics: progress.topics.map((t) => {
-        const source = topicById.get(t.publicId)!;
-        return {
-          ...t,
-          materials: {
-            resources: pick(source.resourceIds, byType.resources),
-            assignments: pick(source.assignmentIds, byType.assignments),
-            worksheets: pick(source.worksheetIds, byType.worksheets),
-          },
-        };
-      }),
+      topics: progress.topics.map((t) => ({
+        ...t,
+        materials: {
+          resources: forTopic(resources, t.publicId),
+          assignments: forTopic(assignments, t.publicId),
+          worksheets: forTopic(worksheets, t.publicId),
+        },
+      })),
       otherClasses: progress.otherClasses,
     };
   }

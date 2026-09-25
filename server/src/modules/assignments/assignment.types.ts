@@ -1,3 +1,5 @@
+import type { CurriculumAttachment } from '../../shared/material.types';
+
 export const AssignmentStatus = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',
@@ -13,14 +15,14 @@ export const SubmissionStatus = {
 } as const;
 export type SubmissionStatus = (typeof SubmissionStatus)[keyof typeof SubmissionStatus];
 
-export interface IAssignment {
+export interface IAssignment extends CurriculumAttachment {
   _id: string;
   publicId: string;
-  classPublicId: string;
-  tutorPublicId: string;
+  classPublicId?: string;
+  tutorPublicId?: string;
   title: string;
   description: string;
-  dueDate: Date;
+  dueDate?: Date;
   maxScore: number;
   attachmentPublicIds: string[];
   isFileAttachment: boolean;

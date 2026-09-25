@@ -12,6 +12,9 @@ import { NotFoundError, ConflictError, AppError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 
+/** Curriculum assignments may have no due date — those are never late. */
+const isLate = (dueDate?: Date) => !!dueDate && new Date() > dueDate;
+
 export class AssignmentService {
   async create(dto: CreateAssignmentDto, tutorPublicId: string): Promise<IAssignment> {
     const assignment = await AssignmentModel.create({
@@ -102,7 +105,7 @@ export class AssignmentService {
 
     return items.map((a) => ({
       ...a,
-      tutorName: userNameMap.get(tutorUserMap.get(a.tutorPublicId) ?? '') ?? 'Unknown Tutor',
+      tutorName: userNameMap.get(tutorUserMap.get(a.tutorPublicId ?? '') ?? '') ?? 'Unknown Tutor',
       submissionCount: subMap.get(a.publicId) ?? 0,
     }));
   }
@@ -133,7 +136,7 @@ export class AssignmentService {
             content: dto.content,
             attachmentPublicIds: dto.attachmentPublicIds ?? [],
             submittedAt: new Date(),
-            status: new Date() > assignment.dueDate ? SubmissionStatus.LATE : SubmissionStatus.SUBMITTED,
+            status: isLate(assignment.dueDate) ? SubmissionStatus.LATE : SubmissionStatus.SUBMITTED,
           },
         },
         { new: true },
@@ -148,7 +151,7 @@ export class AssignmentService {
       content: dto.content,
       attachmentPublicIds: dto.attachmentPublicIds ?? [],
       submittedAt: new Date(),
-      status: new Date() > assignment.dueDate ? SubmissionStatus.LATE : SubmissionStatus.SUBMITTED,
+      status: isLate(assignment.dueDate) ? SubmissionStatus.LATE : SubmissionStatus.SUBMITTED,
       isDeleted: false,
     });
 

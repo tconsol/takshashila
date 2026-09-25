@@ -7,9 +7,6 @@ const curriculumTopicSchema = new Schema<ICurriculumTopic>(
     publicId: { type: String, default: uuidv4 },
     title: { type: String, required: true },
     order: { type: Number, required: true },
-    resourceIds: [{ type: String }],
-    assignmentIds: [{ type: String }],
-    worksheetIds: [{ type: String }],
   },
   { _id: false },
 );

@@ -119,7 +119,9 @@ router.post('/:worksheetId/submit', requireRole(Role.STUDENT), async (req: AuthR
     try {
       const worksheet = await worksheetService.getByPublicId(req.params.worksheetId);
       const { tutorRepository } = await import('../tutors/tutor.repository');
-      const tutorProfile = await tutorRepository.findByPublicId(worksheet.tutorPublicId).catch(() => null);
+      const tutorProfile = worksheet.tutorPublicId
+        ? await tutorRepository.findByPublicId(worksheet.tutorPublicId).catch(() => null)
+        : null;
       if (tutorProfile) {
         void realtime.emitTo(`user:${tutorProfile.userPublicId}`, 'worksheet:submitted', {
           worksheetPublicId: worksheet.publicId,

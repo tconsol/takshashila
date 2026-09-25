@@ -6,11 +6,15 @@ import type { IAssignment, ISubmission } from './assignment.types';
 const assignmentSchema = new Schema<IAssignment>(
   {
     publicId: { type: String, default: uuidv4, unique: true, index: true },
-    classPublicId: { type: String, required: true, index: true },
-    tutorPublicId: { type: String, required: true, index: true },
+    classPublicId: { type: String, index: true }, // absent on admin-authored curriculum items
+    tutorPublicId: { type: String, index: true }, // absent on admin-authored curriculum items
+    curriculumPublicId: { type: String, index: true },
+    topicPublicIds: [{ type: String }],
+    authorRole: { type: String, enum: ['TUTOR', 'ADMIN'], default: 'TUTOR' },
+    authorUserPublicId: { type: String },
     title: { type: String, required: true, maxlength: 200 },
     description: { type: String, required: true, maxlength: 5000 },
-    dueDate: { type: Date, required: true },
+    dueDate: { type: Date },
     maxScore: { type: Number, default: 100, min: 1 },
     attachmentPublicIds: [{ type: String }],
     isFileAttachment: { type: Boolean, default: false },
@@ -32,6 +36,7 @@ const assignmentSchema = new Schema<IAssignment>(
 
 assignmentSchema.index({ classPublicId: 1, status: 1 });
 assignmentSchema.index({ tutorPublicId: 1, createdAt: -1 });
+assignmentSchema.index({ curriculumPublicId: 1, topicPublicIds: 1, isDeleted: 1 });
 
 const submissionSchema = new Schema<ISubmission>(
   {

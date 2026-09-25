@@ -5,6 +5,7 @@ import { sendSuccess, sendCreated } from '../../utils/response';
 import { NotFoundError, ValidationError } from '../../utils/error';
 import { curriculumCatalogQuerySchema } from './curriculum.validators';
 import { tutorService } from '../tutors/tutor.service';
+import { listAttachableCurricula } from './curriculum-attachment';
 
 export class CurriculumController {
   async create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -39,6 +40,15 @@ export class CurriculumController {
     try {
       await curriculumService.softDelete(req.params.curriculumPublicId);
       sendSuccess(res, null, 'Curriculum deleted');
+    } catch (error) { next(error); }
+  }
+
+  /** Curricula the calling tutor/principal may attach materials to. */
+  async listAttachable(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
+      const result = await listAttachableCurricula({ subjects: tutor.subjects ?? [], gradesTaught: tutor.gradesTaught });
+      sendSuccess(res, result, 'Attachable curricula fetched');
     } catch (error) { next(error); }
   }
 

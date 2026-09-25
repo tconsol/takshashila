@@ -2,9 +2,6 @@ export interface ICurriculumTopic {
   publicId: string;
   title: string;
   order: number;
-  resourceIds: string[];
-  assignmentIds: string[];
-  worksheetIds: string[];
 }
 
 export interface ICurriculum {

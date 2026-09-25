@@ -1,7 +1,9 @@
-export interface IResource {
+import type { CurriculumAttachment } from '../../shared/material.types';
+
+export interface IResource extends CurriculumAttachment {
   _id: string;
   publicId: string;
-  tutorPublicId: string;
+  tutorPublicId?: string;
   classPublicId?: string;
   title: string;
   description?: string;

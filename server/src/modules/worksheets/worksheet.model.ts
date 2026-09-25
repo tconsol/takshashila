@@ -19,7 +19,11 @@ const questionSchema = new Schema(
 const worksheetSchema = new Schema<IWorksheet>(
   {
     publicId: { type: String, default: uuidv4, unique: true, index: true },
-    tutorPublicId: { type: String, required: true, index: true },
+    tutorPublicId: { type: String, index: true }, // absent on admin-authored curriculum items
+    curriculumPublicId: { type: String, index: true },
+    topicPublicIds: [{ type: String }],
+    authorRole: { type: String, enum: ['TUTOR', 'ADMIN'], default: 'TUTOR' },
+    authorUserPublicId: { type: String },
     classPublicId: { type: String, index: true },
     title: { type: String, required: true, maxlength: 200 },
     subject: { type: String, maxlength: 100 },
@@ -51,6 +55,7 @@ const worksheetSchema = new Schema<IWorksheet>(
 );
 
 worksheetSchema.index({ tutorPublicId: 1, type: 1, createdAt: -1 });
+worksheetSchema.index({ curriculumPublicId: 1, topicPublicIds: 1, isDeleted: 1 });
 worksheetSchema.index({ assignedToStudentPublicIds: 1, status: 1 });
 // classPublicId already indexed via `index: true` on the field above.
 

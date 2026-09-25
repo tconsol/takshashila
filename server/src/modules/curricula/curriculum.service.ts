@@ -23,9 +23,6 @@ export class CurriculumService {
         publicId: t.publicId ?? uuidv4(),
         title: t.title,
         order: t.order ?? i,
-        resourceIds: t.resourceIds,
-        assignmentIds: t.assignmentIds,
-        worksheetIds: t.worksheetIds,
       })),
       createdByAdminPublicId: adminUserPublicId,
       isPublished: false,
@@ -43,9 +40,6 @@ export class CurriculumService {
         publicId: t.publicId ?? uuidv4(),
         title: t.title,
         order: t.order ?? i,
-        resourceIds: t.resourceIds,
-        assignmentIds: t.assignmentIds,
-        worksheetIds: t.worksheetIds,
       }));
     }
     const updated = await CurriculumModel.findOneAndUpdate(

@@ -89,7 +89,7 @@ export class WorksheetService {
 
     const enriched = items.map((w) => ({
       ...w,
-      tutorName: userNameMap.get(tutorUserMap.get(w.tutorPublicId) ?? '') ?? 'Unknown Tutor',
+      tutorName: userNameMap.get(tutorUserMap.get(w.tutorPublicId ?? '') ?? '') ?? 'Unknown Tutor',
       submissionCount: subMap.get(w.publicId) ?? 0,
     }));
 
