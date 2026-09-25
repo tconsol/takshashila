@@ -7,6 +7,7 @@ import { Role } from '../../constants/roles';
 import { worksheetService } from './worksheet.service';
 import { tutorService } from '../tutors/tutor.service';
 import { studentService } from '../students/student.service';
+import { assertCanViewMaterial } from '../courses/assert-material-access';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 import { getIO } from '../../sockets/socket.handler';
 import { realtime } from '../realtime/realtime.service';
@@ -108,6 +109,7 @@ router.get('/student/me', requireRole(Role.STUDENT), async (req: AuthRequest, re
 
 router.post('/:worksheetId/submit', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    await assertCanViewMaterial(req.user!, await worksheetService.getByPublicId(req.params.worksheetId));
     const student = await studentService.getByUserPublicId(req.user!.publicId);
     const submission = await worksheetService.submitAnswers(
       req.params.worksheetId,
@@ -160,6 +162,7 @@ router.get('/principal/all', requireRole(Role.PRINCIPAL), async (req: AuthReques
 router.get('/:worksheetId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const worksheet = await worksheetService.getByPublicId(req.params.worksheetId);
+    await assertCanViewMaterial(req.user!, worksheet);
     sendSuccess(res, worksheet, 'Worksheet fetched');
   } catch (e) { next(e); }
 });
