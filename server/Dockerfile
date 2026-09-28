@@ -6,6 +6,9 @@ WORKDIR /app
 # Build tools required for native addons (argon2, etc.)
 RUN apk add --no-cache python3 make g++
 
+# Match host npm version so package-lock.json resolves identically
+RUN npm install -g npm@11.7.0
+
 # Install ALL dependencies (scripts must run so argon2.node gets compiled)
 COPY package.json package-lock.json ./
 RUN npm ci
