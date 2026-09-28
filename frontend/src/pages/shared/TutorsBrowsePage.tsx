@@ -48,6 +48,7 @@ function listingToProfile(t: TutorListing): TutorProfile {
     rating: t.rating,
     totalStudents: t.totalStudents,
     totalClassesCompleted: t.totalClassesCompleted,
+    hourlyRateCents: t.hourlyRateCents,
     commissionRatePercent: 0,
     trustScore: 0,
     createdAt: '',

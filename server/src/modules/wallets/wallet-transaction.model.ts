@@ -38,6 +38,14 @@ const walletTransactionSchema = new Schema<IWalletTransaction>(
 
 walletTransactionSchema.index({ ownerPublicId: 1, createdAt: -1 });
 walletTransactionSchema.index({ walletPublicId: 1, type: 1 });
+// DB-level backstop for "only one payout request pending review at a time":
+// the app-level countDocuments check in payout.service.ts is a read, not a
+// lock, so two near-simultaneous requests could both pass it. This index
+// makes a second concurrent PENDING payout for the same owner fail to insert.
+walletTransactionSchema.index(
+  { ownerPublicId: 1, type: 1, status: 1 },
+  { unique: true, partialFilterExpression: { type: TransactionType.PAYOUT, status: TransactionStatus.PENDING } },
+);
 
 export const WalletTransactionModel = mongoose.model<IWalletTransaction>(
   'WalletTransaction',

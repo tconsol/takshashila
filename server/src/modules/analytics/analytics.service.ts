@@ -275,7 +275,10 @@ export class AnalyticsService {
     const [upcoming, completed, totalStudents] = await Promise.all([
       ScheduledClassModel.countDocuments({ tutorPublicId, status: ClassStatus.SCHEDULED }),
       ScheduledClassModel.countDocuments({ tutorPublicId, status: ClassStatus.COMPLETED }),
-      ScheduledClassModel.distinct('studentPublicId', { tutorPublicId, status: ClassStatus.COMPLETED }).then((r) => r.length),
+      // Same query as the Students page (studentRepository.findByTutor) — this
+      // must count actual linked students, not "students who completed a
+      // class," or the two screens permanently disagree.
+      StudentProfileModel.countDocuments({ tutorPublicId, isDeleted: false }),
     ]);
     return { upcoming, completed, totalStudents };
   }

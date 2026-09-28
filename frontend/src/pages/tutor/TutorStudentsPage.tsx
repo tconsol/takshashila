@@ -182,7 +182,10 @@ export function TutorStudentsPage() {
       <div className="flex items-center justify-between">
         <PageHeader
           title="My Students"
-          subtitle={`${students.length} student${students.length !== 1 ? 's' : ''} linked`}
+          subtitle={(() => {
+            const total = studentsPage?.pagination?.total ?? students.length;
+            return `${total} student${total !== 1 ? 's' : ''} linked`;
+          })()}
         />
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowInvite(true)}>

@@ -171,7 +171,9 @@ export class PaymentService {
           amountCents: payment.creditsCents ?? payment.amountCents, // wallet value, not charged amount
           creditType: CreditType.PURCHASED_CREDITS,
           description: 'Wallet top-up via Stripe (webhook)',
-          idempotencyKey: `webhook-${payment.publicId}`,
+          // SAME key as the verify path (see handleRazorpayWebhook) → creditWallet
+          // dedupes, so a payment verified in-browser AND webhooked is credited once.
+          idempotencyKey: payment.publicId,
         });
       }
     }

@@ -12,6 +12,7 @@ import { AppError, NotFoundError, ValidationError } from '../../utils/error';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import type { Role } from '../../constants/roles';
+import { settingsService } from '../settings/settings.service';
 
 export interface PayoutActor {
   publicId: string;
@@ -29,6 +30,9 @@ export interface RequestPayoutDto {
 
 /** Nobody should be able to request a payout smaller than it costs to process. */
 const MIN_PAYOUT_CENTS = 10_00;
+/** Anything larger needs a paper trail beyond a self-service click — same
+ *  reasoning as wallet-admin.service.ts's MAX_GRANT_CENTS. */
+const MAX_PAYOUT_CENTS = 100_000_00; // $100,000
 
 const invalid = (msg: string) => new ValidationError([msg], msg);
 
@@ -40,12 +44,19 @@ export class PayoutService {
    * request; rejecting later credits it straight back.
    */
   async requestPayout(ownerPublicId: string, dto: RequestPayoutDto): Promise<IWalletTransaction> {
+    if (!(await settingsService.isFeatureEnabled('payoutsEnabled'))) {
+      throw new AppError('Payouts are temporarily disabled. Please try again later.', 503);
+    }
+
     const amountCents = Math.round(Number(dto.amountCents));
     if (!Number.isFinite(amountCents) || amountCents <= 0) {
       throw invalid('Payout amount must be a positive number');
     }
     if (amountCents < MIN_PAYOUT_CENTS) {
       throw invalid(`Minimum payout is $${(MIN_PAYOUT_CENTS / 100).toFixed(2)}`);
+    }
+    if (amountCents > MAX_PAYOUT_CENTS) {
+      throw invalid(`Single payouts are capped at $${(MAX_PAYOUT_CENTS / 100).toLocaleString()}`);
     }
 
     const session = await mongoose.startSession();
@@ -85,7 +96,12 @@ export class PayoutService {
       const [transaction] = await WalletTransactionModel.create(
         [{
           publicId: uuidv4(),
-          idempotencyKey: `payout-request-${ownerPublicId}-${Date.now()}`,
+          // Each payout request is its own event, so this only needs to be
+          // unique, not deterministic across retries — the real protection
+          // against a double-submit is the DB-level partial unique index on
+          // {ownerPublicId, status: PENDING} (see wallet-transaction.model.ts),
+          // not this key.
+          idempotencyKey: `payout-request-${ownerPublicId}-${uuidv4()}`,
           walletPublicId: wallet.publicId,
           ownerPublicId,
           type: TransactionType.PAYOUT,
@@ -109,6 +125,14 @@ export class PayoutService {
       return transaction.toObject();
     } catch (error) {
       await session.abortTransaction();
+      // The countDocuments check above is a read, not a lock — two
+      // near-simultaneous requests can both pass it. The partial unique index
+      // on {ownerPublicId, type, status: PENDING} is the real backstop; a
+      // duplicate-key error from it means the same race the check was meant
+      // to catch, so surface the same friendly message.
+      if ((error as { code?: number }).code === 11000) {
+        throw new AppError('You already have a payout awaiting review', 409);
+      }
       throw error;
     } finally {
       session.endSession();

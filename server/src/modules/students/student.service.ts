@@ -21,6 +21,12 @@ import { ParentProfileModel } from '../parents/parent.model';
 import { enqueueEmail } from '../../queues/email.queue';
 import { settingsService } from '../settings/settings.service';
 
+// Statuses for which a tutor's TutorProfile.totalStudents counter was
+// actually incremented (see approve()/acceptInvite()/createByPrincipal()) —
+// PENDING_APPROVAL and INACTIVE never were, so removing/transferring a
+// student in those statuses must never decrement it.
+const COUNTED_STUDENT_STATUSES: StudentStatus[] = [StudentStatus.ACTIVE, StudentStatus.SUSPENDED];
+
 function buildWelcomeEmail(opts: {
   firstName: string;
   lastName: string;
@@ -235,15 +241,29 @@ export class StudentService {
       throw new ConflictError('Student is already assigned to this tutor');
     }
 
+    const wasCounted = COUNTED_STUDENT_STATUSES.includes(profile.status);
+
     const updated = await studentRepository.update(publicId, {
       tutorPublicId: dto.newTutorPublicId,
       previousTutorPublicIds: profile.tutorPublicId
         ? [...profile.previousTutorPublicIds, profile.tutorPublicId]
         : profile.previousTutorPublicIds,
-      status: StudentStatus.TRANSFERRED,
+      // The student is active with their NEW tutor now — TRANSFERRED would
+      // show as a stale/inactive-looking badge on the new tutor's Students
+      // page. The move itself is still fully recorded via transferredFrom /
+      // transferredAt / previousTutorPublicIds below.
+      status: StudentStatus.ACTIVE,
       transferredFrom: profile.tutorPublicId,
       transferredAt: new Date(),
     });
+
+    // Keep each tutor's cached totalStudents in sync with the move — this
+    // was previously never touched by transfer(), so the old tutor's count
+    // stayed permanently inflated and the new tutor's never grew.
+    if (profile.tutorPublicId && wasCounted) {
+      await tutorRepository.incrementStats(profile.tutorPublicId, { totalStudents: -1 }).catch(() => {});
+    }
+    await tutorRepository.incrementStats(dto.newTutorPublicId, { totalStudents: 1 }).catch(() => {});
 
     domainEvents.emit(DomainEvent.STUDENT_TRANSFERRED, {
       studentPublicId: publicId,
@@ -793,13 +813,21 @@ export class StudentService {
     const profile = await studentRepository.findByPublicId(studentPublicId);
     if (!profile) throw new NotFoundError('Student profile');
 
+    // Only decrement counters for a student who was actually counted in them
+    // (see COUNTED_STUDENT_STATUSES) — e.g. unlinking a still-PENDING_APPROVAL
+    // student, whose creation never incremented anything, must not push the
+    // counter below the real total.
+    const wasCounted = COUNTED_STUDENT_STATUSES.includes(profile.status);
+
     if (actorRole === 'TUTOR') {
       const { tutorService } = await import('../tutors/tutor.service');
       const tutorProfile = await tutorService.getByUserPublicId(actorUserPublicId);
       if (profile.tutorPublicId !== tutorProfile.publicId) {
         throw new AppError('This student is not linked to your account', 403);
       }
-      await tutorRepository.incrementStats(tutorProfile.publicId, { totalStudents: -1 }).catch(() => {});
+      if (wasCounted) {
+        await tutorRepository.incrementStats(tutorProfile.publicId, { totalStudents: -1 }).catch(() => {});
+      }
     } else {
       // PRINCIPAL verify the student's tutor belongs to this principal's org
       const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: actorUserPublicId, isDeleted: false }).lean();
@@ -809,9 +837,13 @@ export class StudentService {
         if (!tutor || tutor.principalPublicId !== actorUserPublicId) {
           throw new AppError('This student does not belong to your organization', 403);
         }
-        await tutorRepository.incrementStats(profile.tutorPublicId, { totalStudents: -1 }).catch(() => {});
+        if (wasCounted) {
+          await tutorRepository.incrementStats(profile.tutorPublicId, { totalStudents: -1 }).catch(() => {});
+        }
       }
-      await PrincipalProfileModel.updateOne({ publicId: principalProfile.publicId }, { $inc: { totalStudents: -1 } }).catch(() => {});
+      if (wasCounted) {
+        await PrincipalProfileModel.updateOne({ publicId: principalProfile.publicId }, { $inc: { totalStudents: -1 } }).catch(() => {});
+      }
     }
 
     await studentRepository.update(studentPublicId, {

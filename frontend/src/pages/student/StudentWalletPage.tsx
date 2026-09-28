@@ -34,7 +34,13 @@ const txTypeVariant: Record<string, 'success' | 'danger' | 'default'> = {
   CREDIT: 'success',
   DEBIT: 'danger',
   REFUND: 'success',
+  PAYOUT: 'danger',
+  REVERSAL: 'danger',
 };
+
+// Types that reduce the wallet balance — shown with a minus sign in red,
+// same as a plain debit.
+const OUTFLOW_TYPES = new Set(['DEBIT', 'PAYOUT', 'REVERSAL']);
 
 function centsToDisplay(cents: number): string {
   return `${formatCredits(cents)} cr`;
@@ -121,8 +127,8 @@ export function StudentWalletPage() {
                 key: 'amountCents',
                 header: 'Amount',
                 render: (tx) => (
-                  <span className={`font-medium ${tx.type === 'DEBIT' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                    {tx.type === 'DEBIT' ? '-' : '+'}{centsToDisplay(tx.amountCents)}
+                  <span className={`font-medium ${OUTFLOW_TYPES.has(tx.type) ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                    {OUTFLOW_TYPES.has(tx.type) ? '-' : '+'}{centsToDisplay(tx.amountCents)}
                   </span>
                 ),
               },

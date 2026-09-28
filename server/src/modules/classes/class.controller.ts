@@ -82,6 +82,7 @@ export class ClassController {
 
   async refundClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      await assertClassParty(req, req.params.classId, { allowStudent: false });
       const cls = await classService.refundClass(req.params.classId, req.user!.publicId, req.body.reason);
       sendSuccess(res, cls, 'Class refunded');
     } catch (error) { next(error); }

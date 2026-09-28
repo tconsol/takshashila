@@ -220,11 +220,20 @@ export class ProgramEnrollmentService {
   async cancel(enrollmentPublicId: string, actorUserPublicId: string): Promise<IProgramEnrollment> {
     const enrollment = await ProgramEnrollmentModel.findOne({ publicId: enrollmentPublicId, isDeleted: false }).lean();
     if (!enrollment) throw new NotFoundError('Enrollment');
-    const [student, tutor] = await Promise.all([
+    const [student, tutor, enrolledTutor] = await Promise.all([
       StudentProfileModel.findOne({ userPublicId: actorUserPublicId, isDeleted: false }).lean(),
       TutorProfileModel.findOne({ userPublicId: actorUserPublicId, isDeleted: false }).lean(),
+      TutorProfileModel.findOne({ publicId: enrollment.tutorPublicId, isDeleted: false }, { principalPublicId: 1 }).lean(),
     ]);
-    const isParty = student?.publicId === enrollment.studentPublicId || tutor?.publicId === enrollment.tutorPublicId;
+    // A principal may cancel on behalf of a tutor in their own organization —
+    // the route already allows Role.PRINCIPAL here (same pattern as
+    // student.service.ts's unlinkStudent), but until now nothing actually
+    // checked for it, so a principal with no TutorProfile of their own could
+    // never use the access the route granted them.
+    const isParty =
+      student?.publicId === enrollment.studentPublicId ||
+      tutor?.publicId === enrollment.tutorPublicId ||
+      (!!enrolledTutor?.principalPublicId && enrolledTutor.principalPublicId === actorUserPublicId);
     if (!isParty) throw new NotFoundError('Enrollment');
     // Claim first: flipping ACTIVE → CANCELLED before touching sessions stops a concurrent
     // scheduleSession (it requires ACTIVE) and makes a second cancel a no-op.

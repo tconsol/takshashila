@@ -18,7 +18,11 @@ import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
+import { settingsService } from '../settings/settings.service';
 
+/** Fallback only — initializeDemoCredits normally reads the live figure from
+ *  platform settings (demoCreditCents) so an admin's configured value is what
+ *  new users actually get. */
 const DEMO_INITIAL_CREDITS_CENTS = 30_00;
 
 export class WalletService {
@@ -145,6 +149,12 @@ export class WalletService {
       // `allowNegative` is for penalties the user cannot opt out of by being
       // broke — a cancellation fee has to land or it isn't a deterrent.
       if (!dto.allowNegative && wallet.balanceCents < dto.amountCents) {
+        throw new AppError('Insufficient credits', 402);
+      }
+      // A bucket debit must also fit within that specific bucket — otherwise
+      // e.g. a demo-class charge can push demoCreditsCents negative just
+      // because the wallet has *other* funds covering the total balance.
+      if (dto.bucketField && (wallet[dto.bucketField] ?? 0) < dto.amountCents) {
         throw new AppError('Insufficient credits', 402);
       }
 
@@ -303,6 +313,145 @@ export class WalletService {
     }
   }
 
+  /**
+   * Debit one wallet and credit another as a single all-or-nothing operation.
+   * Unlike calling debitWallet()+creditWallet() back to back (each opens its
+   * own transaction), a failure on either side rolls back both — there is no
+   * state where the payer was charged but the payee was never paid.
+   */
+  async transferWallet(dto: {
+    fromOwnerPublicId: string;
+    toOwnerPublicId: string;
+    /** What leaves the payer's wallet. */
+    debitAmountCents: number;
+    /** What lands in the payee's wallet. May be less than debitAmountCents —
+     *  the platform keeps the difference (e.g. its fee) without it going
+     *  anywhere else. */
+    creditAmountCents: number;
+    debitDescription: string;
+    creditDescription: string;
+    creditType: CreditType;
+    debitIdempotencyKey: string;
+    creditIdempotencyKey: string;
+    referenceId?: string;
+    referenceType?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ debit: IWalletTransaction; credit: IWalletTransaction }> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const existingDebit = await WalletTransactionModel.findOne({
+        idempotencyKey: dto.debitIdempotencyKey,
+      }).session(session);
+      const existingCredit = await WalletTransactionModel.findOne({
+        idempotencyKey: dto.creditIdempotencyKey,
+      }).session(session);
+      if (existingDebit && existingCredit) {
+        await session.abortTransaction();
+        return { debit: existingDebit.toObject(), credit: existingCredit.toObject() };
+      }
+
+      const fromWallet = await WalletModel.findOne({
+        ownerPublicId: dto.fromOwnerPublicId,
+        isDeleted: false,
+      }).session(session);
+      if (!fromWallet) throw new NotFoundError('Wallet');
+      if (fromWallet.isLocked) throw new AppError(`Wallet is locked: ${fromWallet.lockedReason}`, 403);
+      if (fromWallet.balanceCents < dto.debitAmountCents) {
+        throw new AppError('Insufficient credits', 402);
+      }
+
+      const toWallet = await WalletModel.findOne({
+        ownerPublicId: dto.toOwnerPublicId,
+        isDeleted: false,
+      }).session(session);
+      if (!toWallet) throw new NotFoundError('Wallet');
+      if (toWallet.isLocked) throw new AppError(`Wallet is locked: ${toWallet.lockedReason}`, 403);
+
+      const fromBalanceBefore = fromWallet.balanceCents;
+      const fromBalanceAfter = fromBalanceBefore - dto.debitAmountCents;
+      await WalletModel.findByIdAndUpdate(
+        fromWallet._id,
+        { $inc: { balanceCents: -dto.debitAmountCents, totalSpentCents: dto.debitAmountCents } },
+        { session },
+      );
+
+      const toBalanceBefore = toWallet.balanceCents;
+      const toBalanceAfter = toBalanceBefore + dto.creditAmountCents;
+      const creditField = this.getCreditField(dto.creditType);
+      const toIncFields: Record<string, number> = {
+        balanceCents: dto.creditAmountCents,
+        [creditField]: dto.creditAmountCents,
+      };
+      if (dto.creditType === CreditType.EARNED_CREDITS) {
+        toIncFields.totalEarnedCents = dto.creditAmountCents;
+      }
+      await WalletModel.findByIdAndUpdate(toWallet._id, { $inc: toIncFields }, { session });
+
+      const [debitTx] = await WalletTransactionModel.create(
+        [
+          {
+            publicId: uuidv4(),
+            idempotencyKey: dto.debitIdempotencyKey,
+            walletPublicId: fromWallet.publicId,
+            ownerPublicId: dto.fromOwnerPublicId,
+            type: TransactionType.DEBIT,
+            amountCents: dto.debitAmountCents,
+            balanceBeforeCents: fromBalanceBefore,
+            balanceAfterCents: fromBalanceAfter,
+            description: dto.debitDescription,
+            referenceId: dto.referenceId,
+            referenceType: dto.referenceType,
+            metadata: dto.metadata,
+            status: TransactionStatus.COMPLETED,
+          },
+        ],
+        { session },
+      );
+
+      const [creditTx] = await WalletTransactionModel.create(
+        [
+          {
+            publicId: uuidv4(),
+            idempotencyKey: dto.creditIdempotencyKey,
+            walletPublicId: toWallet.publicId,
+            ownerPublicId: dto.toOwnerPublicId,
+            type: TransactionType.CREDIT,
+            creditType: dto.creditType,
+            amountCents: dto.creditAmountCents,
+            balanceBeforeCents: toBalanceBefore,
+            balanceAfterCents: toBalanceAfter,
+            description: dto.creditDescription,
+            referenceId: dto.referenceId,
+            referenceType: dto.referenceType,
+            metadata: dto.metadata,
+            status: TransactionStatus.COMPLETED,
+          },
+        ],
+        { session },
+      );
+
+      await session.commitTransaction();
+
+      domainEvents.emit(DomainEvent.CREDITS_DEDUCTED, {
+        ownerPublicId: dto.fromOwnerPublicId,
+        amountCents: dto.debitAmountCents,
+      });
+      domainEvents.emit(DomainEvent.CREDITS_ADDED, {
+        ownerPublicId: dto.toOwnerPublicId,
+        amountCents: dto.creditAmountCents,
+        creditType: dto.creditType,
+      });
+
+      return { debit: debitTx.toObject(), credit: creditTx.toObject() };
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
   async getTransactionHistory(
     ownerPublicId: string,
     query: PaginationQuery,
@@ -328,9 +477,12 @@ export class WalletService {
       await this.createWallet(ownerPublicId);
     }
 
+    const settings = await settingsService.get();
+    const amountCents = settings.demoCreditCents ?? DEMO_INITIAL_CREDITS_CENTS;
+
     await this.creditWallet({
       ownerPublicId,
-      amountCents: DEMO_INITIAL_CREDITS_CENTS,
+      amountCents,
       creditType: CreditType.DEMO_CREDITS,
       description: 'Welcome demo credits',
       idempotencyKey: `demo-init-${ownerPublicId}`,

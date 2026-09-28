@@ -46,12 +46,31 @@ export class ClassService {
 
     const costCents = tutorProfile.hourlyRateCents;
 
-    // Charge happens at class completion (not booking). Verify student has
-    // enough balance up front (rate + platform fee) so they cannot book a class
-    // they cannot pay for.
+    // Charge happens at class completion (not booking), so nothing is held here.
+    // That means balance alone isn't enough to check: a student with one
+    // balance can otherwise book N classes in parallel, since each booking's
+    // check reads the same untouched balance. Guard against that by also
+    // counting what's already on the hook — every other STUDENT_REQUESTED
+    // class still awaiting completion — so the sum of outstanding obligations
+    // never exceeds what the student can actually pay.
     if (costCents > 0) {
       const wallet = await walletService.getWallet(studentUserPublicId);
-      if (wallet.balanceCents < costCents + PLATFORM_FEE_CENTS) {
+      const outstanding = await ScheduledClassModel.aggregate([
+        {
+          $match: {
+            studentPublicId: studentProfile.publicId,
+            billingMode: BillingMode.STUDENT_REQUESTED,
+            status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+            isDeleted: false,
+          },
+        },
+        { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
+      ]);
+      const outstandingCents = outstanding[0]?.totalCents ?? 0;
+      const outstandingCount = outstanding[0]?.count ?? 0;
+      const totalOwedCents =
+        outstandingCents + (outstandingCount + 1) * PLATFORM_FEE_CENTS + costCents;
+      if (wallet.balanceCents < totalOwedCents) {
         throw new AppError('Insufficient credits to book this class', 402);
       }
     }
@@ -266,8 +285,13 @@ export class ClassService {
             referenceType: 'CLASS_COMPLETION',
             bucketField: 'demoCreditsCents',
           });
-        } catch {
+        } catch (error) {
           // Insufficient demo credits — complete the class anyway.
+          logger.error('Could not charge demo class credits on completion', {
+            classPublicId,
+            studentUserPublicId: studentProfileForEvent.userPublicId,
+            error: (error as Error).message,
+          });
         }
       }
     } else if (scheduled.billingMode === BillingMode.TUTOR_INVITED) {
@@ -286,8 +310,14 @@ export class ClassService {
             referenceId: classPublicId,
             referenceType: 'CLASS_COMPLETION',
           });
-        } catch {
+        } catch (error) {
           // Insufficient tutor balance complete the class but skip the fee.
+          logger.error('Could not charge hosted-class platform fee on completion', {
+            classPublicId,
+            tutorUserPublicId: tutorProfile.userPublicId,
+            tutorFeeCents,
+            error: (error as Error).message,
+          });
         }
       }
     } else if (isPrepaid(scheduled.billingMode)) {
@@ -308,8 +338,17 @@ export class ClassService {
               referenceType: 'CLASS_COMPLETION',
             });
             await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
-          } catch {
-            // Could not pay the tutor complete the class anyway.
+          } catch (error) {
+            // Could not pay the tutor complete the class anyway. The student was
+            // already charged in full at Course-accept time, so a swallowed
+            // failure here is the platform silently pocketing the tutor's share —
+            // must be visible so finance can catch and correct it.
+            logger.error('Could not pay tutor earnings on prepaid class completion', {
+              classPublicId,
+              tutorUserPublicId: tutorProfile.userPublicId,
+              tutorEarningsCents,
+              error: (error as Error).message,
+            });
           }
         }
       }
@@ -371,32 +410,36 @@ export class ClassService {
         const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
 
         try {
-          // 1) Debit the student the rate plus the platform fee
-          await walletService.debitWallet({
-            ownerPublicId: studentProfileForEvent.userPublicId,
-            amountCents: studentChargeCents,
-            description: `Class: ${scheduled.title}`,
-            idempotencyKey: `class-charge-${classPublicId}`,
+          // Debit student and credit tutor in one transaction — either both
+          // happen or neither does, so the platform never pockets a charge
+          // it never paid out.
+          await walletService.transferWallet({
+            fromOwnerPublicId: studentProfileForEvent.userPublicId,
+            toOwnerPublicId: tutorProfile.userPublicId,
+            debitAmountCents: studentChargeCents,
+            creditAmountCents: tutorEarningsCents,
+            debitDescription: `Class: ${scheduled.title}`,
+            creditDescription: `Earnings: ${scheduled.title}`,
+            creditType: CreditType.EARNED_CREDITS,
+            debitIdempotencyKey: `class-charge-${classPublicId}`,
+            creditIdempotencyKey: `tutor-earning-${classPublicId}`,
             referenceId: classPublicId,
             referenceType: 'CLASS_COMPLETION',
           });
-
-          // 2) Credit the tutor the rate minus the platform fee
           if (tutorEarningsCents > 0) {
-            await walletService.creditWallet({
-              ownerPublicId: tutorProfile.userPublicId,
-              amountCents: tutorEarningsCents,
-              creditType: CreditType.EARNED_CREDITS,
-              description: `Earnings: ${scheduled.title}`,
-              idempotencyKey: `tutor-earning-${classPublicId}`,
-              referenceId: classPublicId,
-              referenceType: 'CLASS_COMPLETION',
-            });
             await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
           }
-        } catch {
+        } catch (error) {
           // Insufficient student balance complete the class but skip the charge.
           // (Booking already validated balance; this guards edge cases.)
+          logger.error('Could not bill class on completion', {
+            classPublicId,
+            studentUserPublicId: studentProfileForEvent.userPublicId,
+            tutorUserPublicId: tutorProfile.userPublicId,
+            studentChargeCents,
+            tutorEarningsCents,
+            error: (error as Error).message,
+          });
         }
       }
     }
@@ -447,8 +490,11 @@ export class ClassService {
       throw new ConflictError(`Cannot cancel class in status: ${scheduled.status}`);
     }
 
+    // Guarded on status, same as completeClass — a cancel racing a concurrent
+    // complete must not overwrite an already-COMPLETED (and paid) class back
+    // to CANCELLED.
     const updated = await ScheduledClassModel.findOneAndUpdate(
-      { publicId: classPublicId },
+      { publicId: classPublicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] } },
       {
         $set: {
           status: ClassStatus.CANCELLED,
@@ -459,6 +505,7 @@ export class ClassService {
       },
       { new: true },
     ).lean();
+    if (!updated) throw new ConflictError('Class was already completed or cancelled');
 
     if (scheduled.availabilitySlotPublicId) {
       await scheduleService.releaseSlot(scheduled.availabilitySlotPublicId);
@@ -641,8 +688,14 @@ export class ClassService {
               referenceId: classPublicId,
               referenceType: 'CLASS_REFUND',
             });
-          } catch {
+          } catch (error) {
             // Tutor balance too low to claw back platform absorbs the difference.
+            logger.warn('Could not claw back tutor earnings on prepaid class refund', {
+              classPublicId,
+              tutorUserPublicId: tutorProfile.userPublicId,
+              tutorEarningsCents,
+              error: (error as Error).message,
+            });
           }
         }
       }
@@ -675,8 +728,14 @@ export class ClassService {
               referenceId: classPublicId,
               referenceType: 'CLASS_REFUND',
             });
-          } catch {
+          } catch (error) {
             // Tutor balance too low to claw back platform absorbs the difference.
+            logger.warn('Could not claw back tutor earnings on class refund', {
+              classPublicId,
+              tutorUserPublicId: tutorProfile.userPublicId,
+              tutorEarningsCents,
+              error: (error as Error).message,
+            });
           }
         }
       }

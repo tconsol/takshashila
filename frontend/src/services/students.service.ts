@@ -141,13 +141,13 @@ export const studentsService = {
       }),
 
   listAll: (params?: Record<string, string>) =>
-    api.get<{ data: { items: StudentProfile[]; total: number; page: number; limit: number; totalPages: number } }>(
+    api.get<{ data: { items: StudentProfile[]; pagination: { page: number; limit: number; total: number; totalPages: number } } }>(
       '/students',
       { params },
     ).then((r) => r.data.data),
 
   getMyStudentsAsTutor: (params?: Record<string, string>) =>
-    api.get<{ data: { items: StudentProfile[]; total: number; page: number; limit: number; totalPages: number } }>(
+    api.get<{ data: { items: StudentProfile[]; pagination: { page: number; limit: number; total: number; totalPages: number } } }>(
       '/students/my-students',
       { params },
     ).then((r) => r.data.data),

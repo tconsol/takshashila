@@ -48,7 +48,14 @@ const txTypeVariant: Record<string, TxVariant> = {
   CREDIT: 'success',
   DEBIT: 'danger',
   REFUND: 'success',
+  PAYOUT: 'danger',
+  REVERSAL: 'danger',
 };
+
+// Types that reduce the wallet balance — shown with a minus sign in red,
+// same as a plain debit. A payout request holds/withdraws funds immediately
+// (see payout.service.ts), so it must never render like an incoming credit.
+const OUTFLOW_TYPES = new Set(['DEBIT', 'PAYOUT', 'REVERSAL']);
 
 function centsToDisplay(cents: number): string {
   return `${formatCredits(cents)} cr`;
@@ -180,8 +187,8 @@ export function WalletPage({
                 key: 'amountCents',
                 header: 'Amount',
                 render: (tx) => (
-                  <span className={`font-semibold tabular-nums ${tx.type === 'DEBIT' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                    {tx.type === 'DEBIT' ? '-' : '+'}{centsToDisplay(tx.amountCents)}
+                  <span className={`font-semibold tabular-nums ${OUTFLOW_TYPES.has(tx.type) ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                    {OUTFLOW_TYPES.has(tx.type) ? '-' : '+'}{centsToDisplay(tx.amountCents)}
                   </span>
                 ),
               },

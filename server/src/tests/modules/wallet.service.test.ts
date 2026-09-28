@@ -7,7 +7,7 @@ import { WalletModel } from '../../modules/wallets/wallet.model';
 import { WalletTransactionModel } from '../../modules/wallets/wallet-transaction.model';
 import { CreditType } from '../../modules/wallets/wallet.types';
 
-jest.mock('../../events/event-emitter', () => ({ domainEvents: { emit: jest.fn() } }));
+jest.mock('../../events/event-emitter', () => ({ domainEvents: { emit: jest.fn(), on: jest.fn() } }));
 
 // chainable `.session()` helper for queries
 const withSession = (v: unknown) => ({ session: () => Promise.resolve(v) });

@@ -1,7 +1,7 @@
 // frontend/src/pages/tutor/TutorProgramsPage.tsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, Plus, Eye, Archive, Trash2, Pencil } from 'lucide-react';
+import { Sparkles, Plus, Eye, Archive, Trash2, Pencil, Upload } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { Tabs } from '../../components/ui/Tabs';
 import { ProgramForm } from '../../features/programs/ProgramForm';
+import { ProgramCsvImportModal } from '../../features/programs/ProgramCsvImportModal';
 import { useMyPrograms, useSetProgramStatus, useDeleteProgram } from '../../hooks/use-programs';
 import { categoryLabel, levelLabel } from '../../constants/programs';
 import { formatCurrency } from '../../utils/currency';
@@ -23,6 +24,7 @@ const TABS = [
 export function TutorProgramsPage() {
   const [tab, setTab] = useState('PUBLISHED');
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<Program | null>(null);
   const { data: programs = [], isLoading } = useMyPrograms();
   const { mutate: setStatus } = useSetProgramStatus();
@@ -36,8 +38,14 @@ export function TutorProgramsPage() {
         title="Skill Programs"
         description="Your own programs outside the school curriculum — arts, games, coding, AI and more."
         icon={<Sparkles className="h-5 w-5" />}
-        actions={<Button variant="gradient" onClick={() => { setEditing(null); setCreating(true); }}><Plus className="h-3.5 w-3.5" /> New program</Button>}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImporting(true)}><Upload className="h-3.5 w-3.5" /> Upload CSV</Button>
+            <Button variant="gradient" onClick={() => { setEditing(null); setCreating(true); }}><Plus className="h-3.5 w-3.5" /> New program</Button>
+          </div>
+        }
       />
+      <ProgramCsvImportModal open={importing} onClose={() => setImporting(false)} onDone={() => setImporting(false)} />
       {creating && <ProgramForm onDone={() => setCreating(false)} />}
       {editing && <ProgramForm key={editing.publicId} program={editing} onDone={() => setEditing(null)} />}
       <Tabs className="mb-4" tabs={TABS} activeTab={tab} onChange={setTab} />

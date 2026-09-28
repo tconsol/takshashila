@@ -41,6 +41,7 @@ function baseClass(over: Record<string, unknown> = {}) {
 describe('ClassService.completeClass money flow', () => {
   let debit: jest.SpyInstance;
   let credit: jest.SpyInstance;
+  let transfer: jest.SpyInstance;
   let recordCompleted: jest.SpyInstance;
 
   beforeEach(() => {
@@ -53,6 +54,9 @@ describe('ClassService.completeClass money flow', () => {
     jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
     debit = jest.spyOn(walletService, 'debitWallet').mockResolvedValue({} as never);
     credit = jest.spyOn(walletService, 'creditWallet').mockResolvedValue({} as never);
+    // STUDENT_REQUESTED debits the student and credits the tutor atomically —
+    // see wallet.service.ts's transferWallet.
+    transfer = jest.spyOn(walletService, 'transferWallet').mockResolvedValue({ debit: {}, credit: {} } as never);
     recordCompleted = jest.spyOn(tutorService, 'recordClassCompleted').mockResolvedValue(undefined as never);
   });
 
@@ -61,13 +65,15 @@ describe('ClassService.completeClass money flow', () => {
 
     await classService.completeClass('class-1', 'tutor-user-1');
 
-    expect(debit).toHaveBeenCalledTimes(1);
-    // 2000 + 100 fee = 2100 charged to the student
-    expect(debit.mock.calls[0][0]).toMatchObject({ ownerPublicId: 'student-user-1', amountCents: 2100 });
-
-    expect(credit).toHaveBeenCalledTimes(1);
-    // 2000 − 100 fee = 1900 credited to the tutor's user wallet
-    expect(credit.mock.calls[0][0]).toMatchObject({ ownerPublicId: 'tutor-user-1', amountCents: 1900 });
+    expect(transfer).toHaveBeenCalledTimes(1);
+    // 2000 + 100 fee = 2100 charged to the student, 2000 − 100 fee = 1900
+    // credited to the tutor's user wallet, in one atomic transfer.
+    expect(transfer.mock.calls[0][0]).toMatchObject({
+      fromOwnerPublicId: 'student-user-1',
+      toOwnerPublicId: 'tutor-user-1',
+      debitAmountCents: 2100,
+      creditAmountCents: 1900,
+    });
     expect(recordCompleted).toHaveBeenCalledWith('tutor-prof-1', 1900);
   });
 
@@ -96,13 +102,12 @@ describe('ClassService.completeClass money flow', () => {
     expect(credit).not.toHaveBeenCalled();
   });
 
-  it('student did NOT attend → no debit, no credit', async () => {
+  it('student did NOT attend → no transfer', async () => {
     jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(baseClass({ studentJoinedAt: undefined })) as never);
 
     await classService.completeClass('class-1', 'tutor-user-1');
 
-    expect(debit).not.toHaveBeenCalled();
-    expect(credit).not.toHaveBeenCalled();
+    expect(transfer).not.toHaveBeenCalled();
   });
 
   it('free class (costCents = 0) → no money moves', async () => {
@@ -110,19 +115,17 @@ describe('ClassService.completeClass money flow', () => {
 
     await classService.completeClass('class-1', 'tutor-user-1');
 
-    expect(debit).not.toHaveBeenCalled();
-    expect(credit).not.toHaveBeenCalled();
+    expect(transfer).not.toHaveBeenCalled();
   });
 
   it('insufficient student balance → tutor NOT paid, class still completes', async () => {
     jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(baseClass()) as never);
-    debit.mockRejectedValueOnce(Object.assign(new Error('Insufficient credits'), { statusCode: 402 }));
+    transfer.mockRejectedValueOnce(Object.assign(new Error('Insufficient credits'), { statusCode: 402 }));
 
     const result = await classService.completeClass('class-1', 'tutor-user-1');
 
-    expect(debit).toHaveBeenCalledTimes(1);
-    expect(credit).not.toHaveBeenCalled();        // debit failed → no tutor payout
-    expect(recordCompleted).not.toHaveBeenCalled();
+    expect(transfer).toHaveBeenCalledTimes(1);
+    expect(recordCompleted).not.toHaveBeenCalled();  // transfer failed → no tutor payout
     expect(result).toMatchObject({ status: ClassStatus.COMPLETED }); // class still closed
   });
 
