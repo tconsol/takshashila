@@ -191,6 +191,9 @@ export class AuthService {
             publicId: uuidv4(),
             userPublicId,
             status: PrincipalStatus.PENDING_APPROVAL,
+            organizationName: dto.organizationName,
+            organizationWebsite: dto.organizationWebsite,
+            bio: dto.bio,
             commissionRatePercent: settings.defaultPrincipalCommissionRatePercent,
             totalTutors: 0,
             totalStudents: 0,
@@ -455,6 +458,7 @@ export class AuthService {
         qualifications: input.qualifications,
         grade: input.grade,
         organizationName: input.organizationName,
+        organizationWebsite: input.organizationWebsite,
       });
 
       // Re-fetch with sensitive fields so _issueSession has passwordHash to strip.

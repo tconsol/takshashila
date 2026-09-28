@@ -28,6 +28,7 @@ export interface GoogleAuthInput {
   grade?: string;
   /** PRINCIPAL */
   organizationName?: string;
+  organizationWebsite?: string;
 }
 
 /** Returned with HTTP 200 — not an error, just an unfinished signup. */
@@ -54,4 +55,5 @@ export interface RoleProfileInput {
   qualifications?: string[];
   grade?: string;
   organizationName?: string;
+  organizationWebsite?: string;
 }

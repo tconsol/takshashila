@@ -21,6 +21,9 @@ export const registerSchema = z.object({
   languages: z.array(z.string()).optional(),
   bio: z.string().max(1000).optional(),
   qualifications: z.array(z.string()).optional(),
+  // Principal self-registration extras
+  organizationName: z.string().max(200).optional(),
+  organizationWebsite: z.string().max(300).optional(),
 }).superRefine((data, ctx) => {
   // A tutor must pick at least one subject to register.
   if (data.role === 'TUTOR' && (!data.subjects || data.subjects.length === 0)) {
@@ -86,6 +89,7 @@ export const googleAuthSchema = z.object({
   qualifications: z.array(z.string()).optional(),
   grade: z.string().optional(),
   organizationName: z.string().optional(),
+  organizationWebsite: z.string().optional(),
 }).refine((d) => !!d.idToken || !!d.code || !!d.accessToken, {
   message: 'Provide a Google idToken, access token, or authorization code',
   path: ['idToken'],
