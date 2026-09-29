@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { router } from '../routes';
 import { queryClient } from '../lib/query-client';
 import { ToastProvider } from '../components/ui/Toast';
+import { CookieNotice } from '../components/shared/CookieNotice';
 
 export function App() {
   return (
@@ -14,6 +15,7 @@ export function App() {
       <MotionConfig reducedMotion="user">
         <ToastProvider>
           <RouterProvider router={router} />
+          <CookieNotice />
           <ReactQueryDevtools initialIsOpen={false} />
         </ToastProvider>
       </MotionConfig>

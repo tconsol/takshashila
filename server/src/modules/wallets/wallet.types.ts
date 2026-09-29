@@ -35,6 +35,8 @@ export interface IWallet {
   earnedCreditsCents: number;
   totalEarnedCents: number;
   totalSpentCents: number;
+  /** Write-lock counter; see WalletService.runWithBookingLock. */
+  bookingSeq?: number;
   currency: string;
   isLocked: boolean;
   lockedReason?: string;

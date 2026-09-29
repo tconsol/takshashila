@@ -7,6 +7,7 @@ import { parsePaginationQuery, buildPaginatedResult } from '../../utils/paginati
 import { notificationService } from '../notifications/notification.service';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { NotFoundError } from '../../utils/error';
 
 export class SupportService {
   async createTicket(requesterPublicId: string, dto: CreateTicketDto): Promise<ITicket> {
@@ -89,6 +90,14 @@ export class SupportService {
       name: `${a.firstName} ${a.lastName}`.trim(),
       role: a.role,
     }));
+  }
+
+  /** Staff may open any ticket; everyone else only their own. Same 404 either way. */
+  async assertCanAccess(publicId: string, actorPublicId: string, isStaff: boolean): Promise<void> {
+    const ticket = await this.getTicket(publicId);
+    if (!isStaff && ticket.requesterPublicId !== actorPublicId) {
+      throw new NotFoundError('Ticket');
+    }
   }
 
   async getTicket(publicId: string): Promise<ITicket> {

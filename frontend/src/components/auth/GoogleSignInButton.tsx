@@ -23,6 +23,12 @@ function GoogleGlyph() {
  * Instrumented so the failing step is visible in the console + on screen.
  */
 export function GoogleSignInButton({ label = 'Continue with Google' }: { label?: string }) {
+  // No client ID configured: hide the button rather than crash the page.
+  if (!CLIENT_ID) return null;
+  return <GoogleSignInInner label={label} />;
+}
+
+function GoogleSignInInner({ label }: { label: string }) {
   const [localError, setLocalError] = useState<string | null>(null);
   // Held so the second call (with the chosen role) can replay the same credential.
   const [pendingToken, setPendingToken] = useState<string | null>(null);
@@ -65,15 +71,6 @@ export function GoogleSignInButton({ label = 'Continue with Google' }: { label?:
       );
     },
   });
-
-  if (!CLIENT_ID) {
-    // Surface the misconfiguration instead of silently rendering nothing.
-    return (
-      <p className="text-center text-xs font-medium text-amber-600">
-        Google sign-in unavailable: VITE_GOOGLE_CLIENT_ID is not set.
-      </p>
-    );
-  }
 
   const serverError =
     googleAuth.isError && googleAuth.error instanceof Error

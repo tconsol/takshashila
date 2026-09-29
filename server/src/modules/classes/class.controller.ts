@@ -10,6 +10,8 @@ import { env } from '../../config/env';
 import { ScheduledClassModel } from '../schedules/schedule.model';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
+import { ParentProfileModel } from '../parents/parent.model';
+import { assertClassParty, assertClassViewer } from './class-access';
 
 function parseClassFilters(query: Record<string, unknown>) {
   return {
@@ -17,29 +19,6 @@ function parseClassFilters(query: Record<string, unknown>) {
     from: query.from ? new Date(query.from as string) : undefined,
     to: query.to ? new Date(query.to as string) : undefined,
   };
-}
-
-/**
- * Completing a class pays the tutor and cancelling it moves prepaid money, so only the
- * class's tutor (complete/cancel), its student (cancel) or an admin may do it. 404 otherwise.
- */
-async function assertClassParty(req: AuthRequest, classPublicId: string, opts: { allowStudent: boolean }): Promise<void> {
-  const role = req.user!.role;
-  if (role === 'ADMIN' || role === 'SUPER_ADMIN') return;
-  const { ScheduledClassModel } = await import('../schedules/schedule.model');
-  const cls = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }, { tutorPublicId: 1, studentPublicId: 1 }).lean();
-  if (cls) {
-    const { TutorProfileModel } = await import('../tutors/tutor.model');
-    const tutor = await TutorProfileModel.findOne({ userPublicId: req.user!.publicId, isDeleted: false }, { publicId: 1 }).lean();
-    if (tutor?.publicId === cls.tutorPublicId) return;
-    if (opts.allowStudent) {
-      const { StudentProfileModel } = await import('../students/student.model');
-      const student = await StudentProfileModel.findOne({ userPublicId: req.user!.publicId, isDeleted: false }, { publicId: 1 }).lean();
-      if (student?.publicId === cls.studentPublicId) return;
-    }
-  }
-  const { NotFoundError } = await import('../../utils/error');
-  throw new NotFoundError('Scheduled class');
 }
 
 export class ClassController {
@@ -52,6 +31,7 @@ export class ClassController {
 
   async startClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      await assertClassParty(req.user!, req.params.classId, { allowStudent: false });
       const cls = await classService.startClass(req.params.classId, req.user!.publicId);
       sendSuccess(res, cls, 'Class started');
     } catch (error) { next(error); }
@@ -59,6 +39,7 @@ export class ClassController {
 
   async joinClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      await assertClassViewer(req.user!, req.params.classId);
       const cls = await classService.joinClass(req.params.classId, req.user!.publicId, req.user!.role);
       sendSuccess(res, cls, 'Joined class');
     } catch (error) { next(error); }
@@ -66,15 +47,15 @@ export class ClassController {
 
   async completeClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      await assertClassParty(req, req.params.classId, { allowStudent: false });
-      const cls = await classService.completeClass(req.params.classId, req.user!.publicId);
+      await assertClassParty(req.user!, req.params.classId, { allowStudent: false });
+      const cls = await classService.completeClass(req.params.classId, req.user!.publicId, { manual: true });
       sendSuccess(res, cls, 'Class completed');
     } catch (error) { next(error); }
   }
 
   async cancelClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      await assertClassParty(req, req.params.classId, { allowStudent: true });
+      await assertClassParty(req.user!, req.params.classId, { allowStudent: true });
       const cls = await classService.cancelClass(req.params.classId, req.user!.publicId, req.body);
       sendSuccess(res, cls, 'Class cancelled');
     } catch (error) { next(error); }
@@ -82,14 +63,19 @@ export class ClassController {
 
   async refundClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      await assertClassParty(req, req.params.classId, { allowStudent: false });
-      const cls = await classService.refundClass(req.params.classId, req.user!.publicId, req.body.reason);
+      await assertClassParty(req.user!, req.params.classId, { allowStudent: false });
+      const cls = await classService.refundClass(req.params.classId, req.user!.publicId, req.body.reason, {
+        role: req.user!.role,
+        ip: req.ip,
+        userAgent: req.get('user-agent') ?? undefined,
+      });
       sendSuccess(res, cls, 'Class refunded');
     } catch (error) { next(error); }
   }
 
   async setMeetingUrl(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      await assertClassParty(req.user!, req.params.classId, { allowStudent: false });
       const cls = await classService.setMeetingUrl(req.params.classId, req.body);
       sendSuccess(res, cls, 'Meeting URL set');
     } catch (error) { next(error); }
@@ -145,6 +131,7 @@ export class ClassController {
 
   async getByPublicId(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      await assertClassViewer(req.user!, req.params.classId);
       const cls = await classService.getByPublicId(req.params.classId);
       sendSuccess(res, cls, 'Class fetched');
     } catch (error) { next(error); }
@@ -174,16 +161,26 @@ export class ClassController {
       if (!cls) throw new NotFoundError('Class');
 
       // Verify the requesting user belongs to this class
+      // Every branch is an explicit allow; the default is deny.
+      // Parties (tutor/student) may publish; observers are subscribe-only.
       let authorized = false;
+      let rtcRole = RtcRole.SUBSCRIBER;
       if (role === 'TUTOR') {
         const tutorProfile = await TutorProfileModel.findOne({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
         authorized = tutorProfile?.publicId === cls.tutorPublicId;
+        if (authorized) rtcRole = RtcRole.PUBLISHER;
       } else if (role === 'STUDENT') {
         const studentProfile = await StudentProfileModel.findOne({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
         authorized = studentProfile?.publicId === cls.studentPublicId;
-      } else {
-        // PRINCIPAL, ADMIN, SUPER_ADMIN can observe
+        if (authorized) rtcRole = RtcRole.PUBLISHER;
+      } else if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
         authorized = true;
+      } else if (role === 'PRINCIPAL') {
+        const classTutor = await TutorProfileModel.findOne({ publicId: cls.tutorPublicId, isDeleted: false }, { principalPublicId: 1 }).lean();
+        authorized = !!classTutor?.principalPublicId && classTutor.principalPublicId === userPublicId;
+      } else if (role === 'PARENT') {
+        const parent = await ParentProfileModel.findOne({ userPublicId, isDeleted: false }, { childStudentPublicIds: 1 }).lean();
+        authorized = !!parent?.childStudentPublicIds?.includes(cls.studentPublicId);
       }
 
       if (!authorized) throw new AppError('Not authorized to join this class', 403);
@@ -194,7 +191,7 @@ export class ClassController {
         env.AGORA_APP_CERTIFICATE,
         classId,   // channel name = classPublicId
         0,         // uid 0 = auto-assign
-        RtcRole.PUBLISHER,
+        rtcRole,
         env.AGORA_TOKEN_EXPIRE_SECONDS, // token expire (seconds)
         env.AGORA_TOKEN_EXPIRE_SECONDS, // privilege expire (seconds)
       );
@@ -205,6 +202,7 @@ export class ClassController {
         token,
         uid: 0,
         expireTime,
+        canPublish: rtcRole === RtcRole.PUBLISHER,
       }, 'Agora token generated');
     } catch (error) { next(error); }
   }

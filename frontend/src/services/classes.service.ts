@@ -148,7 +148,7 @@ export const classesService = {
   setMeetingUrl: (classId: string, meetingUrl: string) =>
     api.patch(`/classes/${classId}/meeting-url`, { meetingUrl }).then((r) => mapClass(r.data.data)),
 
-  getAgoraToken: (classId: string): Promise<{ appId: string; channel: string; token: string; uid: number }> =>
+  getAgoraToken: (classId: string): Promise<{ appId: string; channel: string; token: string; uid: number; canPublish?: boolean }> =>
     api.get(`/classes/${classId}/agora-token`).then((r) => r.data.data),
 
   tutorCreate: (dto: TutorCreateClassDto) =>

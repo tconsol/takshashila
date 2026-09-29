@@ -43,8 +43,8 @@ export const FEATURE_FLAG_DEFAULTS: Record<string, boolean> = {
 };
 
 export const PLATFORM_SETTINGS_DEFAULTS = {
-  platformName: 'Takshashila',
-  supportEmail: 'support@takshashila.com',
+  platformName: 'Brainbaseedu',
+  supportEmail: 'support@brainbaseedu.com',
   defaultTutorCommissionRatePercent: 20,
   defaultPrincipalCommissionRatePercent: 15,
   demoCreditCents: 100_00,

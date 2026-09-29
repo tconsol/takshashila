@@ -89,6 +89,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'My Attendance',  href: '/dashboard/principal/teach/attendance',  icon: UserCheck },
     { label: 'Messages',    href: '/chat',                          icon: MessageSquare,   badgeKey: 'messages' },
     { label: 'Wallet',      href: '/dashboard/principal/wallet',    icon: Wallet },
+    { label: 'Help & Support', href: '/support', icon: Headphones },
     { label: 'Profile',     href: '/profile',                       icon: UserCircle },
   ],
   TUTOR: [
@@ -107,6 +108,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Find Principal', href: '/dashboard/tutor/principals',       icon: Building2,    badgeKey: 'principals' },
     { label: 'Messages',       href: '/chat',                             icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Wallet',         href: '/dashboard/tutor/wallet',           icon: Wallet },
+    { label: 'Help & Support', href: '/support', icon: Headphones },
     { label: 'Profile',        href: '/profile',                          icon: UserCircle },
   ],
   STUDENT: [
@@ -116,12 +118,14 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'My courses',      href: '/dashboard/student/courses',          icon: GraduationCap },
     { label: 'Skills',          href: '/dashboard/student/skills',           icon: Sparkles },
     { label: 'My Organization', href: '/dashboard/student/my-organization',  icon: Building2 },
+    { label: 'Parent Requests', href: '/dashboard/student/parent-requests',  icon: Heart },
     { label: 'Classes',         href: '/dashboard/student/classes',          icon: Video,          badgeKey: ['scheduleAlert', 'classes'] },
     { label: 'Calendar',        href: '/dashboard/student/calendar',         icon: Calendar },
     { label: 'Homework',        href: '/dashboard/student/worksheets',       icon: FileText,       badgeKey: 'worksheets' },
     { label: 'Games',           href: '/dashboard/student/games',            icon: Gamepad2 },
     { label: 'Resources',       href: '/dashboard/student/resources',        icon: FolderOpen,     badgeKey: 'resources' },
     { label: 'Messages',        href: '/chat',                               icon: MessageSquare,  badgeKey: 'messages' },
+    { label: 'Help & Support', href: '/support', icon: Headphones },
     { label: 'Profile',         href: '/profile',                            icon: UserCircle },
   ],
   PARENT: [
@@ -136,6 +140,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Worksheets',      href: '/dashboard/parent/worksheets',    icon: FileText },
     { label: 'Progress',        href: '/dashboard/parent/progress',      icon: BarChart3 },
     { label: 'Messages',        href: '/chat',                           icon: MessageSquare, badgeKey: 'messages' },
+    { label: 'Help & Support', href: '/support', icon: Headphones },
     { label: 'Profile',         href: '/profile',                        icon: UserCircle },
   ],
   SUPPORT: [

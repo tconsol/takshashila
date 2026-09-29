@@ -1,3 +1,4 @@
+import { useMyStudentProfile } from '../../hooks/use-students';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
@@ -75,6 +76,9 @@ interface TutorsBrowsePageProps {
 export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
+  // Tutors this student already had a free demo with: offer a normal booking instead.
+  const { data: myStudentProfile } = useMyStudentProfile(isAuthenticated && user?.role === 'STUDENT');
+  const demoTakenWith = new Set<string>(user?.role === 'STUDENT' ? (myStudentProfile?.demoClassTakenWith ?? []) : []);
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState<string>('');
   const [priceIdx, setPriceIdx] = useState(0);
@@ -230,7 +234,7 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
             </p>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((tutor) => (
-                <TutorCard key={tutor.publicId} tutor={tutor} onBook={() => handleBookDemo(tutor)} />
+                <TutorCard key={tutor.publicId} tutor={tutor} demoDone={demoTakenWith.has(tutor.publicId)} onBook={() => handleBookDemo(tutor)} />
               ))}
             </div>
           </>
@@ -264,6 +268,7 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
         open
         onClose={() => setBookingTutor(null)}
         tutor={listingToProfile(bookingTutor)}
+        defaultClassType={demoTakenWith.has(bookingTutor.publicId) ? 'ONE_ON_ONE' : 'DEMO'}
         onSuccess={() => setBookingTutor(null)}
       />
     )}
@@ -409,7 +414,7 @@ function Chip({ children, onClear }: { children: React.ReactNode; onClear: () =>
   );
 }
 
-function TutorCard({ tutor, onBook }: { tutor: TutorListing; onBook: () => void }) {
+function TutorCard({ tutor, onBook, demoDone }: { tutor: TutorListing; onBook: () => void; demoDone?: boolean }) {
   const name = tutor.displayName ?? `Tutor ${tutor.publicId.slice(0, 6)}`;
   const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
@@ -484,7 +489,7 @@ function TutorCard({ tutor, onBook }: { tutor: TutorListing; onBook: () => void 
         variant="gradient"
         onClick={onBook}
       >
-        Book a demo <ArrowRight className="h-4 w-4" />
+        {demoDone ? 'Book a class' : 'Book a demo'} <ArrowRight className="h-4 w-4" />
       </Button>
     </div>
   );

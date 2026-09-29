@@ -27,13 +27,14 @@ router.post('/book', requireRole(Role.STUDENT), validate(bookClassSchema), class
 // Platform-wide class listing for admin finance/ops screens.
 router.get('/admin/list', requireRole(Role.SUPER_ADMIN, Role.ADMIN), async (req, res, next) => {
   try {
-    const { status, refundable, refunded, days, ...pagination } = req.query as Record<string, string>;
+    const { status, refundable, refunded, days, billingFailed, ...pagination } = req.query as Record<string, string>;
     const result = await classService.listForAdmin(
       {
         status,
         refundable: refundable === 'true',
         refunded: refunded === undefined ? undefined : refunded === 'true',
         days: days ? Number(days) : undefined,
+        billingFailed: billingFailed === 'true' ? true : undefined,
       },
       pagination,
     );

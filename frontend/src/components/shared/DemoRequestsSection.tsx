@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import type { DemoRequest } from '../../services/demo-requests.service';
 import { useState } from 'react';
+import { useConfirm } from '../../hooks/use-confirm';
 
 function QuickRejectForm({
   onConfirm,
@@ -45,6 +46,7 @@ function QuickRejectForm({
 
 function MiniRequestRow({ request, timezone }: { request: DemoRequest; timezone: string }) {
   const [showReject, setShowReject] = useState(false);
+  const { confirm, confirmDialog } = useConfirm();
   const { mutate: accept, isPending: accepting } = useAcceptDemoRequest();
   const { mutate: reject, isPending: rejecting } = useRejectDemoRequest();
 
@@ -76,12 +78,21 @@ function MiniRequestRow({ request, timezone }: { request: DemoRequest; timezone:
           />
         )}
       </div>
+      {confirmDialog}
       {!showReject && (
         <div className="flex gap-1.5 shrink-0">
           <Button
             size="sm"
             variant="gradient"
-            onClick={() => accept(request.publicId)}
+            onClick={async () => {
+              const { confirmed } = await confirm({
+                title: 'Accept this demo request?',
+                message: `${request.studentName ?? 'The student'} will be scheduled for a free demo class at the time shown and linked to you as their tutor. You are not paid for demo classes.`,
+                confirmLabel: 'Accept demo',
+                tone: 'primary',
+              });
+              if (confirmed) accept(request.publicId);
+            }}
             loading={accepting}
             disabled={accepting || rejecting}
           >

@@ -46,6 +46,11 @@ function ScheduleForm({ enrollment, modules, sessionMinutes, programTitle }: {
           <CalendarPlus className="h-3.5 w-3.5" /> Schedule session
         </Button>
       </div>
+      {(!start || !moduleId) && (
+        <p className="mt-1 text-xs text-gray-500">
+          Choose {[!start && 'a start time', !moduleId && 'the module this session covers'].filter(Boolean).join(' and ')} to schedule.
+        </p>
+      )}
     </div>
   );
 }

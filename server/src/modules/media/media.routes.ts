@@ -36,14 +36,20 @@ router.get('/:fileId/read-url', async (req: AuthRequest, res: Response, next: Ne
 
 router.get('/entity/:entityId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const viewer = { role: req.user!.role, userPublicId: req.user!.publicId };
     const files = await mediaService.getByEntity(req.params.entityId);
-    sendSuccess(res, files, 'Files fetched');
+    const allowed = await Promise.all(files.map((f) => canReadMedia(viewer, f.publicId)));
+    // Never expose the raw storage key.
+    const safe = files
+      .filter((_, i) => allowed[i])
+      .map(({ gcsObjectKey: _key, ...rest }) => rest);
+    sendSuccess(res, safe, 'Files fetched');
   } catch (e) { next(e); }
 });
 
 router.delete('/:fileId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await mediaService.softDelete(req.params.fileId, req.user!.publicId);
+    await mediaService.softDelete(req.params.fileId, req.user!.publicId, req.user!.role);
     sendSuccess(res, null, 'File deleted');
   } catch (e) { next(e); }
 });

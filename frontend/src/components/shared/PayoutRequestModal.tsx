@@ -64,7 +64,8 @@ export function PayoutRequestModal({ open, onClose, withdrawableCents }: PayoutR
               {money(withdrawableCents)} available to withdraw
             </p>
             <p className="text-xs text-emerald-700 dark:text-emerald-300">
-              Only credits you earned teaching can be paid out.
+              Only credits you earned teaching can be paid out. Earnings from the last 48 hours are held in
+              case a class is refunded, so they appear here once the hold ends.
             </p>
           </div>
         </div>

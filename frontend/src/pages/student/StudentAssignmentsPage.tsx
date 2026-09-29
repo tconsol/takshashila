@@ -93,7 +93,7 @@ function AssignmentRow({ assignment }: { assignment: Assignment }) {
             )}
             {canSubmit && (
               <Button size="sm" onClick={() => setShowSubmit(true)}>
-                {submission?.status === 'NOT_SUBMITTED' ? 'Submit' : 'Resubmit'}
+                {!submission || submission.status === 'NOT_SUBMITTED' ? 'Submit' : 'Resubmit'}
               </Button>
             )}
           </div>

@@ -232,7 +232,7 @@ export function AdminAnalyticsPage() {
             <BarList
               items={(topTutors ?? []).map((t) => ({
                 label: t.name,
-                sublabel: [t.subjects.slice(0, 2).join(', '), t.revenueCents > 0 ? money(t.revenueCents) : null]
+                sublabel: [t.subjects.slice(0, 2).join(', '), t.grossBookingValueCents > 0 ? money(t.grossBookingValueCents) : null]
                   .filter(Boolean).join(' · ') || undefined,
                 value: t.classesCompleted,
               }))}

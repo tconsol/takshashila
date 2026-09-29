@@ -1,6 +1,6 @@
 import { ClassStatus } from '../schedules/schedule.types';
 
-export type TopicProgressStatus = 'COMPLETED' | 'SCHEDULED' | 'NOT_SCHEDULED';
+export type TopicProgressStatus = 'COMPLETED' | 'SCHEDULED' | 'MISSED' | 'NOT_SCHEDULED';
 
 export interface ProgressClass {
   publicId: string;
@@ -27,6 +27,7 @@ export interface TopicProgress extends TopicInput {
 
 // Replaced or called off — they say nothing about whether the topic was taught.
 const IGNORED = new Set<string>([ClassStatus.CANCELLED, ClassStatus.RESCHEDULED]);
+const MISSED_STATUSES = new Set<string>([ClassStatus.MISSED, ClassStatus.FAILED]);
 const UPCOMING = new Set<string>([ClassStatus.SCHEDULED, ClassStatus.LIVE]);
 
 const byStart = (a: ProgressClass, b: ProgressClass) => a.startUTC.getTime() - b.startUTC.getTime();
@@ -35,7 +36,8 @@ const view = (c: ClassInput): ProgressClass => ({ publicId: c.publicId, status: 
 /**
  * Per-topic status for a course. A topic is COMPLETED when it has at least
  * one counted class and all of them are COMPLETED (MISSED/FAILED count as not done).
- * Otherwise it's SCHEDULED if a class is upcoming (or LIVE), else NOT_SCHEDULED.
+ * Otherwise it's SCHEDULED if a class is upcoming (or LIVE), else MISSED if a class was missed/failed and not superseded by a later
+ * scheduled/completed class, else NOT_SCHEDULED.
  * Classes not tagged to one of `topics` come back as `otherClasses`.
  */
 export function computeTopicProgress(topics: TopicInput[], classes: ClassInput[], now: Date) {
@@ -47,10 +49,17 @@ export function computeTopicProgress(topics: TopicInput[], classes: ClassInput[]
     .map((topic) => {
       const own = counted.filter((c) => c.topicPublicId === topic.publicId).map(view).sort(byStart);
       const next = own.find((c) => c.status === ClassStatus.LIVE || (UPCOMING.has(c.status) && c.startUTC >= now));
-      const done = own.length > 0 && own.every((c) => c.status === ClassStatus.COMPLETED);
+      // A MISSED/FAILED class is superseded by any LATER scheduled/live/completed class.
+      const isSuperseded = (c: ProgressClass) =>
+        MISSED_STATUSES.has(c.status) &&
+        own.some((o) => o.startUTC > c.startUTC && (UPCOMING.has(o.status) || o.status === ClassStatus.COMPLETED));
+      const unresolvedMissed = own.some((c) => MISSED_STATUSES.has(c.status) && !isSuperseded(c));
+      const effective = own.filter((c) => !isSuperseded(c));
+      const done = effective.length > 0 && effective.every((c) => c.status === ClassStatus.COMPLETED);
+      const status: TopicProgressStatus = done ? 'COMPLETED' : next ? 'SCHEDULED' : unresolvedMissed ? 'MISSED' : 'NOT_SCHEDULED';
       return {
         ...topic,
-        status: done ? 'COMPLETED' : next ? 'SCHEDULED' : 'NOT_SCHEDULED',
+        status,
         ...(next && !done ? { nextClass: next } : {}),
         classes: own,
       };

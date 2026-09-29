@@ -83,7 +83,7 @@ export function useAgora(classPublicId: string | null): UseAgoraReturn {
 
     async function join() {
       try {
-        const { appId, channel, token, uid } = await classesService.getAgoraToken(classPublicId!);
+        const { appId, channel, token, uid, canPublish = true } = await classesService.getAgoraToken(classPublicId!);
         if (!active) return;
 
         client.on('user-published', async (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
@@ -132,6 +132,10 @@ export function useAgora(classPublicId: string | null): UseAgoraReturn {
 
         setIsJoined(true);
         setLocalUid(client.uid ?? null);
+
+        // Observers (admin, principal, parent) hold a watch-only token: join and
+        // subscribe, but never open the mic/camera or publish.
+        if (!canPublish) return;
 
         const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
           { encoderConfig: 'music_standard' },

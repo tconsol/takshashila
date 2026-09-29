@@ -6,6 +6,7 @@ import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Loading';
 import { useProgram, useEnroll, useMyEnrollments } from '../../hooks/use-programs';
 import { categoryLabel, levelLabel } from '../../constants/programs';
@@ -19,9 +20,11 @@ export function StudentProgramPage() {
   const { data: program, isLoading } = useProgram(programPublicId);
   const { data: mine = [] } = useMyEnrollments();
   const { mutate: enroll, isPending } = useEnroll();
-  const [days, setDays] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]));
+  // Start with no day chosen: tapping a day switches it ON, which is what people expect.
+  const [days, setDays] = useState<Set<number>>(new Set());
   const [startLocalTime, setStart] = useState('16:00');
   const [endLocalTime, setEnd] = useState('19:00');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner /></div>;
   if (!program) return <div className="py-16 text-center text-sm text-gray-500">Program not found.</div>;
@@ -64,6 +67,9 @@ export function StudentProgramPage() {
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-gray-500">
+                {days.size === 0 ? 'Tap the days you are free (highlighted days are on).' : 'Highlighted days are the ones you are free.'}
+              </p>
               <div className="flex items-center gap-2">
                 <input type="time" value={startLocalTime} onChange={(e) => setStart(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
                 <span className="text-xs text-gray-400">to</span>
@@ -71,10 +77,7 @@ export function StudentProgramPage() {
               </div>
               {startLocalTime >= endLocalTime && <p className="text-xs text-red-500">End time must be after start time.</p>}
               <Button variant="gradient" loading={isPending} disabled={days.size === 0 || startLocalTime >= endLocalTime}
-                onClick={() => window.confirm(`Enroll in "${program.title}"? ${formatCurrency(program.priceCents)} will be charged from your wallet now.`) && enroll(
-                  { id: program.publicId, availabilityWindow: { daysOfWeek: [...days], startLocalTime, endLocalTime, ianaTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone } },
-                  { onSuccess: (e) => navigate(`/dashboard/student/skills/enrollments/${e.publicId}`) },
-                )}>
+                onClick={() => setConfirmOpen(true)}>
                 Enroll · {formatCurrency(program.priceCents)}
               </Button>
               <p className="text-xs text-gray-500">The full price is charged from your wallet now. Sessions you don't take are refunded if you cancel.</p>
@@ -82,6 +85,31 @@ export function StudentProgramPage() {
           )}
         </CardContent>
       </Card>
+      <Modal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Confirm enrollment"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+            <Button
+              variant="gradient"
+              loading={isPending}
+              onClick={() => enroll(
+                { id: program.publicId, availabilityWindow: { daysOfWeek: [...days], startLocalTime, endLocalTime, ianaTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone } },
+                { onSuccess: (e) => navigate(`/dashboard/student/skills/enrollments/${e.publicId}`), onSettled: () => setConfirmOpen(false) },
+              )}
+            >
+              Enroll · {formatCurrency(program.priceCents)}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-muted">
+          Enroll in "{program.title}"? {formatCurrency(program.priceCents)} will be charged from your wallet now.
+        </p>
+      </Modal>
     </div>
   );
 }

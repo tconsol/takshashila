@@ -1,5 +1,19 @@
 import { api } from '../lib/axios';
 
+export interface PublicSettings {
+  platformName: string;
+  supportEmail: string;
+  maintenanceMode: boolean;
+  maintenanceMessage?: string;
+  classBookingEnabled: boolean;
+  chatEnabled: boolean;
+  gamesEnabled: boolean;
+}
+
+/** Settings any signed-in user may read (branding and feature switches). */
+export const getPublicSettings = (): Promise<PublicSettings> =>
+  api.get('/settings/public').then((r) => r.data.data);
+
 export type HealthStatus = 'ok' | 'degraded' | 'down';
 
 export interface ComponentHealth {

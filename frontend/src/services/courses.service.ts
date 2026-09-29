@@ -62,7 +62,7 @@ export interface StructureTopic {
   publicId: string;
   title: string;
   order: number;
-  status?: 'COMPLETED' | 'SCHEDULED' | 'NOT_SCHEDULED';
+  status?: 'COMPLETED' | 'SCHEDULED' | 'MISSED' | 'NOT_SCHEDULED';
   nextClass?: ProgressClass;
   classes: ProgressClass[];
   materials: StructureMaterial[];

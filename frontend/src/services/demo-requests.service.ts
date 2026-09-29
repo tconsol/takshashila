@@ -13,6 +13,8 @@ export interface DemoRequest {
   slotStartUTC?: string;
   slotEndUTC?: string;
   slotTimezone?: string;
+  studentName?: string;
+  studentGrade?: string;
   createdAt: string;
 }
 

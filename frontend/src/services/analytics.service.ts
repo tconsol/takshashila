@@ -100,7 +100,7 @@ export interface TopTutor {
   subjects: string[];
   rating: number;
   classesCompleted: number;
-  revenueCents: number;
+  grossBookingValueCents: number;
 }
 
 export const analyticsService = {

@@ -26,5 +26,15 @@ const joinRequestSchema = new Schema<IJoinRequest>(
 
 joinRequestSchema.index({ tutorUserPublicId: 1, principalProfilePublicId: 1, status: 1 });
 joinRequestSchema.index({ principalUserPublicId: 1, status: 1 });
+// DB-level backstop for "one pending request per tutor/principal pair": the
+// findOne check in the service is a read, not a lock. NOTE: existing duplicate
+// PENDING rows must be cleaned up before this index can build.
+joinRequestSchema.index(
+  { tutorUserPublicId: 1, principalProfilePublicId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: JoinRequestStatus.PENDING, isDeleted: false },
+  },
+);
 
 export const JoinRequestModel = mongoose.model<IJoinRequest>('JoinRequest', joinRequestSchema);

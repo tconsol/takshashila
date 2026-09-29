@@ -52,6 +52,9 @@ function TopicStatus({ topic }: { topic: StructureTopic }) {
       </span>
     );
   }
+  if (topic.status === 'MISSED') {
+    return <span className="flex items-center gap-1 text-xs font-medium text-amber-600"><CircleDashed className="h-4 w-4" /> Missed - needs rescheduling</span>;
+  }
   return <span className="flex items-center gap-1 text-xs text-gray-400"><CircleDashed className="h-4 w-4" /> Not scheduled yet</span>;
 }
 

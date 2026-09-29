@@ -22,10 +22,17 @@ const RAZORPAY_READY = isRealKey(process.env.RAZORPAY_KEY_ID) && isRealKey(proce
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2024-04-10' as never });
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID ?? '',
-  key_secret: process.env.RAZORPAY_KEY_SECRET ?? '',
-});
+// The Razorpay SDK throws at construction when the keys are blank, which would
+// stop the whole server from starting even though payments are optional.
+// Build it on first use instead, so it is only needed when Razorpay is configured.
+let razorpayClient: Razorpay | undefined;
+function getRazorpay(): Razorpay {
+  razorpayClient ??= new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID ?? '',
+    key_secret: process.env.RAZORPAY_KEY_SECRET ?? '',
+  });
+  return razorpayClient;
+}
 
 export class PaymentService {
   async createOrder(
@@ -68,7 +75,7 @@ export class PaymentService {
         if (!RAZORPAY_READY) {
           throw new AppError('UPI/Razorpay payments are not configured. Please try another method or contact support.', 503);
         }
-        const order = await razorpay.orders.create({
+        const order = await getRazorpay().orders.create({
           amount: amountCents,
           currency: dto.currency,
           receipt: uuidv4(),
@@ -103,6 +110,32 @@ export class PaymentService {
     return { ...payment.toObject(), clientSecret };
   }
 
+  /**
+   * Credits the wallet FIRST (idempotencyKey = payment.publicId, so verify + webhooks
+   * and any retry after a crash dedupe to a single credit), and only then marks the
+   * payment SUCCESS. A crash in between leaves the payment un-SUCCESS, so the next
+   * verify/webhook retries and the idempotent credit is a no-op. Returns true when
+   * this call performed the CREATED/FAILED -> SUCCESS transition.
+   */
+  private async creditThenMarkSuccess(
+    payment: { publicId: string; userPublicId: string; creditsCents?: number; amountCents: number; provider: string },
+    providerPaymentId: string | undefined,
+    description: string,
+  ): Promise<boolean> {
+    await walletService.creditWallet({
+      ownerPublicId: payment.userPublicId,
+      amountCents: payment.creditsCents ?? payment.amountCents, // credit the WALLET value, not the charged amount
+      creditType: CreditType.PURCHASED_CREDITS,
+      description,
+      idempotencyKey: payment.publicId,
+    });
+    const res = await PaymentModel.updateOne(
+      { publicId: payment.publicId, status: { $ne: PaymentStatus.SUCCESS } },
+      { $set: { status: PaymentStatus.SUCCESS, providerPaymentId } },
+    );
+    return (res?.modifiedCount ?? 0) > 0;
+  }
+
   async verifyAndCredit(userPublicId: string, dto: VerifyPaymentDto): Promise<IPayment> {
     const payment = await PaymentModel.findOne({ publicId: dto.publicId, userPublicId });
     if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
@@ -129,23 +162,17 @@ export class PaymentService {
       }
     }
 
+    const flipped = await this.creditThenMarkSuccess(payment, dto.providerPaymentId, `Wallet top-up via ${payment.provider}`);
     payment.providerPaymentId = dto.providerPaymentId;
     payment.status = PaymentStatus.SUCCESS;
-    await payment.save();
 
-    await walletService.creditWallet({
-      ownerPublicId: userPublicId,
-      amountCents: payment.creditsCents ?? payment.amountCents, // credit the WALLET value, not the charged amount
-      creditType: CreditType.PURCHASED_CREDITS,
-      description: `Wallet top-up via ${payment.provider}`,
-      idempotencyKey: payment.publicId,
-    });
-
-    domainEvents.emit(DomainEvent.PAYMENT_RECEIVED, {
-      userPublicId,
-      amountCents: payment.creditsCents ?? payment.amountCents,
-      paymentPublicId: payment.publicId,
-    });
+    if (flipped) {
+      domainEvents.emit(DomainEvent.PAYMENT_RECEIVED, {
+        userPublicId,
+        amountCents: payment.creditsCents ?? payment.amountCents,
+        paymentPublicId: payment.publicId,
+      });
+    }
 
     return payment.toObject();
   }
@@ -162,19 +189,7 @@ export class PaymentService {
       const intent = event.data.object as Stripe.PaymentIntent;
       const payment = await PaymentModel.findOne({ providerOrderId: intent.id });
       if (payment && payment.status !== PaymentStatus.SUCCESS) {
-        payment.status = PaymentStatus.SUCCESS;
-        payment.providerPaymentId = intent.latest_charge as string;
-        await payment.save();
-
-        await walletService.creditWallet({
-          ownerPublicId: payment.userPublicId,
-          amountCents: payment.creditsCents ?? payment.amountCents, // wallet value, not charged amount
-          creditType: CreditType.PURCHASED_CREDITS,
-          description: 'Wallet top-up via Stripe (webhook)',
-          // SAME key as the verify path (see handleRazorpayWebhook) → creditWallet
-          // dedupes, so a payment verified in-browser AND webhooked is credited once.
-          idempotencyKey: payment.publicId,
-        });
+        await this.creditThenMarkSuccess(payment, intent.latest_charge as string, 'Wallet top-up via Stripe (webhook)');
       }
     }
 
@@ -207,19 +222,7 @@ export class PaymentService {
     if (event.event === 'payment.captured') {
       const payment = await PaymentModel.findOne({ providerOrderId: orderId });
       if (payment && payment.status !== PaymentStatus.SUCCESS) {
-        payment.status = PaymentStatus.SUCCESS;
-        payment.providerPaymentId = entity?.id;
-        await payment.save();
-
-        await walletService.creditWallet({
-          ownerPublicId: payment.userPublicId,
-          amountCents: payment.creditsCents ?? payment.amountCents,
-          creditType: CreditType.PURCHASED_CREDITS,
-          description: 'Wallet top-up via Razorpay (webhook)',
-          // SAME key as the verify path → creditWallet dedupes, so a payment that
-          // is both verified in-browser AND webhooked is credited only once.
-          idempotencyKey: payment.publicId,
-        });
+        await this.creditThenMarkSuccess(payment, entity?.id, 'Wallet top-up via Razorpay (webhook)');
       }
     } else if (event.event === 'payment.failed') {
       await PaymentModel.updateOne({ providerOrderId: orderId }, { $set: { status: PaymentStatus.FAILED } });

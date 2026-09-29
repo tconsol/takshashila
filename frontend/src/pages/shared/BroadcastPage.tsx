@@ -191,8 +191,9 @@ export function BroadcastPage() {
 
             <div className="flex items-center justify-between gap-3 border-t border-rule pt-4">
               <p className="text-xs text-ink-muted">
-                Reaching <span className="font-semibold text-ink">{(audience?.total ?? 0).toLocaleString()}</span>{' '}
-                {audienceLabel.toLowerCase()}
+                {roles.length === 0 ? 'Reaching everyone: ' : 'Reaching '}
+                <span className="font-semibold text-ink">{(audience?.total ?? 0).toLocaleString()}</span>
+                {roles.length === 0 ? ' people' : ` (${audienceLabel.toLowerCase()})`}
                 {alsoEmail && <> · <Mail className="inline h-3 w-3" /> email too</>}
               </p>
               <Button disabled={!canSend} onClick={() => { reset(); setConfirming(true); }}>

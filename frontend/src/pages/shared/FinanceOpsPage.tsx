@@ -8,6 +8,7 @@ import {
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { useConfirm } from '../../hooks/use-confirm';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Table } from '../../components/ui/Table';
 import { Tabs } from '../../components/ui/Tabs';
@@ -93,6 +94,7 @@ function Pager({
 
 export function FinanceOpsPage() {
   const qc = useQueryClient();
+  const { confirm, confirmDialog } = useConfirm();
   const [tab, setTab] = useState('payouts');
 
   // ─── Payouts ──────────────────────────────────────────────────────────────
@@ -146,7 +148,8 @@ export function FinanceOpsPage() {
   const { data: ledger, isLoading: ledgerLoading } = useQuery({
     queryKey: ['ledger', ledgerFilters],
     queryFn: () => financeService.listLedger(ledgerFilters),
-    enabled: tab === 'ledger',
+    // Always load: the summary tiles above read these totals whichever tab is open.
+    enabled: true,
     staleTime: 15_000,
   });
 
@@ -157,7 +160,7 @@ export function FinanceOpsPage() {
   const { data: refundable, isLoading: refundableLoading } = useQuery({
     queryKey: ['refundable-classes', refundPage],
     queryFn: () => financeService.listRefundable(refundPage),
-    enabled: tab === 'refunds',
+    enabled: true,
     staleTime: 15_000,
   });
 
@@ -197,7 +200,7 @@ export function FinanceOpsPage() {
           value={(ledger?.pagination.total ?? 0).toLocaleString()}
           accent="brand"
           icon={<ScrollText className="h-5 w-5" />}
-          hint={tab === 'ledger' ? 'Matching current filters' : 'Open the ledger tab'}
+          hint={tab === 'ledger' ? 'Matching current filters' : 'Across all entries'}
         />
         <StatsCard
           index={2}
@@ -205,7 +208,7 @@ export function FinanceOpsPage() {
           value={(refundable?.pagination.total ?? 0).toLocaleString()}
           accent="rose"
           icon={<Undo2 className="h-5 w-5" />}
-          hint={tab === 'refunds' ? 'Completed, paid, not yet refunded' : 'Open the refunds tab'}
+          hint="Completed, paid, not yet refunded"
         />
         <StatsCard
           index={3}
@@ -287,7 +290,15 @@ export function FinanceOpsPage() {
                   render: (p) =>
                     p.status === 'PENDING' ? (
                       <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="success" loading={approving} onClick={() => approve(p.publicId)}>
+                        <Button size="sm" variant="success" loading={approving} onClick={async () => {
+                          const { confirmed } = await confirm({
+                            title: 'Approve this payout?',
+                            message: `${money(p.amountCents)} will be paid out to ${p.ownerName ?? 'this user'}. This moves real money and cannot be undone from here.`,
+                            confirmLabel: 'Approve payout',
+                            tone: 'primary',
+                          });
+                          if (confirmed) approve(p.publicId);
+                        }}>
                           <Check className="h-3 w-3" /> Approve
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => { resetReject(); setRejecting(p); }}>
@@ -445,7 +456,7 @@ export function FinanceOpsPage() {
               },
               {
                 key: 'startUTC',
-                header: 'Held',
+                header: 'Class date',
                 render: (c) => (
                   <span className="whitespace-nowrap text-xs text-slate-500">
                     {format(new Date(c.startUTC), 'MMM d, yyyy')}
@@ -454,7 +465,7 @@ export function FinanceOpsPage() {
               },
               {
                 key: 'costCents',
-                header: 'Charged',
+                header: 'Class price',
                 render: (c) => (
                   <span className="font-semibold tabular-nums text-slate-900 dark:text-white">
                     {money(c.costCents)}
@@ -485,6 +496,8 @@ export function FinanceOpsPage() {
           />
         </div>
       )}
+
+      {confirmDialog}
 
       <ConfirmDialog
         open={!!rejecting}

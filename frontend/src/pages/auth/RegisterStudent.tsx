@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { authService } from '../../services/auth.service';
 import { Button } from '../../components/ui/Button';
+import { ConsentCheckbox } from '../../components/shared/ConsentCheckbox';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
@@ -20,12 +21,13 @@ const schema = z.object({
   grade: z.enum(GRADE_LIST, { errorMap: () => ({ message: 'Please select a grade' }) }),
   password: z
     .string()
-    .min(8, 'Min 8 characters')
+    .min(8, 'At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol')
     .regex(/[A-Z]/, 'Needs an uppercase letter')
     .regex(/[a-z]/, 'Needs a lowercase letter')
     .regex(/\d/, 'Needs a number')
     .regex(/[!@#$%^&*]/, 'Needs a special character'),
   confirmPassword: z.string(),
+  acceptedTerms: z.literal(true, { errorMap: () => ({ message: 'Please agree to the Terms of Use and Privacy Policy' }) }),
 }).refine((d) => d.password === d.confirmPassword, { message: 'Passwords do not match', path: ['confirmPassword'] });
 
 type FormData = z.infer<typeof schema>;
@@ -113,6 +115,10 @@ export function RegisterStudentPage() {
           error={errors.confirmPassword?.message}
           {...register('confirmPassword')}
         />
+
+        <ConsentCheckbox {...register('acceptedTerms')} error={errors.acceptedTerms?.message} />
+        {/* Signing up as (or for) a young learner */}
+        <p className="-mt-2 text-xs text-slate-500">If you are under 18, please read and agree to these together with a parent or guardian.</p>
 
         <Button type="submit" fullWidth loading={mutation.isPending} size="lg">
           Create Student Account

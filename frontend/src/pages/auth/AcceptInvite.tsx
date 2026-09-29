@@ -1,3 +1,4 @@
+import { ConsentCheckbox } from '../../components/shared/ConsentCheckbox';
 import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle2, XCircle, Loader2, Lock } from 'lucide-react';
@@ -14,6 +15,7 @@ export function AcceptInvitePage() {
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [state, setState] = useState<State>('form');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -71,14 +73,14 @@ export function AcceptInvitePage() {
   }
 
   const passwordMismatch = confirm.length > 0 && password !== confirm;
-  const canSubmit = password.length >= 8 && password === confirm && state !== 'loading';
+  const canSubmit = password.length >= 8 && password === confirm && agreed && state !== 'loading';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
     setState('loading');
     try {
-      await api.post('/auth/accept-invite', { token, password });
+      await api.post('/auth/accept-invite', { token, password, acceptedTerms: agreed });
       setState('success');
     } catch (err) {
       const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message
@@ -145,6 +147,8 @@ export function AcceptInvitePage() {
             <p className="mt-1 text-xs text-rose-600">Passwords do not match</p>
           )}
         </div>
+
+        <ConsentCheckbox checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
 
         <button
           type="submit"

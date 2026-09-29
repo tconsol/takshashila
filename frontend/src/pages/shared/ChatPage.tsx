@@ -344,7 +344,9 @@ export function ChatPage() {
     handleSelect(conv);
   }
 
-  const activeConv = selected ?? (activeId ? conversations.find((c) => c.publicId === activeId) ?? null : null);
+  // Prefer the listed conversation: it carries participant names. A conversation
+  // that was just started (`selected`) does not, and showed a generic "Tutor".
+  const activeConv = (activeId ? conversations.find((c) => c.publicId === activeId) : undefined) ?? selected ?? null;
   const otherIdx = activeConv ? activeConv.participantPublicIds.findIndex((id) => id !== user?.publicId) : -1;
   const otherName = (otherIdx >= 0 ? activeConv?.participantNames?.[otherIdx] : '') ?? '';
   const otherRole = (otherIdx >= 0 ? activeConv?.participantRoles?.[otherIdx] : '') ?? '';

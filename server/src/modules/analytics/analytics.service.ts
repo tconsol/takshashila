@@ -14,20 +14,81 @@ import { TransactionType, CreditType, TransactionStatus } from '../wallets/walle
 import { PrincipalStatus } from '../principals/principal.types';
 import { TicketStatus, TicketPriority } from '../support/support.types';
 
+export interface RevenueDateRange { from?: Date; to?: Date }
+export interface PlatformRevenue {
+  /** Real money in: completed DEBITs (students paying for real charges). */
+  totalCents: number;
+  /** Portion of that already owed to tutors (EARNED_CREDITS credited in the same window). */
+  tutorEarningsCents: number;
+  /** What the platform keeps: totalCents - tutorEarningsCents (never negative). */
+  platformCommissionCents: number;
+}
+
+function createdAtFilter(range?: RevenueDateRange): Record<string, unknown> {
+  if (!range || (!range.from && !range.to)) return {};
+  const cond: Record<string, Date> = {};
+  if (range.from) cond.$gte = range.from;
+  if (range.to) cond.$lt = range.to;
+  return { createdAt: cond };
+}
+
+// Refunds hand a student's money back and reversals claw a tutor's earning
+// back, so both are netted out: a refunded class no longer counts as revenue.
+const REAL_CHARGE_MATCH = {
+  type: { $in: [TransactionType.DEBIT, TransactionType.REFUND] },
+  status: TransactionStatus.COMPLETED,
+};
+const CHARGE_NET = {
+  $cond: [{ $eq: ['$type', TransactionType.REFUND] }, { $multiply: ['$amountCents', -1] }, '$amountCents'],
+};
+const CHARGE_COUNT = { $cond: [{ $eq: ['$type', TransactionType.REFUND] }, 0, 1] };
+const TUTOR_EARNINGS_MATCH = {
+  status: TransactionStatus.COMPLETED,
+  $or: [
+    { type: TransactionType.CREDIT, creditType: CreditType.EARNED_CREDITS },
+    { type: TransactionType.REVERSAL },
+  ],
+};
+const EARNINGS_NET = {
+  $cond: [{ $eq: ['$type', TransactionType.REVERSAL] }, { $multiply: ['$amountCents', -1] }, '$amountCents'],
+};
+
 export class AnalyticsService {
+  /**
+   * Single source of truth for platform revenue. Omit dateRange for lifetime.
+   * Purchased/bonus/demo credits and tutor earnings are NOT counted as income.
+   */
+  async getPlatformRevenue(dateRange?: RevenueDateRange): Promise<PlatformRevenue> {
+    const range = createdAtFilter(dateRange);
+    const [charges, earnings] = await Promise.all([
+      WalletTransactionModel.aggregate([
+        { $match: { ...REAL_CHARGE_MATCH, ...range } },
+        { $group: { _id: null, totalCents: { $sum: CHARGE_NET } } },
+      ]),
+      WalletTransactionModel.aggregate([
+        { $match: { ...TUTOR_EARNINGS_MATCH, ...range } },
+        { $group: { _id: null, totalCents: { $sum: EARNINGS_NET } } },
+      ]),
+    ]);
+    const totalCents = charges[0]?.totalCents ?? 0;
+    const tutorEarningsCents = earnings[0]?.totalCents ?? 0;
+    return {
+      totalCents,
+      tutorEarningsCents,
+      platformCommissionCents: Math.max(0, totalCents - tutorEarningsCents),
+    };
+  }
+
   async getPlatformOverview() {
     const [
-      totalUsers, totalClasses, completedClasses, totalRevenueCents,
+      totalUsers, totalClasses, completedClasses, revenue,
       totalStudents, totalTutors, totalPrincipals, totalParents,
       activeUsers, activeStudents, activeTutors,
     ] = await Promise.all([
       UserModel.countDocuments({ isDeleted: false }),
       ScheduledClassModel.countDocuments({ isDeleted: false }),
       ScheduledClassModel.countDocuments({ status: ClassStatus.COMPLETED, isDeleted: false }),
-      WalletTransactionModel.aggregate([
-        { $match: { type: TransactionType.CREDIT } },
-        { $group: { _id: null, total: { $sum: '$amountCents' } } },
-      ]).then((r) => r[0]?.total ?? 0),
+      this.getPlatformRevenue(), // lifetime window (no range)
       UserModel.countDocuments({ role: Role.STUDENT, isDeleted: false }),
       UserModel.countDocuments({ role: Role.TUTOR, isDeleted: false }),
       UserModel.countDocuments({ role: Role.PRINCIPAL, isDeleted: false }),
@@ -38,7 +99,12 @@ export class AnalyticsService {
     ]);
 
     return {
-      totalUsers, totalClasses, completedClasses, totalRevenueCents,
+      totalUsers, totalClasses, completedClasses,
+      // Lifetime real money in (see getPlatformRevenue); commission = what the platform keeps.
+      totalRevenueCents: revenue.totalCents,
+      tutorEarningsCents: revenue.tutorEarningsCents,
+      platformCommissionCents: revenue.platformCommissionCents,
+      revenueWindow: 'lifetime' as const,
       totalStudents, totalTutors, totalPrincipals, totalParents,
       activeUsers, activeStudents, activeTutors,
     };
@@ -63,20 +129,35 @@ export class AnalyticsService {
 
   async getRevenueByPeriod(periodDays = 30) {
     const since = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
-    const result = await WalletTransactionModel.aggregate([
-      { $match: { type: TransactionType.CREDIT, createdAt: { $gte: since } } },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          totalCents: { $sum: '$amountCents' },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
+    const day = { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } };
+    const [charges, earnings] = await Promise.all([
+      WalletTransactionModel.aggregate([
+        { $match: { ...REAL_CHARGE_MATCH, createdAt: { $gte: since } } },
+        { $group: { _id: day, totalCents: { $sum: CHARGE_NET }, count: { $sum: CHARGE_COUNT } } },
+      ]),
+      WalletTransactionModel.aggregate([
+        { $match: { ...TUTOR_EARNINGS_MATCH, createdAt: { $gte: since } } },
+        { $group: { _id: day, totalCents: { $sum: EARNINGS_NET } } },
+      ]),
     ]);
-    return result;
+    const earnedByDay = new Map<string, number>(
+      (earnings as { _id: string; totalCents: number }[]).map((e) => [e._id, e.totalCents]),
+    );
+    return (charges as { _id: string; totalCents: number; count: number }[])
+      .sort((a, b) => a._id.localeCompare(b._id))
+      .map((c) => {
+        const tutorEarningsCents = earnedByDay.get(c._id) ?? 0;
+        return {
+          _id: c._id,
+          totalCents: Math.max(0, c.totalCents),
+          count: c.count,
+          tutorEarningsCents,
+          platformCommissionCents: Math.max(0, c.totalCents - tutorEarningsCents),
+        };
+      });
   }
 
+  /** Top tutors ranked by classesCompleted (NOT by money). grossBookingValueCents is the summed list price of those classes. */
   async getTopTutors(limit = 10) {
     const rows = await ScheduledClassModel.aggregate([
       { $match: { status: ClassStatus.COMPLETED, isDeleted: false } },
@@ -84,7 +165,7 @@ export class AnalyticsService {
         $group: {
           _id: '$tutorPublicId',
           classesCompleted: { $sum: 1 },
-          revenueCents: { $sum: '$costCents' },
+          grossBookingValueCents: { $sum: '$costCents' },
         },
       },
       { $sort: { classesCompleted: -1 } },
@@ -106,7 +187,7 @@ export class AnalyticsService {
     const userByPublicId = new Map(users.map((u) => [u.publicId, u]));
     const profileByPublicId = new Map(profiles.map((p) => [p.publicId, p]));
 
-    return rows.map((r: { _id: string; classesCompleted: number; revenueCents: number }) => {
+    return rows.map((r: { _id: string; classesCompleted: number; grossBookingValueCents: number }) => {
       const profile = profileByPublicId.get(r._id);
       const user = profile ? userByPublicId.get(profile.userPublicId) : undefined;
       return {
@@ -116,7 +197,7 @@ export class AnalyticsService {
         subjects: profile?.subjects ?? [],
         rating: profile?.rating ?? 0,
         classesCompleted: r.classesCompleted,
-        revenueCents: r.revenueCents ?? 0,
+        grossBookingValueCents: r.grossBookingValueCents ?? 0,
       };
     });
   }
@@ -286,7 +367,7 @@ export class AnalyticsService {
   async getSuperAdminDashboard() {
     const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const [totalUsers, totalClasses, roleDistributionRaw, revenueTotalResult, tutorEarningsResult, recentAuditEvents] =
+    const [totalUsers, totalClasses, roleDistributionRaw, revenue30d, recentAuditEvents] =
       await Promise.all([
         UserModel.countDocuments({ isDeleted: false }),
         ScheduledClassModel.countDocuments({ isDeleted: false }),
@@ -294,20 +375,9 @@ export class AnalyticsService {
           { $match: { isDeleted: false } },
           { $group: { _id: '$role', count: { $sum: 1 } } },
         ]),
-        WalletTransactionModel.aggregate([
-          { $match: { type: TransactionType.DEBIT, status: TransactionStatus.COMPLETED, createdAt: { $gte: since30d } } },
-          { $group: { _id: null, totalCents: { $sum: '$amountCents' } } },
-        ]),
-        WalletTransactionModel.aggregate([
-          { $match: { type: TransactionType.CREDIT, creditType: CreditType.EARNED_CREDITS, status: TransactionStatus.COMPLETED, createdAt: { $gte: since30d } } },
-          { $group: { _id: null, totalCents: { $sum: '$amountCents' } } },
-        ]),
+        this.getPlatformRevenue({ from: since30d }),
         AuditLogModel.find({}).sort({ createdAt: -1 }).limit(5).lean(),
       ]);
-
-    const totalRevenueCents = revenueTotalResult[0]?.totalCents ?? 0;
-    const tutorEarningsCents = tutorEarningsResult[0]?.totalCents ?? 0;
-    const platformCommissionCents = Math.max(0, totalRevenueCents - tutorEarningsCents);
 
     const roleDistribution = roleDistributionRaw.map((r: { _id: string; count: number }) => ({
       role: r._id as string,
@@ -318,11 +388,7 @@ export class AnalyticsService {
       totalUsers,
       totalClasses,
       roleDistribution,
-      revenue30d: {
-        totalCents: totalRevenueCents,
-        tutorEarningsCents,
-        platformCommissionCents,
-      },
+      revenue30d,
       recentAuditEvents,
     };
   }

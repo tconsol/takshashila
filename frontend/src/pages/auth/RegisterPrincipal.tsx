@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { authService } from '../../services/auth.service';
 import { Button } from '../../components/ui/Button';
+import { ConsentCheckbox } from '../../components/shared/ConsentCheckbox';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 
@@ -19,12 +20,13 @@ const schema = z.object({
   designation: z.string().optional(),
   password: z
     .string()
-    .min(8, 'Min 8 characters')
+    .min(8, 'At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol')
     .regex(/[A-Z]/, 'Needs an uppercase letter')
     .regex(/[a-z]/, 'Needs a lowercase letter')
     .regex(/\d/, 'Needs a number')
     .regex(/[!@#$%^&*]/, 'Needs a special character'),
   confirmPassword: z.string(),
+  acceptedTerms: z.literal(true, { errorMap: () => ({ message: 'Please agree to the Terms of Use and Privacy Policy' }) }),
 }).refine((d) => d.password === d.confirmPassword, { message: 'Passwords do not match', path: ['confirmPassword'] });
 
 type FormData = z.infer<typeof schema>;
@@ -38,8 +40,8 @@ export function RegisterPrincipalPage() {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const mutation = useMutation({
-    mutationFn: ({ confirmPassword: _, institutionName: __, designation: ___, ...data }: FormData) =>
-      authService.register({ ...data, role: 'PRINCIPAL' }),
+    mutationFn: ({ confirmPassword: _, institutionName, designation: ___, ...data }: FormData) =>
+      authService.register({ ...data, organizationName: institutionName?.trim() || undefined, role: 'PRINCIPAL' }),
     onSuccess: () => navigate('/login?registered=true'),
   });
 
@@ -118,6 +120,8 @@ export function RegisterPrincipalPage() {
           error={errors.confirmPassword?.message}
           {...register('confirmPassword')}
         />
+
+        <ConsentCheckbox {...register('acceptedTerms')} error={errors.acceptedTerms?.message} />
 
         <Button type="submit" fullWidth loading={mutation.isPending} size="lg">
           Create Principal Account

@@ -159,6 +159,9 @@ export class AssignmentService {
     }
 
     const existing = await SubmissionModel.findOne({ assignmentPublicId, studentPublicId, isDeleted: false });
+    if (existing?.status === SubmissionStatus.GRADED) {
+      throw new ConflictError('This assignment has already been graded and can no longer be resubmitted');
+    }
 
     // Admin (curriculum) items are graded by the tutor of the student's course. Keep the
     // first grader on resubmission so a submission never switches tutors mid-grading.
@@ -180,6 +183,7 @@ export class AssignmentService {
         },
         { new: true },
       ).lean();
+      this.emitSubmitted(assignment, studentPublicId, graderTutorPublicId ?? existing.graderTutorPublicId);
       return updated!;
     }
 
@@ -195,13 +199,23 @@ export class AssignmentService {
       ...grader,
     });
 
-    domainEvents.emit(DomainEvent.ASSIGNMENT_SUBMITTED, {
-      assignmentPublicId,
-      studentPublicId,
-      ...grader,
-    });
+    this.emitSubmitted(assignment, studentPublicId, graderTutorPublicId);
 
     return submission.toObject();
+  }
+
+  /** Profile ids only — notification.listeners resolves them to user ids for the bell. */
+  private emitSubmitted(
+    assignment: { publicId: string; authorRole?: string; tutorPublicId?: string },
+    studentPublicId: string,
+    graderTutorPublicId?: string,
+  ): void {
+    domainEvents.emit(DomainEvent.ASSIGNMENT_SUBMITTED, {
+      assignmentPublicId: assignment.publicId,
+      studentPublicId,
+      ...(graderTutorPublicId ? { graderTutorPublicId } : {}),
+      ownerTutorPublicId: assignment.authorRole === 'ADMIN' ? undefined : assignment.tutorPublicId,
+    });
   }
 
   async gradeSubmission(
@@ -237,6 +251,12 @@ export class AssignmentService {
       },
       { new: true },
     ).lean();
+
+    domainEvents.emit(DomainEvent.ASSIGNMENT_GRADED, {
+      assignmentPublicId: submission.assignmentPublicId,
+      studentPublicId: submission.studentPublicId,
+      submissionPublicId,
+    });
     return updated!;
   }
 
@@ -245,9 +265,26 @@ export class AssignmentService {
     const isAdminItem = assignment?.authorRole === 'ADMIN';
     if (!assignment || (!isAdminItem && assignment.tutorPublicId !== tutorPublicId)) throw new NotFoundError('Assignment');
     // Admin (curriculum) assignments: each tutor sees only the students they grade.
-    return SubmissionModel.find({ assignmentPublicId, isDeleted: false, ...(isAdminItem ? { graderTutorPublicId: tutorPublicId } : {}) })
+    const submissions = await SubmissionModel.find({ assignmentPublicId, isDeleted: false, ...(isAdminItem ? { graderTutorPublicId: tutorPublicId } : {}) })
       .sort({ submittedAt: -1 })
       .lean();
+
+    if (submissions.length === 0) return submissions as unknown as ISubmission[];
+
+    // Rows only carry a profile id; a grading table nobody can read by name is not usable.
+    const { StudentProfileModel } = await import('../students/student.model');
+    const { UserModel } = await import('../users/user.model');
+    const profiles = await StudentProfileModel.find(
+      { publicId: { $in: [...new Set(submissions.map((s) => s.studentPublicId))] } },
+      { publicId: 1, userPublicId: 1 },
+    ).lean();
+    const users = await UserModel.find(
+      { publicId: { $in: profiles.map((p) => p.userPublicId) } },
+      { publicId: 1, firstName: 1, lastName: 1 },
+    ).lean();
+    const nameByUser = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+    const nameByProfile = new Map(profiles.map((p) => [p.publicId, nameByUser.get(p.userPublicId) ?? '']));
+    return submissions.map((s) => ({ ...s, studentName: nameByProfile.get(s.studentPublicId) || 'Student' })) as unknown as ISubmission[];
   }
 
   async getMySubmission(assignmentPublicId: string, studentPublicId: string): Promise<ISubmission | null> {

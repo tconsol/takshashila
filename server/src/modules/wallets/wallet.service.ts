@@ -23,7 +23,17 @@ import { settingsService } from '../settings/settings.service';
 /** Fallback only — initializeDemoCredits normally reads the live figure from
  *  platform settings (demoCreditCents) so an admin's configured value is what
  *  new users actually get. */
-const DEMO_INITIAL_CREDITS_CENTS = 30_00;
+const DEMO_INITIAL_CREDITS_CENTS = 100_00;
+
+/**
+ * What a wallet can spend on anything other than a demo class. Free demo
+ * credits sit inside balanceCents but are only spendable on demo classes, so
+ * they are excluded here. Without this, a student could spend free credits on
+ * a paid class and the tutor would earn withdrawable money from them.
+ */
+export function spendableCents(wallet: { balanceCents: number; demoCreditsCents?: number }): number {
+  return Math.max(0, wallet.balanceCents - Math.max(0, wallet.demoCreditsCents ?? 0));
+}
 
 export class WalletService {
   async createWallet(ownerPublicId: string): Promise<IWallet> {
@@ -148,8 +158,11 @@ export class WalletService {
       if (wallet.isLocked) throw new AppError(`Wallet is locked: ${wallet.lockedReason}`, 403);
       // `allowNegative` is for penalties the user cannot opt out of by being
       // broke — a cancellation fee has to land or it isn't a deterrent.
-      if (!dto.allowNegative && wallet.balanceCents < dto.amountCents) {
-        throw new AppError('Insufficient credits', 402);
+      if (!dto.allowNegative) {
+        const available = dto.bucketField ? wallet.balanceCents : spendableCents(wallet);
+        if (available < dto.amountCents) {
+          throw new AppError('Insufficient credits', 402);
+        }
       }
       // A bucket debit must also fit within that specific bucket — otherwise
       // e.g. a demo-class charge can push demoCreditsCents negative just
@@ -357,7 +370,7 @@ export class WalletService {
       }).session(session);
       if (!fromWallet) throw new NotFoundError('Wallet');
       if (fromWallet.isLocked) throw new AppError(`Wallet is locked: ${fromWallet.lockedReason}`, 403);
-      if (fromWallet.balanceCents < dto.debitAmountCents) {
+      if (spendableCents(fromWallet) < dto.debitAmountCents) {
         throw new AppError('Insufficient credits', 402);
       }
 
@@ -444,6 +457,144 @@ export class WalletService {
       });
 
       return { debit: debitTx.toObject(), credit: creditTx.toObject() };
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  /**
+   * Run `fn` inside a Mongo transaction that first WRITES to the owner's
+   * wallet ($inc bookingSeq). That write takes a document lock, so two
+   * concurrent callers for the same wallet cannot both read the balance and
+   * pass a check: the loser gets a WriteConflict and withTransaction retries
+   * it from the top, where it sees the winner's committed rows. Used by
+   * bookClass so parallel bookings for one student serialize.
+   */
+  async runWithBookingLock<T>(
+    ownerPublicId: string,
+    fn: (ctx: { session: mongoose.ClientSession; wallet: IWallet }) => Promise<T>,
+  ): Promise<T> {
+    const session = await mongoose.startSession();
+    try {
+      let result!: T;
+      await session.withTransaction(async () => {
+        const wallet = await WalletModel.findOneAndUpdate(
+          { ownerPublicId, isDeleted: false },
+          { $inc: { bookingSeq: 1 } },
+          { new: true, session },
+        ).lean();
+        if (!wallet) throw new NotFoundError('Wallet');
+        result = await fn({ session, wallet: wallet as unknown as IWallet });
+      });
+      return result;
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  /**
+   * Refund the student and claw back the tutor's earning as ONE transaction
+   * (same guarantees as transferWallet). Each leg keeps its own idempotency
+   * key and is skipped if already recorded, so a retry is safe.
+   * If the tutor cannot cover the full clawback (or has no wallet) the
+   * clawback is skipped entirely, never partially applied, while the student
+   * is still refunded in full; `clawbackSkipped` lets the caller log it.
+   */
+  async refundWithClawback(dto: {
+    studentOwnerPublicId: string;
+    tutorOwnerPublicId: string;
+    refundAmountCents: number;
+    clawbackAmountCents: number;
+    refundDescription: string;
+    clawbackDescription: string;
+    refundIdempotencyKey: string;
+    clawbackIdempotencyKey: string;
+    referenceId?: string;
+    referenceType?: string;
+  }): Promise<{ refund: IWalletTransaction; reversal?: IWalletTransaction; clawbackSkipped: boolean }> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const existingRefund = await WalletTransactionModel.findOne({ idempotencyKey: dto.refundIdempotencyKey }).session(session);
+      const existingReversal = dto.clawbackAmountCents > 0
+        ? await WalletTransactionModel.findOne({ idempotencyKey: dto.clawbackIdempotencyKey }).session(session)
+        : null;
+
+      let refundTx: IWalletTransaction | undefined = existingRefund?.toObject();
+      let reversalTx: IWalletTransaction | undefined = existingReversal?.toObject();
+      let clawbackSkipped = false;
+      const events: Array<() => void> = [];
+
+      if (!existingRefund) {
+        const wallet = await WalletModel.findOne({ ownerPublicId: dto.studentOwnerPublicId, isDeleted: false }).session(session);
+        if (!wallet) throw new NotFoundError('Wallet');
+        const before = wallet.balanceCents;
+        await WalletModel.findByIdAndUpdate(
+          wallet._id,
+          { $inc: { balanceCents: dto.refundAmountCents, totalSpentCents: -dto.refundAmountCents } },
+          { session },
+        );
+        const [tx] = await WalletTransactionModel.create([{
+          publicId: uuidv4(),
+          idempotencyKey: dto.refundIdempotencyKey,
+          walletPublicId: wallet.publicId,
+          ownerPublicId: dto.studentOwnerPublicId,
+          type: TransactionType.REFUND,
+          amountCents: dto.refundAmountCents,
+          balanceBeforeCents: before,
+          balanceAfterCents: before + dto.refundAmountCents,
+          description: dto.refundDescription,
+          referenceId: dto.referenceId,
+          referenceType: dto.referenceType,
+          status: TransactionStatus.COMPLETED,
+        }], { session });
+        refundTx = tx.toObject();
+        events.push(() => domainEvents.emit(DomainEvent.CREDITS_ADDED, {
+          ownerPublicId: dto.studentOwnerPublicId,
+          amountCents: dto.refundAmountCents,
+          creditType: CreditType.PURCHASED_CREDITS,
+        }));
+      }
+
+      if (dto.clawbackAmountCents > 0 && !existingReversal) {
+        const tWallet = await WalletModel.findOne({ ownerPublicId: dto.tutorOwnerPublicId, isDeleted: false }).session(session);
+        if (!tWallet || tWallet.balanceCents < dto.clawbackAmountCents) {
+          clawbackSkipped = true;
+        } else {
+          const before = tWallet.balanceCents;
+          await WalletModel.findByIdAndUpdate(
+            tWallet._id,
+            { $inc: { balanceCents: -dto.clawbackAmountCents, earnedCreditsCents: -dto.clawbackAmountCents, totalEarnedCents: -dto.clawbackAmountCents } },
+            { session },
+          );
+          const [tx] = await WalletTransactionModel.create([{
+            publicId: uuidv4(),
+            idempotencyKey: dto.clawbackIdempotencyKey,
+            walletPublicId: tWallet.publicId,
+            ownerPublicId: dto.tutorOwnerPublicId,
+            type: TransactionType.REVERSAL,
+            amountCents: dto.clawbackAmountCents,
+            balanceBeforeCents: before,
+            balanceAfterCents: before - dto.clawbackAmountCents,
+            description: dto.clawbackDescription,
+            referenceId: dto.referenceId,
+            referenceType: dto.referenceType,
+            status: TransactionStatus.COMPLETED,
+          }], { session });
+          reversalTx = tx.toObject();
+          events.push(() => domainEvents.emit(DomainEvent.CREDITS_DEDUCTED, {
+            ownerPublicId: dto.tutorOwnerPublicId,
+            amountCents: dto.clawbackAmountCents,
+          }));
+        }
+      }
+
+      await session.commitTransaction();
+      events.forEach((e) => e());
+      return { refund: refundTx as IWalletTransaction, reversal: reversalTx, clawbackSkipped };
     } catch (error) {
       await session.abortTransaction();
       throw error;

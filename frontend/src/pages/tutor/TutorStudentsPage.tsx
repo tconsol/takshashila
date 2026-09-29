@@ -1,3 +1,4 @@
+import { ConsentCheckbox } from '../../components/shared/ConsentCheckbox';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
@@ -70,6 +71,7 @@ export function TutorStudentsPage() {
   const [toggleTarget, setToggleTarget]   = useState<{ publicId: string; currentStatus: string } | null>(null);
   const [createdInfo, setCreatedInfo]     = useState<{ studentId: string; firstName: string; contactEmail?: string } | null>(null);
 
+  const [guardianAgreed, setGuardianAgreed] = useState(false);
   const [form, setForm] = useState({
     firstName: '', lastName: '', contactEmail: '', phone: '',
     password: '', grade: '', customStudentId: '', notes: '',
@@ -79,7 +81,7 @@ export function TutorStudentsPage() {
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const { data: studentsPage, isLoading: studentsLoading } = useMyStudentsAsTutor({ limit: '200' });
+  const { data: studentsPage, isLoading: studentsLoading } = useMyStudentsAsTutor({ limit: '100' });
   const students = studentsPage?.items ?? [];
 
   const { data: classData, isLoading: classesLoading } = useMyClassesAsTutor({ status: 'COMPLETED', limit: '100' });
@@ -137,8 +139,10 @@ export function TutorStudentsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    if (!guardianAgreed) { setFormError('A parent or guardian must agree to the Terms of Use and Privacy Policy for this child'); return; }
     try {
       const result = await createStudent({
+        guardianConsent: true,
         firstName: form.firstName,
         lastName: form.lastName,
         contactEmail: form.contactEmail || undefined,
@@ -154,6 +158,7 @@ export function TutorStudentsPage() {
         contactEmail: form.contactEmail || undefined,
       });
       setForm({ firstName: '', lastName: '', contactEmail: '', phone: '', password: '', grade: '', customStudentId: '', notes: '' });
+      setGuardianAgreed(false);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } }; message?: string };
       setFormError(err.response?.data?.message ?? err.message ?? 'Failed to create student');
@@ -457,7 +462,7 @@ export function TutorStudentsPage() {
               </div>
               <p className="text-xs text-ink-muted">
                 Student uses this ID + their password to log in.
-                {createdInfo.contactEmail && ` Login details sent to ${createdInfo.contactEmail}.`}
+                {createdInfo.contactEmail && ` The Student ID was sent to ${createdInfo.contactEmail}; the password was not, so please share it yourself.`}
               </p>
             </div>
           </div>
@@ -488,7 +493,7 @@ export function TutorStudentsPage() {
             </div>
 
             <Input
-              label="Contact Email (optional for login details)"
+              label="Parent / guardian email (optional; the Student ID is sent here, never the password)"
               type="email"
               placeholder="parent@example.com"
               value={form.contactEmail}
@@ -534,6 +539,13 @@ export function TutorStudentsPage() {
                 className="w-full rounded border border-rule-strong bg-surface px-4 py-2.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:border-accent resize-none"
               />
             </div>
+
+            <ConsentCheckbox
+              onBehalfOfChild
+              checked={guardianAgreed}
+              onChange={(e) => setGuardianAgreed(e.target.checked)}
+            />
+            <p className="-mt-2 text-xs text-ink-muted">Share the password with the student or parent yourself. It is not sent by email.</p>
           </form>
         </Modal>
       )}

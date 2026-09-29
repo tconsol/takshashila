@@ -92,7 +92,9 @@ export function ParentClassesPage() {
               {
                 key: 'status',
                 header: 'Status',
-                render: (c) => <Badge variant={statusBadge[c.status] ?? 'default'}>{c.status}</Badge>,
+                render: (c) => c.isRefunded
+                  ? <Badge variant="default">REFUNDED</Badge>
+                  : <Badge variant={statusBadge[c.status] ?? 'default'}>{c.status}</Badge>,
               },
               {
                 key: 'startUTC',

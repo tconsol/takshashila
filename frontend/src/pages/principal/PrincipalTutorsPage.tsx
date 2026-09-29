@@ -1,3 +1,4 @@
+import { useConfirm } from '../../hooks/use-confirm';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, Search } from 'lucide-react';
@@ -93,6 +94,7 @@ export function PrincipalTutorsPage() {
   const [rejectReason, setRejectReason] = useState('');
 
   const { mutateAsync: startConversation } = useStartConversation();
+  const { confirm, confirmDialog } = useConfirm();
   const { mutateAsync: approve, isPending: approving } = useApproveTutor();
   const { mutateAsync: suspend, isPending: suspending } = useSuspendTutor();
   const { mutateAsync: invite, isPending: inviting, isSuccess: invited, reset: resetInvite } = useInviteTutor();
@@ -174,6 +176,7 @@ export function PrincipalTutorsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <PageHeader
         title="Tutors"
         subtitle={isPrincipal ? 'Invite and manage tutors in your institution' : 'Review and manage tutor accounts'}
@@ -214,7 +217,15 @@ export function PrincipalTutorsPage() {
                   tutor={tutor}
                   statusVariant={statusVariant}
                   statusLabel={STATUS_LABEL}
-                  onApprove={tutor.status === 'UNDER_VERIFICATION' ? () => approve(tutor.publicId) : undefined}
+                  onApprove={tutor.status === 'UNDER_VERIFICATION' ? async () => {
+                    const { confirmed } = await confirm({
+                      title: `Approve ${tutor.displayName ?? 'this tutor'}?`,
+                      message: 'They become active in your organization: students can find and book them, and they can teach and earn under your organization.',
+                      confirmLabel: 'Approve tutor',
+                      tone: 'primary',
+                    });
+                    if (confirmed) await approve(tutor.publicId);
+                  } : undefined}
                   approvingId={approving ? tutor.publicId : null}
                   onSuspend={tutor.status === 'ACTIVE' ? () => { setSuspendTarget(tutor); setSuspendReason(''); } : undefined}
                   onMessage={() => handleMessage(tutor)}
@@ -247,7 +258,15 @@ export function PrincipalTutorsPage() {
                     request={req}
                     viewAs="principal-incoming"
                     reqStatusVariant={REQ_STATUS_VARIANT}
-                    onApprove={() => approveRequest(req.publicId)}
+                    onApprove={async () => {
+                      const { confirmed } = await confirm({
+                        title: 'Approve this join request?',
+                        message: 'The tutor joins your organization. Their account goes back under your review, so they will not take new bookings until you approve them, and their students become visible to you as principal.',
+                        confirmLabel: 'Approve request',
+                        tone: 'primary',
+                      });
+                      if (confirmed) await approveRequest(req.publicId);
+                    }}
                     approving={approvingRequest}
                     onReject={() => { setRejectTarget(req); setRejectReason(''); }}
                   />

@@ -1,3 +1,5 @@
+import { useAuthStore } from '../../stores/auth.store';
+import { useConfirm } from '../../hooks/use-confirm';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -46,6 +48,8 @@ export function SuperAdminAdminsPage() {
     retry: false,
   });
 
+  const { confirm, confirmDialog } = useConfirm();
+  const currentUserId = useAuthStore((s) => s.user?.publicId);
   const { mutateAsync: suspendUser, isPending: suspending } = useMutation({
     mutationFn: (publicId: string) => adminUsersService.suspend(publicId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['superadmin', 'admins'] }),
@@ -58,6 +62,7 @@ export function SuperAdminAdminsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <PageHeader
         title="Admins"
         subtitle="Manage platform administrators"
@@ -98,8 +103,20 @@ export function SuperAdminAdminsPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                {admin.status === 'ACTIVE' ? (
-                  <Button size="sm" variant="danger" onClick={() => suspendUser(admin.publicId)} loading={suspending}>
+                {admin.publicId === currentUserId ? null : admin.status === 'ACTIVE' ? (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={async () => {
+                      const { confirmed } = await confirm({
+                        title: `Suspend ${admin.firstName} ${admin.lastName}?`,
+                        message: 'They are signed out at once and cannot sign in until you activate the account again.',
+                        confirmLabel: 'Suspend',
+                      });
+                      if (confirmed) await suspendUser(admin.publicId);
+                    }}
+                    loading={suspending}
+                  >
                     Suspend
                   </Button>
                 ) : (

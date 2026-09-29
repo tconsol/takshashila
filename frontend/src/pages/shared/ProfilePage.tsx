@@ -20,6 +20,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { useMyStudentProfile, useUpdateMyStudentProfile } from '../../hooks/use-students';
 import { GRADE_OPTIONS, GRADE_LIST } from '../../constants/grades';
 import { SUBJECT_OPTIONS } from '../../constants/subjects';
+import { PrivacyControls } from '../../components/shared/PrivacyControls';
 import { LocationSelect, EMPTY_LOCATION } from '../../components/shared/LocationSelect';
 
 const LANGUAGE_OPTIONS = [
@@ -390,10 +391,10 @@ export function ProfilePage() {
               </span>
               {displayUser.emailVerified
                 ? <span className="flex items-center gap-1 rounded-full bg-ok-wash border border-ok/25 px-3 py-1 text-xs font-semibold text-ok">
-                    <CheckCircle2 className="h-3 w-3" /> Verified
+                    <CheckCircle2 className="h-3 w-3" /> Email verified
                   </span>
                 : <span className="flex items-center gap-1 rounded-full bg-warn-wash border border-warn/25 px-3 py-1 text-xs font-semibold text-warn">
-                    <AlertCircle className="h-3 w-3" /> Unverified
+                    <AlertCircle className="h-3 w-3" /> Email not verified
                   </span>}
             </div>
           </div>
@@ -778,6 +779,8 @@ export function ProfilePage() {
               )}
             </div>
           </div>
+
+          <PrivacyControls />
         </div>
       )}
     </div>

@@ -6,7 +6,6 @@ import type { CreateDemoRequestDto, RejectDemoRequestDto } from './demo-request.
 import { scheduleService } from '../schedules/schedule.service';
 import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
-import { tutorRepository } from '../tutors/tutor.repository';
 import { AvailabilitySlotModel, ScheduledClassModel } from '../schedules/schedule.model';
 import { StudentProfileModel } from '../students/student.model';
 import { TutorProfileModel } from '../tutors/tutor.model';
@@ -18,6 +17,7 @@ import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { adjustCountersForStatusChange } from '../students/student.service';
 
 async function getOrCreateStudentProfile(userPublicId: string) {
   try {
@@ -47,6 +47,8 @@ type EnrichedDemoRequest = IDemoRequest & {
   slotStartUTC?: Date;
   slotEndUTC?: Date;
   slotTimezone?: string;
+  studentName?: string;
+  studentGrade?: string;
 };
 
 async function enrichWithSlot(items: IDemoRequest[]): Promise<EnrichedDemoRequest[]> {
@@ -126,7 +128,24 @@ export class DemoRequestService {
       DemoRequestModel.countDocuments(filter),
     ]);
     const enriched = await enrichWithSlot(items);
-    return buildPaginatedResult(enriched, total, page, limit);
+    const { StudentProfileModel } = await import('../students/student.model');
+    const { UserModel } = await import('../users/user.model');
+    const profiles = await StudentProfileModel.find(
+      { publicId: { $in: [...new Set(items.map((i) => i.studentPublicId))] } },
+      { publicId: 1, userPublicId: 1, grade: 1 },
+    ).lean();
+    const users = await UserModel.find(
+      { publicId: { $in: profiles.map((p) => p.userPublicId) } },
+      { publicId: 1, firstName: 1, lastName: 1 },
+    ).lean();
+    const nameByUser = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+    const byProfile = new Map(profiles.map((p) => [p.publicId, { name: nameByUser.get(p.userPublicId), grade: p.grade }]));
+    const withNames = enriched.map((r) => ({
+      ...r,
+      studentName: byProfile.get(r.studentPublicId)?.name ?? 'Student',
+      studentGrade: byProfile.get(r.studentPublicId)?.grade,
+    }));
+    return buildPaginatedResult(withNames, total, page, limit);
   }
 
   /**
@@ -211,12 +230,29 @@ export class DemoRequestService {
       throw new ConflictError(`Request already ${request.status.toLowerCase()}`);
     }
 
-    const slot = await scheduleService.getSlotByPublicId(request.availabilitySlotPublicId);
-    if (slot.status !== 'AVAILABLE') throw new ConflictError('Slot is no longer available');
+    // Claim the request atomically BEFORE touching the slot or creating a class.
+    // The loser of a concurrent accept gets a ConflictError here and never reaches
+    // blockSlot/releaseSlot, so it cannot free the winner's slot.
+    const claimed = await DemoRequestModel.findOneAndUpdate(
+      { publicId: requestPublicId, isDeleted: false, status: DemoRequestStatus.PENDING },
+      { $set: { status: DemoRequestStatus.ACCEPTED } },
+      { new: true },
+    ).lean();
+    if (!claimed) throw new ConflictError('Request already handled');
 
-    await scheduleService.blockSlot(slot.publicId);
+    let slotBlocked = false;
+    let createdClassPublicId: string | undefined;
+    const slot = await scheduleService.getSlotByPublicId(request.availabilitySlotPublicId).catch(async (e) => {
+      await this.revertClaim(requestPublicId);
+      throw e;
+    });
 
     try {
+      if (slot.status !== 'AVAILABLE') throw new ConflictError('Slot is no longer available');
+
+      await scheduleService.blockSlot(slot.publicId);
+      slotBlocked = true;
+
       const scheduledClass = await ScheduledClassModel.create({
         publicId: uuidv4(),
         tutorPublicId: request.tutorPublicId,
@@ -235,9 +271,11 @@ export class DemoRequestService {
         isDeleted: false,
       });
 
+      createdClassPublicId = scheduledClass.publicId;
+
       const updated = await DemoRequestModel.findOneAndUpdate(
         { publicId: requestPublicId },
-        { $set: { status: DemoRequestStatus.ACCEPTED, classPublicId: scheduledClass.publicId } },
+        { $set: { classPublicId: scheduledClass.publicId } },
         { new: true },
       ).lean();
 
@@ -252,7 +290,7 @@ export class DemoRequestService {
             approvedAt: new Date(),
           },
         },
-        { new: true },
+        { new: false },   // we need the status BEFORE this update to keep counters right
       ).lean();
 
       // Initialize demo credits for the student if not already done
@@ -266,7 +304,13 @@ export class DemoRequestService {
           subject: request.preferredSubject,
         });
 
-        await tutorRepository.incrementStats(tutorProfile.publicId, { totalStudents: 1 });
+        // Move the tutor's/principal's student count only if this student was not already counted.
+        await adjustCountersForStatusChange(
+          studentProfile.status,
+          StudentStatus.ACTIVE,
+          tutorProfile.publicId,
+          tutorProfile.principalPublicId,
+        );
 
         // Invalidate student list for the tutor
         domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
@@ -279,9 +323,22 @@ export class DemoRequestService {
 
       return updated!;
     } catch (error) {
-      await scheduleService.releaseSlot(slot.publicId);
+      // Roll back only what THIS call did: the slot only if we blocked it, the
+      // claim always, and the class if it was created.
+      if (slotBlocked) await scheduleService.releaseSlot(slot.publicId);
+      if (createdClassPublicId) {
+        await ScheduledClassModel.updateOne({ publicId: createdClassPublicId }, { $set: { isDeleted: true } });
+      }
+      await this.revertClaim(requestPublicId);
       throw error;
     }
+  }
+
+  private async revertClaim(requestPublicId: string): Promise<void> {
+    await DemoRequestModel.updateOne(
+      { publicId: requestPublicId, status: DemoRequestStatus.ACCEPTED },
+      { $set: { status: DemoRequestStatus.PENDING }, $unset: { classPublicId: '' } },
+    );
   }
 
   async reject(

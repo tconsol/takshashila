@@ -80,7 +80,7 @@ export function StudentWalletPage() {
           icon={<Coins className="h-5 w-5 text-brand-600" />}
         />
         <StatsCard
-          title="Demo Credits"
+          title="Demo Credits (demo classes only)"
           value={walletLoading ? '' : centsToDisplay(wallet?.demoCreditsCents ?? 0)}
           icon={<Gift className="h-5 w-5 text-pink-600" />}
           iconBg="bg-pink-50 dark:bg-pink-900/20"

@@ -50,7 +50,7 @@ export function AuthLayout() {
                 The smarter way<br />to learn and teach
               </h1>
               <p className="text-white/75 text-sm leading-relaxed max-w-md">
-                brainbaseeduconnects students with expert tutors, empowers principals with full oversight, and automates everything in between.
+                brainbaseedu connects students with expert tutors, empowers principals with full oversight, and automates everything in between.
               </p>
             </div>
 
@@ -86,7 +86,7 @@ export function AuthLayout() {
             {/* Testimonial */}
             <div className="rounded-2xl bg-white/10 backdrop-blur-sm p-4 mt-auto">
               <p className="text-[13px] text-white/80 leading-relaxed line-clamp-3">
-                &ldquo;brainbaseeduhelped me manage 60+ tutors effortlessly. Analytics and scheduling are exactly what an institution needs.&rdquo;
+                &ldquo;brainbaseedu helped me manage 60+ tutors effortlessly. Analytics and scheduling are exactly what an institution needs.&rdquo;
               </p>
               <div className="mt-3 flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-violet-400/40 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">AR</div>

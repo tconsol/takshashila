@@ -52,21 +52,21 @@ export class StudentController {
 
   async approveStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const updated = await studentService.approve(req.params.studentId, req.user!.publicId);
+      const updated = await studentService.approve(req.params.studentId, { userPublicId: req.user!.publicId, role: req.user!.role });
       sendSuccess(res, updated, 'Student approved');
     } catch (error) { next(error); }
   }
 
   async rejectStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      await studentService.reject(req.params.studentId);
+      await studentService.reject(req.params.studentId, { userPublicId: req.user!.publicId, role: req.user!.role });
       sendSuccess(res, null, 'Student rejected');
     } catch (error) { next(error); }
   }
 
   async suspendStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const updated = await studentService.suspend(req.params.studentId);
+      const updated = await studentService.suspend(req.params.studentId, { userPublicId: req.user!.publicId, role: req.user!.role });
       sendSuccess(res, updated, 'Student suspended');
     } catch (error) { next(error); }
   }
@@ -120,7 +120,7 @@ export class StudentController {
       const updated = await studentService.transfer(
         req.params.studentId,
         req.body,
-        req.user!.publicId,
+        { userPublicId: req.user!.publicId, role: req.user!.role },
       );
       sendSuccess(res, updated, 'Student transferred');
     } catch (error) { next(error); }
@@ -151,8 +151,7 @@ export class StudentController {
 
   async unlinkStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const role = req.user!.role as 'TUTOR' | 'PRINCIPAL';
-      await studentService.unlinkStudent(req.params.studentId, req.user!.publicId, role);
+      await studentService.unlinkStudent(req.params.studentId, { userPublicId: req.user!.publicId, role: req.user!.role });
       sendSuccess(res, null, 'Student unlinked');
     } catch (error) { next(error); }
   }

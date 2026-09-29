@@ -39,9 +39,14 @@ export class TutorRepository {
   ): Promise<PaginatedResult<ITutorProfile>> {
     const { page, limit, skip, sortBy, sortOrder } = parsePaginationQuery(query);
 
+    // Public browsing lists only tutors who can actually be booked (ACTIVE).
+    // A principal filtering to their own organization also sees tutors who
+    // are still being reviewed, so they can find and approve them.
     const filter: Record<string, unknown> = {
       isDeleted: false,
-      status: { $in: ['ACTIVE', 'UNDER_VERIFICATION', 'REGISTERED'] },
+      status: filters.principalPublicId
+        ? { $in: ['ACTIVE', 'UNDER_VERIFICATION', 'REGISTERED'] }
+        : 'ACTIVE',
     };
     if (filters.subject) filter.subjects = { $in: [filters.subject] };
     if (filters.language) filter.languages = { $in: [filters.language] };

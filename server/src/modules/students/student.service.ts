@@ -9,6 +9,7 @@ import { NotFoundError, ConflictError, AppError, ValidationError } from '../../u
 import { geoService } from '../geo/geo.service';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { LEGAL_VERSION } from '../../config/legal';
 import { walletService } from '../wallets/wallet.service';
 import { CreditType } from '../wallets/wallet.types';
 import { userRepository } from '../users/user.repository';
@@ -20,6 +21,7 @@ import { TutorProfileModel } from '../tutors/tutor.model';
 import { ParentProfileModel } from '../parents/parent.model';
 import { enqueueEmail } from '../../queues/email.queue';
 import { settingsService } from '../settings/settings.service';
+import { logger } from '../../lib/logger';
 
 // Statuses for which a tutor's TutorProfile.totalStudents counter was
 // actually incremented (see approve()/acceptInvite()/createByPrincipal()) —
@@ -27,11 +29,91 @@ import { settingsService } from '../settings/settings.service';
 // student in those statuses must never decrement it.
 const COUNTED_STUDENT_STATUSES: StudentStatus[] = [StudentStatus.ACTIVE, StudentStatus.SUSPENDED];
 
+const isCounted = (status?: StudentStatus): boolean => !!status && COUNTED_STUDENT_STATUSES.includes(status);
+
+/**
+ * Single rule for every totalStudents counter write: the tutor's and the
+ * principal's counters only move when the counted-ness of the student's status
+ * changes. Pass oldStatus=undefined for a brand-new / newly attached student
+ * and newStatus=undefined for a removed / detached one. principalUserPublicId
+ * is the principal's USER publicId (TutorProfile.principalPublicId). Failures
+ * are logged, never thrown.
+ */
+export async function adjustCountersForStatusChange(
+  oldStatus: StudentStatus | undefined,
+  newStatus: StudentStatus | undefined,
+  tutorPublicId?: string,
+  principalUserPublicId?: string,
+): Promise<void> {
+  const delta = (isCounted(newStatus) ? 1 : 0) - (isCounted(oldStatus) ? 1 : 0);
+  if (delta === 0) return;
+  if (tutorPublicId) {
+    try {
+      await tutorRepository.incrementStats(tutorPublicId, { totalStudents: delta });
+    } catch (err) {
+      logger.error('Failed to adjust tutor totalStudents', { err, tutorPublicId, delta, oldStatus, newStatus });
+    }
+  }
+  if (principalUserPublicId) {
+    try {
+      await PrincipalProfileModel.updateOne({ userPublicId: principalUserPublicId, isDeleted: false }, { $inc: { totalStudents: delta } });
+    } catch (err) {
+      logger.error('Failed to adjust principal totalStudents', { err, principalUserPublicId, tutorPublicId, delta, oldStatus, newStatus });
+    }
+  }
+}
+
+async function principalOfTutor(tutorPublicId?: string): Promise<string | undefined> {
+  if (!tutorPublicId) return undefined;
+  const tutor = await tutorRepository.findByPublicId(tutorPublicId);
+  return tutor?.principalPublicId;
+}
+
+export interface StudentActor {
+  userPublicId: string;
+  role: string;
+}
+
+const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN'];
+
+/**
+ * Ownership rule for managing (approve/reject/suspend/transfer/unlink/status)
+ * a student. ADMIN/SUPER_ADMIN: any. TUTOR: the student is theirs (tutorPublicId),
+ * or is a still-unassigned/pending student that requested them
+ * (pendingTutorPublicId) or that they invited (invitedBy) - this keeps the
+ * tutor's pending-approval flow working. PRINCIPAL: the student's (pending)
+ * tutor belongs to them, or an unassigned student they invited. Failure is a
+ * NotFoundError so student existence is not leaked.
+ */
+export async function assertActorCanManageStudent(
+  profile: Pick<IStudentProfile, 'tutorPublicId' | 'pendingTutorPublicId' | 'invitedBy' | 'status'>,
+  actor: StudentActor,
+): Promise<void> {
+  if (ADMIN_ROLES.includes(actor.role)) return;
+  let allowed = false;
+  if (actor.role === 'TUTOR') {
+    const mine = (await tutorRepository.findByUserPublicId(actor.userPublicId))?.publicId;
+    if (mine) {
+      if (profile.tutorPublicId === mine) allowed = true;
+      else if (profile.status === StudentStatus.PENDING_APPROVAL && profile.pendingTutorPublicId === mine) allowed = true;
+      else if (!profile.tutorPublicId && !profile.pendingTutorPublicId && profile.invitedBy === actor.userPublicId) allowed = true;
+    }
+  } else if (actor.role === 'PRINCIPAL') {
+    const tutorId = profile.pendingTutorPublicId ?? profile.tutorPublicId;
+    if (tutorId) {
+      const tutor = await tutorRepository.findByPublicId(tutorId);
+      allowed = !!tutor && tutor.principalPublicId === actor.userPublicId;
+    } else {
+      allowed = profile.invitedBy === actor.userPublicId;
+    }
+  }
+  if (!allowed) throw new NotFoundError('Student profile');
+}
+
 function buildWelcomeEmail(opts: {
   firstName: string;
   lastName: string;
   studentId: string;
-  password: string;
   grade?: string;
 }): string {
   return `
@@ -41,16 +123,23 @@ function buildWelcomeEmail(opts: {
       <div style="background:#fff;border:2px solid #1a1a2e;border-radius:12px;padding:20px;margin-bottom:20px">
         <table style="width:100%;border-collapse:collapse">
           <tr><td style="padding:6px 0;color:#888;font-size:13px">Student ID (login)</td><td style="padding:6px 0;font-weight:700;font-family:monospace;font-size:16px;letter-spacing:2px;color:#1a1a2e">${opts.studentId}</td></tr>
-          <tr><td style="padding:6px 0;color:#888;font-size:13px">Password</td><td style="padding:6px 0;font-weight:700;font-family:monospace;font-size:16px;color:#1a1a2e">${opts.password}</td></tr>
           ${opts.grade ? `<tr><td style="padding:6px 0;color:#888;font-size:13px">Grade</td><td style="padding:6px 0;font-weight:600;color:#1a1a2e">${opts.grade}</td></tr>` : ''}
         </table>
       </div>
-      <p style="color:#888;font-size:12px">Your child logs in using the <strong>Student ID</strong> (not an email address) + their password. Please save this information safely.</p>
+      <p style="color:#888;font-size:12px">Your child logs in using the <strong>Student ID</strong> (not an email address) and the password chosen when the account was created. For your child's safety the password is <strong>never sent by email</strong>: ask the person who created the account for it, and change it from Profile &rarr; Security after the first sign-in.</p>
     </div>
   `;
 }
 
 // Demo-class limits now live in platform settings (settingsService.get()).
+
+/** Keep a record that a parent/guardian agreed to the policies for a child account. */
+async function recordGuardianConsent(profilePublicId: string, byUserPublicId: string, byRole: string): Promise<void> {
+  await StudentProfileModel.updateOne(
+    { publicId: profilePublicId },
+    { $set: { guardianConsent: { givenBy: byUserPublicId, givenByRole: byRole, givenAt: new Date(), version: LEGAL_VERSION } } },
+  );
+}
 
 async function generateStudentId(firstName: string, lastName: string): Promise<string> {
   const f = (firstName[0] || 'x').toLowerCase().replace(/[^a-z]/, 'x');
@@ -131,7 +220,7 @@ export class StudentService {
       isDeleted: false,
     });
 
-    await tutorRepository.incrementStats(tutorProfile.publicId, { totalStudents: 1 });
+    await adjustCountersForStatusChange(undefined, StudentStatus.ACTIVE, tutorProfile.publicId, tutorProfile.principalPublicId);
 
     domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
       studentPublicId: profile.publicId,
@@ -143,10 +232,13 @@ export class StudentService {
     if (dto.contactEmail) {
       await enqueueEmail({
         to: dto.contactEmail,
-        subject: `Student account created for ${dto.firstName} brainbaseedu`,
-        html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
+        subject: `Student account created for ${dto.firstName} on brainbaseedu`,
+        html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, grade: dto.grade }),
       });
     }
+
+    await recordGuardianConsent(profile.publicId, tutorUserPublicId, 'TUTOR');
+    await walletService.initializeDemoCredits(user.publicId).catch(() => {});
 
     return {
       ...profile,
@@ -192,9 +284,11 @@ export class StudentService {
     return profile;
   }
 
-  async approve(publicId: string, approvedBy: string): Promise<IStudentProfile> {
+  async approve(publicId: string, actor: StudentActor): Promise<IStudentProfile> {
+    const approvedBy = actor.userPublicId;
     const profile = await studentRepository.findByPublicId(publicId);
     if (!profile) throw new NotFoundError('Student profile');
+    await assertActorCanManageStudent(profile, actor);
 
     if (profile.status !== StudentStatus.PENDING_APPROVAL) {
       throw new ConflictError(`Cannot approve from status: ${profile.status}`);
@@ -207,9 +301,7 @@ export class StudentService {
     });
 
     await walletService.initializeDemoCredits(profile.userPublicId).catch(() => {});
-    if (profile.tutorPublicId) {
-      await tutorRepository.incrementStats(profile.tutorPublicId, { totalStudents: 1 });
-    }
+    await adjustCountersForStatusChange(profile.status, StudentStatus.ACTIVE, profile.tutorPublicId, await principalOfTutor(profile.tutorPublicId));
 
     domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
       studentPublicId: publicId,
@@ -221,49 +313,72 @@ export class StudentService {
     return updated!;
   }
 
-  async reject(publicId: string): Promise<void> {
+  async reject(publicId: string, actor: StudentActor): Promise<void> {
     const profile = await studentRepository.findByPublicId(publicId);
     if (!profile) throw new NotFoundError('Student profile');
+    await assertActorCanManageStudent(profile, actor);
     await studentRepository.update(publicId, { status: StudentStatus.INACTIVE });
+    await adjustCountersForStatusChange(profile.status, StudentStatus.INACTIVE, profile.tutorPublicId, await principalOfTutor(profile.tutorPublicId));
   }
 
-  async suspend(publicId: string): Promise<IStudentProfile> {
+  async suspend(publicId: string, actor: StudentActor): Promise<IStudentProfile> {
+    const before = await studentRepository.findByPublicId(publicId);
+    if (!before) throw new NotFoundError('Student profile');
+    await assertActorCanManageStudent(before, actor);
     const updated = await studentRepository.update(publicId, { status: StudentStatus.SUSPENDED });
     if (!updated) throw new NotFoundError('Student profile');
+    await adjustCountersForStatusChange(before.status, StudentStatus.SUSPENDED, before.tutorPublicId, await principalOfTutor(before.tutorPublicId));
     return updated;
   }
 
-  async transfer(publicId: string, dto: TransferStudentDto, actorId: string): Promise<IStudentProfile> {
+  async transfer(publicId: string, dto: TransferStudentDto, actor: StudentActor): Promise<IStudentProfile> {
+    const actorId = actor.userPublicId;
     const profile = await studentRepository.findByPublicId(publicId);
     if (!profile) throw new NotFoundError('Student profile');
+    await assertActorCanManageStudent(profile, actor);
+
+    const target = await tutorRepository.findByPublicId(dto.newTutorPublicId);
+    if (!target) throw new NotFoundError('Tutor');
+    if (!ADMIN_ROLES.includes(actor.role)) {
+      let inScope = false;
+      if (actor.role === 'PRINCIPAL') {
+        inScope = target.principalPublicId === actor.userPublicId;
+      } else if (actor.role === 'TUTOR') {
+        const me = await tutorRepository.findByUserPublicId(actor.userPublicId);
+        inScope = !!me && (me.publicId === target.publicId || (!!me.principalPublicId && me.principalPublicId === target.principalPublicId));
+      }
+      if (!inScope) throw new NotFoundError('Tutor');
+    }
 
     if (profile.tutorPublicId === dto.newTutorPublicId) {
       throw new ConflictError('Student is already assigned to this tutor');
     }
 
-    const wasCounted = COUNTED_STUDENT_STATUSES.includes(profile.status);
+    // Transfer preserves approval state: PENDING_APPROVAL / INACTIVE /
+    // SUSPENDED stay as they are; anything else (ACTIVE, TRANSFERRED) becomes
+    // ACTIVE with the new tutor.
+    const keepStatuses: StudentStatus[] = [StudentStatus.PENDING_APPROVAL, StudentStatus.INACTIVE, StudentStatus.SUSPENDED];
+    const newStatus = keepStatuses.includes(profile.status) ? profile.status : StudentStatus.ACTIVE;
 
     const updated = await studentRepository.update(publicId, {
       tutorPublicId: dto.newTutorPublicId,
       previousTutorPublicIds: profile.tutorPublicId
         ? [...profile.previousTutorPublicIds, profile.tutorPublicId]
         : profile.previousTutorPublicIds,
-      // The student is active with their NEW tutor now — TRANSFERRED would
-      // show as a stale/inactive-looking badge on the new tutor's Students
-      // page. The move itself is still fully recorded via transferredFrom /
-      // transferredAt / previousTutorPublicIds below.
-      status: StudentStatus.ACTIVE,
+      // ACTIVE rather than TRANSFERRED (which would look stale on the new
+      // tutor's page); the move is recorded via transferredFrom/At below.
+      status: newStatus,
       transferredFrom: profile.tutorPublicId,
       transferredAt: new Date(),
     });
 
-    // Keep each tutor's cached totalStudents in sync with the move — this
-    // was previously never touched by transfer(), so the old tutor's count
-    // stayed permanently inflated and the new tutor's never grew.
-    if (profile.tutorPublicId && wasCounted) {
-      await tutorRepository.incrementStats(profile.tutorPublicId, { totalStudents: -1 }).catch(() => {});
-    }
-    await tutorRepository.incrementStats(dto.newTutorPublicId, { totalStudents: 1 }).catch(() => {});
+    // Keep tutor and principal totalStudents in sync. Cross-org moves shift
+    // the principal counters; same-org moves leave the principal net-zero.
+    const oldPrincipal = await principalOfTutor(profile.tutorPublicId);
+    const newPrincipal = await principalOfTutor(dto.newTutorPublicId);
+    const samePrincipal = oldPrincipal === newPrincipal;
+    await adjustCountersForStatusChange(profile.status, undefined, profile.tutorPublicId, samePrincipal ? undefined : oldPrincipal);
+    await adjustCountersForStatusChange(undefined, newStatus, dto.newTutorPublicId, samePrincipal ? undefined : newPrincipal);
 
     domainEvents.emit(DomainEvent.STUDENT_TRANSFERRED, {
       studentPublicId: publicId,
@@ -436,11 +551,19 @@ export class StudentService {
 
     let profile: IStudentProfile;
     if (profileWithoutTutor) {
-      const updated = await studentRepository.update(profileWithoutTutor.publicId, {
-        tutorPublicId: tutorProfile.publicId,
-        status: StudentStatus.PENDING_APPROVAL,
-        invitedBy: tutorUserPublicId,
-      });
+      // A tutor's direct invite supersedes any tutor a parent had requested.
+      const updated = await StudentProfileModel.findOneAndUpdate(
+        { publicId: profileWithoutTutor.publicId, isDeleted: false },
+        {
+          $set: {
+            tutorPublicId: tutorProfile.publicId,
+            status: StudentStatus.PENDING_APPROVAL,
+            invitedBy: tutorUserPublicId,
+          },
+          $unset: { pendingTutorPublicId: '' },
+        },
+        { new: true },
+      ).lean();
       profile = updated!;
     } else {
       profile = await studentRepository.create({
@@ -477,16 +600,24 @@ export class StudentService {
       throw new ConflictError('No pending invite to accept');
     }
 
-    const updated = await studentRepository.update(profile.publicId, {
-      status: StudentStatus.ACTIVE,
-      approvedBy: studentUserPublicId,
-      approvedAt: new Date(),
-    });
+    // A parent-requested tutor only becomes the live tutor here, on acceptance.
+    const newTutorPublicId = profile.pendingTutorPublicId ?? profile.tutorPublicId;
+    const updated = await StudentProfileModel.findOneAndUpdate(
+      { publicId: profile.publicId, isDeleted: false },
+      {
+        $set: {
+          status: StudentStatus.ACTIVE,
+          approvedBy: studentUserPublicId,
+          approvedAt: new Date(),
+          ...(newTutorPublicId ? { tutorPublicId: newTutorPublicId } : {}),
+        },
+        $unset: { pendingTutorPublicId: '' },
+      },
+      { new: true },
+    ).lean();
 
     await walletService.initializeDemoCredits(studentUserPublicId).catch(() => {});
-    if (profile.tutorPublicId) {
-      await tutorRepository.incrementStats(profile.tutorPublicId, { totalStudents: 1 });
-    }
+    await adjustCountersForStatusChange(profile.status, StudentStatus.ACTIVE, newTutorPublicId, await principalOfTutor(newTutorPublicId));
 
     domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
       studentPublicId: profile.publicId,
@@ -497,6 +628,58 @@ export class StudentService {
     return updated!;
   }
 
+  /**
+   * The student's tutor links, shaped for the "Tutors" screen. A link is a
+   * student profile row that points at a tutor (or a pending invite from one).
+   */
+  async getMyTutorLinks(studentUserPublicId: string) {
+    const profiles = await StudentProfileModel.find(
+      { userPublicId: studentUserPublicId, isDeleted: false },
+    ).lean();
+
+    const links = await Promise.all(profiles.map(async (p) => {
+      const tutorPublicId = p.pendingTutorPublicId ?? p.tutorPublicId;
+      if (!tutorPublicId) return null;
+      const tutor = await TutorProfileModel.findOne({ publicId: tutorPublicId, isDeleted: false }).lean();
+      if (!tutor) return null;
+      const tutorUser = await userRepository.findByPublicId(tutor.userPublicId);
+      return {
+        studentProfilePublicId: p.publicId,
+        status: p.status,
+        tutorPublicId: tutor.publicId,
+        tutorUserPublicId: tutor.userPublicId,
+        tutorName: tutorUser ? `${tutorUser.firstName} ${tutorUser.lastName}`.trim() : 'Tutor',
+        tutorAvatarUrl: tutorUser?.avatarUrl,
+        subjects: tutor.subjects ?? [],
+        rating: tutor.rating ?? 0,
+        isVerified: !!tutor.isVerified,
+        isPendingInvite: p.status === StudentStatus.PENDING_APPROVAL,
+        createdAt: (p as unknown as { createdAt?: Date }).createdAt?.toISOString?.() ?? new Date().toISOString(),
+      };
+    }));
+    return links.filter((l): l is NonNullable<typeof l> => l !== null);
+  }
+
+  /** Make sure `linkId` is one of this student's own profiles (404 otherwise). */
+  async assertOwnsLink(studentUserPublicId: string, linkId: string): Promise<IStudentProfile> {
+    const profile = await StudentProfileModel.findOne(
+      { publicId: linkId, userPublicId: studentUserPublicId, isDeleted: false },
+    ).lean();
+    if (!profile) throw new NotFoundError('Tutor link');
+    return profile as unknown as IStudentProfile;
+  }
+
+  /** A student ends their own link with a tutor. */
+  async unlinkOwnTutor(studentUserPublicId: string, linkId: string): Promise<void> {
+    const profile = await this.assertOwnsLink(studentUserPublicId, linkId);
+    const principalUserId = await principalOfTutor(profile.tutorPublicId);
+    await adjustCountersForStatusChange(profile.status, undefined, profile.tutorPublicId, principalUserId);
+    await studentRepository.update(profile.publicId, {
+      tutorPublicId: undefined as unknown as string,
+      status: StudentStatus.INACTIVE,
+    });
+  }
+
   async declineInvite(studentUserPublicId: string): Promise<void> {
     const profile = await studentRepository.findByUserPublicId(studentUserPublicId);
     if (!profile) throw new NotFoundError('No pending invite found');
@@ -504,7 +687,7 @@ export class StudentService {
       throw new ConflictError('No pending invite to decline');
     }
 
-    const declinedTutorPublicId = profile.tutorPublicId;
+    const declinedTutorPublicId = profile.pendingTutorPublicId ?? profile.tutorPublicId;
 
     // Detach the tutor as well as marking the profile inactive. Leaving the link
     // in place made the student look "already linked", so the tutor could never
@@ -515,7 +698,7 @@ export class StudentService {
     // looks for `tutorPublicId: { $exists: false }` — would never match.
     await StudentProfileModel.updateOne(
       { publicId: profile.publicId },
-      { $set: { status: StudentStatus.INACTIVE }, $unset: { tutorPublicId: '' } },
+      { $set: { status: StudentStatus.INACTIVE }, $unset: { tutorPublicId: '', pendingTutorPublicId: '' } },
     );
 
     if (declinedTutorPublicId) {
@@ -628,8 +811,7 @@ export class StudentService {
       isDeleted: false,
     });
 
-    await tutorRepository.incrementStats(dto.tutorPublicId, { totalStudents: 1 });
-    await PrincipalProfileModel.updateOne({ publicId: principalProfile.publicId }, { $inc: { totalStudents: 1 } });
+    await adjustCountersForStatusChange(undefined, StudentStatus.ACTIVE, dto.tutorPublicId, principalUserPublicId);
 
     domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
       studentPublicId: profile.publicId,
@@ -641,10 +823,13 @@ export class StudentService {
     if (dto.contactEmail) {
       await enqueueEmail({
         to: dto.contactEmail,
-        subject: `Student account created for ${dto.firstName} brainbaseedu`,
-        html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
+        subject: `Student account created for ${dto.firstName} on brainbaseedu`,
+        html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, grade: dto.grade }),
       });
     }
+
+    await recordGuardianConsent(profile.publicId, principalUserPublicId, 'PRINCIPAL');
+    await walletService.initializeDemoCredits(user.publicId).catch(() => {});
 
     return { ...profile, firstName: user.firstName, lastName: user.lastName, studentId };
   }
@@ -797,54 +982,29 @@ export class StudentService {
     if (parentUser?.email && !parentUser.email.endsWith('@student.internal')) {
       await enqueueEmail({
         to: parentUser.email,
-        subject: `Child account created for ${dto.firstName} brainbaseedu`,
-        html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, password: dto.password, grade: dto.grade }),
+        subject: `Child account created for ${dto.firstName} on brainbaseedu`,
+        html: buildWelcomeEmail({ firstName: dto.firstName, lastName: dto.lastName, studentId, grade: dto.grade }),
       });
     }
+
+    await recordGuardianConsent(profile.publicId, parentUserPublicId, 'PARENT');
+    await walletService.initializeDemoCredits(user.publicId).catch(() => {});
 
     return { ...profile, firstName: user.firstName, lastName: user.lastName, studentId };
   }
 
   async unlinkStudent(
     studentPublicId: string,
-    actorUserPublicId: string,
-    actorRole: 'TUTOR' | 'PRINCIPAL',
+    actor: StudentActor,
   ): Promise<void> {
     const profile = await studentRepository.findByPublicId(studentPublicId);
     if (!profile) throw new NotFoundError('Student profile');
+    await assertActorCanManageStudent(profile, actor);
 
-    // Only decrement counters for a student who was actually counted in them
-    // (see COUNTED_STUDENT_STATUSES) — e.g. unlinking a still-PENDING_APPROVAL
-    // student, whose creation never incremented anything, must not push the
-    // counter below the real total.
-    const wasCounted = COUNTED_STUDENT_STATUSES.includes(profile.status);
-
-    if (actorRole === 'TUTOR') {
-      const { tutorService } = await import('../tutors/tutor.service');
-      const tutorProfile = await tutorService.getByUserPublicId(actorUserPublicId);
-      if (profile.tutorPublicId !== tutorProfile.publicId) {
-        throw new AppError('This student is not linked to your account', 403);
-      }
-      if (wasCounted) {
-        await tutorRepository.incrementStats(tutorProfile.publicId, { totalStudents: -1 }).catch(() => {});
-      }
-    } else {
-      // PRINCIPAL verify the student's tutor belongs to this principal's org
-      const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: actorUserPublicId, isDeleted: false }).lean();
-      if (!principalProfile) throw new AppError('Principal profile not found', 404);
-      if (profile.tutorPublicId) {
-        const tutor = await tutorRepository.findByPublicId(profile.tutorPublicId);
-        if (!tutor || tutor.principalPublicId !== actorUserPublicId) {
-          throw new AppError('This student does not belong to your organization', 403);
-        }
-        if (wasCounted) {
-          await tutorRepository.incrementStats(profile.tutorPublicId, { totalStudents: -1 }).catch(() => {});
-        }
-      }
-      if (wasCounted) {
-        await PrincipalProfileModel.updateOne({ publicId: principalProfile.publicId }, { $inc: { totalStudents: -1 } }).catch(() => {});
-      }
-    }
+    // Counters move only if the student was actually counted (see
+    // COUNTED_STUDENT_STATUSES) - handled by adjustCountersForStatusChange.
+    const principalUserId = await principalOfTutor(profile.tutorPublicId);
+    await adjustCountersForStatusChange(profile.status, undefined, profile.tutorPublicId, principalUserId);
 
     await studentRepository.update(studentPublicId, {
       tutorPublicId: undefined as unknown as string,
@@ -854,18 +1014,15 @@ export class StudentService {
 
   async setStudentStatus(
     studentPublicId: string,
-    tutorUserPublicId: string,
+    actor: StudentActor,
     newStatus: 'ACTIVE' | 'INACTIVE',
   ): Promise<IStudentProfile> {
-    const { tutorService } = await import('../tutors/tutor.service');
-    const tutorProfile = await tutorService.getByUserPublicId(tutorUserPublicId);
     const profile = await studentRepository.findByPublicId(studentPublicId);
     if (!profile) throw new NotFoundError('Student profile');
-    if (profile.tutorPublicId !== tutorProfile.publicId) {
-      throw new AppError('This student is not linked to your account', 403);
-    }
+    await assertActorCanManageStudent(profile, actor);
     const updated = await studentRepository.update(studentPublicId, { status: newStatus as StudentStatus });
     if (!updated) throw new NotFoundError('Student profile');
+    await adjustCountersForStatusChange(profile.status, newStatus as StudentStatus, profile.tutorPublicId, await principalOfTutor(profile.tutorPublicId));
     return updated;
   }
 

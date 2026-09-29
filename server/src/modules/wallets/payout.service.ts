@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { WalletModel } from './wallet.model';
 import { WalletTransactionModel } from './wallet-transaction.model';
-import { TransactionType, TransactionStatus } from './wallet.types';
+import { TransactionType, TransactionStatus, CreditType } from './wallet.types';
 import type { IWalletTransaction } from './wallet.types';
 import { UserModel } from '../users/user.model';
 import { auditService } from '../audit/audit.service';
@@ -33,6 +33,44 @@ const MIN_PAYOUT_CENTS = 10_00;
 /** Anything larger needs a paper trail beyond a self-service click — same
  *  reasoning as wallet-admin.service.ts's MAX_GRANT_CENTS. */
 const MAX_PAYOUT_CENTS = 100_000_00; // $100,000
+
+/**
+ * Earnings from a class are held this long before they can be withdrawn, so a
+ * refund or dispute can still claw them back. Without a hold a tutor could
+ * cash out the minute a class completes.
+ */
+export const EARNINGS_HOLD_HOURS = 48;
+
+/** Earned credits still inside the hold window (not yet withdrawable). */
+export async function getEarningsOnHoldCents(
+  ownerPublicId: string,
+  session?: mongoose.ClientSession,
+): Promise<number> {
+  const cutoff = new Date(Date.now() - EARNINGS_HOLD_HOURS * 3_600_000);
+  const rows = await WalletTransactionModel.aggregate([
+    {
+      $match: {
+        ownerPublicId,
+        type: TransactionType.CREDIT,
+        creditType: CreditType.EARNED_CREDITS,
+        status: TransactionStatus.COMPLETED,
+        createdAt: { $gt: cutoff },
+      },
+    },
+    { $group: { _id: null, total: { $sum: '$amountCents' } } },
+  ]).session(session ?? null);
+  return rows[0]?.total ?? 0;
+}
+
+/** Earned credits the owner may withdraw right now. */
+export async function getWithdrawableCents(
+  ownerPublicId: string,
+  wallet: { earnedCreditsCents?: number; balanceCents: number },
+  session?: mongoose.ClientSession,
+): Promise<number> {
+  const onHold = await getEarningsOnHoldCents(ownerPublicId, session);
+  return Math.max(0, Math.min(wallet.earnedCreditsCents ?? 0, wallet.balanceCents) - onHold);
+}
 
 const invalid = (msg: string) => new ValidationError([msg], msg);
 
@@ -70,6 +108,13 @@ export class PayoutService {
       // bonus credits are spendable on the platform but never cashable out.
       if (wallet.earnedCreditsCents < amountCents) {
         throw new AppError('Payout exceeds withdrawable earnings', 402);
+      }
+      const withdrawableCents = await getWithdrawableCents(ownerPublicId, wallet, session);
+      if (withdrawableCents < amountCents) {
+        throw new AppError(
+          `Only $${(withdrawableCents / 100).toFixed(2)} can be withdrawn right now. Earnings from the last ${EARNINGS_HOLD_HOURS} hours are held in case of a refund.`,
+          402,
+        );
       }
       if (wallet.balanceCents < amountCents) {
         throw new AppError('Insufficient balance', 402);

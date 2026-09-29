@@ -32,6 +32,7 @@ export interface ChildClass {
   startUTC: string;
   endUTC: string;
   costCents: number;
+  isRefunded?: boolean;
   meetingUrl?: string;
 }
 
@@ -107,6 +108,15 @@ export interface TutorForParent {
   status: string;
 }
 
+/** A link request the parent sent that the student has not answered yet. */
+export interface PendingLinkRequest {
+  publicId: string;
+  studentPublicId: string;
+  studentName: string;
+  grade?: string;
+  createdAt: string;
+}
+
 export const parentService = {
   getProfile: () =>
     api.get('/parents/me').then((r) => r.data.data as ParentProfile),
@@ -117,8 +127,11 @@ export const parentService = {
   createChild: (dto: CreateChildDto) =>
     api.post('/parents/me/children/create', dto).then((r) => r.data.data as CreatedChild),
 
-  linkChild: (studentPublicId: string) =>
-    api.post('/parents/me/children/link', { studentPublicId }).then((r) => r.data.data as ParentProfile),
+  getPendingLinkRequests: () =>
+    api.get('/parents/me/children/requests').then((r) => (r.data.data ?? []) as PendingLinkRequest[]),
+
+  cancelLinkRequest: (requestPublicId: string) =>
+    api.delete(`/parents/me/children/requests/${requestPublicId}`).then(() => null),
 
   requestLinkChild: (studentPublicId: string) =>
     api.post('/parents/me/children/request', { studentPublicId }).then(() => null),

@@ -24,6 +24,8 @@ interface AdminClass {
   classType: string;
   isRefunded?: boolean;
   autoResolution?: 'AUTO_COMPLETED' | 'AUTO_CANCELLED';
+  billingFailed?: boolean;
+  billingFailureReason?: string;
   tutorName: string;
   studentName: string;
 }
@@ -67,6 +69,11 @@ const REFUND_OPTIONS = [
   { value: 'false', label: 'Not refunded' },
 ];
 
+const BILLING_OPTIONS = [
+  { value: '', label: 'All billing states' },
+  { value: 'true', label: 'Billing failed' },
+];
+
 function money(cents: number) {
   return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
@@ -80,6 +87,7 @@ export function ClassesExplorerPage() {
   const [status, setStatus] = useState('');
   const [days, setDays] = useState('30');
   const [refunded, setRefunded] = useState('');
+  const [billingFailed, setBillingFailed] = useState('');
   const [page, setPage] = useState(1);
 
   const query = useMemo(() => {
@@ -87,8 +95,9 @@ export function ClassesExplorerPage() {
     if (status) params.set('status', status);
     if (days) params.set('days', days);
     if (refunded) params.set('refunded', refunded);
+    if (billingFailed) params.set('billingFailed', billingFailed);
     return params.toString();
-  }, [status, days, refunded, page]);
+  }, [status, days, refunded, billingFailed, page]);
 
   const { data, isLoading } = useQuery<Paginated>({
     queryKey: ['admin-classes', query],
@@ -152,10 +161,11 @@ export function ClassesExplorerPage() {
         />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Select options={STATUS_OPTIONS} value={status} onChange={(e) => applyFilter(() => setStatus(e.target.value))} />
         <Select options={WINDOW_OPTIONS} value={days} onChange={(e) => applyFilter(() => setDays(e.target.value))} />
         <Select options={REFUND_OPTIONS} value={refunded} onChange={(e) => applyFilter(() => setRefunded(e.target.value))} />
+        <Select options={BILLING_OPTIONS} value={billingFailed} onChange={(e) => applyFilter(() => setBillingFailed(e.target.value))} />
       </div>
 
       <Table<AdminClass>
@@ -188,6 +198,11 @@ export function ClassesExplorerPage() {
             render: (c) => (
               <div className="flex flex-col items-start gap-1">
                 <Badge variant={STATUS_VARIANT[c.status] ?? 'default'} tone="soft">{c.status}</Badge>
+                {c.billingFailed && (
+                  <span title={c.billingFailureReason ?? 'Billing failed'}>
+                    <Badge variant="danger" tone="outline">Billing failed</Badge>
+                  </span>
+                )}
                 {c.autoResolution && (
                   <Badge
                     variant={c.autoResolution === 'AUTO_COMPLETED' ? 'info' : 'warning'}

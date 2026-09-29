@@ -18,6 +18,8 @@ import { walletService } from '../../modules/wallets/wallet.service';
 import { tutorService } from '../../modules/tutors/tutor.service';
 import { attendanceService } from '../../modules/attendance/attendance.service';
 import { studentService } from '../../modules/students/student.service';
+import { auditService } from '../../modules/audit/audit.service';
+import { logger } from '../../lib/logger';
 import { domainEvents } from '../../events/event-emitter';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
@@ -58,6 +60,7 @@ describe('ClassService.completeClass money flow', () => {
     // see wallet.service.ts's transferWallet.
     transfer = jest.spyOn(walletService, 'transferWallet').mockResolvedValue({ debit: {}, credit: {} } as never);
     recordCompleted = jest.spyOn(tutorService, 'recordClassCompleted').mockResolvedValue(undefined as never);
+    jest.spyOn(auditService, 'log').mockResolvedValue({} as never);
   });
 
   it('attended + paid class → debits student (cost + fee), credits tutor (cost − fee)', async () => {
@@ -129,6 +132,32 @@ describe('ClassService.completeClass money flow', () => {
     expect(result).toMatchObject({ status: ClassStatus.COMPLETED }); // class still closed
   });
 
+  it('insufficient balance → class flagged billingFailed and audit-logged', async () => {
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(baseClass()) as never);
+    transfer.mockRejectedValueOnce(new Error('Insufficient credits'));
+    const flagUpdate = jest.spyOn(ScheduledClassModel, 'findOneAndUpdate');
+    flagUpdate.mockReturnValueOnce(lean({ ...baseClass(), status: ClassStatus.COMPLETED }) as never);
+    flagUpdate.mockReturnValueOnce(
+      lean({ ...baseClass(), status: ClassStatus.COMPLETED, billingFailed: true, billingFailureReason: 'Insufficient credits' }) as never,
+    );
+
+    const result = await classService.completeClass('class-1', 'tutor-user-1');
+
+    expect(flagUpdate.mock.calls[1][1]).toEqual({
+      $set: { billingFailed: true, billingFailureReason: 'Insufficient credits' },
+    });
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'CLASS_BILLING_FAILED', resourceId: 'class-1' }),
+    );
+    expect(result).toMatchObject({ status: ClassStatus.COMPLETED, billingFailed: true });
+  });
+
+  it('successful billing → no billingFailed flag, no audit entry', async () => {
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(baseClass()) as never);
+    await classService.completeClass('class-1', 'tutor-user-1');
+    expect(auditService.log).not.toHaveBeenCalled();
+  });
+
   it('rejects when class is already completed', async () => {
     jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(baseClass({ status: ClassStatus.COMPLETED })) as never);
     await expect(classService.completeClass('class-1', 'tutor-user-1')).rejects.toMatchObject({ statusCode: 409 });
@@ -138,6 +167,7 @@ describe('ClassService.completeClass money flow', () => {
 describe('ClassService.refundClass refund/reversal flow', () => {
   let refund: jest.SpyInstance;
   let reverse: jest.SpyInstance;
+  let atomic: jest.SpyInstance;
 
   function completed(over: Record<string, unknown> = {}) {
     return baseClass({ status: ClassStatus.COMPLETED, isRefunded: false, ...over });
@@ -150,6 +180,8 @@ describe('ClassService.refundClass refund/reversal flow', () => {
     jest.spyOn(tutorService, 'getByPublicId').mockResolvedValue({ userPublicId: 'tutor-user-1', commissionRatePercent: 20 } as never);
     refund = jest.spyOn(walletService, 'refundWallet').mockResolvedValue({} as never);
     reverse = jest.spyOn(walletService, 'reverseWallet').mockResolvedValue({} as never);
+    atomic = jest.spyOn(walletService, 'refundWithClawback').mockResolvedValue({ refund: {}, reversal: {}, clawbackSkipped: false } as never);
+    jest.spyOn(auditService, 'log').mockResolvedValue({} as never);
   });
 
   it('STUDENT_REQUESTED → refunds student (cost + fee), reverses tutor (cost − fee)', async () => {
@@ -157,10 +189,46 @@ describe('ClassService.refundClass refund/reversal flow', () => {
 
     await classService.refundClass('class-1', 'admin-1', 'duplicate charge');
 
-    expect(refund).toHaveBeenCalledTimes(1);
-    expect(refund.mock.calls[0][0]).toMatchObject({ ownerPublicId: 'student-user-1', amountCents: 2100 });
-    expect(reverse).toHaveBeenCalledTimes(1);
-    expect(reverse.mock.calls[0][0]).toMatchObject({ ownerPublicId: 'tutor-user-1', amountCents: 1900 });
+    // Student refund + tutor clawback happen in one atomic wallet call.
+    expect(atomic).toHaveBeenCalledTimes(1);
+    expect(atomic.mock.calls[0][0]).toMatchObject({
+      studentOwnerPublicId: 'student-user-1',
+      tutorOwnerPublicId: 'tutor-user-1',
+      refundAmountCents: 2100,
+      clawbackAmountCents: 1900,
+      refundIdempotencyKey: 'class-refund-class-1',
+      clawbackIdempotencyKey: 'tutor-reversal-class-1',
+    });
+    expect(refund).not.toHaveBeenCalled();
+    expect(reverse).not.toHaveBeenCalled();
+  });
+
+  it('prepaid class → refunds flat costCents (no fee) atomically with clawback', async () => {
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(
+      lean(completed({ billingMode: BillingMode.COURSE_PREPAID })) as never,
+    );
+    await classService.refundClass('class-1', 'admin-1', 'x');
+    expect(atomic.mock.calls[0][0]).toMatchObject({ refundAmountCents: 2000, clawbackAmountCents: 1900 });
+  });
+
+  it('tutor cannot cover clawback → class still refunded, amounts unchanged, warning logged', async () => {
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(completed()) as never);
+    atomic.mockResolvedValueOnce({ refund: {}, clawbackSkipped: true });
+    const warn = jest.spyOn(logger, 'warn').mockImplementation((() => logger) as never);
+
+    const result = await classService.refundClass('class-1', 'admin-1', 'x');
+
+    expect(atomic.mock.calls[0][0]).toMatchObject({ refundAmountCents: 2100, clawbackAmountCents: 1900 });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('claw back'), expect.objectContaining({ unrecoveredClawbackCents: 1900 }));
+    expect(result).toMatchObject({ isRefunded: true });
+  });
+
+  it('atomic refund failure → class is NOT marked refunded', async () => {
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(completed()) as never);
+    atomic.mockRejectedValueOnce(new Error('db down'));
+    const upd = jest.spyOn(ScheduledClassModel, 'findOneAndUpdate');
+    await expect(classService.refundClass('class-1', 'admin-1', 'x')).rejects.toThrow('db down');
+    expect(upd).not.toHaveBeenCalled();
   });
 
   it('TUTOR_INVITED → refunds tutor the 200 platform fee, no reversal', async () => {

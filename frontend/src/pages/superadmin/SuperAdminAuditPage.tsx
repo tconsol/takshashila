@@ -15,6 +15,9 @@ interface AuditLog {
   publicId: string;
   actorId: string;
   actorRole: string;
+  /** Resolved server-side so the log reads as people, not ids. */
+  actorName?: string;
+  resourceLabel?: string;
   action: string;
   resourceType: string;
   resourceId?: string;
@@ -200,10 +203,10 @@ export function SuperAdminAuditPage() {
                 render: (l) => (
                   <button
                     onClick={() => set('actorId', l.actorId)}
-                    className="font-mono text-xs text-brand-600 hover:underline"
-                    title="Filter by this actor"
+                    className="text-left text-sm font-medium text-brand-600 hover:underline"
+                    title={`Filter by this actor (${l.actorId})`}
                   >
-                    {l.actorId.slice(0, 10)}…
+                    {l.actorName || `${l.actorId.slice(0, 10)}…`}
                   </button>
                 ),
               },
@@ -217,7 +220,10 @@ export function SuperAdminAuditPage() {
                 header: 'Resource',
                 render: (l) => (
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {l.resourceType}{l.resourceId ? ` · ${l.resourceId.slice(0, 8)}…` : ''}
+                    {l.resourceType}
+                    {l.resourceLabel
+                      ? ` · ${l.resourceLabel}`
+                      : l.resourceId ? ` · ${l.resourceId.slice(0, 8)}…` : ''}
                   </span>
                 ),
               },

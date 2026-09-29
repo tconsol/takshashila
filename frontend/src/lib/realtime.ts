@@ -1,3 +1,4 @@
+import { useAuthStore } from '../stores/auth.store';
 import Pusher, { type Channel } from 'pusher-js';
 import { api } from './axios';
 
@@ -190,6 +191,11 @@ class RealtimeManager {
     this.pusher = null;
     this.handlers.clear();
     this.started = false;
+
+    // Nothing to release when nobody is signed in. Sending it anyway returned
+    // 401, and the global "401 means your session expired" rule then bounced
+    // logged-out visitors off pages like verify-email and reset-password.
+    if (!useAuthStore.getState().accessToken) return;
 
     // keepalive so the release survives the page going away.
     try {

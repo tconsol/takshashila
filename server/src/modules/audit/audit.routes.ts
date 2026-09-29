@@ -42,10 +42,12 @@ router.get('/export', async (req: AuthRequest, res: Response, next: NextFunction
 
     const csv = toCsv(rows, [
       { key: 'createdAt', header: 'Timestamp' },
+      { key: 'actorName', header: 'Actor' },
       { key: 'actorId', header: 'Actor ID' },
       { key: 'actorRole', header: 'Actor Role' },
       { key: 'action', header: 'Action' },
       { key: 'resourceType', header: 'Resource Type' },
+      { key: 'resourceLabel', header: 'Resource' },
       { key: 'resourceId', header: 'Resource ID' },
       { key: 'ip', header: 'IP' },
       { key: 'userAgent', header: 'User Agent' },

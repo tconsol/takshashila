@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
@@ -17,6 +18,8 @@ import { Input } from '../../components/ui/Input';
 import { GoogleSignInButton } from '../../components/GoogleSignInButton';
 import { authService } from '../../services/auth.service';
 
+const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://brainbaseedu.com';
+
 export default function RegisterScreen() {
   const [form, setForm] = useState({
     firstName: '',
@@ -27,6 +30,7 @@ export default function RegisterScreen() {
     confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
 
@@ -60,6 +64,10 @@ export default function RegisterScreen() {
       Alert.alert('Error', 'Password must be at least 8 characters.');
       return;
     }
+    if (!agreed) {
+      Alert.alert('Agreement needed', 'Please agree to the Terms of Use and Privacy Policy to create an account.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -70,6 +78,7 @@ export default function RegisterScreen() {
         password: form.password,
         phone: form.phone.trim() || undefined,
         role: 'STUDENT',
+        acceptedTerms: true,
       });
       setRegisteredEmail(form.email.trim().toLowerCase());
     } catch (err: unknown) {
@@ -135,7 +144,7 @@ export default function RegisterScreen() {
         >
           <View className="mb-8">
             <Text className="text-3xl font-bold text-gray-900">Create account</Text>
-            <Text className="text-muted mt-1">Join brainbaseeduas a student</Text>
+            <Text className="text-muted mt-1">Join brainbaseedu as a student</Text>
           </View>
 
           <View className="flex-row gap-3">
@@ -192,6 +201,22 @@ export default function RegisterScreen() {
             isPassword
             leftIcon="lock-closed-outline"
           />
+
+          <TouchableOpacity
+            onPress={() => setAgreed((v) => !v)}
+            className="mt-1 flex-row items-start gap-2.5"
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreed }}
+          >
+            <Ionicons name={agreed ? 'checkbox' : 'square-outline'} size={22} color={agreed ? '#4f46e5' : '#9ca3af'} />
+            <Text className="flex-1 text-xs text-muted">
+              I agree to the{' '}
+              <Text className="font-semibold text-indigo-600" onPress={() => Linking.openURL(`${WEB_URL}/terms`)}>Terms of Use</Text>
+              {' '}and{' '}
+              <Text className="font-semibold text-indigo-600" onPress={() => Linking.openURL(`${WEB_URL}/privacy`)}>Privacy Policy</Text>.
+              {' '}If you are under 18, please agree together with a parent or guardian.
+            </Text>
+          </TouchableOpacity>
 
           <Button
             onPress={handleRegister}

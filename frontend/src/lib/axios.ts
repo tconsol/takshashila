@@ -22,8 +22,16 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
+// Pages a signed-out visitor is meant to be on: never bounce them to /login.
+const PUBLIC_PATHS = [
+  '/login', '/register', '/forgot-password', '/reset-password', '/verify-email',
+  '/accept-invite', '/privacy', '/terms', '/cookies', '/data-policy',
+];
+
 function logout() {
   useAuthStore.getState().clearAuth();
+  const path = window.location.pathname;
+  if (path === '/' || PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) return;
   window.location.href = '/login';
 }
 
@@ -51,6 +59,8 @@ const PUBLIC_AUTH_ENDPOINTS = [
   '/auth/login', '/auth/refresh', '/auth/google', '/auth/register',
   '/auth/resend-verification', '/auth/verify-email', '/auth/forgot-password',
   '/auth/reset-password', '/auth/accept-invite',
+  // Fire-and-forget housekeeping: a 401 here says nothing about the user's session.
+  '/realtime/release',
 ];
 
 api.interceptors.response.use(

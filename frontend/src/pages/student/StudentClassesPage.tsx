@@ -144,6 +144,37 @@ export function StudentClassesPage() {
                   header: 'Status',
                   render: (c) => <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>,
                 },
+                {
+                  key: 'actions',
+                  header: '',
+                  render: (c) => {
+                    const live = c.status === 'LIVE' || c.status === 'IN_PROGRESS';
+                    const startMs = new Date(c.scheduledStartUTC).getTime();
+                    const joinable = live || (c.status === 'SCHEDULED' && Date.now() >= startMs - 15 * 60_000);
+                    return (
+                      <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                        {(live || c.status === 'SCHEDULED') && (
+                          <Button
+                            size="sm"
+                            disabled={!joinable}
+                            title={joinable ? undefined : 'Available 15 minutes before class starts'}
+                            onClick={() => (c.meetingUrl && c.meetingProvider && c.meetingProvider !== 'native'
+                              ? window.open(c.meetingUrl, '_blank', 'noopener,noreferrer')
+                              : navigate(`/class/${c.publicId}`))}
+                          >
+                            Join
+                          </Button>
+                        )}
+                        {c.status === 'SCHEDULED' && (
+                          <Button size="sm" variant="outline" onClick={() => handleAction('cancel', c)}>Cancel</Button>
+                        )}
+                        {c.status === 'COMPLETED' && !c.isRefunded && !ratedIds?.has(c.publicId) && (
+                          <Button size="sm" variant="outline" onClick={() => handleAction('rate', c)}>Rate</Button>
+                        )}
+                      </div>
+                    );
+                  },
+                },
               ]}
               emptyMessage="No classes yet"
             />
@@ -226,7 +257,11 @@ export function StudentClassesPage() {
       >
         <div className="space-y-3">
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            You will be refunded to your wallet. Please provide a reason.
+            Please provide a reason. Nothing is charged for a booked class until it is completed, so there is nothing to
+            refund; if this was a prepaid course class, its price returns to your wallet.
+          </p>
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+            Cancelling a paid class less than 24 hours before it starts costs a 1 credit fee. Earlier cancellations and free demo classes are free.
           </p>
           <textarea
             value={cancelReason}

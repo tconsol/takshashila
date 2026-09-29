@@ -26,6 +26,7 @@ export interface IUser {
   emailVerificationExpiry?: Date;
   passwordResetToken?: string;
   passwordResetExpiry?: Date;
+  consents?: Array<{ kind: string; version: string; acceptedAt: Date; ip?: string; userAgent?: string }>;
   twoFAEnabled: boolean;
   twoFASecret?: string;
   lastLoginAt?: Date;

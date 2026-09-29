@@ -41,11 +41,13 @@ async function bootstrap() {
     const { startCleanupWorker, scheduleCleanupJobs } = await import('./queues/cleanup.queue');
     const { startNotificationWorker } = await import('./queues/notification.queue');
     const { startSlotExpiryJob } = await import('./jobs/slot-expiry.job');
+    const { startClassReminderJob } = await import('./jobs/class-reminder.job');
     startEmailWorker();
     startNotificationWorker();
     startCleanupWorker();
     await scheduleCleanupJobs();
     startSlotExpiryJob();
+    startClassReminderJob();
     logger.info('Background workers running inside web process (RUN_WORKERS=true)');
   }
 

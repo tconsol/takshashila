@@ -6,6 +6,7 @@ import type { CreateChildDto } from '../services/parent.service';
 export const parentKeys = {
   profile: () => ['parent', 'profile'] as const,
   children: () => ['parent', 'children'] as const,
+  pendingRequests: () => ['parent', 'pending-link-requests'] as const,
   childClasses: (id: string, p?: Record<string, string>) => ['parent', 'child', id, 'classes', p] as const,
   childAttendance: (id: string, p?: Record<string, string>) => ['parent', 'child', id, 'attendance', p] as const,
   childAssignments: (id: string) => ['parent', 'child', id, 'assignments'] as const,
@@ -45,20 +46,30 @@ export function useCreateChild() {
   });
 }
 
-export function useLinkChild() {
+export function usePendingLinkRequests() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  return useQuery({
+    queryKey: parentKeys.pendingRequests(),
+    queryFn: parentService.getPendingLinkRequests,
+    enabled: isAuthenticated,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useCancelLinkRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (studentPublicId: string) => parentService.linkChild(studentPublicId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: parentKeys.children() });
-      qc.invalidateQueries({ queryKey: parentKeys.profile() });
-    },
+    mutationFn: (requestPublicId: string) => parentService.cancelLinkRequest(requestPublicId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: parentKeys.pendingRequests() }),
   });
 }
 
 export function useRequestLinkChild() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (studentPublicId: string) => parentService.requestLinkChild(studentPublicId),
+    // Show the request as waiting straight away instead of leaving the page looking untouched.
+    onSuccess: () => qc.invalidateQueries({ queryKey: parentKeys.pendingRequests() }),
   });
 }
 

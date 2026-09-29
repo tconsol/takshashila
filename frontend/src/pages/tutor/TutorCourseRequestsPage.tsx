@@ -15,6 +15,8 @@ import {
   useScheduleCourseClass,
 } from '../../hooks/use-courses';
 import type { Course } from '../../services/courses.service';
+import { useConfirm } from '../../hooks/use-confirm';
+import { useMyTutorProfile } from '../../hooks/use-tutors';
 
 const STATUS_TABS = [
   { key: '', label: 'All' },
@@ -26,8 +28,13 @@ const STATUS_TABS = [
 function AcceptForm({ coursePublicId }: { coursePublicId: string }) {
   const [classesRequired, setClassesRequired] = useState(4);
   const { mutate: accept, isPending } = useAcceptCourse();
+  const { confirm, confirmDialog } = useConfirm();
+  const { data: myProfile } = useMyTutorProfile();
+  const rateCents = (myProfile as { hourlyRateCents?: number } | undefined)?.hourlyRateCents ?? 0;
+  const totalCredits = (rateCents * classesRequired) / 100;
   return (
-    <div className="mt-3 flex items-center gap-2">
+    <div className="mt-3 flex items-center gap-2 flex-wrap">
+      {confirmDialog}
       <input
         type="number"
         min={1}
@@ -42,7 +49,15 @@ function AcceptForm({ coursePublicId }: { coursePublicId: string }) {
         variant="gradient"
         loading={isPending}
         disabled={classesRequired < 1 || classesRequired > 200}
-        onClick={() => accept({ coursePublicId, classesRequired })}
+        onClick={async () => {
+          const { confirmed } = await confirm({
+            title: 'Accept this course request?',
+            message: `The student will be charged ${totalCredits} credits up front (${classesRequired} classes at ${rateCents / 100} credits each) and you will schedule those classes. If they cannot afford it, the request stays pending.`,
+            confirmLabel: 'Accept and charge student',
+            tone: 'primary',
+          });
+          if (confirmed) accept({ coursePublicId, classesRequired });
+        }}
       >
         <Check className="h-3.5 w-3.5" /> Confirm accept
       </Button>
@@ -91,19 +106,30 @@ function ScheduleClassForm({
         loading={isPending}
         disabled={!title || !startUTC || !endUTC || !topicId}
         onClick={() =>
-          schedule({
-            coursePublicId,
-            dto: {
-              title,
-              startUTC: new Date(startUTC).toISOString(),
-              endUTC: new Date(endUTC).toISOString(),
-              topicPublicId: topicId,
+          schedule(
+            {
+              coursePublicId,
+              dto: {
+                title,
+                startUTC: new Date(startUTC).toISOString(),
+                endUTC: new Date(endUTC).toISOString(),
+                topicPublicId: topicId,
+              },
             },
-          })
+            {
+              // Clear the form so the next class starts blank and a repeat click cannot double-book by accident.
+              onSuccess: () => { setTitle(''); setStartUTC(''); setEndUTC(''); setTopicId(''); },
+            },
+          )
         }
       >
         <CalendarPlus className="h-3.5 w-3.5" /> Schedule class
       </Button>
+      {(!title || !startUTC || !endUTC || !topicId) && (
+        <p className="text-xs text-gray-500">
+          Add a {[!title && 'title', !startUTC && 'start time', !endUTC && 'end time', !topicId && 'topic'].filter(Boolean).join(', ')} to schedule this class.
+        </p>
+      )}
     </div>
   );
 }

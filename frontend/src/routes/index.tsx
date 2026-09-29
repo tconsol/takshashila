@@ -157,6 +157,8 @@ import { ChatPage } from '../pages/shared/ChatPage';
 // Shared
 import { TutorsBrowsePage } from '../pages/shared/TutorsBrowsePage';
 import { ProfilePage } from '../pages/shared/ProfilePage';
+import { LegalPage } from '../pages/legal/LegalPage';
+import { MySupportPage } from '../pages/shared/MySupportPage';
 
 // ─── Lazy parent aggregate views ─────────────────────────────────────────────
 // These show data across all children combined (picked from the first child or
@@ -165,6 +167,11 @@ import { ProfilePage } from '../pages/shared/ProfilePage';
 export const router = createBrowserRouter([
   { path: '/', element: lazyEl(<LandingPage />) },
   { path: '/tutors', element: <TutorsBrowsePage variant="public" /> },
+  // Public legal pages (linked from the footer, every sign-up form and the cookie notice).
+  { path: '/privacy', element: <LegalPage slug="privacy" /> },
+  { path: '/terms', element: <LegalPage slug="terms" /> },
+  { path: '/cookies', element: <LegalPage slug="cookies" /> },
+  { path: '/data-policy', element: <LegalPage slug="data-policy" /> },
 
   {
     element: <AuthLayout />,
@@ -192,6 +199,9 @@ export const router = createBrowserRouter([
         { path: '/dashboard/super-admin/admins', element: <SuperAdminAdminsPage /> },
         { path: '/dashboard/super-admin/users', element: <UserDirectoryPage /> },
         { path: '/dashboard/super-admin/principals', element: <PrincipalsDirectoryPage /> },
+        // Same approval queues the admin has: a super admin can do everything an admin can.
+        { path: '/dashboard/super-admin/principals/approvals', element: <AdminPrincipalsPage /> },
+        { path: '/dashboard/super-admin/tutors/approvals', element: <PrincipalTutorsPage /> },
         { path: '/dashboard/super-admin/tutors', element: <TutorsDirectoryPage /> },
         { path: '/dashboard/super-admin/students', element: <StudentsDirectoryPage /> },
         { path: '/dashboard/super-admin/curriculum', element: <AdminCurriculumPage /> },
@@ -372,6 +382,7 @@ export const router = createBrowserRouter([
         { path: '/chat', element: <ChatPage /> },
         { path: '/chat/:conversationId', element: <ChatPage /> },
         { path: '/profile', element: <ProfilePage /> },
+        { path: '/support', element: <MySupportPage /> },
       ],
     }],
   },

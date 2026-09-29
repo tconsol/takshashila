@@ -67,6 +67,9 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 /** A row is a user account plus, when the listing is role-filtered, its profile. */
+import { useApprovePrincipal } from '../../hooks/use-principals';
+import { useConfirm } from '../../hooks/use-confirm';
+
 export interface DirectoryRow extends DirectoryUser {
   profile: Record<string, unknown> | null;
   isDeleted?: boolean;
@@ -92,6 +95,8 @@ export function PeopleDirectory({
   title, eyebrow, description, icon, lockedRole, profileColumns = [], summary,
 }: PeopleDirectoryProps) {
   const qc = useQueryClient();
+  const { confirm, confirmDialog } = useConfirm();
+  const { mutateAsync: approvePrincipal, isPending: approvingPrincipal } = useApprovePrincipal();
   const currentUser = useAuthStore((s) => s.user);
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
@@ -277,11 +282,16 @@ export function PeopleDirectory({
     {
       key: 'status',
       header: 'Status',
-      render: (u) => (
-        <Badge variant={STATUS_VARIANT[u.status] ?? 'default'} tone="soft">
-          {u.status.replace('_', ' ')}
-        </Badge>
-      ),
+      render: (u) =>
+        // A principal's account is ACTIVE once their email is verified, but they
+        // cannot work until someone approves them: show that, not just ACTIVE.
+        u.role === 'PRINCIPAL' && (u.profile as { status?: string } | null)?.status === 'PENDING_APPROVAL' ? (
+          <Badge variant="warning" tone="soft">PENDING APPROVAL</Badge>
+        ) : (
+          <Badge variant={STATUS_VARIANT[u.status] ?? 'default'} tone="soft">
+            {u.status.replace('_', ' ')}
+          </Badge>
+        ),
     },
     {
       key: 'createdAt',
@@ -324,12 +334,45 @@ export function PeopleDirectory({
                   <CircleDollarSign className="h-3 w-3" />
                 </Button>
               )}
-              {u.status === 'SUSPENDED' ? (
+              {u.role === 'PRINCIPAL' && (u.profile as { status?: string; publicId?: string } | null)?.status === 'PENDING_APPROVAL' && (
+                <Button
+                  size="sm"
+                  variant="success"
+                  loading={approvingPrincipal}
+                  onClick={async () => {
+                    const { confirmed } = await confirm({
+                      title: 'Approve this principal?',
+                      message: `${u.firstName} ${u.lastName} will get access to run an organization: invite and approve tutors and students. You can suspend them later.`,
+                      confirmLabel: 'Approve principal',
+                      tone: 'primary',
+                    });
+                    const profileId = (u.profile as { publicId?: string } | null)?.publicId;
+                    if (confirmed && profileId) await approvePrincipal(profileId);
+                    invalidate();
+                  }}
+                >
+                  Approve
+                </Button>
+              )}
+              {u.publicId === currentUser?.publicId ? null : u.status === 'SUSPENDED' ? (
                 <Button size="sm" variant="success" title="Activate" loading={activating} onClick={() => activate(u.publicId)}>
                   <ShieldCheck className="h-3 w-3" />
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" title="Suspend" loading={suspending} onClick={() => suspend(u.publicId)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Suspend"
+                  loading={suspending}
+                  onClick={async () => {
+                    const { confirmed } = await confirm({
+                      title: `Suspend ${u.firstName} ${u.lastName}?`,
+                      message: 'They are signed out at once and cannot sign in until you activate the account again. Their data is kept.',
+                      confirmLabel: 'Suspend',
+                    });
+                    if (confirmed) suspend(u.publicId);
+                  }}
+                >
                   <ShieldAlert className="h-3 w-3" />
                 </Button>
               )}
@@ -350,6 +393,7 @@ export function PeopleDirectory({
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <PageHeader
         title={title}
         eyebrow={eyebrow}
@@ -475,7 +519,14 @@ export function PeopleDirectory({
       <UserDetailModal
         publicId={viewing}
         onClose={() => setViewing(null)}
-        onSuspend={(id) => suspend(id)}
+        onSuspend={async (id) => {
+          const { confirmed } = await confirm({
+            title: 'Suspend this user?',
+            message: 'They are signed out at once and cannot sign in until you activate the account again. Their data is kept.',
+            confirmLabel: 'Suspend',
+          });
+          if (confirmed) suspend(id);
+        }}
         onActivate={(id) => activate(id)}
         mutating={suspending || activating}
       />

@@ -23,15 +23,15 @@ import CardSwap, { Card } from '../components/landing/CardSwap';
 import { ChatBot } from '../components/landing/FloatingWidgets';
 
 const CODE_LINES: TermLine[] = [
-  { type: 'cmd', text: 'brainbaseedustart --subject coding' },
+  { type: 'cmd', text: 'brainbaseedu start --subject coding' },
   { type: 'muted', text: 'Finding the perfect tutor for you…' },
   { type: 'ok', text: '✔ Matched with Priya · Python & Web Dev · ★ 4.9' },
   { type: 'gap' },
-  { type: 'cmd', text: 'brainbaseedudemo --free' },
+  { type: 'cmd', text: 'brainbaseedu demo --free' },
   { type: 'ok', text: '✔ 3 free demo classes added to your wallet' },
   { type: 'out', text: '  Live class starts in 2 minutes…' },
   { type: 'gap' },
-  { type: 'cmd', text: 'brainbaseeduprogress' },
+  { type: 'cmd', text: 'brainbaseedu progress' },
   { type: 'out', text: '  Attendance 94%  ·  Worksheets 12/12  ·  Streak 🔥 7 days' },
   { type: 'ok', text: '✔ You\'re on track. Keep going!' },
 ];
@@ -853,7 +853,7 @@ export function LandingPage() {
               </span>
             </h2>
             <p className="mt-4 text-lg text-slate-600">
-              Whether you're learning, teaching, parenting or running a school brainbaseedufits the way you work.
+              Whether you're learning, teaching, parenting or running a school brainbaseedu fits the way you work.
             </p>
           </motion.div>
 
@@ -1122,7 +1122,7 @@ export function LandingPage() {
               </Sticker>
             </motion.div>
 
-            {/* brainbaseeduway */}
+            {/* brainbaseedu way */}
             <motion.div custom={1} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}>
               <Sticker rotate="rotate-1" className="relative h-full overflow-hidden bg-indigo-600 p-7">
                 <Sparkle className="absolute right-5 top-5 h-9 w-9 text-white/20" />
@@ -1401,7 +1401,7 @@ export function LandingPage() {
             {([
               { h: 'Platform', items: [{ label: 'Find Tutors', to: '/tutors' }, { label: 'Sign in', to: '/login' }, { label: 'Register', to: '/register' }, { label: 'Features', href: '#features' }] },
               { h: "Who it's for", items: [{ label: 'Students' }, { label: 'Tutors' }, { label: 'Principals' }, { label: 'Parents' }] },
-              { h: 'Legal', items: [{ label: 'Privacy Policy' }, { label: 'Terms of Service' }, { label: 'Cookie Policy' }, { label: 'Contact Us' }] },
+              { h: 'Legal', items: [{ label: 'Privacy Policy', to: '/privacy' }, { label: 'Terms of Use', to: '/terms' }, { label: 'Cookie Policy', to: '/cookies' }, { label: 'Data & Deletion Policy', to: '/data-policy' }, { label: 'Contact Us', href: 'mailto:support@brainbaseedu.com' }] },
             ] as { h: string; items: { label: string; to?: string; href?: string }[] }[]).map((col) => (
               <div key={col.h}>
                 <p className="mb-4 text-xs font-bold uppercase tracking-widest text-indigo-300">{col.h}</p>

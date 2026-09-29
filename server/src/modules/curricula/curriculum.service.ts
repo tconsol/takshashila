@@ -36,11 +36,27 @@ export class CurriculumService {
     const setFields: Record<string, unknown> = { ...rest };
     if (districtId) Object.assign(setFields, locationFromDistrict(districtId));
     if (dto.topics) {
-      setFields.topics = dto.topics.map((t, i) => ({
-        publicId: t.publicId ?? uuidv4(),
-        title: t.title,
-        order: t.order ?? i,
-      }));
+      const existing = await CurriculumModel.findOne({ publicId: curriculumPublicId, isDeleted: false }).lean();
+      if (!existing) throw new NotFoundError('Curriculum');
+      const merged = mergeTopics(existing.topics ?? [], dto.topics);
+
+      const removed = (existing.topics ?? []).filter((t) => !merged.some((m) => m.publicId === t.publicId));
+      if (removed.length > 0) {
+        const inUse = await CourseModel.find({
+          curriculumPublicId,
+          status: { $in: [CourseStatus.PENDING, CourseStatus.ACCEPTED] },
+          isDeleted: false,
+          topicPublicIds: { $in: removed.map((t) => t.publicId) },
+        }, { topicPublicIds: 1 }).lean();
+        if (inUse.length > 0) {
+          const used = new Set(inUse.flatMap((c) => c.topicPublicIds ?? []));
+          const names = removed.filter((t) => used.has(t.publicId)).map((t) => `"${t.title}"`).join(', ');
+          throw new ConflictError(
+            `Cannot remove topic${names.includes(',') ? 's' : ''} ${names}: referenced by ${inUse.length} active course request${inUse.length === 1 ? '' : 's'}`,
+          );
+        }
+      }
+      setFields.topics = merged;
     }
     const updated = await CurriculumModel.findOneAndUpdate(
       { publicId: curriculumPublicId, isDeleted: false },
@@ -113,6 +129,28 @@ export class CurriculumService {
     ]);
     return buildPaginatedResult(items, total, page, limit);
   }
+}
+
+/** Keeps existing topic publicIds when the client omits them: an id-less input takes the id of
+ *  the existing topic at the same position if titles match, else the first unclaimed existing
+ *  topic with the same title. Truly new topics get a fresh id. */
+export function mergeTopics(
+  existing: Array<{ publicId: string; title: string; order?: number }>,
+  input: Array<{ publicId?: string; title: string; order?: number }>,
+): Array<{ publicId: string; title: string; order: number }> {
+  const claimed = new Set(input.map((t) => t.publicId).filter((id): id is string => !!id));
+  const sorted = [...existing].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  return input.map((t, i) => {
+    let publicId = t.publicId;
+    if (!publicId) {
+      const atPos = sorted[i];
+      const match = atPos && !claimed.has(atPos.publicId) && atPos.title === t.title
+        ? atPos
+        : sorted.find((e) => !claimed.has(e.publicId) && e.title === t.title);
+      if (match) { publicId = match.publicId; claimed.add(publicId); }
+    }
+    return { publicId: publicId ?? uuidv4(), title: t.title, order: t.order ?? i };
+  });
 }
 
 /** Validators already reject unknown districts; this guards direct service callers. */

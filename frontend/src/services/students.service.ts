@@ -19,6 +19,8 @@ export interface StudentProfile {
   notes?: string;
   subjects?: string[];
   demoClassesUsed: number;
+  /** Tutors this student has already had a free demo with. */
+  demoClassTakenWith?: string[];
   totalClassesAttended: number;
   totalClassesMissed: number;
   totalClassesBooked?: number;
@@ -52,6 +54,8 @@ export interface CreateStudentDto {
   customStudentId?: string;
   grade?: string;
   notes?: string;
+  /** A parent or guardian agrees to the Terms of Use and Privacy Policy for this child. */
+  guardianConsent: true;
 }
 
 export interface CreateStudentByPrincipalDto {
@@ -64,6 +68,8 @@ export interface CreateStudentByPrincipalDto {
   customStudentId?: string;
   grade?: string;
   notes?: string;
+  /** A parent or guardian agrees to the Terms of Use and Privacy Policy for this child. */
+  guardianConsent: true;
 }
 
 export interface InviteStudentByPrincipalDto {
@@ -96,6 +102,8 @@ export interface CreateStudentByParentDto {
   customStudentId?: string;
   grade?: string;
   notes?: string;
+  /** A parent or guardian agrees to the Terms of Use and Privacy Policy for this child. */
+  guardianConsent: true;
 }
 
 /** One tutor relationship as the student sees it. */

@@ -55,7 +55,7 @@ router.post('/conversations/:publicId/messages', async (req: AuthRequest, res: R
 router.post('/conversations/:convId/messages/:messagePublicId/pin', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { durationHours } = req.body as { durationHours: number };
-    const msg = await chatService.pinMessage(req.params.messagePublicId, req.user!.publicId, durationHours);
+    const msg = await chatService.pinMessage(req.params.convId, req.params.messagePublicId, req.user!.publicId, durationHours);
     try {
       getIO().to(`chat:${req.params.convId}`).emit('chat:message-pinned', { conversationPublicId: req.params.convId, message: msg });
     } catch {}
@@ -65,7 +65,7 @@ router.post('/conversations/:convId/messages/:messagePublicId/pin', async (req: 
 
 router.delete('/conversations/:convId/messages/:messagePublicId/pin', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await chatService.unpinMessage(req.params.messagePublicId);
+    await chatService.unpinMessage(req.params.convId, req.params.messagePublicId, req.user!.publicId);
     try {
       getIO().to(`chat:${req.params.convId}`).emit('chat:message-unpinned', { conversationPublicId: req.params.convId, messagePublicId: req.params.messagePublicId });
     } catch {}
@@ -76,7 +76,7 @@ router.delete('/conversations/:convId/messages/:messagePublicId/pin', async (req
 router.post('/conversations/:convId/messages/:messagePublicId/react', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { emoji } = req.body as { emoji: string };
-    const updatedMsg = await chatService.reactToMessage(req.params.messagePublicId, req.user!.publicId, emoji);
+    const updatedMsg = await chatService.reactToMessage(req.params.convId, req.params.messagePublicId, req.user!.publicId, emoji);
     try {
       getIO().to(`chat:${req.params.convId}`).emit('chat:reaction', {
         conversationPublicId: req.params.convId,
@@ -90,7 +90,7 @@ router.post('/conversations/:convId/messages/:messagePublicId/react', async (req
 router.delete('/conversations/:convId/messages/:messagePublicId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const forEveryone = req.query.forEveryone === 'true';
-    await chatService.deleteMessage(req.params.messagePublicId, req.user!.publicId, forEveryone);
+    await chatService.deleteMessage(req.params.convId, req.params.messagePublicId, req.user!.publicId, forEveryone);
     if (forEveryone) {
       try {
         getIO().to(`chat:${req.params.convId}`).emit('chat:message-deleted', {

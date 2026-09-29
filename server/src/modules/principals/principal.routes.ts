@@ -1,3 +1,4 @@
+import { auditService } from '../audit/audit.service';
 import { Router } from 'express';
 import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
@@ -50,6 +51,16 @@ router.get('/:principalId', requirePermission(Permission.MANAGE_PRINCIPALS), asy
 router.post('/:principalId/approve', requirePermission(Permission.APPROVE_PRINCIPALS), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const profile = await principalService.approve(req.params.principalId, req.user!.publicId);
+    await auditService.log({
+      actorId: req.user!.publicId,
+      actorRole: req.user!.role as never,
+      action: 'PRINCIPAL_APPROVED',
+      resourceType: 'PrincipalProfile',
+      resourceId: req.params.principalId,
+      ip: req.ip,
+      userAgent: req.get('user-agent') ?? undefined,
+      after: { status: 'ACTIVE' },
+    }).catch(() => undefined);
     sendSuccess(res, profile, 'Principal approved');
   } catch (e) { next(e); }
 });

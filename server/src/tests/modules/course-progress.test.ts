@@ -60,12 +60,24 @@ describe('computeTopicProgress', () => {
     expect(result[0].nextClass?.publicId).toBe('c-live');
   });
 
-  it('keeps a topic with a MISSED class incomplete, and NOT_SCHEDULED if nothing is upcoming', () => {
+  it('keeps a topic with a MISSED class incomplete and reports it as MISSED when nothing is upcoming', () => {
     const { topics: result } = computeTopicProgress(topics.slice(0, 1), [
       cls('c-1', 't-1', 'COMPLETED', '2026-09-20T10:00:00Z'),
       cls('c-2', 't-1', 'MISSED', '2026-09-21T10:00:00Z'),
     ], NOW);
-    expect(result[0].status).toBe('NOT_SCHEDULED');
+    expect(result[0].status).toBe('MISSED');
+  });
+
+  it('lets a later COMPLETED or SCHEDULED class win over an earlier MISSED one', () => {
+    const t = topics.slice(0, 1);
+    expect(computeTopicProgress(t, [
+      cls('c-1', 't-1', 'MISSED', '2026-09-20T10:00:00Z'),
+      cls('c-2', 't-1', 'COMPLETED', '2026-09-21T10:00:00Z'),
+    ], NOW).topics[0].status).toBe('COMPLETED');
+    expect(computeTopicProgress(t, [
+      cls('c-1', 't-1', 'FAILED', '2026-09-20T10:00:00Z'),
+      cls('c-2', 't-1', 'SCHEDULED', '2026-09-28T10:00:00Z'),
+    ], NOW).topics[0].status).toBe('SCHEDULED');
   });
 
   it('lists each topic\'s non-ignored classes in time order, and groups untagged classes separately', () => {

@@ -16,7 +16,8 @@ export interface CurriculumTutorCard {
   isVerified: boolean;
 }
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
-import { NotFoundError, ConflictError } from '../../utils/error';
+import { NotFoundError, ConflictError, AuthorizationError } from '../../utils/error';
+import { Role } from '../../constants/roles';
 import { domainEvents } from '../../events/event-emitter';
 import { walletService } from '../wallets/wallet.service';
 import { userRepository } from '../users/user.repository';
@@ -170,8 +171,23 @@ export class TutorService {
     return updated!;
   }
 
-  async approve(publicId: string, approvedBy: string): Promise<ITutorProfile> {
+  /**
+   * A principal may only manage tutors that belong to their own organization.
+   * Admins and super admins are not restricted.
+   */
+  private assertActorCanManage(profile: ITutorProfile, actor: { userPublicId: string; role: Role }): void {
+    if (actor.role === Role.ADMIN || actor.role === Role.SUPER_ADMIN) return;
+    if (actor.role === Role.PRINCIPAL && profile.principalPublicId === actor.userPublicId) return;
+    throw new AuthorizationError('You can only manage tutors in your own organization');
+  }
+
+  async approve(
+    publicId: string,
+    approvedBy: string,
+    actorRole: Role,
+  ): Promise<ITutorProfile> {
     const profile = await this.getByPublicId(publicId);
+    this.assertActorCanManage(profile, { userPublicId: approvedBy, role: actorRole });
 
     if (profile.status !== TutorStatus.UNDER_VERIFICATION) {
       throw new ConflictError(`Cannot approve from status: ${profile.status}`);
@@ -188,13 +204,15 @@ export class TutorService {
     return updated!;
   }
 
-  async suspend(publicId: string): Promise<ITutorProfile> {
+  async suspend(publicId: string, actor: { userPublicId: string; role: Role }): Promise<ITutorProfile> {
+    this.assertActorCanManage(await this.getByPublicId(publicId), actor);
     const updated = await tutorRepository.update(publicId, { status: TutorStatus.SUSPENDED });
     if (!updated) throw new NotFoundError('Tutor profile');
     return updated;
   }
 
-  async reactivate(publicId: string): Promise<ITutorProfile> {
+  async reactivate(publicId: string, actor: { userPublicId: string; role: Role }): Promise<ITutorProfile> {
+    this.assertActorCanManage(await this.getByPublicId(publicId), actor);
     const updated = await tutorRepository.update(publicId, { status: TutorStatus.ACTIVE });
     if (!updated) throw new NotFoundError('Tutor profile');
     return updated;

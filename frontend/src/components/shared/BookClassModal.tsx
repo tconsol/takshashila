@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
+import { getPublicSettings } from '../../services/system.service';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Sparkles, Video } from 'lucide-react';
@@ -29,10 +31,12 @@ interface BookClassModalProps {
   open: boolean;
   onClose: () => void;
   tutor: TutorProfile;
+  /** Start on a normal booking when the student has already had their free demo with this tutor. */
+  defaultClassType?: 'DEMO' | 'ONE_ON_ONE';
   onSuccess?: () => void;
 }
 
-export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassModalProps) {
+export function BookClassModal({ open, onClose, tutor, defaultClassType = 'DEMO', onSuccess }: BookClassModalProps) {
   const [error, setError] = useState<string | null>(null);
   const userTimezone = useAuthStore((s) => s.user?.timezone) ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const { data: slots = [], isLoading: slotsLoading } = useTutorSlots(tutor.publicId);
@@ -40,12 +44,14 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
   const { mutateAsync: createDemoRequest, isPending: isRequesting } = useCreateDemoRequest();
 
   const isPending = isBooking || isRequesting;
+  const { data: publicSettings } = useQuery({ queryKey: ['public-settings'], queryFn: getPublicSettings, staleTime: 60_000 });
+  const bookingClosed = publicSettings?.classBookingEnabled === false;
 
   const availableSlots = slots.filter((s) => s.status === 'AVAILABLE');
 
   const { register, handleSubmit, watch, control, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { classType: 'DEMO', subject: tutor.subjects[0] ?? '' },
+    defaultValues: { classType: defaultClassType, subject: tutor.subjects[0] ?? '' },
   });
 
   const classType = watch('classType');
@@ -104,7 +110,7 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={isPending}>Cancel</Button>
-          <Button onClick={handleSubmit(onSubmit)} loading={isPending}>
+          <Button onClick={handleSubmit(onSubmit)} loading={isPending} disabled={bookingClosed && !isDemo}>
             {isDemo ? 'Send Demo Request' : 'Confirm Booking'}
           </Button>
         </>
@@ -161,22 +167,33 @@ export function BookClassModal({ open, onClose, tutor, onSuccess }: BookClassMod
           </div>
         )}
 
+        {bookingClosed && !isDemo && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-200">
+            Class booking is temporarily unavailable. Please try again later.
+          </div>
+        )}
+
         {!isDemo && (() => {
           const rate = tutor.hourlyRateCents ?? 0;
-          const rateCredits = rate / 100;
+          // The hourly rate is for 60 minutes: a shorter slot costs proportionally less.
+          const minutes = selectedSlot?.durationMinutes ?? 60;
+          const rateCredits = Math.round((rate * minutes) / 60) / 100;
           const total = rateCredits + PLATFORM_FEE_CREDITS;
           return (
             <div className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 dark:border-violet-800/40 dark:bg-violet-900/20">
               <p className="mb-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300">Cost (charged after the class)</p>
               <div className="space-y-0.5 text-xs text-violet-700/90 dark:text-violet-300/90">
-                <div className="flex justify-between"><span>Tutor rate</span><span>{rateCredits} credits</span></div>
+                <div className="flex justify-between">
+                  <span>Tutor rate{selectedSlot?.durationMinutes ? ` (${minutes} min at ${rate / 100}/hr)` : ' (per hour)'}</span>
+                  <span>{rateCredits} credits</span>
+                </div>
                 <div className="flex justify-between"><span>Platform fee</span><span>{PLATFORM_FEE_CREDITS} credit</span></div>
                 <div className="flex justify-between border-t border-violet-200/70 pt-0.5 font-semibold dark:border-violet-700/50">
                   <span>You pay</span><span>{total} credits</span>
                 </div>
               </div>
               <p className="mt-1.5 text-[11px] text-violet-600/80 dark:text-violet-400/80">
-                Charged only when the class is completed and you've attended.
+                Charged only when the class is completed and you've attended. Free demo credits cannot be used for paid classes.
               </p>
             </div>
           );

@@ -29,6 +29,8 @@ export interface GoogleAuthInput {
   /** PRINCIPAL */
   organizationName?: string;
   organizationWebsite?: string;
+  /** Required on the signup leg; recorded as consent. */
+  acceptedTerms?: boolean;
 }
 
 /** Returned with HTTP 200 — not an error, just an unfinished signup. */

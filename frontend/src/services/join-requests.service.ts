@@ -52,6 +52,12 @@ export const joinRequestsService = {
     api.post('/join-requests/principal-request', { query, message })
       .then((r) => r.data.data as JoinRequest),
 
+  leaveOrganization: () =>
+    api.post('/join-requests/leave-organization').then((r) => r.data),
+
+  removeTutor: (tutorProfilePublicId: string) =>
+    api.delete(`/join-requests/tutors/${tutorProfilePublicId}`).then((r) => r.data),
+
   listIncoming: () =>
     api.get('/join-requests/incoming').then((r) => r.data.data as JoinRequest[]),
 

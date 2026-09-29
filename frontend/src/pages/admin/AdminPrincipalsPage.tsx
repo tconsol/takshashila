@@ -1,3 +1,4 @@
+import { useConfirm } from '../../hooks/use-confirm';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -27,6 +28,7 @@ export function AdminPrincipalsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const { data: pendingData, isLoading: pendingLoading } = usePendingPrincipals();
   const { data: allData, isLoading: allLoading } = usePrincipalList();
+  const { confirm, confirmDialog } = useConfirm();
   const { mutateAsync: approve, isPending: approving } = useApprovePrincipal();
   const { mutateAsync: suspend, isPending: suspending } = useSuspendPrincipal();
 
@@ -44,6 +46,7 @@ export function AdminPrincipalsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <PageHeader title="Principals" subtitle="Review and manage principal accounts" />
 
       <Tabs
@@ -67,8 +70,23 @@ export function AdminPrincipalsPage() {
               key={principal.publicId}
               principal={principal}
               statusVariant={statusVariant}
-              onApprove={principal.status !== 'ACTIVE' ? () => approve(principal.publicId) : undefined}
-              onSuspend={principal.status === 'ACTIVE' ? () => suspend(principal.publicId) : undefined}
+              onApprove={principal.status !== 'ACTIVE' ? async () => {
+                const { confirmed } = await confirm({
+                  title: 'Approve this principal?',
+                  message: 'They get access to run an organization: invite and approve tutors and students. You can suspend them later.',
+                  confirmLabel: 'Approve principal',
+                  tone: 'primary',
+                });
+                if (confirmed) await approve(principal.publicId);
+              } : undefined}
+              onSuspend={principal.status === 'ACTIVE' ? async () => {
+                const { confirmed } = await confirm({
+                  title: 'Suspend this principal?',
+                  message: 'They are signed out and cannot sign in until you approve them again. Their tutors and students are not removed.',
+                  confirmLabel: 'Suspend',
+                });
+                if (confirmed) await suspend(principal.publicId);
+              } : undefined}
               approving={approving}
               suspending={suspending}
             />

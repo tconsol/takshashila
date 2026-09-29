@@ -3,20 +3,24 @@ import { ScheduledClassModel } from '../schedules/schedule.model';
 import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES, MIN_SESSION_MINUTES, isPrepaid } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { scheduleService } from '../schedules/schedule.service';
-import { walletService } from '../wallets/wallet.service';
+import { walletService, spendableCents } from '../wallets/wallet.service';
 import { CreditType } from '../wallets/wallet.types';
 import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
 import { tutorRepository } from '../tutors/tutor.repository';
 import { principalService } from '../principals/principal.service';
 import { TutorProfileModel } from '../tutors/tutor.model';
+import { TutorStatus } from '../tutors/tutor.types';
 import { StudentProfileModel } from '../students/student.model';
-import { AppError, ConflictError, NotFoundError } from '../../utils/error';
+import { isWithinAvailability } from '../../shared/availability';
+import { AppError, ConflictError, NotFoundError, ValidationError } from '../../utils/error';
+import { settingsService } from '../settings/settings.service';
 import { logger } from '../../lib/logger';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { PLATFORM_FEE_CENTS } from '../../utils/currency';
 import { attendanceService } from '../attendance/attendance.service';
+import { auditService } from '../audit/audit.service';
 import { AttendanceStatus } from '../attendance/attendance.types';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
@@ -24,6 +28,9 @@ import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto
 
 // A completed demo class consumes 10 credits from the student's free demo-credit bucket.
 const DEMO_CLASS_COST_CENTS = 10 * 100;
+
+// Cancelling at least this long before the start is free; later costs the platform fee.
+const CANCELLATION_FREE_NOTICE_HOURS = 24;
 
 export class ClassService {
   async bookClass(
@@ -35,6 +42,10 @@ export class ClassService {
     }).lean();
     if (existingByKey) return existingByKey;
 
+    if (!(await settingsService.isFeatureEnabled('classBookingEnabled'))) {
+      throw new AppError('Class booking is temporarily unavailable. Please try again later.', 503);
+    }
+
     const slot = await scheduleService.getSlotByPublicId(dto.availabilitySlotPublicId);
 
     if (slot.tutorPublicId !== dto.tutorPublicId) {
@@ -42,60 +53,101 @@ export class ClassService {
     }
 
     const tutorProfile = await tutorService.getByPublicId(dto.tutorPublicId);
+    if (tutorProfile.status !== TutorStatus.ACTIVE) {
+      throw new ConflictError(
+        tutorProfile.status === TutorStatus.UNDER_VERIFICATION
+          ? "This tutor's account is being reviewed by their organization and cannot take bookings until it is approved. Please try again later."
+          : 'This tutor is not currently accepting bookings',
+      );
+    }
+
+    const bookingSettings = await settingsService.get();
+    this.assertWithinClassLimits(
+      bookingSettings,
+      [{ start: new Date(slot.startUTC) }],
+      slot.durationMinutes,
+    );
     const studentProfile = await studentService.getByUserPublicId(studentUserPublicId);
 
-    const costCents = tutorProfile.hourlyRateCents;
+    // hourlyRateCents is the price of 60 minutes: bill in proportion to the
+    // booked length so a 30-minute class is not charged as a full hour.
+    const costCents = Math.round((tutorProfile.hourlyRateCents * slot.durationMinutes) / 60);
 
-    // Charge happens at class completion (not booking), so nothing is held here.
-    // That means balance alone isn't enough to check: a student with one
-    // balance can otherwise book N classes in parallel, since each booking's
-    // check reads the same untouched balance. Guard against that by also
-    // counting what's already on the hook — every other STUDENT_REQUESTED
-    // class still awaiting completion — so the sum of outstanding obligations
-    // never exceeds what the student can actually pay.
+    // Charge happens at class completion (not booking), so nothing is held
+    // here. Balance alone isn't enough to check: a student with one balance
+    // could otherwise book N classes, since each check reads the same untouched
+    // balance. So we also count every SCHEDULED/LIVE class that will charge the
+    // student at completion. STUDENT_REQUESTED is the only such billing mode:
+    // COURSE_/PROGRAM_PREPAID were paid up front, TUTOR_INVITED charges the
+    // tutor. The check and the class insert run in ONE transaction that first
+    // writes the student's wallet (see runWithBookingLock), so concurrent
+    // bookings for the same student serialize instead of both passing.
+    const buildClass = () => ({
+      publicId: uuidv4(),
+      tutorPublicId: dto.tutorPublicId,
+      studentPublicId: studentProfile.publicId,
+      availabilitySlotPublicId: slot.publicId,
+      classType: dto.classType,
+      status: ClassStatus.SCHEDULED,
+      startUTC: slot.startUTC,
+      endUTC: slot.endUTC,
+      ianaTimezone: slot.ianaTimezone,
+      durationMinutes: slot.durationMinutes,
+      title: dto.title,
+      description: dto.description,
+      costCents,
+      billingMode: BillingMode.STUDENT_REQUESTED,
+      idempotencyKey: dto.idempotencyKey,
+      isDeleted: false,
+    });
+
     if (costCents > 0) {
-      const wallet = await walletService.getWallet(studentUserPublicId);
-      const outstanding = await ScheduledClassModel.aggregate([
-        {
-          $match: {
-            studentPublicId: studentProfile.publicId,
-            billingMode: BillingMode.STUDENT_REQUESTED,
-            status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
-            isDeleted: false,
-          },
-        },
-        { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
-      ]);
-      const outstandingCents = outstanding[0]?.totalCents ?? 0;
-      const outstandingCount = outstanding[0]?.count ?? 0;
-      const totalOwedCents =
-        outstandingCents + (outstandingCount + 1) * PLATFORM_FEE_CENTS + costCents;
-      if (wallet.balanceCents < totalOwedCents) {
-        throw new AppError('Insufficient credits to book this class', 402);
-      }
+      // Make sure the wallet exists; the lock below needs a document to write.
+      await walletService.getWallet(studentUserPublicId);
     }
 
     await scheduleService.blockSlot(slot.publicId);
 
     try {
-      const scheduledClass = await ScheduledClassModel.create({
-        publicId: uuidv4(),
-        tutorPublicId: dto.tutorPublicId,
-        studentPublicId: studentProfile.publicId,
-        availabilitySlotPublicId: slot.publicId,
-        classType: dto.classType,
-        status: ClassStatus.SCHEDULED,
-        startUTC: slot.startUTC,
-        endUTC: slot.endUTC,
-        ianaTimezone: slot.ianaTimezone,
-        durationMinutes: slot.durationMinutes,
-        title: dto.title,
-        description: dto.description,
-        costCents,
-        billingMode: BillingMode.STUDENT_REQUESTED,
-        idempotencyKey: dto.idempotencyKey,
-        isDeleted: false,
-      });
+      let scheduledClass;
+      if (costCents > 0) {
+        scheduledClass = await walletService.runWithBookingLock(studentUserPublicId, async ({ session, wallet }) => {
+          const outstanding = await ScheduledClassModel.aggregate([
+            {
+              $match: {
+                studentPublicId: studentProfile.publicId,
+                billingMode: BillingMode.STUDENT_REQUESTED,
+                status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+                isDeleted: false,
+              },
+            },
+            { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
+          ]).session(session);
+          const outstandingCents = outstanding[0]?.totalCents ?? 0;
+          const outstandingCount = outstanding[0]?.count ?? 0;
+          const totalOwedCents =
+            outstandingCents + (outstandingCount + 1) * PLATFORM_FEE_CENTS + costCents;
+          const availableCents = spendableCents(wallet);
+          if (availableCents < totalOwedCents) {
+            const reservedCents = outstandingCents + outstandingCount * PLATFORM_FEE_CENTS;
+            const thisClassCents = costCents + PLATFORM_FEE_CENTS;
+            const reservedNote = outstandingCount > 0
+              ? ` ${reservedCents / 100} credits are already reserved for ${outstandingCount} other booked class${outstandingCount === 1 ? '' : 'es'}.`
+              : '';
+            const demoNote = (wallet.demoCreditsCents ?? 0) > 0
+              ? ' Free demo credits can only be used for demo classes.'
+              : '';
+            throw new AppError(
+              `Insufficient credits to book this class. It costs ${thisClassCents / 100} credits (rate plus platform fee) and you have ${availableCents / 100} available.${reservedNote}${demoNote}`,
+              402,
+            );
+          }
+          const [created] = await ScheduledClassModel.create([buildClass()], { session });
+          return created;
+        });
+      } else {
+        scheduledClass = await ScheduledClassModel.create(buildClass());
+      }
 
       domainEvents.emit(DomainEvent.CLASS_BOOKED, {
         classPublicId: scheduledClass.publicId,
@@ -130,6 +182,8 @@ export class ClassService {
     domainEvents.emit(DomainEvent.CLASS_STARTED, {
       classPublicId,
       tutorUserPublicId,
+      startedBy: 'TUTOR',
+      wentLive: true,
     });
 
     return scheduled;
@@ -191,6 +245,10 @@ export class ClassService {
       classPublicId,
       tutorUserPublicId: tutorProfile?.userPublicId ?? '',
       studentUserPublicId: studentProfile?.userPublicId ?? '',
+      // Lets the notification say who actually opened the room, and only once:
+      // later joins of an already-LIVE class must not re-announce it.
+      startedBy: role,
+      wentLive: cls.status === ClassStatus.SCHEDULED,
     });
 
     return updated;
@@ -243,7 +301,16 @@ export class ClassService {
     domainEvents.emit(DomainEvent.PROGRAM_ENROLLMENT_COMPLETED, { enrollmentPublicId });
   }
 
-  async completeClass(classPublicId: string, tutorUserPublicId: string): Promise<IScheduledClass> {
+  /**
+   * `manual` is true when a person presses Complete. The auto-resolve sweep
+   * (which only runs after the scheduled end) passes false and skips the
+   * timing guard below.
+   */
+  async completeClass(
+    classPublicId: string,
+    tutorUserPublicId: string,
+    opts: { manual?: boolean } = {},
+  ): Promise<IScheduledClass> {
     const scheduled = await ScheduledClassModel.findOne({
       publicId: classPublicId,
       isDeleted: false,
@@ -254,8 +321,10 @@ export class ClassService {
       throw new ConflictError(`Cannot complete class in status: ${scheduled.status}`);
     }
 
+    if (opts.manual) this._assertCanCompleteNow(scheduled);
+
     // Guarded on status so a double-click or a race with the sweep completes (and pays) only once.
-    const updated = await ScheduledClassModel.findOneAndUpdate(
+    let updated = await ScheduledClassModel.findOneAndUpdate(
       { publicId: classPublicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] } },
       { $set: { status: ClassStatus.COMPLETED, needsTutorDecision: false } },
       { new: true },
@@ -430,8 +499,9 @@ export class ClassService {
             await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
           }
         } catch (error) {
-          // Insufficient student balance complete the class but skip the charge.
-          // (Booking already validated balance; this guards edge cases.)
+          // Insufficient student balance: still complete the class (product
+          // decision) but skip the charge. Record it on the class and in the
+          // audit log so admins can find unpaid classes.
           logger.error('Could not bill class on completion', {
             classPublicId,
             studentUserPublicId: studentProfileForEvent.userPublicId,
@@ -440,6 +510,24 @@ export class ClassService {
             tutorEarningsCents,
             error: (error as Error).message,
           });
+          const reason = (error as Error).message;
+          const flagged = await ScheduledClassModel.findOneAndUpdate(
+            { publicId: classPublicId },
+            { $set: { billingFailed: true, billingFailureReason: reason } },
+            { new: true },
+          ).lean().catch((e: Error) => {
+            logger.error('completeClass: could not flag billingFailed', { classPublicId, error: e.message });
+            return null;
+          });
+          if (flagged) updated = flagged;
+          await auditService.log({
+            actorId: tutorUserPublicId,
+            actorRole: 'TUTOR' as never,
+            action: 'CLASS_BILLING_FAILED',
+            resourceType: 'ScheduledClass',
+            resourceId: classPublicId,
+            after: { studentChargeCents, tutorEarningsCents, reason, studentUserPublicId: studentProfileForEvent.userPublicId },
+          }).catch((e: Error) => logger.error('completeClass: billing-failure audit log failed', { classPublicId, error: e.message }));
         }
       }
     }
@@ -456,7 +544,7 @@ export class ClassService {
           classPublicId,
           studentPublicId: scheduled.studentPublicId,
           status: attended ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT,
-          durationPresentMinutes: attended ? (scheduled.durationMinutes ?? 0) : 0,
+          durationPresentMinutes: attended ? this._minutesActuallyPresent(scheduled) : 0,
         },
         scheduled.tutorPublicId,
       ).catch(() => {}); // ignore if already manually marked
@@ -561,7 +649,7 @@ export class ClassService {
       StudentProfileModel.findOne({ publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
     ]);
 
-    if (!isPrepaid(scheduled.billingMode)) {
+    if (!isPrepaid(scheduled.billingMode) && this._cancellationFeeApplies(scheduled)) {
       await this._chargeCancellationFee(classPublicId, actorPublicId, {
         tutorUserPublicId: cancelledTutorProfile?.userPublicId,
         studentUserPublicId: cancelledStudentProfile?.userPublicId,
@@ -577,6 +665,16 @@ export class ClassService {
     });
 
     return updated!;
+  }
+
+  /**
+   * No fee for a free demo class, and none when the class is cancelled with
+   * enough notice: a fee is only a deterrent against last-minute walk-aways.
+   */
+  private _cancellationFeeApplies(cls: Pick<IScheduledClass, 'classType' | 'startUTC'>): boolean {
+    if (cls.classType === ClassType.DEMO) return false;
+    const hoursNotice = (new Date(cls.startUTC).getTime() - Date.now()) / 3_600_000;
+    return hoursNotice < CANCELLATION_FREE_NOTICE_HOURS;
   }
 
   /**
@@ -630,6 +728,7 @@ export class ClassService {
     classPublicId: string,
     actorUserPublicId: string,
     reason: string,
+    auditContext?: { role: string; ip?: string; userAgent?: string },
   ): Promise<IScheduledClass> {
     const scheduled = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
     if (!scheduled) throw new NotFoundError('Scheduled class');
@@ -665,39 +764,14 @@ export class ClassService {
       if (studentProfile?.userPublicId) {
         const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
 
-        // 1) Refund the student exactly what they were charged (no fee).
-        await walletService.refundWallet({
-          ownerPublicId: studentProfile.userPublicId,
-          amountCents: scheduled.costCents,
-          description: `Refund: ${scheduled.title}`,
-          idempotencyKey: `class-refund-${classPublicId}`,
-          referenceId: classPublicId,
-          referenceType: 'CLASS_REFUND',
+        // Refund the student exactly what they were charged (no fee) and claw
+        // back the tutor's earning (rate − fee, paid on completion) atomically.
+        await this.refundWithClawback(classPublicId, scheduled.title, {
+          studentUserPublicId: studentProfile.userPublicId,
+          tutorUserPublicId: tutorProfile.userPublicId,
+          refundAmountCents: scheduled.costCents,
+          clawbackAmountCents: tutorEarningsCents,
         });
-
-        // 2) Claw back the tutor's earning (rate − fee), same as the
-        // STUDENT_REQUESTED branch — the tutor was paid this amount on
-        // completion (see completeClass's COURSE_PREPAID branch).
-        if (tutorEarningsCents > 0) {
-          try {
-            await walletService.reverseWallet({
-              ownerPublicId: tutorProfile.userPublicId,
-              amountCents: tutorEarningsCents,
-              description: `Reversal: ${scheduled.title}`,
-              idempotencyKey: `tutor-reversal-${classPublicId}`,
-              referenceId: classPublicId,
-              referenceType: 'CLASS_REFUND',
-            });
-          } catch (error) {
-            // Tutor balance too low to claw back platform absorbs the difference.
-            logger.warn('Could not claw back tutor earnings on prepaid class refund', {
-              classPublicId,
-              tutorUserPublicId: tutorProfile.userPublicId,
-              tutorEarningsCents,
-              error: (error as Error).message,
-            });
-          }
-        }
       }
     } else if (scheduled.costCents > 0 && studentAttended) {
       const studentProfile = await StudentProfileModel.findOne(
@@ -707,37 +781,14 @@ export class ClassService {
         const studentChargeCents = scheduled.costCents + PLATFORM_FEE_CENTS;
         const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
 
-        // 1) Refund the student in full (rate + fee). Must succeed before we mark refunded.
-        await walletService.refundWallet({
-          ownerPublicId: studentProfile.userPublicId,
-          amountCents: studentChargeCents,
-          description: `Refund: ${scheduled.title}`,
-          idempotencyKey: `class-refund-${classPublicId}`,
-          referenceId: classPublicId,
-          referenceType: 'CLASS_REFUND',
+        // Refund the student in full (rate + fee) and claw back the tutor's
+        // earning atomically. Must succeed before we mark refunded.
+        await this.refundWithClawback(classPublicId, scheduled.title, {
+          studentUserPublicId: studentProfile.userPublicId,
+          tutorUserPublicId: tutorProfile.userPublicId,
+          refundAmountCents: studentChargeCents,
+          clawbackAmountCents: tutorEarningsCents,
         });
-
-        // 2) Claw back the tutor's earning (best-effort may have been spent).
-        if (tutorEarningsCents > 0) {
-          try {
-            await walletService.reverseWallet({
-              ownerPublicId: tutorProfile.userPublicId,
-              amountCents: tutorEarningsCents,
-              description: `Reversal: ${scheduled.title}`,
-              idempotencyKey: `tutor-reversal-${classPublicId}`,
-              referenceId: classPublicId,
-              referenceType: 'CLASS_REFUND',
-            });
-          } catch (error) {
-            // Tutor balance too low to claw back platform absorbs the difference.
-            logger.warn('Could not claw back tutor earnings on class refund', {
-              classPublicId,
-              tutorUserPublicId: tutorProfile.userPublicId,
-              tutorEarningsCents,
-              error: (error as Error).message,
-            });
-          }
-        }
       }
     }
 
@@ -747,7 +798,51 @@ export class ClassService {
       { new: true },
     ).lean();
 
+    // Refunds move real money, so leave a record of who did it and why.
+    await auditService.log({
+      actorId: actorUserPublicId,
+      actorRole: (auditContext?.role ?? 'UNKNOWN') as never,
+      action: 'CLASS_REFUNDED',
+      resourceType: 'ScheduledClass',
+      resourceId: classPublicId,
+      ip: auditContext?.ip,
+      userAgent: auditContext?.userAgent,
+      before: { isRefunded: false, status: scheduled.status },
+      after: { isRefunded: true, reason, costCents: scheduled.costCents, billingMode: scheduled.billingMode },
+    }).catch((error) => logger.error('refundClass: audit log failed', { classPublicId, error: (error as Error).message }));
+
     return updated!;
+  }
+
+  /** Student refund + tutor clawback in one wallet transaction (retry-safe via idempotency keys). */
+  private async refundWithClawback(
+    classPublicId: string,
+    title: string,
+    p: { studentUserPublicId: string; tutorUserPublicId: string; refundAmountCents: number; clawbackAmountCents: number },
+  ): Promise<void> {
+    const result = await walletService.refundWithClawback({
+      studentOwnerPublicId: p.studentUserPublicId,
+      tutorOwnerPublicId: p.tutorUserPublicId,
+      refundAmountCents: p.refundAmountCents,
+      clawbackAmountCents: p.clawbackAmountCents,
+      refundDescription: `Refund: ${title}`,
+      clawbackDescription: `Reversal: ${title}`,
+      refundIdempotencyKey: `class-refund-${classPublicId}`,
+      clawbackIdempotencyKey: `tutor-reversal-${classPublicId}`,
+      referenceId: classPublicId,
+      referenceType: 'CLASS_REFUND',
+    });
+    if (result.clawbackSkipped) {
+      // Tutor balance too low (or no wallet): student was refunded in full, the
+      // platform absorbs the unrecovered earning. Amounts are NOT reduced.
+      logger.warn('Could not claw back tutor earnings on class refund; platform absorbs the difference', {
+        classPublicId,
+        tutorUserPublicId: p.tutorUserPublicId,
+        studentUserPublicId: p.studentUserPublicId,
+        refundAmountCents: p.refundAmountCents,
+        unrecoveredClawbackCents: p.clawbackAmountCents,
+      });
+    }
   }
 
   async setMeetingUrl(
@@ -873,6 +968,42 @@ export class ClassService {
     return buildPaginatedResult(items, total, page, limit);
   }
 
+  /**
+   * Enforces the platform's booking window and duration limits. Throws a
+   * ValidationError describing the first limit broken.
+   */
+  private assertWithinClassLimits(
+    settings: { maxAdvanceBookingDays: number; minClassDurationMinutes: number; maxClassDurationMinutes: number },
+    occurrences: Array<{ start: Date }>,
+    durationMinutes: number,
+  ): void {
+    const { maxAdvanceBookingDays, minClassDurationMinutes, maxClassDurationMinutes } = settings;
+    if (durationMinutes < minClassDurationMinutes || durationMinutes > maxClassDurationMinutes) {
+      const msg = `Class duration must be between ${minClassDurationMinutes} and ${maxClassDurationMinutes} minutes (got ${durationMinutes}).`;
+      throw new ValidationError([msg], msg);
+    }
+    const latestAllowed = Date.now() + maxAdvanceBookingDays * 86_400_000;
+    const tooFar = occurrences.find((o) => o.start.getTime() > latestAllowed);
+    if (tooFar) {
+      const msg = `Classes can only be scheduled up to ${maxAdvanceBookingDays} days in advance (${tooFar.start.toISOString()} is too far ahead).`;
+      throw new ValidationError([msg], msg);
+    }
+  }
+
+  /** First live (SCHEDULED/LIVE) class of this tutor overlapping any of the ranges. */
+  private async findTutorOverlap(
+    tutorPublicId: string,
+    ranges: Array<{ start: Date; end: Date }>,
+  ): Promise<{ startUTC: Date; endUTC: Date } | null> {
+    if (ranges.length === 0) return null;
+    return ScheduledClassModel.findOne({
+      tutorPublicId,
+      isDeleted: false,
+      status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+      $or: ranges.map((r) => ({ startUTC: { $lt: r.end }, endUTC: { $gt: r.start } })),
+    }, { startUTC: 1, endUTC: 1 }).lean() as unknown as Promise<{ startUTC: Date; endUTC: Date } | null>;
+  }
+
   async tutorCreateClasses(
     tutorUserPublicId: string,
     dto: TutorCreateClassDto,
@@ -880,7 +1011,23 @@ export class ClassService {
     const tutorProfile = await tutorService.getByUserPublicId(tutorUserPublicId);
 
     // Determine student public IDs to assign
-    let studentPublicIds: string[] = dto.studentPublicIds;
+    let studentPublicIds: string[] = [...new Set(dto.studentPublicIds)];
+    if (studentPublicIds.length > 0) {
+      // Explicit ids must be this tutor's own active students (a principal
+      // creating classes acts through their own tutor profile, same rule).
+      const owned = await StudentProfileModel.find(
+        { publicId: { $in: studentPublicIds }, tutorPublicId: tutorProfile.publicId, status: 'ACTIVE', isDeleted: false },
+        { publicId: 1 },
+      ).lean();
+      const ownedIds = new Set(owned.map((s) => s.publicId));
+      const bad = studentPublicIds.filter((id) => !ownedIds.has(id));
+      if (bad.length > 0) {
+        throw new ValidationError(
+          { studentPublicIds: bad.map((id) => `${id} is not one of your active students`) },
+          `These students are not your active students: ${bad.join(', ')}`,
+        );
+      }
+    }
     if (studentPublicIds.length === 0) {
       const allStudents = await StudentProfileModel.find(
         { tutorPublicId: tutorProfile.publicId, isDeleted: false, status: { $in: ['ACTIVE', 'APPROVED'] } },
@@ -920,6 +1067,21 @@ export class ClassService {
         cur += stepMs;
         if (occurrences.length > 365) break; // safety cap
       }
+    }
+
+    // Platform limits (demo classes are exempt) and tutor double-booking.
+    if (dto.classType !== ClassType.DEMO) {
+      this.assertWithinClassLimits(
+        await settingsService.get(),
+        occurrences,
+        Math.round(durationMs / 60_000),
+      );
+    }
+    const clash = await this.findTutorOverlap(tutorProfile.publicId, occurrences);
+    if (clash) {
+      throw new ConflictError(
+        `You already have a class from ${new Date(clash.startUTC).toISOString()} to ${new Date(clash.endUTC).toISOString()} that overlaps this request. No classes were created.`,
+      );
     }
 
     // The tutor pays a 2-credit platform fee per attending student on completion.
@@ -1013,15 +1175,62 @@ export class ClassService {
       throw new AppError('Cannot reschedule a completed or cancelled class', 400);
     }
 
-    const durationMinutes = Math.round(
-      (new Date(dto.endUTC).getTime() - new Date(dto.startUTC).getTime()) / 60_000,
-    );
+    const newStart = new Date(dto.startUTC);
+    const newEnd = new Date(dto.endUTC);
+    if (!(newEnd.getTime() > newStart.getTime())) {
+      throw new AppError('End time must be after start time', 400);
+    }
+    if (newStart.getTime() <= Date.now()) {
+      throw new AppError('Cannot reschedule a class into the past', 400);
+    }
 
+    // The tutor must not be double-booked against any other live booking.
+    const overlapping = await ScheduledClassModel.findOne({
+      publicId: { $ne: classPublicId },
+      tutorPublicId: tutorProfile.publicId,
+      isDeleted: false,
+      status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+      startUTC: { $lt: newEnd },
+      endUTC: { $gt: newStart },
+    }, { publicId: 1 }).lean();
+    if (overlapping) throw new ConflictError('You already have a class during that time');
+
+    // A course class was scheduled inside the student's stated free times; a
+    // reschedule must respect them too, exactly like the first scheduling did.
+    if (cls.coursePublicId) {
+      const { CourseModel } = await import('../courses/course.model');
+      const course = await CourseModel.findOne({ publicId: cls.coursePublicId }, { availabilityWindow: 1 }).lean();
+      if (course?.availabilityWindow && !isWithinAvailability(course.availabilityWindow, newStart, newEnd)) {
+        throw new AppError("Requested time is outside the student's stated availability window", 400);
+      }
+    }
+
+    const durationMinutes = Math.round((newEnd.getTime() - newStart.getTime()) / 60_000);
+
+    // Status-guarded write: a concurrent complete/cancel must not be overwritten.
+    // The class is detached from its availability slot (which still describes the
+    // original time) so a later cancel can't free a slot showing a stale time.
     const updated = await ScheduledClassModel.findOneAndUpdate(
-      { publicId: classPublicId },
-      { $set: { startUTC: new Date(dto.startUTC), endUTC: new Date(dto.endUTC), durationMinutes } },
+      {
+        publicId: classPublicId,
+        isDeleted: false,
+        status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+      },
+      {
+        $set: { startUTC: newStart, endUTC: newEnd, durationMinutes },
+        $unset: { availabilitySlotPublicId: '', reminderSentAt: '' },
+      },
       { new: true },
     ).lean();
+    if (!updated) throw new ConflictError('Class is no longer reschedulable');
+
+    if (cls.availabilitySlotPublicId) {
+      try {
+        await scheduleService.releaseSlot(cls.availabilitySlotPublicId);
+      } catch (err) {
+        logger.error('Failed to release availability slot after reschedule', { classPublicId, err });
+      }
+    }
 
     const studentProfile = await StudentProfileModel.findOne(
       { publicId: cls.studentPublicId, isDeleted: false },
@@ -1146,6 +1355,53 @@ export class ClassService {
    * detect someone joining and immediately walking away. It answers "were both
    * present, and did the session run at least this long".
    */
+  /**
+   * Minutes the student was really in the class: from when they joined (never
+   * earlier than the scheduled start) to now, capped at the scheduled end. The
+   * old code recorded the full scheduled length even for a class completed
+   * minutes after it began.
+   */
+  private _minutesActuallyPresent(
+    cls: Pick<IScheduledClass, 'startUTC' | 'endUTC' | 'durationMinutes' | 'studentJoinedAt'>,
+  ): number {
+    if (!cls.studentJoinedAt) return 0;
+    const from = Math.max(new Date(cls.studentJoinedAt).getTime(), new Date(cls.startUTC).getTime());
+    const until = Math.min(Date.now(), new Date(cls.endUTC).getTime());
+    const minutes = Math.round((until - from) / 60_000);
+    return Math.max(0, Math.min(minutes, cls.durationMinutes ?? minutes));
+  }
+
+  /**
+   * A tutor must not be able to complete (and get paid for) a class that has
+   * not started, or that the student joined seconds ago. Completing a class
+   * nobody attended is allowed once it is due; it simply records an absence.
+   */
+  private _assertCanCompleteNow(
+    cls: Pick<IScheduledClass, 'startUTC' | 'endUTC' | 'durationMinutes' | 'studentJoinedAt' | 'tutorJoinedAt'>,
+  ): void {
+    const now = Date.now();
+    const startMs = new Date(cls.startUTC).getTime();
+    const endMs = new Date(cls.endUTC).getTime();
+    if (now < startMs) {
+      throw new ConflictError(
+        'This class has not started yet. Wait until its scheduled start time, or cancel it instead.',
+      );
+    }
+    if (now >= endMs || !cls.studentJoinedAt) return;
+
+    const bothPresentFrom = Math.max(
+      new Date(cls.studentJoinedAt).getTime(),
+      cls.tutorJoinedAt ? new Date(cls.tutorJoinedAt).getTime() : now,
+    );
+    const requiredMinutes = Math.min(MIN_SESSION_MINUTES, Math.max(1, Math.floor((cls.durationMinutes ?? 0) / 2)));
+    const minutesTogether = (now - bothPresentFrom) / 60_000;
+    if (minutesTogether < requiredMinutes) {
+      throw new ConflictError(
+        `The student joined only ${Math.max(0, Math.floor(minutesTogether))} minute(s) ago. You can complete this class after ${requiredMinutes} minutes together or once its scheduled end time passes.`,
+      );
+    }
+  }
+
   private _metMinimumSession(cls: Pick<
     IScheduledClass,
     'studentJoinedAt' | 'tutorJoinedAt' | 'endUTC'
@@ -1188,12 +1444,13 @@ export class ClassService {
    * refunded — so the UI never offers a button that is going to 409.
    */
   async listForAdmin(
-    filters: { status?: string; refundable?: boolean; refunded?: boolean; days?: number },
+    filters: { status?: string; refundable?: boolean; refunded?: boolean; days?: number; billingFailed?: boolean },
     query: PaginationQuery,
   ) {
     const { page, limit, skip } = parsePaginationQuery(query);
 
     const filter: Record<string, unknown> = { isDeleted: false };
+    if (filters.billingFailed) filter.billingFailed = true;
     if (filters.refundable) {
       filter.status = ClassStatus.COMPLETED;
       filter.isRefunded = false;

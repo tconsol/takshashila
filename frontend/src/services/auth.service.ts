@@ -19,6 +19,8 @@ export interface GoogleAuthPayload {
   qualifications?: string[];
   grade?: string;
   organizationName?: string;
+  /** Required when creating a new account: agreed to the Terms of Use and Privacy Policy. */
+  acceptedTerms?: boolean;
 }
 
 /** An unknown Google address signs UP, so the server asks what to create. */
@@ -49,6 +51,12 @@ export const authService = {
       languages?: string[];
       bio?: string;
       qualifications?: string[];
+      organizationName?: string;
+      grade?: string;
+      /** The person ticked "I agree to the Terms of Use and Privacy Policy". */
+      acceptedTerms?: boolean;
+      /** For a child account: the parent or guardian agrees on the child's behalf. */
+      guardianConsent?: boolean;
     },
   ) {
     const res = await api.post<ApiResponse<{ publicId: string }>>('/auth/register', data);

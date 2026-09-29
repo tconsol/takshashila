@@ -20,6 +20,9 @@ interface WalletData {
   bonusCreditsCents: number;
   earnedCreditsCents: number;
   earningsCents?: number;
+  withdrawableCents?: number;
+  earningsOnHoldCents?: number;
+  earningsHoldHours?: number;
   totalEarnedCents?: number;
   totalSpentCents?: number;
 }
@@ -117,7 +120,7 @@ export function WalletPage({
         <PayoutRequestModal
           open={payoutOpen}
           onClose={() => setPayoutOpen(false)}
-          withdrawableCents={wallet?.earnedCreditsCents ?? 0}
+          withdrawableCents={wallet?.withdrawableCents ?? wallet?.earnedCreditsCents ?? 0}
         />
       )}
 
@@ -136,7 +139,7 @@ export function WalletPage({
           />
         ) : (
           <StatsCard
-            title="Demo Credits"
+            title="Demo Credits (demo classes only)"
             value={walletLoading ? '' : centsToDisplay(wallet?.demoCreditsCents ?? 0)}
             icon={<Gift className="h-5 w-5 text-pink-600" />}
             iconBg="bg-pink-50 dark:bg-pink-900/20"

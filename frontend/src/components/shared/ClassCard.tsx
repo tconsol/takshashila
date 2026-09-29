@@ -108,7 +108,7 @@ export function ClassCard({ cls, perspective, onAction, ratedClassIds }: ClassCa
         )}
       </div>
 
-      {onAction && perspective === 'student' && cls.status === 'COMPLETED' && !ratedClassIds?.has(cls.publicId) && (
+      {onAction && perspective === 'student' && cls.status === 'COMPLETED' && !cls.isRefunded && !ratedClassIds?.has(cls.publicId) && (
         <div className="flex gap-2 pt-1 border-t border-gray-100 dark:border-gray-700">
           <button
             onClick={() => onAction('rate', cls)}

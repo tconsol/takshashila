@@ -101,7 +101,7 @@ export class NotificationService {
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2 style="color:#4f46e5">You're invited!</h2>
                 <p>Hi ${payload.firstName ?? ''},</p>
-                <p>You have been invited to join brainbaseeduas a <strong>${payload.role.toLowerCase()}</strong>. Click the button below to set your password and activate your account.</p>
+                <p>You have been invited to join brainbaseedu as a <strong>${payload.role.toLowerCase()}</strong>. Click the button below to set your password and activate your account.</p>
                 <a href="${inviteUrl}"
                    style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
                   Accept Invitation
@@ -116,7 +116,7 @@ export class NotificationService {
           const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${payload.verificationToken}`;
           await sendEmailNow({
             to: payload.email,
-            subject: 'Verify your brainbaseeduaccount',
+            subject: 'Verify your brainbaseedu account',
             html: `
               <div style="font-family:sans-serif;max-width:520px;margin:auto">
                 <h2 style="color:#4f46e5">Welcome to brainbaseedu!</h2>
@@ -142,7 +142,7 @@ export class NotificationService {
         const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${payload.resetToken}`;
         await sendEmailNow({
           to: payload.email,
-          subject: 'Reset your brainbaseedupassword',
+          subject: 'Reset your brainbaseedu password',
           html: `
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
               <h2 style="color:#4f46e5">Password Reset Request</h2>
@@ -162,65 +162,8 @@ export class NotificationService {
       }
     });
 
-    // Auto-create notifications from domain events
-    domainEvents.on(DomainEvent.CLASS_BOOKED, async (payload: { studentPublicId: string; tutorPublicId: string; classPublicId: string }) => {
-      try {
-        await this.createBulk([
-          {
-            recipientPublicId: payload.tutorPublicId,
-            type: 'CLASS_BOOKED' as const,
-            title: 'New Class Booked',
-            body: 'A student has booked a class with you.',
-            data: { classPublicId: payload.classPublicId },
-          },
-          {
-            recipientPublicId: payload.studentPublicId,
-            type: 'CLASS_BOOKED' as const,
-            title: 'Class Confirmed',
-            body: 'Your class has been booked successfully.',
-            data: { classPublicId: payload.classPublicId },
-          },
-        ]);
-      } catch (e) {
-        logger.error('Failed to create CLASS_BOOKED notifications', { error: e });
-      }
-    });
-
-    domainEvents.on(DomainEvent.CLASS_CANCELLED, async (payload: { studentPublicId: string; tutorPublicId: string; classPublicId: string }) => {
-      try {
-        await this.createBulk([
-          {
-            recipientPublicId: payload.studentPublicId,
-            type: 'CLASS_CANCELLED' as const,
-            title: 'Class Cancelled',
-            body: 'A class has been cancelled. Your wallet has been refunded.',
-            data: { classPublicId: payload.classPublicId },
-          },
-          {
-            recipientPublicId: payload.tutorPublicId,
-            type: 'CLASS_CANCELLED' as const,
-            title: 'Class Cancelled',
-            body: 'A class has been cancelled.',
-            data: { classPublicId: payload.classPublicId },
-          },
-        ]);
-      } catch (e) {
-        logger.error('Failed to create CLASS_CANCELLED notifications', { error: e });
-      }
-    });
-
-    domainEvents.on(DomainEvent.STUDENT_APPROVED, async (payload: { studentPublicId: string }) => {
-      try {
-        await this.create({
-          recipientPublicId: payload.studentPublicId,
-          type: 'STUDENT_APPROVED' as const,
-          title: 'Account Approved',
-          body: 'Your student account has been approved. Demo credits have been added to your wallet!',
-        });
-      } catch (e) {
-        logger.error('Failed to create STUDENT_APPROVED notification', { error: e });
-      }
-    });
+    // CLASS_*, STUDENT_APPROVED and ASSIGNMENT_* notifications live in notification.listeners.ts
+    // (user-id recipients); handling them here too produced duplicates to profile ids.
 
     domainEvents.on(DomainEvent.PROGRAM_ENROLLED, async (payload: { programPublicId: string; tutorPublicId: string }) => {
       try {
@@ -239,34 +182,6 @@ export class NotificationService {
       }
     });
 
-    domainEvents.on(DomainEvent.ASSIGNMENT_SUBMITTED, async (payload: { assignmentPublicId: string; studentPublicId: string; graderTutorPublicId?: string }) => {
-      try {
-        await this.create({
-          recipientPublicId: payload.studentPublicId,
-          type: 'ASSIGNMENT_PUBLISHED' as const,
-          title: 'Assignment Submitted',
-          body: 'Your assignment has been submitted successfully.',
-          data: { assignmentPublicId: payload.assignmentPublicId },
-        });
-        // Curriculum (admin) assignments: tell the tutor who grades this student.
-        if (payload.graderTutorPublicId) {
-          const { TutorProfileModel } = await import('../tutors/tutor.model');
-          const tutor = await TutorProfileModel.findOne({ publicId: payload.graderTutorPublicId }, { userPublicId: 1 }).lean();
-          if (tutor) {
-            await this.create({
-              recipientPublicId: tutor.userPublicId,
-              type: 'ASSIGNMENT_PUBLISHED' as const,
-              title: 'New submission to grade',
-              body: 'A student submitted a curriculum assignment for you to grade.',
-              data: { assignmentPublicId: payload.assignmentPublicId },
-            });
-          }
-        }
-      } catch (e) {
-        logger.error('Failed to create ASSIGNMENT_SUBMITTED notification', { error: e });
-      }
-    });
-
     domainEvents.on(DomainEvent.JOIN_REQUEST_SENT, async (payload: {
       requestPublicId: string;
       tutorUserPublicId: string;
@@ -282,7 +197,7 @@ export class NotificationService {
 
           await this.create({
             recipientPublicId: payload.principalUserPublicId,
-            type: 'CLASS_BOOKED' as const,
+            type: 'JOIN_REQUEST_SENT' as const,
             title: 'New Join Request',
             body: `${tutor.firstName} ${tutor.lastName} has requested to join your institution.`,
             data: { requestPublicId: payload.requestPublicId },
@@ -313,7 +228,7 @@ export class NotificationService {
 
           await this.create({
             recipientPublicId: payload.tutorUserPublicId,
-            type: 'CLASS_BOOKED' as const,
+            type: 'JOIN_REQUEST_SENT' as const,
             title: 'Institution Invitation',
             body: `${principal.firstName} ${principal.lastName} has invited you to join their institution.`,
             data: { requestPublicId: payload.requestPublicId },
@@ -355,9 +270,9 @@ export class NotificationService {
         // Notify tutor their request was approved
         await this.create({
           recipientPublicId: payload.tutorUserPublicId,
-          type: 'STUDENT_APPROVED' as const,
+          type: 'JOIN_REQUEST_APPROVED' as const,
           title: 'Join Request Approved',
-          body: `Your request to join ${principal.firstName} ${principal.lastName}'s institution has been approved.`,
+          body: `Your request to join ${principal.firstName} ${principal.lastName}'s institution has been approved. Your account is now under review by ${principal.firstName}; you will not appear in student searches or accept new bookings until they approve it.`,
           data: { requestPublicId: payload.requestPublicId },
         });
 
@@ -382,7 +297,7 @@ export class NotificationService {
         // Also notify the principal (if they were the receiver)
         await this.create({
           recipientPublicId: payload.principalUserPublicId,
-          type: 'CLASS_BOOKED' as const,
+          type: 'JOIN_REQUEST_APPROVED' as const,
           title: 'Tutor Joined',
           body: `${tutor.firstName} ${tutor.lastName} has joined your institution and is under review.`,
           data: { requestPublicId: payload.requestPublicId },
@@ -404,7 +319,7 @@ export class NotificationService {
 
         await this.create({
           recipientPublicId: payload.tutorUserPublicId,
-          type: 'CLASS_BOOKED' as const,
+          type: 'JOIN_REQUEST_REJECTED' as const,
           title: 'Join Request Declined',
           body: `Your request to join ${principal.firstName} ${principal.lastName}'s institution was not accepted.`,
           data: { requestPublicId: payload.requestPublicId },
@@ -441,12 +356,12 @@ export class NotificationService {
 
         await sendEmailNow({
           to: user.email,
-          subject: 'Your brainbaseeduaccount has been approved!',
+          subject: 'Your brainbaseedu account has been approved!',
           html: `
             <div style="font-family:sans-serif;max-width:520px;margin:auto">
               <h2 style="color:#4f46e5">Account Approved!</h2>
               <p>Hi ${user.firstName},</p>
-              <p>Great news! Your principal account on brainbaseeduhas been reviewed and <strong>approved</strong> by our team.</p>
+              <p>Great news! Your principal account on brainbaseedu has been reviewed and <strong>approved</strong> by our team.</p>
               <p>You can now log in and start managing your institution.</p>
               <a href="${loginUrl}"
                  style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -456,12 +371,12 @@ export class NotificationService {
               <p style="color:#6b7280;font-size:13px">If you have any questions, please contact our support team.</p>
             </div>
           `,
-          text: `Hi ${user.firstName}, your brainbaseeduprincipal account has been approved. Log in at: ${loginUrl}`,
+          text: `Hi ${user.firstName}, your brainbaseedu principal account has been approved. Log in at: ${loginUrl}`,
         });
 
         await this.create({
           recipientPublicId: payload.userPublicId,
-          type: 'STUDENT_APPROVED' as const,
+          type: 'PRINCIPAL_APPROVED' as const,
           title: 'Account Approved',
           body: 'Your principal account has been approved by our team. You can now log in.',
         });

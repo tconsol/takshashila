@@ -150,9 +150,13 @@ export class MediaService {
       .lean();
   }
 
-  async softDelete(publicId: string, deletedBy: string): Promise<void> {
+  async softDelete(publicId: string, deletedBy: string, actorRole?: string): Promise<void> {
     const record = await MediaFileModel.findOne({ publicId, isDeleted: false });
-    if (!record) throw new NotFoundError('Media file');
+    // Same 404 for "not yours" as for "missing" so file IDs can't be probed.
+    const isAdmin = actorRole === 'ADMIN' || actorRole === 'SUPER_ADMIN';
+    if (!record || (!isAdmin && record.uploaderPublicId !== deletedBy)) {
+      throw new NotFoundError('Media file');
+    }
 
     await MediaFileModel.findOneAndUpdate(
       { publicId },

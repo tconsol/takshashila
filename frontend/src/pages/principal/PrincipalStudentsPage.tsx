@@ -1,3 +1,5 @@
+import { useConfirm } from '../../hooks/use-confirm';
+import { ConsentCheckbox } from '../../components/shared/ConsentCheckbox';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -64,6 +66,7 @@ export function PrincipalStudentsPage() {
   const { data: myTutorsData } = useMyTutors({ limit: '100' });
   const myTutors = myTutorsData?.items ?? [];
 
+  const { confirm, confirmDialog } = useConfirm();
   const { mutateAsync: approve, isPending: approving } = useApproveStudent();
   const { mutateAsync: suspend, isPending: suspending } = useSuspendStudent();
   const { mutateAsync: createStudent, isPending: creating } = useCreateStudentByPrincipal();
@@ -106,7 +109,13 @@ export function PrincipalStudentsPage() {
   };
 
   const handleApprove = async (student: StudentProfile) => {
-    await approve(student.publicId);
+    const { confirmed } = await confirm({
+      title: 'Approve this student?',
+      message: 'They become an active student of your organization and can book classes and receive free demo credits.',
+      confirmLabel: 'Approve student',
+      tone: 'primary',
+    });
+    if (confirmed) await approve(student.publicId);
   };
 
   const handleSuspend = async () => {
@@ -117,6 +126,7 @@ export function PrincipalStudentsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <PageHeader
         title="Students"
         description="Create, invite, and manage students across your organization"
@@ -281,7 +291,7 @@ export function PrincipalStudentsPage() {
               </div>
               <p className="text-xs text-slate-500">
                 Student uses this ID + their password to log in.
-                {createdInfo.contactEmail && ` Credentials sent to ${createdInfo.contactEmail}.`}
+                {createdInfo.contactEmail && ` The Student ID was sent to ${createdInfo.contactEmail}; the password was not, so please share it yourself.`}
               </p>
             </div>
           </div>
@@ -451,7 +461,7 @@ function CreateStudentModal({
   open: boolean;
   onClose: () => void;
   tutors: TutorOption[];
-  onCreate: (data: { firstName: string; lastName: string; contactEmail?: string; password: string; tutorPublicId: string; customStudentId?: string; grade?: string; notes?: string }) => Promise<void>;
+  onCreate: (data: { firstName: string; lastName: string; contactEmail?: string; password: string; tutorPublicId: string; customStudentId?: string; grade?: string; notes?: string; guardianConsent: true }) => Promise<void>;
   loading: boolean;
 }) {
   const [form, setForm] = useState({
@@ -459,6 +469,7 @@ function CreateStudentModal({
   });
   const [error, setError] = useState('');
   const [showPwd, setShowPwd] = useState(false);
+  const [guardianAgreed, setGuardianAgreed] = useState(false);
 
   const activeTutors = tutors.filter((t) => t.status === 'ACTIVE');
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -468,8 +479,10 @@ function CreateStudentModal({
     e.preventDefault();
     setError('');
     if (!form.tutorPublicId) { setError('Select a tutor'); return; }
+    if (!guardianAgreed) { setError('A parent or guardian must agree to the Terms of Use and Privacy Policy for this child'); return; }
     try {
       await onCreate({
+        guardianConsent: true,
         firstName: form.firstName,
         lastName: form.lastName,
         contactEmail: form.contactEmail || undefined,
@@ -480,6 +493,7 @@ function CreateStudentModal({
         notes: form.notes || undefined,
       });
       setForm({ firstName: '', lastName: '', contactEmail: '', password: '', tutorPublicId: '', customStudentId: '', grade: '', notes: '' });
+      setGuardianAgreed(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create student');
     }
@@ -507,7 +521,7 @@ function CreateStudentModal({
         </div>
 
         <Input
-          label="Contact Email (optional login credentials will be sent here)"
+          label="Parent / guardian email (optional; the Student ID is sent here, never the password)"
           type="email"
           placeholder="parent@example.com"
           value={form.contactEmail}
@@ -550,6 +564,13 @@ function CreateStudentModal({
           value={form.customStudentId}
           onChange={set('customStudentId')}
         />
+
+        <ConsentCheckbox
+          onBehalfOfChild
+          checked={guardianAgreed}
+          onChange={(e) => setGuardianAgreed(e.target.checked)}
+        />
+        <p className="-mt-2 text-xs text-slate-500">Share the password with the parent or student yourself. It is not sent by email.</p>
       </form>
     </Modal>
   );

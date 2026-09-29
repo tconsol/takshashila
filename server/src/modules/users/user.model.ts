@@ -27,6 +27,11 @@ const userSchema = new Schema<IUser>(
     emailVerificationExpiry: { type: Date, select: false },
     passwordResetToken: { type: String, select: false },
     passwordResetExpiry: { type: Date, select: false },
+    // Record of agreement to the Terms of Use / Privacy Policy: who, when, which version, from where.
+    consents: {
+      type: [{ kind: String, version: String, acceptedAt: Date, ip: String, userAgent: String, _id: false }],
+      default: [],
+    },
     twoFAEnabled: { type: Boolean, default: false },
     twoFASecret: { type: String, select: false },
     lastLoginAt: { type: Date },

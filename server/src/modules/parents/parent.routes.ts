@@ -27,18 +27,23 @@ router.get('/me/children', async (req: AuthRequest, res: Response, next: NextFun
   } catch (e) { next(e); }
 });
 
+router.get('/me/children/requests', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await parentService.getMyPendingLinkRequests(req.user!.publicId), 'Pending link requests fetched');
+  } catch (e) { next(e); }
+});
+
+router.delete('/me/children/requests/:requestPublicId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await parentService.cancelMyLinkRequest(req.user!.publicId, req.params.requestPublicId);
+    sendSuccess(res, null, 'Link request cancelled');
+  } catch (e) { next(e); }
+});
+
 router.post('/me/children/create', validate(createStudentByParentSchema), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const child = await parentService.createChild(req.user!.publicId, req.body);
     sendCreated(res, child, 'Child account created');
-  } catch (e) { next(e); }
-});
-
-router.post('/me/children/link', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const { studentPublicId } = req.body;
-    const profile = await parentService.linkChild(req.user!.publicId, studentPublicId);
-    sendSuccess(res, profile, 'Child linked successfully');
   } catch (e) { next(e); }
 });
 

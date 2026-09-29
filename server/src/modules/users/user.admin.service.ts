@@ -24,6 +24,10 @@ import { ClassStatus } from '../schedules/schedule.types';
 import { StudentStatus } from '../students/student.types';
 import { TutorStatus } from '../tutors/tutor.types';
 import { PrincipalStatus } from '../principals/principal.types';
+import { ProgramEnrollmentModel } from '../programs/program.model';
+import { EnrollmentStatus } from '../programs/program.types';
+import { WalletTransactionModel } from '../wallets/wallet-transaction.model';
+import { TransactionType, TransactionStatus } from '../wallets/wallet.types';
 import { settingsService } from '../settings/settings.service';
 
 export interface UserActivity {
@@ -216,6 +220,7 @@ export class UserAdminService {
         organizationName: dto.organizationName,
       } as Parameters<typeof authService.register>[0],
       dto.role,
+      { invite: true },
     );
 
     await auditService.log({
@@ -334,6 +339,8 @@ export class UserAdminService {
     if (user.publicId === actor.publicId) throw invalid('Cannot change your own role');
     if (user.role === newRole) throw invalid(`That account is already a ${newRole}`);
 
+    if (user.role === Role.TUTOR) await this.assertTutorHasNoActiveState(publicId);
+
     await userRepository.update(publicId, { role: newRole });
 
     // The old profile stays (soft-flagged) so historical classes and ledger rows
@@ -360,6 +367,42 @@ export class UserAdminService {
     });
 
     return this.getUserDetail(publicId);
+  }
+
+  /** Blocks moving a tutor away from TUTOR while live work would be orphaned. */
+  private async assertTutorHasNoActiveState(userPublicId: string): Promise<void> {
+    const profile = await TutorProfileModel.findOne({ userPublicId }, { publicId: 1 }).lean();
+    const [activeClasses, activeEnrollments, pendingPayouts] = await Promise.all([
+      profile
+        ? ScheduledClassModel.countDocuments({
+            tutorPublicId: profile.publicId,
+            status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+            isDeleted: false,
+          })
+        : 0,
+      profile
+        ? ProgramEnrollmentModel.countDocuments({
+            tutorPublicId: profile.publicId,
+            status: EnrollmentStatus.ACTIVE,
+            isDeleted: false,
+          })
+        : 0,
+      WalletTransactionModel.countDocuments({
+        ownerPublicId: userPublicId,
+        type: TransactionType.PAYOUT,
+        status: TransactionStatus.PENDING,
+      }),
+    ]);
+
+    const blockers: string[] = [];
+    if (activeClasses) blockers.push(`${activeClasses} scheduled/live class(es)`);
+    if (activeEnrollments) blockers.push(`${activeEnrollments} active program enrollment(s)`);
+    if (pendingPayouts) blockers.push(`${pendingPayouts} pending payout(s)`);
+    if (blockers.length) {
+      throw new ConflictError(
+        `Cannot change role while this tutor has ${blockers.join(', ')}. Cancel or resolve them first.`,
+      );
+    }
   }
 
   /** Creates (or un-deletes) the profile a role needs, with safe defaults. */

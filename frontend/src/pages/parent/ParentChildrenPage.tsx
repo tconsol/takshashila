@@ -1,3 +1,4 @@
+import { ConsentCheckbox } from '../../components/shared/ConsentCheckbox';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UserPlus, Trash2, ArrowUpRight, Users, Link2, Copy, Check, Pencil, Eye, EyeOff } from 'lucide-react';
@@ -10,7 +11,7 @@ import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { Spinner } from '../../components/ui/Loading';
-import { useParentChildren, useRequestLinkChild, useUnlinkChild, useCreateChild, useUpdateChild } from '../../hooks/use-parent';
+import { usePendingLinkRequests, useCancelLinkRequest, useParentChildren, useRequestLinkChild, useUnlinkChild, useCreateChild, useUpdateChild } from '../../hooks/use-parent';
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'default' | 'danger'> = {
   ACTIVE: 'success',
@@ -31,6 +32,8 @@ export function ParentChildrenPage() {
   const [editTarget, setEditTarget] = useState<{ publicId: string; firstName: string; lastName: string; grade?: string } | null>(null);
 
   const { data: children = [], isLoading } = useParentChildren();
+  const { data: pendingRequests = [] } = usePendingLinkRequests();
+  const { mutateAsync: cancelLinkRequest, isPending: cancellingRequest } = useCancelLinkRequest();
   const { mutateAsync: createChild, isPending: creating } = useCreateChild();
   const { mutateAsync: requestLinkChild, isPending: linking } = useRequestLinkChild();
   const { mutateAsync: unlinkChild, isPending: unlinking } = useUnlinkChild();
@@ -59,6 +62,24 @@ export function ParentChildrenPage() {
           </div>
         }
       />
+
+      {pendingRequests.length > 0 && (
+        <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-900">Waiting for your child to accept</p>
+          {pendingRequests.map((r) => (
+            <div key={r.publicId} className="flex items-center justify-between gap-3 text-sm text-amber-900">
+              <span>
+                <span className="font-medium">{r.studentName}</span>
+                {r.grade ? ` · ${r.grade}` : ''} · sent {new Date(r.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+              </span>
+              <Button size="sm" variant="ghost" loading={cancellingRequest} onClick={() => cancelLinkRequest(r.publicId)}>
+                Cancel request
+              </Button>
+            </div>
+          ))}
+          <p className="text-xs text-amber-800">They will see it under "Parent Requests" in their menu.</p>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
@@ -224,13 +245,14 @@ function CreateChildModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreate: (dto: { firstName: string; lastName: string; password: string; customStudentId?: string; grade?: string }) => Promise<void>;
+  onCreate: (dto: { firstName: string; lastName: string; password: string; customStudentId?: string; grade?: string; guardianConsent: true }) => Promise<void>;
   loading: boolean;
 }) {
   const [form, setForm] = useState({ firstName: '', lastName: '', password: '', customStudentId: '', grade: '' });
   const [error, setError] = useState('');
   const [created, setCreated] = useState<{ studentId: string; firstName: string } | null>(null);
   const [showPwd, setShowPwd] = useState(false);
+  const [guardianAgreed, setGuardianAgreed] = useState(false);
   const [idSuffix] = useState(() => String(Math.floor(1000 + Math.random() * 9000)));
   const [idManuallyEdited, setIdManuallyEdited] = useState(false);
 
@@ -258,8 +280,10 @@ function CreateChildModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!guardianAgreed) { setError('Please agree to the Terms of Use and Privacy Policy for your child'); return; }
     try {
       const result = await onCreate({
+        guardianConsent: true,
         firstName: form.firstName,
         lastName: form.lastName,
         password: form.password,
@@ -269,6 +293,7 @@ function CreateChildModal({
       setCreated({ studentId: (result as { studentId: string }).studentId ?? form.customStudentId ?? '', firstName: form.firstName });
       setForm({ firstName: '', lastName: '', password: '', customStudentId: '', grade: '' });
       setIdManuallyEdited(false);
+      setGuardianAgreed(false);
     } catch (err: unknown) {
       const e2 = err as { response?: { data?: { message?: string } }; message?: string };
       setError(e2.response?.data?.message ?? e2.message ?? 'Failed to create child');
@@ -349,6 +374,12 @@ function CreateChildModal({
           value={form.customStudentId}
           onChange={setId}
           hint="Your child uses this ID + their password to log in."
+        />
+
+        <ConsentCheckbox
+          onBehalfOfChild
+          checked={guardianAgreed}
+          onChange={(e) => setGuardianAgreed(e.target.checked)}
         />
       </form>
     </Modal>

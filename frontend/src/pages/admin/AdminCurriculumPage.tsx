@@ -1,4 +1,5 @@
 // frontend/src/pages/admin/AdminCurriculumPage.tsx
+import { useConfirm } from '../../hooks/use-confirm';
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { GraduationCap, Plus, Eye, EyeOff, Trash2, Save, AlertTriangle, MapPin, Pencil, ListTree } from 'lucide-react';
@@ -184,11 +185,13 @@ export function AdminCurriculumPage() {
   if (filter.countyFips) params.countyFips = filter.countyFips;
   if (filter.districtId) params.districtId = filter.districtId;
   const { data, isLoading } = useAdminCurricula(params);
+  const { confirm, confirmDialog } = useConfirm();
   const { mutate: setPublished, isPending: publishing } = usePublishCurriculum();
   const curricula = data?.items ?? [];
 
   return (
     <div className="animate-fade-in">
+      {confirmDialog}
       <PageHeader
         eyebrow="Platform"
         title="Curriculum"
@@ -242,7 +245,18 @@ export function AdminCurriculumPage() {
                       size="sm"
                       variant="outline"
                       loading={publishing}
-                      onClick={() => setPublished({ curriculumPublicId: curriculum.publicId, publish: !curriculum.isPublished })}
+                      onClick={async () => {
+                        const publish = !curriculum.isPublished;
+                        const { confirmed } = await confirm({
+                          title: publish ? 'Publish this curriculum?' : 'Unpublish this curriculum?',
+                          message: publish
+                            ? `Students in the matching school district and grade will see "${curriculum.title}" straight away, and tutors can attach worksheets and assignments to it.`
+                            : `Students will no longer see "${curriculum.title}", and tutors cannot attach new work to it. Existing work stays.`,
+                          confirmLabel: publish ? 'Publish' : 'Unpublish',
+                          tone: publish ? 'primary' : 'danger',
+                        });
+                        if (confirmed) setPublished({ curriculumPublicId: curriculum.publicId, publish });
+                      }}
                     >
                       {curriculum.isPublished ? <><EyeOff className="h-3.5 w-3.5" /> Unpublish</> : <><Eye className="h-3.5 w-3.5" /> Publish</>}
                     </Button>

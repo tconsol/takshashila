@@ -39,7 +39,11 @@ const envSchema = z.object({
 
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().default(1025),
-  SMTP_SECURE: z.coerce.boolean().default(false),
+  // z.coerce.boolean() would read the text "false" as true (any non-empty string is truthy).
+  SMTP_SECURE: z
+    .string()
+    .optional()
+    .transform((v) => ['true', '1', 'yes', 'on'].includes((v ?? '').trim().toLowerCase())),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().default('noreply@brainbaseedu.com'),

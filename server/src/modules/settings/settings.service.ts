@@ -42,6 +42,17 @@ export class SettingsService {
       { new: true, upsert: true, setDefaultsOnInsert: true },
     ).lean();
 
+    // Databases created before the rename still hold the old product name and
+    // support address as if they were defaults; replace only those exact
+    // legacy values, never anything an admin typed.
+    if (doc && (doc.platformName === 'Takshashila' || doc.supportEmail === 'support@takshashila.com')) {
+      const fix: Record<string, string> = {};
+      if (doc.platformName === 'Takshashila') fix.platformName = PLATFORM_SETTINGS_DEFAULTS.platformName;
+      if (doc.supportEmail === 'support@takshashila.com') fix.supportEmail = PLATFORM_SETTINGS_DEFAULTS.supportEmail;
+      await PlatformSettingsModel.updateOne({ key: 'platform' }, { $set: fix });
+      Object.assign(doc, fix);
+    }
+
     cached = { value: doc as IPlatformSettings, expiresAt: Date.now() + CACHE_TTL_MS };
     return cached.value;
   }
@@ -82,13 +93,14 @@ export class SettingsService {
 
     if (Object.keys(updates).length === 0) throw invalid('No valid settings supplied');
 
-    const min = updates.minClassDurationMinutes;
-    const max = updates.maxClassDurationMinutes;
+    const before = await this.get();
+
+    // Validate against the resulting full state, not just this patch.
+    const min = updates.minClassDurationMinutes ?? before.minClassDurationMinutes;
+    const max = updates.maxClassDurationMinutes ?? before.maxClassDurationMinutes;
     if (min !== undefined && max !== undefined && min > max) {
       throw invalid('minClassDurationMinutes cannot exceed maxClassDurationMinutes');
     }
-
-    const before = await this.get();
 
     const after = await PlatformSettingsModel.findOneAndUpdate(
       { key: 'platform' },

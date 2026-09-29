@@ -1,3 +1,4 @@
+import { useConfirm } from '../../hooks/use-confirm';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -39,6 +40,7 @@ const PRIORITY_VARIANT: Record<string, 'danger' | 'warning'> = {
 
 export function AdminDashboard() {
   const navigate = useNavigate();
+  const { confirm, confirmDialog } = useConfirm();
   const { mutateAsync: approve, isPending: approving } = useApprovePrincipal();
 
   const { data, isLoading, isError } = useQuery({
@@ -99,6 +101,7 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <DashboardHero
         role="ADMIN"
         eyebrow="Operations"
@@ -267,7 +270,15 @@ export function AdminDashboard() {
                         size="sm"
                         variant="success"
                         loading={approving}
-                        onClick={() => approve(p.publicId)}
+                        onClick={async () => {
+                          const { confirmed } = await confirm({
+                            title: 'Approve this principal?',
+                            message: 'They get access to run an organization: invite and approve tutors and students. You can suspend them later.',
+                            confirmLabel: 'Approve principal',
+                            tone: 'primary',
+                          });
+                          if (confirmed) await approve(p.publicId);
+                        }}
                       >
                         Approve
                       </Button>

@@ -8,6 +8,7 @@ const studentProfileSchema = new Schema<IStudentProfile>(
     publicId: { type: String, default: uuidv4, unique: true, index: true },
     userPublicId: { type: String, required: true, index: true },
     tutorPublicId: { type: String, index: true },
+    pendingTutorPublicId: { type: String },
     previousTutorPublicIds: [{ type: String }],
     status: {
       type: String,
@@ -17,6 +18,17 @@ const studentProfileSchema = new Schema<IStudentProfile>(
     },
     demoClassesUsed: { type: Number, default: 0, min: 0 },
     demoClassTakenWith: [{ type: String }],
+    // Recorded when someone other than the child creates the account.
+    guardianConsent: {
+      type: {
+        givenBy: String,
+        givenByRole: String,
+        givenAt: Date,
+        version: String,
+        _id: false,
+      },
+      default: undefined,
+    },
     totalClassesAttended: { type: Number, default: 0, min: 0 },
     totalClassesMissed: { type: Number, default: 0, min: 0 },
     totalClassesBooked: { type: Number, default: 0, min: 0 },

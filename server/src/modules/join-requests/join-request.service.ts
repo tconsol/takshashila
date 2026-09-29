@@ -11,6 +11,9 @@ import { ConflictError, NotFoundError, AppError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { settingsService } from '../settings/settings.service';
+import { ScheduledClassModel } from '../schedules/schedule.model';
+import { ClassStatus } from '../schedules/schedule.types';
+import { logger } from '../../lib/logger';
 
 export interface JoinRequestWithDetails extends IJoinRequest {
   tutorName: string;
@@ -60,7 +63,7 @@ export class JoinRequestService {
     }).lean();
     if (existing) throw new ConflictError('A pending request already exists for this principal');
 
-    const request = await JoinRequestModel.create({
+    const request = await this._createPending({
       publicId: uuidv4(),
       tutorUserPublicId,
       tutorProfilePublicId: tutorProfile.publicId,
@@ -130,7 +133,7 @@ export class JoinRequestService {
     }).lean();
     if (existing) throw new ConflictError('A pending request already exists for this tutor');
 
-    const request = await JoinRequestModel.create({
+    const request = await this._createPending({
       publicId: uuidv4(),
       tutorUserPublicId: targetUser.publicId,
       tutorProfilePublicId: tutorProfile.publicId,
@@ -152,6 +155,53 @@ export class JoinRequestService {
     return request.toObject();
   }
 
+  /** Create a PENDING request; the partial unique index turns a duplicate into a ConflictError. */
+  private async _createPending(data: Partial<IJoinRequest>) {
+    try {
+      return await JoinRequestModel.create(data);
+    } catch (err) {
+      if ((err as { code?: number }).code === 11000) {
+        throw new ConflictError('A pending request already exists between this tutor and principal');
+      }
+      throw err;
+    }
+  }
+
+  /** Tell a tutor's students (and parents) that the tutor's organization can now see their progress. */
+  private async notifyStudentsOfNewOrganization(tutorProfilePublicId: string, principalUserPublicId: string): Promise<void> {
+    try {
+      const { StudentProfileModel } = await import('../students/student.model');
+      const { ParentProfileModel } = await import('../parents/parent.model');
+      const { notificationService } = await import('../notifications/notification.service');
+      const principal = await userRepository.findByPublicId(principalUserPublicId);
+      const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: principalUserPublicId }, { organizationName: 1 }).lean();
+      const org = principalProfile?.organizationName || (principal ? `${principal.firstName} ${principal.lastName}`.trim() : 'an organization');
+
+      const students = await StudentProfileModel.find(
+        { tutorPublicId: tutorProfilePublicId, isDeleted: false, status: { $in: ['ACTIVE', 'PENDING_APPROVAL'] } },
+        { publicId: 1, userPublicId: 1 },
+      ).lean();
+      const body = `Your tutor has joined ${org}. The organization's principal can now see your classes, attendance and progress. You can stop this at any time from My Tutors by unlinking, or contact support with questions.`;
+      for (const st of students) {
+        await notificationService.create({
+          recipientPublicId: st.userPublicId, type: 'SYSTEM' as never, title: 'Your tutor joined an organization', body,
+        });
+      }
+      const parents = await ParentProfileModel.find(
+        { childStudentPublicIds: { $in: students.map((st) => st.publicId) }, isDeleted: false },
+        { userPublicId: 1 },
+      ).lean();
+      for (const pr of parents) {
+        await notificationService.create({
+          recipientPublicId: pr.userPublicId, type: 'SYSTEM' as never, title: "Your child's tutor joined an organization",
+          body: body.replace('Your tutor', "Your child's tutor").replace('your classes', "your child's classes"),
+        });
+      }
+    } catch (error) {
+      logger.warn('Could not notify students of tutor joining an organization', { error: String(error) });
+    }
+  }
+
   async approveRequest(requestPublicId: string, actorPublicId: string): Promise<IJoinRequest> {
     const request = await JoinRequestModel.findOne({
       publicId: requestPublicId,
@@ -167,26 +217,42 @@ export class JoinRequestService {
 
     if (!isReceiver) throw new AppError('Not authorised to approve this request', 403);
 
-    await JoinRequestModel.updateOne(
-      { publicId: requestPublicId },
+    // Atomic PENDING -> APPROVED transition: only the caller that wins this
+    // write goes on to bump the counter, so retries can't double-count.
+    const transitioned = await JoinRequestModel.findOneAndUpdate(
+      { publicId: requestPublicId, status: JoinRequestStatus.PENDING, isDeleted: false },
       { $set: { status: JoinRequestStatus.APPROVED } },
-    );
+    ).lean();
+    if (!transitioned) throw new ConflictError('This request has already been processed');
 
-    // Attach tutor to principal, advance status, and increment the principal's tutor count
-    await Promise.all([
-      TutorProfileModel.findOneAndUpdate(
-        { publicId: request.tutorProfilePublicId, isDeleted: false },
-        {
-          $set: {
-            principalPublicId: request.principalUserPublicId,
-            status: TutorStatus.UNDER_VERIFICATION,
-          },
+    // Attach tutor to principal, advance status, and move the principal's tutor count.
+    // findOneAndUpdate returns the PRE-update doc so we know which org (if any) the tutor is leaving.
+    const before = await TutorProfileModel.findOneAndUpdate(
+      { publicId: request.tutorProfilePublicId, isDeleted: false },
+      {
+        $set: {
+          principalPublicId: request.principalUserPublicId,
+          status: TutorStatus.UNDER_VERIFICATION,
         },
-      ),
-      PrincipalProfileModel.updateOne(
-        { userPublicId: request.principalUserPublicId, isDeleted: false },
-        { $inc: { totalTutors: 1 } },
-      ),
+      },
+    );
+    const oldPrincipal = before?.principalPublicId;
+    const switching = !!oldPrincipal && oldPrincipal !== request.principalUserPublicId;
+    const unchanged = oldPrincipal === request.principalUserPublicId;
+
+    await Promise.all([
+      unchanged
+        ? Promise.resolve()
+        : PrincipalProfileModel.updateOne(
+          { userPublicId: request.principalUserPublicId, isDeleted: false },
+          { $inc: { totalTutors: 1 } },
+        ),
+      switching
+        ? PrincipalProfileModel.updateOne(
+          { userPublicId: oldPrincipal, isDeleted: false, totalTutors: { $gt: 0 } },
+          { $inc: { totalTutors: -1 } },
+        )
+        : Promise.resolve(),
     ]);
 
     domainEvents.emit(DomainEvent.JOIN_REQUEST_APPROVED, {
@@ -195,6 +261,10 @@ export class JoinRequestService {
       principalUserPublicId: request.principalUserPublicId,
       principalProfilePublicId: request.principalProfilePublicId,
     });
+
+    // The principal can now see this tutor's students. Their consent is not asked
+    // first, so at least tell them (and let them unlink from My Tutors).
+    if (!unchanged) void this.notifyStudentsOfNewOrganization(request.tutorProfilePublicId, request.principalUserPublicId);
 
     return { ...request, status: JoinRequestStatus.APPROVED };
   }
@@ -217,10 +287,11 @@ export class JoinRequestService {
 
     if (!isReceiver) throw new AppError('Not authorised to reject this request', 403);
 
-    await JoinRequestModel.updateOne(
-      { publicId: requestPublicId },
+    const transitioned = await JoinRequestModel.findOneAndUpdate(
+      { publicId: requestPublicId, status: JoinRequestStatus.PENDING, isDeleted: false },
       { $set: { status: JoinRequestStatus.REJECTED, rejectionReason: reason } },
-    );
+    ).lean();
+    if (!transitioned) throw new ConflictError('This request has already been processed');
 
     domainEvents.emit(DomainEvent.JOIN_REQUEST_REJECTED, {
       requestPublicId,
@@ -249,6 +320,58 @@ export class JoinRequestService {
       { publicId: requestPublicId },
       { $set: { status: JoinRequestStatus.CANCELLED } },
     );
+  }
+
+  /** Tutor leaves their current organization. */
+  async leaveOrganization(tutorUserPublicId: string): Promise<void> {
+    const tutor = await TutorProfileModel.findOne({ userPublicId: tutorUserPublicId, isDeleted: false }).lean();
+    if (!tutor) throw new NotFoundError('Tutor profile');
+    if (!tutor.principalPublicId) throw new ConflictError('You are not part of an organization');
+    await this._detachTutor(tutor.publicId, tutor.userPublicId, tutor.principalPublicId, 'TUTOR');
+  }
+
+  /** Principal removes one of their OWN tutors. */
+  async removeTutor(principalUserPublicId: string, tutorProfilePublicId: string): Promise<void> {
+    const tutor = await TutorProfileModel.findOne({ publicId: tutorProfilePublicId, isDeleted: false }).lean();
+    // Same 404 for "not found" and "someone else's tutor" so ids can't be probed.
+    if (!tutor || tutor.principalPublicId !== principalUserPublicId) throw new NotFoundError('Tutor');
+    await this._detachTutor(tutor.publicId, tutor.userPublicId, principalUserPublicId, 'PRINCIPAL');
+  }
+
+  private async _detachTutor(
+    tutorProfilePublicId: string,
+    tutorUserPublicId: string,
+    principalUserPublicId: string,
+    initiatedBy: 'TUTOR' | 'PRINCIPAL',
+  ): Promise<void> {
+    // Guarded on the current principal so a double-click cannot decrement twice.
+    const detached = await TutorProfileModel.findOneAndUpdate(
+      { publicId: tutorProfilePublicId, principalPublicId: principalUserPublicId, isDeleted: false },
+      { $unset: { principalPublicId: '' } },
+    );
+    if (!detached) throw new ConflictError('Tutor is no longer part of this organization');
+
+    await PrincipalProfileModel.updateOne(
+      { userPublicId: principalUserPublicId, isDeleted: false, totalTutors: { $gt: 0 } },
+      { $inc: { totalTutors: -1 } },
+    );
+
+    const openClasses = await ScheduledClassModel.countDocuments({
+      tutorPublicId: tutorProfilePublicId,
+      status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+      isDeleted: false,
+    });
+    if (openClasses > 0) {
+      logger.warn('Tutor left organization with open classes', { tutorProfilePublicId, principalUserPublicId, openClasses });
+    }
+
+    const tutorUser = await userRepository.findByPublicId(tutorUserPublicId);
+    domainEvents.emit(DomainEvent.TUTOR_LEFT_ORGANIZATION, {
+      tutorUserPublicId,
+      principalUserPublicId,
+      initiatedBy,
+      tutorName: tutorUser ? `${tutorUser.firstName} ${tutorUser.lastName}` : 'A tutor',
+    });
   }
 
   async listIncoming(actorPublicId: string, role: string): Promise<JoinRequestWithDetails[]> {

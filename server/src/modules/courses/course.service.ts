@@ -26,6 +26,7 @@ import { WorksheetModel, WorksheetSubmissionModel } from '../worksheets/workshee
 import { materialFilterForCourse, ACTIVE_COURSE_STATUSES, type Viewer } from './material-access';
 import { loadMaterialsByTopic, curriculumSummary } from './course-structure';
 import { AppError, ConflictError, NotFoundError, ValidationError } from '../../utils/error';
+import { logger } from '../../lib/logger';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { isWithinAvailability } from '../../shared/availability';
@@ -311,16 +312,39 @@ export class CourseService {
     if (!updated) throw new ConflictError('Request already processed');
 
     if (totalCostCentsCharged > 0) {
-      await walletService.debitWallet({
-        ownerPublicId: studentProfile.userPublicId,
-        amountCents: totalCostCentsCharged,
-        description: `Curriculum series (${dto.classesRequired} classes)`,
-        // Persisted in wallettransactions — do not rename (see rename spec §3.5).
-        idempotencyKey: `course-request-accept-${coursePublicId}`,
-        referenceId: coursePublicId,
-        // Persisted in wallettransactions — do not rename (see rename spec §3.5).
-        referenceType: 'COURSE_REQUEST_ACCEPT',
-      });
+      try {
+        await walletService.debitWallet({
+          ownerPublicId: studentProfile.userPublicId,
+          amountCents: totalCostCentsCharged,
+          description: `Curriculum series (${dto.classesRequired} classes)`,
+          // Persisted in wallettransactions — do not rename (see rename spec §3.5).
+          idempotencyKey: `course-request-accept-${coursePublicId}`,
+          referenceId: coursePublicId,
+          // Persisted in wallettransactions — do not rename (see rename spec §3.5).
+          referenceType: 'COURSE_REQUEST_ACCEPT',
+        });
+      } catch (err) {
+        // Debit failed: release the claim so the request is PENDING again and the
+        // tutor can retry (the debit idempotency key keeps a retry safe).
+        try {
+          await CourseModel.findOneAndUpdate(
+            { publicId: coursePublicId, status: CourseStatus.ACCEPTED },
+            {
+              $set: { status: CourseStatus.PENDING },
+              $unset: { acceptedAt: 1, classesRequired: 1, costCentsPerClass: 1, totalCostCentsCharged: 1 },
+            },
+          );
+        } catch (rollbackError) {
+          logger.error('Course accept debit failed and status rollback also failed', {
+            coursePublicId,
+            error: rollbackError,
+          });
+        }
+        if (err instanceof AppError && err.statusCode === 402) {
+          throw new AppError('Student has insufficient credits to accept this request', 402);
+        }
+        throw err;
+      }
     }
 
     domainEvents.emit(DomainEvent.COURSE_ACCEPTED, {
@@ -378,6 +402,29 @@ export class CourseService {
     const inWindow = isWithinAvailability(request.availabilityWindow, start, end);
     if (!inWindow) {
       throw new AppError('Requested time is outside the student\'s stated availability window', 400);
+    }
+
+    if (start.getTime() <= Date.now()) {
+      throw new AppError('Cannot schedule a class in the past', 400);
+    }
+
+    // The tutor cannot be in two classes at once, and neither can the student.
+    const clash = await ScheduledClassModel.findOne(
+      {
+        isDeleted: false,
+        status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+        startUTC: { $lt: end },
+        endUTC: { $gt: start },
+        $or: [{ tutorPublicId: tutorProfile.publicId }, { studentPublicId: request.studentPublicId }],
+      },
+      { tutorPublicId: 1 },
+    ).lean();
+    if (clash) {
+      throw new ConflictError(
+        clash.tutorPublicId === tutorProfile.publicId
+          ? 'You already have a class during that time'
+          : 'The student already has a class during that time',
+      );
     }
 
     const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60_000);
@@ -457,6 +504,16 @@ export class CourseService {
       throw new ConflictError(`Request already ${request.status.toLowerCase()}`);
     }
 
+    // Claim the course atomically BEFORE the cascade so a concurrent second
+    // cancel fails cleanly instead of re-running class cancellations/refund.
+    const claimed = await CourseModel.findOneAndUpdate(
+      { publicId: coursePublicId, isDeleted: false, status: { $in: [CourseStatus.ACCEPTED, CourseStatus.PENDING] } },
+      { $set: { status: CourseStatus.CANCELLED } },
+      { new: true },
+    ).lean();
+    if (!claimed) throw new ConflictError('Request is no longer cancellable');
+
+    try {
     if (request.status === CourseStatus.ACCEPTED) {
       const scheduledNotCompleted = await ScheduledClassModel.find(
         { coursePublicId: coursePublicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] }, isDeleted: false },
@@ -464,7 +521,14 @@ export class CourseService {
       ).lean();
 
       for (const cls of scheduledNotCompleted) {
-        await classService.cancelClass(cls.publicId, actorUserPublicId, { reason: 'Course cancelled' });
+        try {
+          await classService.cancelClass(cls.publicId, actorUserPublicId, { reason: 'Course cancelled' });
+        } catch (error) {
+          // One stale class must not abort the whole course cancellation.
+          logger.error('Could not cancel class during course cancellation', {
+            classPublicId: cls.publicId, coursePublicId, error: (error as Error).message,
+          });
+        }
       }
 
       // classService.cancelClass already refunds any class it just cancelled
@@ -492,15 +556,20 @@ export class CourseService {
       }
     }
 
-    const updated = await CourseModel.findOneAndUpdate(
-      { publicId: coursePublicId },
-      { $set: { status: CourseStatus.CANCELLED } },
-      { new: true },
-    ).lean();
+    } catch (error) {
+      // Refund (or other cascade step) failed: release the claim so the cancel can be retried.
+      await CourseModel.updateOne(
+        { publicId: coursePublicId, status: CourseStatus.CANCELLED },
+        { $set: { status: request.status } },
+      ).catch((rollbackError) => logger.error('Course cancel failed and status rollback also failed', {
+        coursePublicId, error: (rollbackError as Error).message,
+      }));
+      throw error;
+    }
 
     domainEvents.emit(DomainEvent.COURSE_CANCELLED, { coursePublicId, actorUserPublicId });
 
-    return updated!;
+    return claimed;
   }
 }
 

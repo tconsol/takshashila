@@ -3,6 +3,7 @@ import { GraduationCap, Users, Building2 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { ConsentCheckbox } from '../shared/ConsentCheckbox';
 import { Select } from '../ui/Select';
 import { TIMEZONE_OPTIONS } from '../../constants/timezones';
 import type { GoogleAuthPayload, GoogleRoleRequired, GoogleSignupRole } from '../../services/auth.service';
@@ -44,15 +45,17 @@ export function GoogleRoleModal({ info, submitting, error, onCancel, onSubmit }:
   const [organizationName, setOrganizationName] = useState('');
   const [subjects, setSubjects] = useState('');
   const [bio, setBio] = useState('');
+  const [agreed, setAgreed] = useState(false);
 
   // The server enforces this too; mirroring it here avoids a pointless round trip.
   const subjectList = subjects.split(',').map((s) => s.trim()).filter(Boolean);
-  const canSubmit = !!role && (role !== 'TUTOR' || subjectList.length > 0);
+  const canSubmit = !!role && agreed && (role !== 'TUTOR' || subjectList.length > 0);
 
   const submit = () => {
     if (!role || !canSubmit) return;
     onSubmit({
       role,
+      acceptedTerms: agreed,
       timezone,
       phone: phone.trim() || undefined,
       grade: role === 'STUDENT' ? grade.trim() || undefined : undefined,
@@ -155,6 +158,8 @@ export function GoogleRoleModal({ info, submitting, error, onCancel, onSubmit }:
             )}
           </div>
         )}
+
+        <ConsentCheckbox checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
 
         {error && <p className="text-sm font-medium text-danger">{error}</p>}
       </div>

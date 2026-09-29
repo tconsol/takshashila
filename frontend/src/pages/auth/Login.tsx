@@ -8,6 +8,7 @@ import { useLogin } from '../../hooks/use-auth';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
+import { authService } from '../../services/auth.service';
 
 const ROLE_TILES = [
   { label: 'Student',   path: '/register/student',   Icon: GraduationCap, color: 'bg-indigo-50 text-indigo-600' },
@@ -22,9 +23,11 @@ export function LoginPage() {
   const justRegistered = searchParams.get('registered') === 'true';
   const loginMutation = useLogin();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const identifier = watch('identifier') ?? '';
 
   const onSubmit = (data: LoginFormData) => loginMutation.mutate(data);
 
@@ -45,7 +48,7 @@ export function LoginPage() {
 
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Welcome back</h1>
-        <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">Sign in to your brainbaseeduaccount</p>
+        <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">Sign in to your brainbaseedu account</p>
       </div>
 
       {justRegistered && (
@@ -59,8 +62,36 @@ export function LoginPage() {
       )}
 
       {serverError && (
-        <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm font-medium text-rose-700">
-          {serverError}
+        <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm font-medium text-rose-700 space-y-2">
+          <p>{serverError}</p>
+          {/* An unverified person whose first email was lost or expired must be able to ask for another. */}
+          {/verify your email/i.test(serverError) && identifier.includes('@') && (
+            <div>
+              {resendState === 'sent' ? (
+                <p className="text-emerald-700">A new verification link is on its way. Check your inbox and spam folder.</p>
+              ) : (
+                <button
+                  type="button"
+                  disabled={resendState === 'sending'}
+                  onClick={async () => {
+                    setResendState('sending');
+                    try { await authService.resendVerification(identifier.trim()); setResendState('sent'); }
+                    catch { setResendState('error'); }
+                  }}
+                  className="font-semibold underline disabled:opacity-60"
+                >
+                  {resendState === 'sending' ? 'Sending…' : 'Resend verification email'}
+                </button>
+              )}
+              {resendState === 'error' && <p className="mt-1 text-xs">Could not send it. Please try again in a moment.</p>}
+            </div>
+          )}
+          {/suspended/i.test(serverError) && (
+            <p>
+              You can reach our team at{' '}
+              <a href="mailto:support@brainbaseedu.com" className="font-semibold underline">support@brainbaseedu.com</a>.
+            </p>
+          )}
         </div>
       )}
 

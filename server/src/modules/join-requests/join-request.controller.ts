@@ -1,3 +1,4 @@
+import { auditService } from '../audit/audit.service';
 import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { joinRequestService } from './join-request.service';
@@ -31,6 +32,16 @@ export class JoinRequestController {
   async approveRequest(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const request = await joinRequestService.approveRequest(req.params.requestId, req.user!.publicId);
+      await auditService.log({
+        actorId: req.user!.publicId,
+        actorRole: req.user!.role as never,
+        action: 'JOIN_REQUEST_APPROVED',
+        resourceType: 'JoinRequest',
+        resourceId: req.params.requestId,
+        ip: req.ip,
+        userAgent: req.get('user-agent') ?? undefined,
+        after: { status: 'APPROVED' },
+      }).catch(() => undefined);
       sendSuccess(res, request, 'Request approved');
     } catch (e) { next(e); }
   }
@@ -47,6 +58,20 @@ export class JoinRequestController {
     try {
       await joinRequestService.cancelRequest(req.params.requestId, req.user!.publicId);
       sendSuccess(res, null, 'Request cancelled');
+    } catch (e) { next(e); }
+  }
+
+  async leaveOrganization(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await joinRequestService.leaveOrganization(req.user!.publicId);
+      sendSuccess(res, null, 'You have left the organization');
+    } catch (e) { next(e); }
+  }
+
+  async removeTutor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await joinRequestService.removeTutor(req.user!.publicId, req.params.tutorProfilePublicId);
+      sendSuccess(res, null, 'Tutor removed from your organization');
     } catch (e) { next(e); }
   }
 

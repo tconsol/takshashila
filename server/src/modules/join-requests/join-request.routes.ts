@@ -50,6 +50,19 @@ router.get(
   joinRequestController.listOutgoing.bind(joinRequestController),
 );
 
+// Tutor leaves their organization / principal removes one of their own tutors
+router.post(
+  '/leave-organization',
+  requireRole(Role.TUTOR),
+  joinRequestController.leaveOrganization.bind(joinRequestController),
+);
+
+router.delete(
+  '/tutors/:tutorProfilePublicId',
+  requireRole(Role.PRINCIPAL),
+  joinRequestController.removeTutor.bind(joinRequestController),
+);
+
 // Approve / reject / cancel
 router.post(
   '/:requestId/approve',

@@ -29,12 +29,14 @@ export function registerChatSocket(io: IOServer, socket: AuthSocket): void {
     try {
       const user = await userRepository.findByPublicId(socket.userPublicId);
       const displayName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Someone';
+      if (!socket.rooms.has(`chat:${conversationPublicId}`)) return; // only relay from joined (verified) rooms
       socket.to(`chat:${conversationPublicId}`).emit('chat:typing', {
         conversationPublicId,
         userPublicId: socket.userPublicId,
         displayName,
       });
     } catch {
+      if (!socket.rooms.has(`chat:${conversationPublicId}`)) return;
       socket.to(`chat:${conversationPublicId}`).emit('chat:typing', {
         conversationPublicId,
         userPublicId: socket.userPublicId,
@@ -55,7 +57,17 @@ export function registerChatSocket(io: IOServer, socket: AuthSocket): void {
     }
   });
 
-  socket.on('chat:join', (conversationPublicId: string) => {
-    socket.join(`chat:${conversationPublicId}`);
+  socket.on('chat:join', async (conversationPublicId: string, ack?: (res: { ok: boolean; error?: string }) => void) => {
+    try {
+      if (typeof conversationPublicId !== 'string' || !(await chatService.isParticipant(conversationPublicId, socket.userPublicId))) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'Conversation not found' });
+        return;
+      }
+      socket.join(`chat:${conversationPublicId}`);
+      if (typeof ack === 'function') ack({ ok: true });
+    } catch (e) {
+      logger.error('chat:join error', { error: e });
+      if (typeof ack === 'function') ack({ ok: false, error: 'Could not join conversation' });
+    }
   });
 }

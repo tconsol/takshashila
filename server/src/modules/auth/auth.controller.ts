@@ -5,6 +5,8 @@ import { authService } from './auth.service';
 import { isRoleRequired } from './auth.types';
 import { sendSuccess, sendCreated } from '../../utils/response';
 import { env } from '../../config/env';
+import { settingsService } from '../settings/settings.service';
+import { AppError } from '../../utils/error';
 
 function getDeviceInfo(req: Request) {
   return {
@@ -41,7 +43,12 @@ function clearAuthCookies(res: Response): void {
 export class AuthController {
   async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await authService.register(req.body);
+      if (!(await settingsService.isFeatureEnabled('registrationOpen'))) {
+        throw new AppError('New registrations are currently closed.', 403);
+      }
+      const result = await authService.register(req.body, 'STUDENT', {
+        consentMeta: { ip: req.ip || req.socket.remoteAddress, userAgent: req.headers['user-agent'] },
+      });
       sendCreated(res, result, 'Registration successful. Please verify your email.');
     } catch (error) {
       next(error);
@@ -129,7 +136,7 @@ export class AuthController {
   async acceptInvite(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { token, password } = req.body;
-      await authService.acceptInvite(token, password);
+      await authService.acceptInvite(token, password, { ip: req.ip || req.socket.remoteAddress, userAgent: req.headers['user-agent'] });
       sendSuccess(res, null, 'Account activated successfully. You can now log in.');
     } catch (error) {
       next(error);

@@ -54,6 +54,9 @@ export const tutorCreateClassSchema = z.object({
 export const tutorRescheduleSchema = z.object({
   startUTC: z.string().datetime(),
   endUTC: z.string().datetime(),
+}).refine((d) => new Date(d.endUTC).getTime() > new Date(d.startUTC).getTime(), {
+  message: 'endUTC must be after startUTC',
+  path: ['endUTC'],
 });
 
 export type BookClassDto = z.infer<typeof bookClassSchema>;

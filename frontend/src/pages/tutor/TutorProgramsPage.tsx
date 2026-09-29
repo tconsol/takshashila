@@ -1,4 +1,5 @@
 // frontend/src/pages/tutor/TutorProgramsPage.tsx
+import { useConfirm } from '../../hooks/use-confirm';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Sparkles, Plus, Eye, Archive, Trash2, Pencil, Upload } from 'lucide-react';
@@ -27,12 +28,14 @@ export function TutorProgramsPage() {
   const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<Program | null>(null);
   const { data: programs = [], isLoading } = useMyPrograms();
+  const { confirm, confirmDialog } = useConfirm();
   const { mutate: setStatus } = useSetProgramStatus();
   const { mutate: remove } = useDeleteProgram();
   const list = programs.filter((p) => p.status === tab);
 
   return (
     <div className="animate-fade-in">
+      {confirmDialog}
       <PageHeader
         eyebrow="Tutor Studio"
         title="Skill Programs"
@@ -70,10 +73,25 @@ export function TutorProgramsPage() {
                     {p.isFull && <Badge variant="warning" tone="soft">Full</Badge>}
                     <Button size="sm" variant="outline" onClick={() => { setCreating(false); setEditing(p); }}><Pencil className="h-3.5 w-3.5" /> Edit</Button>
                     {p.status !== 'PUBLISHED' && (
-                      <Button size="sm" variant="outline" onClick={() => setStatus({ id: p.publicId, action: 'publish' })}><Eye className="h-3.5 w-3.5" /> Publish</Button>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        const { confirmed } = await confirm({
+                          title: 'Publish this program?',
+                          message: `Students can find and enrol in "${p.title}" straight away, paying ${(p.priceCents / 100).toFixed(2)} credits up front.`,
+                          confirmLabel: 'Publish',
+                          tone: 'primary',
+                        });
+                        if (confirmed) setStatus({ id: p.publicId, action: 'publish' });
+                      }}><Eye className="h-3.5 w-3.5" /> Publish</Button>
                     )}
                     {p.status === 'PUBLISHED' && (
-                      <Button size="sm" variant="outline" onClick={() => setStatus({ id: p.publicId, action: 'archive' })}><Archive className="h-3.5 w-3.5" /> Archive</Button>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        const { confirmed } = await confirm({
+                          title: 'Archive this program?',
+                          message: `"${p.title}" is hidden from students and no one new can enrol. Students already enrolled keep their enrolment.`,
+                          confirmLabel: 'Archive',
+                        });
+                        if (confirmed) setStatus({ id: p.publicId, action: 'archive' });
+                      }}><Archive className="h-3.5 w-3.5" /> Archive</Button>
                     )}
                     {p.activeEnrollmentCount === 0 && (
                       <Button size="sm" variant="outline" aria-label={`Delete ${p.title}`} onClick={() => remove(p.publicId)}><Trash2 className="h-3.5 w-3.5" /></Button>

@@ -8,6 +8,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
+import { useConfirm } from '../../hooks/use-confirm';
 import { useMyClassesAsTutor, useCompleteClass, useCancelClass, useRefundClass, LIVE_STATUS_POLL } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
 import { useTabActivity } from '../../hooks/use-tab-activity';
@@ -58,6 +59,7 @@ export function TutorClassesPage() {
     activeTab,
   );
 
+  const { confirm, confirmDialog } = useConfirm();
   const { mutateAsync: completeClass } = useCompleteClass();
   const { mutateAsync: cancelClass, isPending: cancelling } = useCancelClass();
   const { mutateAsync: refundClass, isPending: refunding } = useRefundClass();
@@ -87,7 +89,19 @@ export function TutorClassesPage() {
   ];
 
   const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate' | 'reschedule', cls: ClassRecord) => {
-    if (action === 'complete') completeClass(cls.publicId);
+    if (action === 'complete') {
+      void (async () => {
+        const { confirmed } = await confirm({
+          title: 'Complete this class?',
+          message: cls.classType === 'DEMO'
+            ? "This ends the demo class and uses the student's free demo credits. You are not paid for demo classes. It cannot be undone."
+            : 'This ends the class, charges the student and pays you for it. Only complete a class that has really taken place; it can only be reversed by a refund.',
+          confirmLabel: 'Complete class',
+          tone: 'primary',
+        });
+        if (confirmed) completeClass(cls.publicId).catch(() => {});
+      })();
+    }
     else if (action === 'cancel') { setCancelTarget(cls); setCancelReason(''); }
     else if (action === 'reschedule') setRescheduleTarget(cls);
   };
@@ -153,6 +167,22 @@ export function TutorClassesPage() {
                 key: 'status',
                 header: 'Status',
                 render: (c) => <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>,
+              },
+              {
+                key: 'actions',
+                header: '',
+                render: (c) =>
+                  c.status === 'LIVE' || c.status === 'SCHEDULED' ? (
+                    <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      {c.status === 'LIVE' && (
+                        <Button size="sm" onClick={() => handleAction('complete', c)}>Complete</Button>
+                      )}
+                      {c.status === 'SCHEDULED' && (
+                        <Button size="sm" variant="outline" onClick={() => handleAction('reschedule', c)}>Reschedule</Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => handleAction('cancel', c)}>Cancel</Button>
+                    </div>
+                  ) : null,
               },
             ]}
             emptyMessage="No classes yet"
@@ -225,6 +255,8 @@ export function TutorClassesPage() {
         </div>
       )}
 
+      {confirmDialog}
+
       {/* Cancel modal */}
       <Modal
         open={!!cancelTarget}
@@ -242,7 +274,12 @@ export function TutorClassesPage() {
       >
         <div className="space-y-3">
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Please provide a reason for cancelling this class. Your student will be refunded automatically.
+            Please provide a reason for cancelling this class. The student is told, and if they were already charged
+            they are refunded automatically.
+          </p>
+          <p className="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+            Cancelling a paid class less than 24 hours before it starts costs you a 1 credit platform fee.
+            Earlier cancellations and demo classes are free.
           </p>
           <textarea
             value={cancelReason}

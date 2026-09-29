@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { ROLES_LIST } from '../../constants/roles';
 
+/** Roles anyone may pick on the public sign-up form. Staff accounts (admin, super admin, support) are created by an admin. */
+const SELF_SIGNUP_ROLES = ['STUDENT', 'TUTOR', 'PRINCIPAL', 'PARENT'] as const;
+
 export const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z
@@ -12,7 +15,7 @@ export const registerSchema = z.object({
     .regex(/[!@#$%^&*]/, 'Password must contain a special character'),
   firstName: z.string().min(1).max(50).trim(),
   lastName: z.string().min(1).max(50).trim(),
-  role: z.enum(ROLES_LIST as [string, ...string[]]).optional(),
+  role: z.enum(SELF_SIGNUP_ROLES).optional(),
   phone: z.string().optional(),
   timezone: z.string().optional(),
   grade: z.string().optional(),
@@ -24,6 +27,8 @@ export const registerSchema = z.object({
   // Principal self-registration extras
   organizationName: z.string().max(200).optional(),
   organizationWebsite: z.string().max(300).optional(),
+  // Must be ticked: the person agrees to the Terms of Use and Privacy Policy.
+  acceptedTerms: z.literal(true, { errorMap: () => ({ message: 'You must agree to the Terms of Use and Privacy Policy' }) }),
 }).superRefine((data, ctx) => {
   // A tutor must pick at least one subject to register.
   if (data.role === 'TUTOR' && (!data.subjects || data.subjects.length === 0)) {
@@ -90,10 +95,14 @@ export const googleAuthSchema = z.object({
   grade: z.string().optional(),
   organizationName: z.string().optional(),
   organizationWebsite: z.string().optional(),
+  acceptedTerms: z.boolean().optional(),
 }).refine((d) => !!d.idToken || !!d.code || !!d.accessToken, {
   message: 'Provide a Google idToken, access token, or authorization code',
   path: ['idToken'],
 }).superRefine((d, ctx) => {
+  if (d.role && d.acceptedTerms !== true) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['acceptedTerms'], message: 'You must agree to the Terms of Use and Privacy Policy' });
+  }
   if (d.role === 'TUTOR' && (!d.subjects || d.subjects.length === 0)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['subjects'], message: 'Select at least one subject' });
   }
@@ -108,6 +117,7 @@ export const acceptInviteSchema = z.object({
     .regex(/[a-z]/)
     .regex(/\d/)
     .regex(/[!@#$%^&*]/),
+  acceptedTerms: z.literal(true, { errorMap: () => ({ message: 'You must agree to the Terms of Use and Privacy Policy' }) }),
 });
 
 export type RegisterDto = z.infer<typeof registerSchema>;

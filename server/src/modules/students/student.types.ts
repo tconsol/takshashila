@@ -13,11 +13,15 @@ export interface IStudentProfile {
   publicId: string;
   userPublicId: string;
   tutorPublicId?: string;
+  /** Tutor a parent has requested; promoted to tutorPublicId when the student accepts. */
+  pendingTutorPublicId?: string;
   previousTutorPublicIds: string[];
   contactEmail?: string;
   status: StudentStatus;
   demoClassesUsed: number;
   demoClassTakenWith: string[];
+  /** Set when a tutor, principal or parent (not the child) created the account. */
+  guardianConsent?: { givenBy: string; givenByRole: string; givenAt: Date; version: string };
   totalClassesAttended: number;
   totalClassesMissed: number;
   totalClassesBooked: number;

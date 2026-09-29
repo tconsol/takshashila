@@ -1,3 +1,4 @@
+import { auditService } from '../audit/audit.service';
 import type { Request, Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { tutorService } from './tutor.service';
@@ -37,21 +38,31 @@ export class TutorController {
 
   async approveTutor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const updated = await tutorService.approve(req.params.tutorId, req.user!.publicId);
+      const updated = await tutorService.approve(req.params.tutorId, req.user!.publicId, req.user!.role);
+      await auditService.log({
+        actorId: req.user!.publicId,
+        actorRole: req.user!.role as never,
+        action: 'TUTOR_APPROVED',
+        resourceType: 'TutorProfile',
+        resourceId: req.params.tutorId,
+        ip: req.ip,
+        userAgent: req.get('user-agent') ?? undefined,
+        after: { status: 'ACTIVE', isVerified: true },
+      }).catch(() => undefined);
       sendSuccess(res, updated, 'Tutor approved');
     } catch (error) { next(error); }
   }
 
   async suspendTutor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const updated = await tutorService.suspend(req.params.tutorId);
+      const updated = await tutorService.suspend(req.params.tutorId, { userPublicId: req.user!.publicId, role: req.user!.role });
       sendSuccess(res, updated, 'Tutor suspended');
     } catch (error) { next(error); }
   }
 
   async reactivateTutor(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const updated = await tutorService.reactivate(req.params.tutorId);
+      const updated = await tutorService.reactivate(req.params.tutorId, { userPublicId: req.user!.publicId, role: req.user!.role });
       sendSuccess(res, updated, 'Tutor reactivated');
     } catch (error) { next(error); }
   }

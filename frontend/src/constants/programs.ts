@@ -1,5 +1,6 @@
 // frontend/src/constants/programs.ts
 export const PROGRAM_CATEGORIES = [
+  { value: 'ACADEMIC', label: 'Academic & Maths' },
   { value: 'ARTS', label: 'Arts & Crafts' },
   { value: 'MUSIC', label: 'Music' },
   { value: 'GAMES', label: 'Games & Chess' },

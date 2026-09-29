@@ -16,7 +16,7 @@ const lineColor: Record<string, string> = {
 };
 
 /** Magic-UI-style fake terminal lines reveal sequentially when scrolled into view. */
-export function Terminal({ lines, title = 'brainbaseeduzsh', className = '' }: {
+export function Terminal({ lines, title = 'brainbaseedu zsh', className = '' }: {
   lines: TermLine[];
   title?: string;
   className?: string;

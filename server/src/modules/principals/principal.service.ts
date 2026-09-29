@@ -5,6 +5,7 @@ import type { IPrincipalProfile } from './principal.types';
 import { NotFoundError, ConflictError } from '../../utils/error';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { logger } from '../../lib/logger';
 import { walletService } from '../wallets/wallet.service';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
@@ -37,7 +38,13 @@ export class PrincipalService {
       isDeleted: false,
     });
 
-    await walletService.createWallet(userPublicId).catch(() => {});
+    await walletService.getOrCreateWallet(userPublicId).catch((error) => {
+      logger.error('[principal] Could not create wallet for principal', {
+        userPublicId,
+        role: 'PRINCIPAL',
+        error,
+      });
+    });
     return profile.toObject();
   }
 

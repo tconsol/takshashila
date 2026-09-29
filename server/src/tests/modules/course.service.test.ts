@@ -206,11 +206,18 @@ describe('CourseService', () => {
       );
       const incSpy = jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean({ ...accepted, classesScheduledCount: 2 }) as never);
       jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+      // No other class for the tutor or the student at that time.
+      jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(null) as never);
 
-      // Wednesday (day 3) 17:00–18:00 UTC — inside daysOfWeek [1..5], 16:00–19:00 window
+      // A weekday (Mon–Fri) about a week ahead, 17:00–18:00 UTC — inside the 16:00–19:00 window.
+      // Computed rather than hard-coded: scheduling in the past is rejected.
+      const day = new Date();
+      day.setUTCDate(day.getUTCDate() + 7);
+      while (day.getUTCDay() === 0 || day.getUTCDay() === 6) day.setUTCDate(day.getUTCDate() + 1);
+      const at = (h: number) => new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h)).toISOString();
       await courseService.scheduleClass('cr-1', 'tutor-user-1', {
-        startUTC: '2026-09-30T17:00:00.000Z', // a Wednesday
-        endUTC: '2026-09-30T18:00:00.000Z',
+        startUTC: at(17),
+        endUTC: at(18),
         title: 'Algebra I – Session 2',
         topicPublicId: 'topic-1',
       });
@@ -321,6 +328,38 @@ describe('CourseService', () => {
       // covers classesCompletedCount too: neverScheduled = classesRequired(4) -
       // classesScheduledCount(1) = 3 never-scheduled → 3 × 1500 = 4500.
       expect(refund).toHaveBeenCalledWith(expect.objectContaining({ ownerPublicId: 'student-user-1', amountCents: 4500 }));
+    });
+
+    it('continues cancelling and still refunds when one class cancel throws', async () => {
+      const accepted = baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4, classesScheduledCount: 2, costCentsPerClass: 1000 });
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(tutorService, 'getByUserPublicId').mockRejectedValue(new Error('no tutor profile') as never);
+      jest.spyOn(ScheduledClassModel, 'find').mockReturnValue(lean([{ publicId: 'c-a' }, { publicId: 'c-b' }]) as never);
+      const cancelClassSpy = jest.spyOn(classService, 'cancelClass')
+        .mockRejectedValueOnce(new Error('stale') as never)
+        .mockResolvedValueOnce({} as never);
+      jest.spyOn(studentService, 'getByPublicId').mockResolvedValue({ userPublicId: 'student-user-1' } as never);
+      const refund = jest.spyOn(walletService, 'refundWallet').mockResolvedValue({} as never);
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean({ ...accepted, status: CourseStatus.CANCELLED }) as never);
+      jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+
+      await courseService.cancel('cr-1', 'student-user-1');
+
+      expect(cancelClassSpy).toHaveBeenCalledTimes(2);
+      expect(refund).toHaveBeenCalled();
+    });
+
+    it('throws ConflictError when the status claim loses a race', async () => {
+      const accepted = baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4 });
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(tutorService, 'getByUserPublicId').mockRejectedValue(new Error('no tutor profile') as never);
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean(null) as never);
+      const cancelClassSpy = jest.spyOn(classService, 'cancelClass').mockResolvedValue({} as never);
+
+      await expect(courseService.cancel('cr-1', 'student-user-1')).rejects.toThrow(/no longer cancellable/);
+      expect(cancelClassSpy).not.toHaveBeenCalled();
     });
 
     it('rejects when the actor is neither the request\'s student nor its tutor', async () => {

@@ -54,7 +54,7 @@ export function useCreateWorksheet() {
   return useMutation({
     mutationFn: (dto: CreateWorksheetDto) => worksheetsService.create(dto),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: worksheetKeys.myAsTutor() });
+      qc.invalidateQueries({ queryKey: [...worksheetKeys.all, 'tutor'] });
       qc.invalidateQueries({ queryKey: ['badges'] });
     },
   });
@@ -64,7 +64,7 @@ export function useDeleteWorksheet() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => worksheetsService.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: worksheetKeys.myAsTutor() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...worksheetKeys.all, 'tutor'] }),
   });
 }
 
@@ -74,7 +74,7 @@ export function useSubmitWorksheet() {
     mutationFn: ({ id, answers, timeTakenSeconds }: { id: string; answers: number[]; timeTakenSeconds?: number }) =>
       worksheetsService.submitAnswers(id, answers, timeTakenSeconds),
     onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: worksheetKeys.myAsStudent() });
+      qc.invalidateQueries({ queryKey: [...worksheetKeys.all, 'student'] });
       qc.invalidateQueries({ queryKey: worksheetKeys.mySubmission(id) });
       qc.invalidateQueries({ queryKey: ['badges'] });
     },

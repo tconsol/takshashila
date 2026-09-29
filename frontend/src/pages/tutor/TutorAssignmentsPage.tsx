@@ -1,3 +1,4 @@
+import { useConfirm } from '../../hooks/use-confirm';
 import { useState, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -73,6 +74,7 @@ export function TutorAssignmentsPage() {
   const [activeTab, setActiveTab] = useState('PUBLISHED');
   const [showCreate, setShowCreate] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
   const [gradingSubmission, setGradingSubmission] = useState<Submission | null>(null);
   const [gradeScore, setGradeScore] = useState('');
   const [gradeFeedback, setGradeFeedback] = useState('');
@@ -173,8 +175,21 @@ export function TutorAssignmentsPage() {
     }
   };
 
+  const scoreNumber = Number(gradeScore);
+  const scoreError =
+    gradeScore !== '' && (Number.isNaN(scoreNumber) || scoreNumber < 0 || scoreNumber > (selectedAssignment?.maxScore ?? Infinity))
+      ? `Enter a score between 0 and ${selectedAssignment?.maxScore}`
+      : undefined;
+
   const handleGrade = async () => {
-    if (!gradingSubmission || !selectedAssignment) return;
+    if (!gradingSubmission || !selectedAssignment || scoreError) return;
+    const { confirmed } = await confirm({
+      title: 'Save this grade?',
+      message: `${gradingSubmission.studentName ?? 'The student'} will be told their score is ${scoreNumber}/${selectedAssignment.maxScore} and see your feedback.`,
+      confirmLabel: 'Save grade',
+      tone: 'primary',
+    });
+    if (!confirmed) return;
     await gradeSubmission({
       submissionId: gradingSubmission.publicId,
       assignmentId: selectedAssignment.publicId,
@@ -225,14 +240,29 @@ export function TutorAssignmentsPage() {
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   {assignment.status === 'DRAFT' && (
-                    <Button size="sm" onClick={() => publishAssignment(assignment.publicId)}>Publish</Button>
+                    <Button size="sm" onClick={async () => {
+                      const { confirmed } = await confirm({
+                        title: 'Publish this assignment?',
+                        message: `Students assigned to "${assignment.title}" will see it straight away and be notified.`,
+                        confirmLabel: 'Publish',
+                        tone: 'primary',
+                      });
+                      if (confirmed) publishAssignment(assignment.publicId);
+                    }}>Publish</Button>
                   )}
                   {assignment.status === 'PUBLISHED' && (
                     <>
                       <Button size="sm" variant="secondary" onClick={() => setSelectedAssignment(assignment)}>
                         Submissions
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => closeAssignment(assignment.publicId)}>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        const { confirmed } = await confirm({
+                          title: 'Close this assignment?',
+                          message: `Students can no longer submit "${assignment.title}". You can still grade what was already handed in.`,
+                          confirmLabel: 'Close assignment',
+                        });
+                        if (confirmed) closeAssignment(assignment.publicId);
+                      }}>
                         Close
                       </Button>
                     </>
@@ -257,6 +287,11 @@ export function TutorAssignmentsPage() {
         size="lg"
         footer={
           <>
+            {!isAttachmentComplete(attachment) && (
+              <p className="mr-auto text-xs font-medium text-amber-600">
+                Choose a curriculum and at least one topic below to create the assignment.
+              </p>
+            )}
             <Button variant="ghost" onClick={() => { setShowCreate(false); reset(); setFileState({ kind: 'none' }); setAttachment(EMPTY_ATTACHMENT); }}>Cancel</Button>
             <Button onClick={handleSubmit(onSubmit)} loading={isBusy} disabled={!isAttachmentComplete(attachment)}>
               {fileState.kind === 'excel' ? 'Create Quiz Assignment' : 'Create Assignment'}
@@ -392,7 +427,7 @@ export function TutorAssignmentsPage() {
             {
               key: 'studentPublicId',
               header: 'Student',
-              render: (s) => <span className="font-mono text-xs">{s.studentPublicId.slice(0, 8)}…</span>,
+              render: (s) => <span className="text-sm font-medium">{s.studentName ?? `${s.studentPublicId.slice(0, 8)}…`}</span>,
             },
             {
               key: 'status',
@@ -431,6 +466,8 @@ export function TutorAssignmentsPage() {
         />
       </Modal>
 
+      {confirmDialog}
+
       {/* Grade Modal */}
       <Modal
         open={!!gradingSubmission}
@@ -440,11 +477,17 @@ export function TutorAssignmentsPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setGradingSubmission(null)}>Cancel</Button>
-            <Button onClick={handleGrade} loading={grading} disabled={!gradeScore}>Save Grade</Button>
+            <Button onClick={handleGrade} loading={grading} disabled={!gradeScore || !!scoreError}>Save Grade</Button>
           </>
         }
       >
         <div className="space-y-3">
+          <p className="text-sm font-semibold text-gray-900 dark:text-white">{gradingSubmission?.studentName ?? 'Student'}</p>
+          <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+            {gradingSubmission?.content?.trim()
+              ? <p className="whitespace-pre-wrap">{gradingSubmission.content}</p>
+              : <p className="italic text-gray-400">No written answer{gradingSubmission?.attachmentPublicIds?.length ? ' — see the attached file' : ''}.</p>}
+          </div>
           <Input
             label={`Score (max ${selectedAssignment?.maxScore})`}
             type="number"
@@ -452,6 +495,7 @@ export function TutorAssignmentsPage() {
             max={selectedAssignment?.maxScore}
             value={gradeScore}
             onChange={(e) => setGradeScore(e.target.value)}
+            error={scoreError}
           />
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Feedback</label>

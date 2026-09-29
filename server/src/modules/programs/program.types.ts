@@ -2,7 +2,7 @@
 import type { AvailabilityWindow } from '../../shared/availability';
 
 export const ProgramCategory = {
-  ARTS: 'ARTS', MUSIC: 'MUSIC', GAMES: 'GAMES', CODING: 'CODING',
+  ACADEMIC: 'ACADEMIC', ARTS: 'ARTS', MUSIC: 'MUSIC', GAMES: 'GAMES', CODING: 'CODING',
   AI_DATA: 'AI_DATA', LANGUAGES: 'LANGUAGES', LIFE_SKILLS: 'LIFE_SKILLS', OTHER: 'OTHER',
 } as const;
 export type ProgramCategory = (typeof ProgramCategory)[keyof typeof ProgramCategory];

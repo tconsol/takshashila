@@ -1,4 +1,5 @@
 // frontend/src/pages/admin/AdminProgramsPage.tsx
+import { useConfirm } from '../../hooks/use-confirm';
 import { useState } from 'react';
 import { Sparkles, EyeOff } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -16,10 +17,12 @@ const TABS = [{ key: 'PUBLISHED', label: 'Published' }, { key: 'DRAFT', label: '
 export function AdminProgramsPage() {
   const [status, setStatus] = useState('PUBLISHED');
   const { data, isLoading } = useAdminPrograms({ status, limit: '50' });
+  const { confirm, confirmDialog } = useConfirm();
   const { mutate: unpublish } = useUnpublishProgram();
   const programs = data?.items ?? [];
   return (
     <div className="animate-fade-in">
+      {confirmDialog}
       <PageHeader eyebrow="Platform" title="Skill Programs" description="Tutor-created extracurricular programs." icon={<Sparkles className="h-5 w-5" />} />
       <Tabs className="mb-4" tabs={TABS} activeTab={status} onChange={setStatus} />
       {isLoading ? <div className="flex justify-center py-16"><Spinner /></div> : programs.length === 0 ? (
@@ -37,7 +40,14 @@ export function AdminProgramsPage() {
                   <div className="flex items-center gap-2">
                     <Badge tone="soft" variant={p.status === 'PUBLISHED' ? 'success' : 'default'}>{p.status}</Badge>
                     {p.status === 'PUBLISHED' && (
-                      <Button size="sm" variant="outline" onClick={() => unpublish(p.publicId)}><EyeOff className="h-3.5 w-3.5" /> Unpublish</Button>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        const { confirmed } = await confirm({
+                          title: 'Unpublish this program?',
+                          message: `"${p.title}" disappears from the Skills page, so no one new can enrol. ${p.activeEnrollmentCount} current student(s) keep their enrolment.`,
+                          confirmLabel: 'Unpublish',
+                        });
+                        if (confirmed) unpublish(p.publicId);
+                      }}><EyeOff className="h-3.5 w-3.5" /> Unpublish</Button>
                     )}
                   </div>
                 </div>

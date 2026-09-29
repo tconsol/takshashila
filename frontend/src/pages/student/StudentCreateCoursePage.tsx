@@ -21,7 +21,8 @@ export function StudentCreateCoursePage() {
 
   const [selectedTopics, setSelectedTopics] = useState<Set<string>>(new Set());
   const [tutorPublicId, setTutorPublicId] = useState('');
-  const [days, setDays] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]));
+  // Start with no day chosen: tapping a day switches it ON, which is what people expect.
+  const [days, setDays] = useState<Set<number>>(new Set());
   const [startLocalTime, setStartLocalTime] = useState('16:00');
   const [endLocalTime, setEndLocalTime] = useState('19:00');
 
@@ -76,7 +77,12 @@ export function StudentCreateCoursePage() {
 
       <Card className="mb-4">
         <CardContent>
-          <p className="text-sm font-semibold mb-3">Choose a tutor</p>
+          <p className="text-sm font-semibold mb-1">Choose a tutor</p>
+          <p className="mb-3 text-xs text-gray-500">
+            Each class costs the tutor's hourly rate shown below. The tutor decides how many classes your topics need,
+            and the whole amount (rate × number of classes) is taken from your wallet when they accept. Free demo credits
+            cannot be used for this. Nothing is charged until then.
+          </p>
           {tutorsLoading ? (
             <div className="flex justify-center py-6"><Spinner /></div>
           ) : !tutors || tutors.length === 0 ? (
@@ -138,6 +144,9 @@ export function StudentCreateCoursePage() {
               </button>
             ))}
           </div>
+          <p className="mb-3 -mt-1 text-xs text-gray-500">
+            {days.size === 0 ? 'Tap the days you are free (highlighted days are on).' : 'Highlighted days are the ones you are free.'}
+          </p>
           <div className="flex items-center gap-2">
             <input type="time" value={startLocalTime} onChange={(e) => setStartLocalTime(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
             <span className="text-xs text-gray-400">to</span>

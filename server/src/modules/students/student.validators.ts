@@ -38,6 +38,9 @@ export const createStudentByTutorSchema = z.object({
   password:        z.string().min(8, 'Password must be at least 8 characters'),
   customStudentId: z.string().min(3).max(20).regex(/^[a-z0-9]+$/, 'Only lowercase letters and numbers').optional(),
   grade:           z.enum(GRADE_LIST).optional(),
+  // A parent or guardian must agree to the Terms of Use and Privacy Policy on the
+  // child's behalf; the server records who agreed, when and to which version.
+  guardianConsent: z.literal(true, { errorMap: () => ({ message: 'A parent or guardian must agree to the Terms of Use and Privacy Policy for this child' }) }),
   notes:           z.string().max(2000).optional(),
 });
 
@@ -65,6 +68,9 @@ export const createStudentByPrincipalSchema = z.object({
   tutorPublicId:   z.string().min(1, 'Tutor is required'),
   customStudentId: z.string().min(3).max(20).regex(/^[a-z0-9]+$/, 'Only lowercase letters and numbers').optional(),
   grade:           z.enum(GRADE_LIST).optional(),
+  // A parent or guardian must agree to the Terms of Use and Privacy Policy on the
+  // child's behalf; the server records who agreed, when and to which version.
+  guardianConsent: z.literal(true, { errorMap: () => ({ message: 'A parent or guardian must agree to the Terms of Use and Privacy Policy for this child' }) }),
   notes:           z.string().max(2000).optional(),
 });
 
@@ -86,6 +92,9 @@ export const createStudentByParentSchema = z.object({
   password:        z.string().min(8, 'Password must be at least 8 characters'),
   customStudentId: z.string().min(3).max(20).regex(/^[a-z0-9]+$/, 'Only lowercase letters and numbers').optional(),
   grade:           z.enum(GRADE_LIST).optional(),
+  // A parent or guardian must agree to the Terms of Use and Privacy Policy on the
+  // child's behalf; the server records who agreed, when and to which version.
+  guardianConsent: z.literal(true, { errorMap: () => ({ message: 'A parent or guardian must agree to the Terms of Use and Privacy Policy for this child' }) }),
   notes:           z.string().max(2000).optional(),
 });
 

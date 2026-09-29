@@ -92,17 +92,18 @@ describe('ClassService COURSE_PREPAID billing', () => {
       jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(
         lean(coursePrepaidClass({ status: ClassStatus.COMPLETED, costCents: 1500 })) as never,
       );
-      const reverse = jest.spyOn(walletService, 'reverseWallet').mockResolvedValue({} as never);
+      const atomic = jest.spyOn(walletService, 'refundWithClawback').mockResolvedValue({ refund: {}, clawbackSkipped: false } as never);
       jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(
         lean({ ...coursePrepaidClass(), status: ClassStatus.COMPLETED, isRefunded: true }) as never,
       );
 
       await classService.refundClass('course-class-1', 'admin-user-1', 'Refund requested');
 
-      expect(refund).toHaveBeenCalledTimes(1);
-      expect(refund.mock.calls[0][0]).toMatchObject({ ownerPublicId: 'student-user-1', amountCents: 1500 });
-      expect(reverse).toHaveBeenCalledTimes(1);
-      expect(reverse.mock.calls[0][0]).toMatchObject({ ownerPublicId: 'tutor-user-1', amountCents: 1400 });
+      expect(atomic).toHaveBeenCalledTimes(1);
+      expect(atomic.mock.calls[0][0]).toMatchObject({
+        studentOwnerPublicId: 'student-user-1', refundAmountCents: 1500,
+        tutorOwnerPublicId: 'tutor-user-1', clawbackAmountCents: 1400,
+      });
     });
   });
 

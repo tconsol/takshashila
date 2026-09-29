@@ -1,6 +1,7 @@
 import argon2 from 'argon2';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
+import { LEGAL_VERSION } from '../../config/legal';
 import { userRepository } from '../users/user.repository';
 import { UserStatus } from '../users/user.types';
 import type { IUser } from '../users/user.types';
@@ -20,6 +21,7 @@ import {
   AppError,
   ValidationError,
 } from '../../utils/error';
+import { logger } from '../../lib/logger';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import type { Role } from '../../constants/roles';
@@ -50,7 +52,21 @@ import { settingsService } from '../settings/settings.service';
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 export class AuthService {
-  async register(dto: RegisterDto, defaultRole: Role = 'STUDENT'): Promise<{ publicId: string }> {
+  /**
+   * `opts.invite` is for accounts created on someone's behalf (an admin adding
+   * a user): the emailed link lets the invitee choose their own password
+   * instead of just verifying an address, and lasts 7 days.
+   */
+  async register(
+    dto: RegisterDto,
+    defaultRole: Role = 'STUDENT',
+    opts: { invite?: boolean; consentMeta?: { ip?: string; userAgent?: string } } = {},
+  ): Promise<{ publicId: string }> {
+    // Someone agreed to the policies themselves (public sign-up). Invited or
+    // admin-created accounts have not agreed yet, so record nothing for them.
+    const consents = (dto as { acceptedTerms?: boolean }).acceptedTerms
+      ? [{ kind: 'TERMS_AND_PRIVACY', version: LEGAL_VERSION, acceptedAt: new Date(), ip: opts.consentMeta?.ip, userAgent: opts.consentMeta?.userAgent }]
+      : undefined;
     const role = (dto.role as Role) || defaultRole;
 
     const passwordHash = await argon2.hash(dto.password, {
@@ -61,7 +77,8 @@ export class AuthService {
     });
 
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const verificationExpiry = new Date(Date.now() + (opts.invite ? 7 : 1) * 24 * 60 * 60 * 1000);
+    const inviteFields = opts.invite ? { isInvite: true, firstName: dto.firstName, lastName: dto.lastName } : {};
 
     // If an account with this email already exists, only block it when it has been
     // verified. An unverified (PENDING_VERIFICATION) account is not "owned" yet, so
@@ -82,6 +99,7 @@ export class AuthService {
         emailVerified: false,
         emailVerificationToken: verificationToken,
         emailVerificationExpiry: verificationExpiry,
+        ...(consents ? { consents } : {}),
       });
 
       await this._provisionForRole(existing.publicId, role, dto);
@@ -91,6 +109,7 @@ export class AuthService {
         email: existing.email,
         role,
         verificationToken,
+        ...inviteFields,
       });
 
       return { publicId: existing.publicId };
@@ -111,6 +130,7 @@ export class AuthService {
       emailVerified: false,
       emailVerificationToken: verificationToken,
       emailVerificationExpiry: verificationExpiry,
+      ...(consents ? { consents } : {}),
       twoFAEnabled: false,
       loginCount: 0,
       isDeleted: false,
@@ -121,6 +141,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       verificationToken,
+      ...inviteFields,
     });
 
     await this._provisionForRole(user.publicId, role, dto);
@@ -147,7 +168,7 @@ export class AuthService {
     try {
       await walletService.getOrCreateWallet(userPublicId);
     } catch (err) {
-      console.warn('[auth] Could not create wallet for user:', (err as Error).message);
+      logger.error('[auth] Could not create wallet during provisioning', { userPublicId, role, error: err });
     }
 
     if (role === 'TUTOR') {
@@ -178,7 +199,7 @@ export class AuthService {
           });
         }
       } catch (err) {
-        console.warn('[auth] Could not create tutor profile:', (err as Error).message);
+        logger.error('[auth] Could not create tutor profile', { userPublicId, role, error: err });
       }
     }
 
@@ -203,7 +224,7 @@ export class AuthService {
           });
         }
       } catch (err) {
-        console.warn('[auth] Could not create principal profile:', (err as Error).message);
+        logger.error('[auth] Could not create principal profile', { userPublicId, role, error: err });
       }
     }
 
@@ -229,7 +250,7 @@ export class AuthService {
           });
         }
       } catch (err) {
-        console.warn('[auth] Could not create student profile:', (err as Error).message);
+        logger.error('[auth] Could not create student profile', { userPublicId, role, error: err });
       }
     }
   }
@@ -261,18 +282,8 @@ export class AuthService {
       throw new AuthenticationError('Please verify your email address before logging in. Check your inbox for the verification link.');
     }
 
-    if (user.role === 'PRINCIPAL') {
-      const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: user.publicId, isDeleted: false }).lean();
-      if (!principalProfile || principalProfile.status === PrincipalStatus.PENDING_APPROVAL) {
-        throw new AuthenticationError('Your account is pending approval. Our team will review and approve your account shortly.');
-      }
-      if (principalProfile.status === PrincipalStatus.SUSPENDED) {
-        throw new AuthenticationError('Your account has been suspended. Please contact support.');
-      }
-      if (principalProfile.status === PrincipalStatus.INACTIVE) {
-        throw new AuthenticationError('Your account is inactive. Please contact support.');
-      }
-    }
+    await this._assertPrincipalMayLogin(user);
+    await this._assertTutorMayLogin(user);
 
     // Ensure student profile exists for legacy accounts that pre-date profile auto-creation
     if (user.role === 'STUDENT') {
@@ -308,6 +319,37 @@ export class AuthService {
    * and return the token pair plus the sanitized user. Shared by password login
    * and Google sign-in.
    */
+  /**
+   * Shared gate for every way of signing in (password, Google): a principal
+   * must be approved and not suspended/inactive before a session is issued.
+   */
+  private async _assertPrincipalMayLogin(user: { role: string; publicId: string }): Promise<void> {
+    if (user.role !== 'PRINCIPAL') return;
+    const principalProfile = await PrincipalProfileModel.findOne({ userPublicId: user.publicId, isDeleted: false }).lean();
+    if (!principalProfile || principalProfile.status === PrincipalStatus.PENDING_APPROVAL) {
+      throw new AuthenticationError('Your account is pending approval. Our team will review and approve your account shortly.');
+    }
+    if (principalProfile.status === PrincipalStatus.SUSPENDED) {
+      throw new AuthenticationError('Your account has been suspended. Please contact support.');
+    }
+    if (principalProfile.status === PrincipalStatus.INACTIVE) {
+      throw new AuthenticationError('Your account is inactive. Please contact support.');
+    }
+    // (tutor gate lives in _assertTutorMayLogin; called alongside this one)
+  }
+
+  /** Suspended/inactive tutors may not sign in; onboarding statuses are allowed. */
+  private async _assertTutorMayLogin(user: { role: string; publicId: string }): Promise<void> {
+    if (user.role !== 'TUTOR') return;
+    const tutorProfile = await TutorProfileModel.findOne({ userPublicId: user.publicId, isDeleted: false }).lean();
+    if (tutorProfile?.status === TutorStatus.SUSPENDED) {
+      throw new AuthenticationError('Your account has been suspended. Please contact support.');
+    }
+    if (tutorProfile?.status === TutorStatus.INACTIVE) {
+      throw new AuthenticationError('Your account is inactive. Please contact support.');
+    }
+  }
+
   private async _issueSession(
     user: IUser,
     device: DeviceInfo,
@@ -406,6 +448,9 @@ export class AuthService {
       /* First time on this address. Google tells us who they are but not what
          they are here, so the caller must say. The client answers by showing a
          role picker and posting the same Google token back with `role`. */
+      if (!(await settingsService.isFeatureEnabled('registrationOpen'))) {
+        throw new AppError('New registrations are currently closed.', 403);
+      }
       if (!input.role) {
         return {
           needsRole: true,
@@ -443,6 +488,10 @@ export class AuthService {
         phone: input.phone,
         timezone: input.timezone || 'UTC',
         emailVerified: true,
+        consents: [{
+          kind: 'TERMS_AND_PRIVACY', version: LEGAL_VERSION, acceptedAt: new Date(),
+          ip: device.ip, userAgent: device.userAgent,
+        }],
         twoFAEnabled: false,
         loginCount: 0,
         isDeleted: false,
@@ -461,11 +510,23 @@ export class AuthService {
         organizationWebsite: input.organizationWebsite,
       });
 
+      // Google signups are pre-verified, so they never pass through verifyEmail();
+      // activate a tutor here (mirrors verifyEmail's REGISTERED -> ACTIVE step).
+      if (signupRole === 'TUTOR') {
+        await TutorProfileModel.updateOne(
+          { userPublicId: created.publicId, status: TutorStatus.REGISTERED, isDeleted: false },
+          { $set: { status: TutorStatus.ACTIVE } },
+        );
+        void invalidatePrefix('tutors:search:');
+      }
+
       // Re-fetch with sensitive fields so _issueSession has passwordHash to strip.
       user = await userRepository.findByEmail(identity.email, true);
     }
 
     if (!user) throw new AuthenticationError('Could not sign in with Google');
+    await this._assertPrincipalMayLogin(user);
+    await this._assertTutorMayLogin(user);
     return this._issueSession(user, device);
   }
 
@@ -500,6 +561,14 @@ export class AuthService {
     } catch {
       throw new AuthenticationError('Invalid or expired refresh token');
     }
+
+    // A user suspended/deactivated after login must not keep minting tokens.
+    const currentUser = await userRepository.findByPublicId(payload.publicId);
+    if (!currentUser || currentUser.status === UserStatus.SUSPENDED) {
+      throw new AuthenticationError('Your account has been suspended. Please contact support.');
+    }
+    await this._assertTutorMayLogin(currentUser);
+    if (currentUser.role === 'PRINCIPAL') await this._assertPrincipalMayLogin(currentUser);
 
     const newSessionId = generateSessionId();
     const newPayload = buildTokenPayload(
@@ -616,7 +685,7 @@ export class AuthService {
     domainEvents.emit(DomainEvent.USER_EMAIL_VERIFIED, { userId: user.publicId });
   }
 
-  async acceptInvite(token: string, password: string): Promise<void> {
+  async acceptInvite(token: string, password: string, consentMeta?: { ip?: string; userAgent?: string }): Promise<void> {
     const user = await userRepository.findByEmailVerificationToken(token);
     if (!user) throw new AppError('This invite link is invalid or has expired.', 400);
 
@@ -631,6 +700,11 @@ export class AuthService {
       emailVerified: true,
       status: UserStatus.ACTIVE,
       passwordHash,
+      // Accepting the invite is where an invited person agrees to the policies.
+      consents: [
+        ...(user.consents ?? []),
+        { kind: 'TERMS_AND_PRIVACY', version: LEGAL_VERSION, acceptedAt: new Date(), ip: consentMeta?.ip, userAgent: consentMeta?.userAgent },
+      ],
       emailVerificationToken: undefined,
       emailVerificationExpiry: undefined,
     });
@@ -682,10 +756,9 @@ export class AuthService {
   }
 
   async changePassword(publicId: string, dto: ChangePasswordDto): Promise<void> {
-    const user = await userRepository.findByEmail(
-      (await userRepository.findByPublicId(publicId))!.email,
-      true,
-    );
+    const existing = await userRepository.findByPublicId(publicId);
+    if (!existing) throw new NotFoundError('User');
+    const user = await userRepository.findByEmail(existing.email, true);
     if (!user) throw new NotFoundError('User');
 
     const isValid = await argon2.verify(user.passwordHash, dto.currentPassword);

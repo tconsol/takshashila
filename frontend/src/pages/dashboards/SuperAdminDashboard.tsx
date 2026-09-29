@@ -260,7 +260,7 @@ export function SuperAdminDashboard() {
                 label: t.name,
                 sublabel: [
                   t.subjects.slice(0, 2).join(', '),
-                  t.revenueCents > 0 ? formatCurrency(t.revenueCents) : null,
+                  t.grossBookingValueCents > 0 ? formatCurrency(t.grossBookingValueCents) : null,
                 ].filter(Boolean).join(' · ') || undefined,
                 value: t.classesCompleted,
               }))}

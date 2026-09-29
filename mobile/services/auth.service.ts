@@ -13,6 +13,8 @@ export interface RegisterDto {
   password: string;
   phone?: string;
   role?: string;
+  /** The person agreed to the Terms of Use and Privacy Policy. */
+  acceptedTerms?: boolean;
 }
 
 export const authService = {

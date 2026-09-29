@@ -35,6 +35,8 @@ function cancellableClass(over: Record<string, unknown> = {}) {
     classType: ClassType.ONE_ON_ONE,
     costCents: 2000,
     billingMode: BillingMode.STUDENT_REQUESTED,
+    // Starts in 2 hours: inside the 24h no-fee notice window, so cancelling costs the fee.
+    startUTC: new Date(Date.now() + 2 * 60 * MINUTE),
     ...over,
   };
 }
@@ -73,6 +75,20 @@ describe('ClassService.cancelClass — who pays the platform fee', () => {
     expect(debit).toHaveBeenCalledWith(
       expect.objectContaining({ ownerPublicId: TUTOR_USER, amountCents: PLATFORM_FEE_CENTS }),
     );
+  });
+
+  it('charges nothing when the class is cancelled with more than 24 hours notice', async () => {
+    jest.spyOn(ScheduledClassModel, 'findOne')
+      .mockReturnValue(lean(cancellableClass({ startUTC: new Date(Date.now() + 48 * 60 * MINUTE) })) as never);
+    await classService.cancelClass('class-1', STUDENT_USER, { reason: 'busy' });
+    expect(debit).not.toHaveBeenCalled();
+  });
+
+  it('never charges a fee for cancelling a free demo class', async () => {
+    jest.spyOn(ScheduledClassModel, 'findOne')
+      .mockReturnValue(lean(cancellableClass({ classType: ClassType.DEMO })) as never);
+    await classService.cancelClass('class-1', STUDENT_USER, { reason: 'busy' });
+    expect(debit).not.toHaveBeenCalled();
   });
 
   it('charges nobody when an admin or the system cancels', async () => {

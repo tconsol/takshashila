@@ -9,6 +9,8 @@ import { userRepository } from '../users/user.repository';
 import { sendExpoPush } from '../../lib/expo-push';
 import { Role } from '../../constants/roles';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
+import { AppError, NotFoundError } from '../../utils/error';
+import { settingsService } from '../settings/settings.service';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 
 // ─── Connection permission check ──────────────────────────────────────────────
@@ -137,6 +139,16 @@ export class ChatService {
     }));
   }
 
+  /** True when the user is a participant of a live conversation. Used by the socket layer before joining a room. */
+  async isParticipant(conversationPublicId: string, userPublicId: string): Promise<boolean> {
+    const conversation = await ConversationModel.findOne({
+      publicId: conversationPublicId,
+      participantPublicIds: userPublicId,
+      isDeleted: false,
+    }).lean();
+    return !!conversation;
+  }
+
   async getMessages(
     conversationPublicId: string,
     userPublicId: string,
@@ -170,6 +182,10 @@ export class ChatService {
     senderPublicId: string,
     dto: SendMessageDto,
   ): Promise<IMessage> {
+    if (!(await settingsService.isFeatureEnabled('chatEnabled'))) {
+      throw new AppError('Chat is currently disabled by the platform administrator', 403);
+    }
+
     const body = dto.body?.trim() ?? '';
     if (!body && !dto.mediaPublicId) {
       throw Object.assign(new Error('Message must have text or an attachment'), { statusCode: 400 });
@@ -264,13 +280,33 @@ export class ChatService {
     );
   }
 
+  /** Loads the message and confirms it belongs to `conversationPublicId` and that the caller
+   *  is a participant of that conversation. Same 404 for every failure so IDs can't be probed. */
+  async assertMessageAccess(
+    conversationPublicId: string,
+    messagePublicId: string,
+    userPublicId: string,
+  ) {
+    const message = await MessageModel.findOne({ publicId: messagePublicId, isDeleted: false });
+    if (!message || message.conversationPublicId !== conversationPublicId) {
+      throw new NotFoundError('Message');
+    }
+    const conversation = await ConversationModel.findOne({
+      publicId: conversationPublicId,
+      participantPublicIds: userPublicId,
+      isDeleted: false,
+    }).lean();
+    if (!conversation) throw new NotFoundError('Message');
+    return message;
+  }
+
   async reactToMessage(
+    conversationPublicId: string,
     messagePublicId: string,
     userPublicId: string,
     emoji: string,
   ): Promise<IMessage> {
-    const message = await MessageModel.findOne({ publicId: messagePublicId, isDeleted: false });
-    if (!message) throw Object.assign(new Error('Message not found'), { statusCode: 404 });
+    const message = await this.assertMessageAccess(conversationPublicId, messagePublicId, userPublicId);
 
     const reactions = (message.reactions as unknown as Map<string, string[]>) ?? new Map();
 
@@ -297,26 +333,31 @@ export class ChatService {
     return message.toObject();
   }
 
-  async pinMessage(messagePublicId: string, userPublicId: string, durationHours: number): Promise<IMessage> {
-    const message = await MessageModel.findOne({ publicId: messagePublicId, isDeleted: false });
-    if (!message) throw Object.assign(new Error('Message not found'), { statusCode: 404 });
+  async pinMessage(
+    conversationPublicId: string,
+    messagePublicId: string,
+    userPublicId: string,
+    durationHours: number,
+  ): Promise<IMessage> {
+    const message = await this.assertMessageAccess(conversationPublicId, messagePublicId, userPublicId);
 
     const pinnedUntil = new Date(Date.now() + durationHours * 60 * 60 * 1000);
     await MessageModel.updateOne({ publicId: messagePublicId }, { $set: { pinnedUntil, pinnedBy: userPublicId } });
     return { ...message.toObject(), pinnedUntil, pinnedBy: userPublicId };
   }
 
-  async unpinMessage(messagePublicId: string): Promise<void> {
+  async unpinMessage(conversationPublicId: string, messagePublicId: string, userPublicId: string): Promise<void> {
+    await this.assertMessageAccess(conversationPublicId, messagePublicId, userPublicId);
     await MessageModel.updateOne({ publicId: messagePublicId }, { $unset: { pinnedUntil: 1, pinnedBy: 1 } });
   }
 
   async deleteMessage(
+    conversationPublicId: string,
     messagePublicId: string,
     userPublicId: string,
     forEveryone: boolean,
   ): Promise<void> {
-    const message = await MessageModel.findOne({ publicId: messagePublicId, isDeleted: false });
-    if (!message) throw Object.assign(new Error('Message not found'), { statusCode: 404 });
+    const message = await this.assertMessageAccess(conversationPublicId, messagePublicId, userPublicId);
 
     if (forEveryone) {
       if (message.senderPublicId !== userPublicId) {

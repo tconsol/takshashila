@@ -1,3 +1,6 @@
+import { accountService } from './account.service';
+import { LEGAL_VERSION } from '../../config/legal';
+import { UserModel } from './user.model';
 import { Router } from 'express';
 import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
@@ -35,6 +38,45 @@ router.patch('/me', async (req: AuthRequest, res: Response, next: NextFunction) 
       firstName, lastName, phone, avatarUrl, timezone,
     });
     sendSuccess(res, updated, 'Profile updated');
+  } catch (e) { next(e); }
+});
+
+// ─── Self-service privacy: download my data, close my account ───────────────
+const actorOf = (req: AuthRequest) => ({
+  publicId: req.user!.publicId,
+  role: req.user!.role,
+  ip: req.ip,
+  userAgent: req.get('user-agent') ?? undefined,
+});
+
+// Re-accept the current Terms/Privacy version (asked again after a policy change).
+router.post('/me/consent', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await UserModel.updateOne(
+      { publicId: req.user!.publicId },
+      { $push: { consents: { kind: 'TERMS_AND_PRIVACY', version: LEGAL_VERSION, acceptedAt: new Date(), ip: req.ip, userAgent: req.get('user-agent') } } },
+    );
+    sendSuccess(res, { version: LEGAL_VERSION }, 'Consent recorded');
+  } catch (e) { next(e); }
+});
+
+router.get('/me/export', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await accountService.exportMyData(actorOf(req)), 'Your data');
+  } catch (e) { next(e); }
+});
+
+router.get('/me/deletion-check', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const blockers = await accountService.deletionBlockers(actorOf(req));
+    sendSuccess(res, { canDelete: blockers.length === 0, blockers }, 'Deletion check');
+  } catch (e) { next(e); }
+});
+
+router.post('/me/delete', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await accountService.deleteOwnAccount(actorOf(req), { password: req.body?.password, confirm: req.body?.confirm });
+    sendSuccess(res, null, 'Account deleted');
   } catch (e) { next(e); }
 });
 

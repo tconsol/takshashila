@@ -14,6 +14,8 @@ interface ConfirmDialogProps {
   confirmPhrase?: string;
   /** Collect an optional free-text reason that goes into the audit record. */
   reasonLabel?: string;
+  /** 'danger' (red) for destructive actions; 'primary' for ordinary approvals and publishes. */
+  tone?: 'danger' | 'primary';
   loading?: boolean;
   error?: string;
   onCancel: () => void;
@@ -27,6 +29,7 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   confirmPhrase,
   reasonLabel,
+  tone = 'danger',
   loading,
   error,
   onCancel,
@@ -51,7 +54,7 @@ export function ConfirmDialog({
         <>
           <Button variant="ghost" onClick={onCancel}>Cancel</Button>
           <Button
-            variant="danger"
+            variant={tone === 'danger' ? 'danger' : 'primary'}
             loading={loading}
             disabled={blocked}
             onClick={() => onConfirm(reason.trim() || undefined)}

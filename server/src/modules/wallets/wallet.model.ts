@@ -13,6 +13,8 @@ const walletSchema = new Schema<IWallet>(
     earnedCreditsCents: { type: Number, default: 0, min: 0 },
     totalEarnedCents: { type: Number, default: 0, min: 0 },
     totalSpentCents: { type: Number, default: 0, min: 0 },
+    // Bumped by bookClass to serialize concurrent bookings for one student.
+    bookingSeq: { type: Number, default: 0 },
     currency: { type: String, default: 'USD' },
     isLocked: { type: Boolean, default: false },
     lockedReason: { type: String },

@@ -14,6 +14,7 @@ import {
   useRejectDemoRequest,
 } from '../../hooks/use-demo-requests';
 import { useTabActivity } from '../../hooks/use-tab-activity';
+import { useConfirm } from '../../hooks/use-confirm';
 import type { DemoRequest } from '../../services/demo-requests.service';
 
 const STATUS_TABS = [
@@ -63,6 +64,7 @@ function RejectInline({
 
 function RequestRow({ request, timezone }: { request: DemoRequest; timezone: string }) {
   const [showReject, setShowReject] = useState(false);
+  const { confirm, confirmDialog } = useConfirm();
   const { mutate: accept, isPending: accepting } = useAcceptDemoRequest();
   const { mutate: reject, isPending: rejecting } = useRejectDemoRequest();
 
@@ -88,7 +90,8 @@ function RequestRow({ request, timezone }: { request: DemoRequest; timezone: str
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                {request.preferredSubject}
+                {request.studentName ? `${request.studentName} · ` : ''}{request.preferredSubject}
+                {request.studentGrade ? <span className="ml-1.5 text-xs font-normal text-gray-500">Grade {request.studentGrade}</span> : null}
               </p>
               {statusBadge}
             </div>
@@ -117,7 +120,15 @@ function RequestRow({ request, timezone }: { request: DemoRequest; timezone: str
             <Button
               size="sm"
               variant="gradient"
-              onClick={() => accept(request.publicId)}
+              onClick={async () => {
+                const { confirmed } = await confirm({
+                  title: 'Accept this demo request?',
+                  message: `${request.studentName ?? 'The student'} will be scheduled for a free demo class at the time shown and linked to you as their tutor. You are not paid for demo classes.`,
+                  confirmLabel: 'Accept demo',
+                  tone: 'primary',
+                });
+                if (confirmed) accept(request.publicId);
+              }}
               loading={accepting}
               disabled={accepting || rejecting}
             >
@@ -144,6 +155,7 @@ function RequestRow({ request, timezone }: { request: DemoRequest; timezone: str
         )}
       </div>
 
+      {confirmDialog}
       {showReject && request.status === 'PENDING' && (
         <RejectInline
           onConfirm={(reason) => {

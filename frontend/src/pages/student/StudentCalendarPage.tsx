@@ -420,6 +420,15 @@ function ClassDetailPanel({
             </p>
           )}
 
+          {cls.status === 'SCHEDULED' && (
+            <a
+              href="/dashboard/student/classes"
+              className="block w-full rounded-2xl py-3 text-center text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-gray-800 transition-colors"
+            >
+              Cancel or manage this class
+            </a>
+          )}
+
           <button
             onClick={onClose}
             className="w-full rounded-2xl py-3 text-sm font-medium text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"

@@ -1,11 +1,56 @@
 import { Server as IOServer } from 'socket.io';
 import type { AuthSocket } from './socket.handler';
 import { logger } from '../lib/logger';
+import { getClassMembership, type ClassMembership } from './class-membership';
+
+const room = (classPublicId: string) => `class:${classPublicId}`;
+
+type Ack = (res: { ok: boolean; error?: string }) => void;
 
 export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
-  socket.on('class:join', (classPublicId: string) => {
-    socket.join(`class:${classPublicId}`);
-    socket.to(`class:${classPublicId}`).emit('class:user-joined', {
+  // Classes this socket has been verified for (populated only by class:join).
+  const memberships = new Map<string, Exclude<ClassMembership, null>>();
+
+  /** Member of the class room: tutor, student or watch-only observer. */
+  const isMember = (classPublicId: unknown): classPublicId is string =>
+    typeof classPublicId === 'string' && memberships.has(classPublicId) && socket.rooms.has(room(classPublicId));
+
+  /** Only the tutor and the student may relay whiteboard/signalling/presence that affects others. */
+  const isParticipant = (classPublicId: unknown): classPublicId is string => {
+    if (!isMember(classPublicId)) return false;
+    const m = memberships.get(classPublicId);
+    return m === 'tutor' || m === 'student';
+  };
+
+  /** Target socket must sit in a class room where the sender is a participant. */
+  const canSignalTo = (to: unknown): to is string => {
+    if (typeof to !== 'string') return false;
+    for (const classPublicId of memberships.keys()) {
+      if (!isParticipant(classPublicId)) continue;
+      if (io.sockets.adapter.rooms.get(room(classPublicId))?.has(to)) return true;
+    }
+    return false;
+  };
+
+  socket.on('class:join', async (classPublicId: string, ack?: Ack) => {
+    try {
+      const membership = await getClassMembership(
+        { publicId: socket.userPublicId, role: socket.userRole },
+        classPublicId,
+      );
+      if (!membership) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'Scheduled class not found' });
+        return;
+      }
+      memberships.set(classPublicId, membership);
+    } catch (e) {
+      logger.error('class:join membership check failed', { error: e });
+      if (typeof ack === 'function') ack({ ok: false, error: 'Could not join class' });
+      return;
+    }
+    socket.join(room(classPublicId));
+    if (typeof ack === 'function') ack({ ok: true });
+    socket.to(room(classPublicId)).emit('class:user-joined', {
       userPublicId: socket.userPublicId,
       role: socket.userRole,
     });
@@ -13,14 +58,17 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   });
 
   socket.on('class:leave', (classPublicId: string) => {
-    socket.leave(`class:${classPublicId}`);
-    socket.to(`class:${classPublicId}`).emit('class:user-left', {
+    if (!isMember(classPublicId)) return;
+    memberships.delete(classPublicId);
+    socket.leave(room(classPublicId));
+    socket.to(room(classPublicId)).emit('class:user-left', {
       userPublicId: socket.userPublicId,
     });
   });
 
   socket.on('class:status-update', (payload: { classPublicId: string; status: string }) => {
-    io.to(`class:${payload.classPublicId}`).emit('class:status-changed', {
+    if (!isParticipant(payload?.classPublicId)) return;
+    io.to(room(payload.classPublicId)).emit('class:status-changed', {
       classPublicId: payload.classPublicId,
       status: payload.status,
       updatedBy: socket.userPublicId,
@@ -28,7 +76,8 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   });
 
   socket.on('class:chat', (payload: { classPublicId: string; message: string; senderName?: string }) => {
-    io.to(`class:${payload.classPublicId}`).emit('class:chat-message', {
+    if (!isMember(payload?.classPublicId)) return;
+    io.to(room(payload.classPublicId)).emit('class:chat-message', {
       from: socket.userPublicId,
       role: socket.userRole,
       name: payload.senderName ?? '',
@@ -38,7 +87,8 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   });
 
   socket.on('class:raise-hand', (classPublicId: string) => {
-    socket.to(`class:${classPublicId}`).emit('class:hand-raised', {
+    if (!isMember(classPublicId)) return;
+    socket.to(room(classPublicId)).emit('class:hand-raised', {
       userPublicId: socket.userPublicId,
     });
   });
@@ -46,17 +96,19 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   // ─── Participant name announcements (Agora UID → display name) ──────────────
 
   socket.on('class:announce', (payload: { classPublicId: string; agoraUid: number; name: string; role: string }) => {
-    socket.to(`class:${payload.classPublicId}`).emit('class:announce', {
+    if (!isParticipant(payload?.classPublicId)) return;
+    socket.to(room(payload.classPublicId)).emit('class:announce', {
       agoraUid: payload.agoraUid,
       name: payload.name,
       role: payload.role,
     });
   });
 
-  // ─── WebRTC signaling (dumb relay) ──────────────────────────────────────────
+  // ─── WebRTC signaling (relay, restricted to tutor/student of the class) ─────
 
   socket.on('rtc:ready', (payload: { classPublicId: string }) => {
-    socket.to(`class:${payload.classPublicId}`).emit('rtc:peer-joined', {
+    if (!isParticipant(payload?.classPublicId)) return;
+    socket.to(room(payload.classPublicId)).emit('rtc:peer-joined', {
       socketId: socket.id,
       userPublicId: socket.userPublicId,
       role: socket.userRole,
@@ -64,6 +116,7 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   });
 
   socket.on('rtc:offer', (payload: { to: string; offer: Record<string, unknown>; classPublicId: string }) => {
+    if (!isParticipant(payload?.classPublicId) || !canSignalTo(payload.to)) return;
     io.to(payload.to).emit('rtc:offer', {
       from: socket.id,
       fromUserPublicId: socket.userPublicId,
@@ -72,6 +125,7 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   });
 
   socket.on('rtc:answer', (payload: { to: string; answer: Record<string, unknown> }) => {
+    if (!canSignalTo(payload?.to)) return;
     io.to(payload.to).emit('rtc:answer', {
       from: socket.id,
       answer: payload.answer,
@@ -79,6 +133,7 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   });
 
   socket.on('rtc:ice-candidate', (payload: { to: string; candidate: Record<string, unknown> }) => {
+    if (!canSignalTo(payload?.to)) return;
     io.to(payload.to).emit('rtc:ice-candidate', {
       from: socket.id,
       candidate: payload.candidate,
@@ -86,7 +141,8 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   });
 
   socket.on('rtc:leave', (classPublicId: string) => {
-    socket.to(`class:${classPublicId}`).emit('rtc:peer-left', {
+    if (!isMember(classPublicId)) return;
+    socket.to(room(classPublicId)).emit('rtc:peer-left', {
       socketId: socket.id,
       userPublicId: socket.userPublicId,
     });
@@ -95,7 +151,8 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   // ─── Screen share signaling ─────────────────────────────────────────────────
 
   socket.on('class:screen-share', (payload: { classPublicId: string; agoraUid: number; active: boolean }) => {
-    socket.to(`class:${payload.classPublicId}`).emit('class:screen-share', {
+    if (!isParticipant(payload?.classPublicId)) return;
+    socket.to(room(payload.classPublicId)).emit('class:screen-share', {
       agoraUid: payload.agoraUid,
       active: payload.active,
     });
@@ -104,7 +161,8 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   // ─── Whiteboard sync ────────────────────────────────────────────────────────
 
   socket.on('wb:update', (payload: { classPublicId: string; elements: unknown[]; appState: unknown }) => {
-    socket.to(`class:${payload.classPublicId}`).emit('wb:update', {
+    if (!isParticipant(payload?.classPublicId)) return;
+    socket.to(room(payload.classPublicId)).emit('wb:update', {
       elements: payload.elements,
       appState: payload.appState,
     });
@@ -112,9 +170,9 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
 
   // Notify peers on unexpected disconnect
   socket.on('disconnect', () => {
-    socket.rooms.forEach((room) => {
-      if (room.startsWith('class:')) {
-        socket.to(room).emit('rtc:peer-left', {
+    socket.rooms.forEach((r) => {
+      if (r.startsWith('class:')) {
+        socket.to(r).emit('rtc:peer-left', {
           socketId: socket.id,
           userPublicId: socket.userPublicId,
         });

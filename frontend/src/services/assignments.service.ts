@@ -21,6 +21,8 @@ export interface Submission {
   publicId: string;
   assignmentPublicId: string;
   studentPublicId: string;
+  /** Resolved by the server so the grading table shows a name, not an id. */
+  studentName?: string;
   content?: string;
   attachmentPublicIds: string[];
   submittedAt?: string;

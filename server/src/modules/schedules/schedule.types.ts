@@ -131,6 +131,11 @@ export interface IScheduledClass {
   autoResolvedAt?: Date;
   isRefunded?: boolean;
   refundedAt?: Date;
+  /** Completed without payment because billing failed (e.g. student balance short). Admins: filter on this. */
+  billingFailed?: boolean;
+  /** Set atomically by the class-reminder job so each class is reminded once. */
+  reminderSentAt?: Date;
+  billingFailureReason?: string;
   /** Set only when this class was scheduled against an accepted Course. */
   coursePublicId?: string;
   curriculumPublicId?: string;

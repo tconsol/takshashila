@@ -27,6 +27,31 @@ router.post('/invite-existing', requireRole(Role.TUTOR, Role.PRINCIPAL), validat
 router.get('/me/principal', requireRole(Role.STUDENT), studentController.getMyPrincipal.bind(studentController));
 router.get('/me', requireRole(Role.STUDENT), studentController.getMyProfile.bind(studentController));
 router.patch('/me', requireRole(Role.STUDENT), validate(updateMyStudentProfileSchema), studentController.updateMyProfile.bind(studentController));
+// Tutor links (see StudentTutorLink on the frontend). A link is addressed by the student profile id.
+router.get('/me/tutor-links', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    sendSuccess(res, await studentService.getMyTutorLinks(req.user!.publicId), 'Tutor links fetched');
+  } catch (e) { next(e); }
+});
+router.post('/me/tutor-links/:linkId/accept', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await studentService.assertOwnsLink(req.user!.publicId, req.params.linkId);
+    sendSuccess(res, await studentService.acceptInvite(req.user!.publicId), 'Invite accepted');
+  } catch (e) { next(e); }
+});
+router.post('/me/tutor-links/:linkId/decline', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await studentService.assertOwnsLink(req.user!.publicId, req.params.linkId);
+    await studentService.declineInvite(req.user!.publicId);
+    sendSuccess(res, null, 'Invite declined');
+  } catch (e) { next(e); }
+});
+router.delete('/me/tutor-links/:linkId', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await studentService.unlinkOwnTutor(req.user!.publicId, req.params.linkId);
+    sendSuccess(res, null, 'Tutor unlinked');
+  } catch (e) { next(e); }
+});
 router.post('/me/accept-invite', requireRole(Role.STUDENT), studentController.acceptInvite.bind(studentController));
 router.post('/me/decline-invite', requireRole(Role.STUDENT), studentController.declineInvite.bind(studentController));
 
@@ -72,7 +97,7 @@ router.patch('/:studentId/status', requireRole(Role.TUTOR, Role.PRINCIPAL), asyn
     if (status !== 'ACTIVE' && status !== 'INACTIVE') {
       return next(new (await import('../../utils/error')).AppError('status must be ACTIVE or INACTIVE', 400));
     }
-    const updated = await studentService.setStudentStatus(req.params.studentId, req.user!.publicId, status);
+    const updated = await studentService.setStudentStatus(req.params.studentId, { userPublicId: req.user!.publicId, role: req.user!.role }, status);
     sendSuccess(res, updated, `Student ${status.toLowerCase()}`);
   } catch (e) { next(e); }
 });

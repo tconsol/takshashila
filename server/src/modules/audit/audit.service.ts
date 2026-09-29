@@ -58,7 +58,70 @@ export class AuditService {
       AuditLogModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       AuditLogModel.countDocuments(filter),
     ]);
-    return buildPaginatedResult(items, total, page, limit);
+    return buildPaginatedResult(await this.withNames(items), total, page, limit);
+  }
+
+  /**
+   * Rows store ids only ("23b9f8b0-…", "ScheduledClass 24e2b0c7-…"), which makes
+   * the log unreadable. Resolve the actor and the resource to something a person
+   * can recognise.
+   */
+  private async withNames<T extends { actorId: string; resourceType: string; resourceId?: string }>(
+    items: T[],
+  ): Promise<(T & { actorName?: string; resourceLabel?: string })[]> {
+    if (items.length === 0) return items;
+
+    const [{ UserModel }, { ScheduledClassModel }, { TutorProfileModel }, { PrincipalProfileModel }, { StudentProfileModel }] =
+      await Promise.all([
+        import('../users/user.model'),
+        import('../schedules/schedule.model'),
+        import('../tutors/tutor.model'),
+        import('../principals/principal.model'),
+        import('../students/student.model'),
+      ]);
+
+    const idsOf = (type: string) =>
+      [...new Set(items.filter((i) => i.resourceType === type && i.resourceId).map((i) => i.resourceId as string))];
+
+    const profileTypes: Array<[string, typeof TutorProfileModel | typeof PrincipalProfileModel | typeof StudentProfileModel]> = [
+      ['TutorProfile', TutorProfileModel],
+      ['PrincipalProfile', PrincipalProfileModel],
+      ['StudentProfile', StudentProfileModel],
+    ];
+    const profileUser = new Map<string, string>(); // `${type}:${profileId}` -> userPublicId
+    for (const [type, model] of profileTypes) {
+      const ids = idsOf(type);
+      if (ids.length === 0) continue;
+      const rows = await (model as typeof TutorProfileModel).find({ publicId: { $in: ids } }, { publicId: 1, userPublicId: 1 }).lean();
+      rows.forEach((r) => profileUser.set(`${type}:${r.publicId}`, r.userPublicId));
+    }
+
+    const userIds = new Set<string>([
+      ...items.map((i) => i.actorId).filter((id) => id && id !== 'system'),
+      ...idsOf('User'),
+      ...profileUser.values(),
+    ]);
+    const users = await UserModel.find(
+      { publicId: { $in: [...userIds] } },
+      { publicId: 1, firstName: 1, lastName: 1 },
+    ).lean();
+    const nameOf = new Map(users.map((u) => [u.publicId, `${u.firstName} ${u.lastName}`.trim()]));
+
+    const classIds = idsOf('ScheduledClass');
+    const classes = classIds.length
+      ? await ScheduledClassModel.find({ publicId: { $in: classIds } }, { publicId: 1, title: 1 }).lean()
+      : [];
+    const classTitle = new Map(classes.map((c) => [c.publicId, c.title]));
+
+    return items.map((i) => {
+      let label: string | undefined;
+      if (i.resourceType === 'User') label = nameOf.get(i.resourceId ?? '');
+      else if (i.resourceType === 'ScheduledClass') label = classTitle.get(i.resourceId ?? '');
+      else if (profileUser.has(`${i.resourceType}:${i.resourceId}`)) {
+        label = nameOf.get(profileUser.get(`${i.resourceType}:${i.resourceId}`) as string);
+      }
+      return { ...i, actorName: nameOf.get(i.actorId), resourceLabel: label };
+    });
   }
 
   /** Distinct actions and resource types, so the console can offer real filters. */
@@ -82,11 +145,12 @@ export class AuditService {
   async exportRows(
     filters: Parameters<AuditService['search']>[0],
     max = 5000,
-  ): Promise<IAuditLog[]> {
-    return AuditLogModel.find(this.buildFilter(filters))
+  ): Promise<Array<IAuditLog & { actorName?: string; resourceLabel?: string }>> {
+    const rows = await AuditLogModel.find(this.buildFilter(filters))
       .sort({ createdAt: -1 })
       .limit(Math.min(max, 20_000))
       .lean();
+    return (await this.withNames(rows)) as unknown as Array<IAuditLog & { actorName?: string; resourceLabel?: string }>;
   }
 
   private buildFilter(filters: Parameters<AuditService['search']>[0]): Record<string, unknown> {

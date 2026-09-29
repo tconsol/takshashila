@@ -13,6 +13,7 @@ import { startEmailWorker } from './queues/email.queue';
 import { startCleanupWorker, scheduleCleanupJobs } from './queues/cleanup.queue';
 import { startNotificationWorker } from './queues/notification.queue';
 import { startSlotExpiryJob } from './jobs/slot-expiry.job';
+import { startClassReminderJob } from './jobs/class-reminder.job';
 import type { Worker } from 'bullmq';
 
 async function bootstrap() {
@@ -27,8 +28,9 @@ async function bootstrap() {
 
   await scheduleCleanupJobs();
   startSlotExpiryJob();
+  startClassReminderJob();
 
-  logger.info(`Worker process started [${env.NODE_ENV}] email · notification · cleanup · slot-expiry`);
+  logger.info(`Worker process started [${env.NODE_ENV}] email · notification · cleanup · slot-expiry · class-reminder`);
 
   const shutdown = async (signal: string) => {
     logger.info(`${signal} received shutting down worker`);
