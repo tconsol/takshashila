@@ -40,6 +40,10 @@ export function PayoutRequestModal({ open, onClose, withdrawableCents }: PayoutR
   const tooSmall = amount !== '' && cents < MIN_PAYOUT_CENTS;
   const tooLarge = cents > withdrawableCents;
   const canSubmit = amount !== '' && Number.isFinite(cents) && !tooSmall && !tooLarge;
+  // Not an error: the request still goes through. But a remainder under the minimum
+  // can only be withdrawn once earnings bring it back up to the minimum.
+  const remainderCents = withdrawableCents - cents;
+  const leavesStuckRemainder = canSubmit && remainderCents > 0 && remainderCents < MIN_PAYOUT_CENTS;
 
   return (
     <Modal
@@ -84,6 +88,27 @@ export function PayoutRequestModal({ open, onClose, withdrawableCents }: PayoutR
                 : undefined
           }
         />
+
+        {withdrawableCents >= MIN_PAYOUT_CENTS && (
+          <button
+            type="button"
+            onClick={() => setAmount((withdrawableCents / 100).toFixed(2))}
+            className="-mt-2 text-xs font-semibold text-emerald-700 underline dark:text-emerald-300"
+          >
+            Withdraw everything available ({money(withdrawableCents)})
+          </button>
+        )}
+
+        {leavesStuckRemainder && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
+            <p className="font-semibold">Caution: {money(remainderCents)} will be left in your wallet.</p>
+            <p className="mt-0.5">
+              The minimum payout is {money(MIN_PAYOUT_CENTS)}, so you will not be able to withdraw that {money(remainderCents)} until
+              your earnings bring it up to {money(MIN_PAYOUT_CENTS)}. To avoid this, withdraw everything available or leave at
+              least {money(MIN_PAYOUT_CENTS)}.
+            </p>
+          </div>
+        )}
 
         <Input
           label="Note (optional)"
