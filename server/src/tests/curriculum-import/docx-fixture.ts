@@ -2,9 +2,9 @@ import { deflateRawSync } from 'zlib';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export function buildDocx(paras: { style?: string; text: string }[]): Buffer {
+export function buildDocx(paras: { style?: string; text: string; raw?: boolean }[]): Buffer {
   const body = paras
-    .map((p) => `<w:p>${p.style ? `<w:pPr><w:pStyle w:val="${p.style}"/></w:pPr>` : ''}<w:r><w:t xml:space="preserve">${esc(p.text)}</w:t></w:r></w:p>`)
+    .map((p) => `<w:p>${p.style ? `<w:pPr><w:pStyle w:val="${p.style}"/></w:pPr>` : ''}${p.text.split('\n').map((t) => `<w:r><w:t xml:space="preserve">${p.raw ? t : esc(t)}</w:t></w:r>`).join('<w:r><w:br/></w:r>')}</w:p>`)
     .join('');
   const xml = Buffer.from(`<?xml version="1.0"?><w:document xmlns:w="w"><w:body>${body}</w:body></w:document>`, 'utf8');
   const data = deflateRawSync(xml);

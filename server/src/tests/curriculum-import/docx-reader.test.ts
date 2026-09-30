@@ -16,4 +16,10 @@ describe('readDocxParagraphs', () => {
   it('throws a clear error for a file that is not a docx', () => {
     expect(() => readDocxParagraphs(Buffer.from('not a zip'))).toThrow(/not a valid \.docx/i);
   });
+  it('treats soft line breaks as spaces', () => {
+    expect(readDocxParagraphs(buildDocx([{ text: 'Line1\nLine2' }]))).toEqual([{ style: '', text: 'Line1 Line2' }]);
+  });
+  it('leaves out-of-range numeric entities as-is', () => {
+    expect(readDocxParagraphs(buildDocx([{ text: 'a &#99999999; b', raw: true }]))[0].text).toBe('a &#99999999; b');
+  });
 });
