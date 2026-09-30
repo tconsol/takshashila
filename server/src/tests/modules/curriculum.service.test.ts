@@ -41,6 +41,7 @@ describe('CurriculumService', () => {
   });
 
   it('update() re-derives location when the district changes', async () => {
+    jest.spyOn(CurriculumModel, 'findOne').mockReturnValue(lean({ publicId: 'curriculum-1' }) as never);
     const updateSpy = jest.spyOn(CurriculumModel, 'findOneAndUpdate').mockReturnValue(lean({ publicId: 'curriculum-1' }) as never);
 
     await curriculumService.update('curriculum-1', { districtId: '5101260' } as never);
@@ -79,5 +80,33 @@ describe('CurriculumService', () => {
 
     expect(findSpy).toHaveBeenCalledWith({ districtId: '3704720', isPublished: true, isDeleted: false });
     expect(result.map((c) => `${c.grade}/${c.title}`)).toEqual(['Grade 1/Z', 'Grade 9/A', 'Grade 9/B', 'Grade 10/A']);
+  });
+
+  it('update() rejects district/topics changes on imported state curricula, allows other fields', async () => {
+    jest.spyOn(CurriculumModel, 'findOne').mockReturnValue(lean({ stateCode: 'CO', chapters: [] }) as never);
+    const upd = jest.spyOn(CurriculumModel, 'findOneAndUpdate').mockReturnValue(lean({ publicId: 'c' }) as never);
+    await expect(curriculumService.update('c', { districtId: '5101260' } as never)).rejects.toMatchObject({ statusCode: 400 });
+    await expect(curriculumService.update('c', { topics: [] } as never)).rejects.toMatchObject({ statusCode: 400 });
+    expect(upd).not.toHaveBeenCalled();
+    await curriculumService.update('c', { title: 'New' } as never);
+    expect(upd).toHaveBeenCalled();
+  });
+
+  it('update() rejects topics change when chapters are non-empty', async () => {
+    jest.spyOn(CurriculumModel, 'findOne').mockReturnValue(lean({ chapters: [{ publicId: 'x' }] }) as never);
+    await expect(curriculumService.update('c', { topics: [] } as never)).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('listForAdmin() state filter matches legacy state and imported stateCode', async () => {
+    const findSpy = jest.spyOn(CurriculumModel, 'find').mockReturnValue({ sort: () => ({ skip: () => ({ limit: () => lean([]) }) }) } as never);
+    jest.spyOn(CurriculumModel, 'countDocuments').mockResolvedValue(0 as never);
+    await curriculumService.listForAdmin({ state: 'CO' } as never);
+    expect((findSpy.mock.calls as any[][])[0][0]).toMatchObject({ $or: [{ state: 'CO' }, { stateCode: 'CO' }] });
+  });
+
+  it('getByPublicId() with forStudent projects out import metadata', async () => {
+    const fo = jest.spyOn(CurriculumModel, 'findOne').mockReturnValue(lean({ publicId: 'c' }) as never);
+    await curriculumService.getByPublicId('c', { forStudent: true });
+    expect((fo.mock.calls as any[][])[0][1]).toEqual({ sourceKind: 0, createdByAdminPublicId: 0 });
   });
 });

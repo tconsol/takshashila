@@ -27,6 +27,7 @@ export interface Curriculum {
   state: string;
   countyFips: string;
   county: string; // display name, derived server-side from countyFips
+  stateCode?: string; // USPS code; set on imported state curricula
   districtId?: string; // absent on curricula not yet migrated to a district
   district?: string;
   grade: string;

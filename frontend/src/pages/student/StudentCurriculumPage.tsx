@@ -9,7 +9,8 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { BookOpen, ArrowRight, Inbox, ChevronRight } from 'lucide-react';
 import { useMyStudentProfile } from '../../hooks/use-students';
-import { useStateCatalog } from '../../hooks/use-curricula';
+import { useStateCatalog, useCurriculumCatalog } from '../../hooks/use-curricula';
+import { useUsStates } from '../../hooks/use-geo';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -113,6 +114,11 @@ export function StudentCurriculumPage() {
   const mine = useStateCatalog(grade ? stateCode : undefined, grade || undefined);
   const all = useStateCatalog(stateCode);
   const active = tab === 'all' ? all : mine;
+  const { data: states } = useUsStates();
+  // Legacy district-authored curricula: only consulted when the state catalog has nothing loaded for this state.
+  const legacyDistrictId = active.data && !active.data.stateLoaded ? profile?.districtId : undefined;
+  const legacy = useCurriculumCatalog({ districtId: legacyDistrictId, grade: tab === 'mine' ? grade || undefined : undefined });
+  const legacyCurricula = legacy.data ?? [];
 
   if (profileLoading) {
     return <div className="flex justify-center py-16"><Spinner /></div>;
@@ -132,7 +138,8 @@ export function StudentCurriculumPage() {
     );
   }
 
-  const where = stateCode;
+  const stateName = states?.find((st) => st.code === stateCode)?.name ?? stateCode;
+  const listed = active.data && !active.data.stateLoaded && legacyCurricula.length > 0 ? legacyCurricula : active.data?.curricula ?? [];
 
   let body: React.ReactNode;
   if (tab === 'mine' && !grade) {
@@ -151,28 +158,30 @@ export function StudentCurriculumPage() {
         <p className="text-sm text-gray-500">Couldn't load curricula. Please try again.</p>
       </Message>
     );
-  } else if (!active.data.stateLoaded) {
+  } else if (!active.data.stateLoaded && legacyDistrictId && legacy.isLoading) {
+    body = <div className="flex justify-center py-16"><Spinner /></div>;
+  } else if (!active.data.stateLoaded && legacyCurricula.length === 0) {
     body = (
       <Message>
         <Inbox className="h-6 w-6 text-gray-400" />
         <p className="text-sm text-gray-500">Your state's curriculum isn't available yet. We're adding states over time.</p>
       </Message>
     );
-  } else if (active.data.curricula.length === 0) {
+  } else if (listed.length === 0) {
     body = (
       <Message>
         <Inbox className="h-6 w-6 text-gray-400" />
         <p className="text-sm text-gray-500">
-          {tab === 'mine' ? `No published curriculum yet for ${grade} in ${where}.` : `No published curriculum yet in ${where}.`}
+          {tab === 'mine' ? `No published curriculum yet for ${grade} in ${stateName}.` : `No published curriculum yet in ${stateName}.`}
         </p>
       </Message>
     );
   } else if (tab === 'mine') {
-    body = <CurriculumGrid curricula={active.data.curricula} />;
+    body = <CurriculumGrid curricula={listed} />;
   } else {
     body = (
       <div className="space-y-8">
-        {groupByGrade(active.data.curricula).map(([g, curricula]) => (
+        {groupByGrade(listed).map(([g, curricula]) => (
           <section key={g}>
             <div className="mb-3 flex items-center gap-2">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{g}</h2>
@@ -190,7 +199,7 @@ export function StudentCurriculumPage() {
       <PageHeader
         eyebrow="Curricula"
         title="Curriculum"
-        description={tab === 'mine' && grade ? `${grade} curriculum · ${where}` : `All grades · ${where}`}
+        description={tab === 'mine' && grade ? `${grade} curriculum · ${stateName}` : `All grades · ${stateName}`}
         icon={<BookOpen className="h-5 w-5" />}
       />
       <Tabs

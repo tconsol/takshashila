@@ -180,7 +180,8 @@ export function AdminCurriculumPage() {
   const [assigning, setAssigning] = useState<Curriculum | null>(null);
   const [editing, setEditing] = useState<Curriculum | null>(null);
   const [deleting, setDeleting] = useState<Curriculum | null>(null);
-  const params: Record<string, string> = { limit: '100' };
+  const [page, setPage] = useState(1);
+  const params: Record<string, string> = { limit: '50', page: String(page) };
   if (filter.state) params.state = filter.state;
   if (filter.countyFips) params.countyFips = filter.countyFips;
   if (filter.districtId) params.districtId = filter.districtId;
@@ -204,7 +205,7 @@ export function AdminCurriculumPage() {
       {editing && <CurriculumForm key={editing.publicId} curriculum={editing} onDone={() => setEditing(null)} />}
 
       <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        <LocationSelect value={filter} onChange={setFilter} />
+        <LocationSelect value={filter} onChange={(l) => { setFilter(l); setPage(1); }} />
       </div>
       {assigning && <AssignDistrictModal curriculum={assigning} onClose={() => setAssigning(null)} />}
       {deleting && <DeleteCurriculumModal curriculum={deleting} onClose={() => setDeleting(null)} />}
@@ -221,16 +222,16 @@ export function AdminCurriculumPage() {
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-gray-900 dark:text-white">{curriculum.title}</p>
                       {curriculum.isPublished ? <Badge variant="success" tone="soft">Published</Badge> : <Badge variant="default" tone="soft">Draft</Badge>}
-                      {!curriculum.districtId && (
+                      {!curriculum.districtId && !curriculum.stateCode && (
                         <Badge variant="warning" tone="soft"><AlertTriangle className="h-3 w-3" /> No district</Badge>
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {curriculum.district ? `${curriculum.district} · ` : ''}{curriculum.county ?? '—'}, {curriculum.state ?? '—'} · {curriculum.grade} · {curriculum.subject} · {curriculum.topics.length} topics
+                      {curriculum.stateCode ? curriculum.stateCode : <>{curriculum.district ? `${curriculum.district} · ` : ''}{curriculum.county ?? '—'}, {curriculum.state ?? '—'}</>} · {curriculum.grade} · {curriculum.subject} · {curriculum.topics.length} topics
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {!curriculum.districtId && (
+                    {!curriculum.districtId && !curriculum.stateCode && (
                       <Button size="sm" variant="outline" onClick={() => setAssigning(curriculum)}>
                         <MapPin className="h-3.5 w-3.5" /> Assign district
                       </Button>
@@ -238,9 +239,11 @@ export function AdminCurriculumPage() {
                     <Link to={`${base}/${curriculum.publicId}`}>
                       <Button size="sm" variant="outline"><ListTree className="h-3.5 w-3.5" /> Structure</Button>
                     </Link>
-                    <Button size="sm" variant="outline" onClick={() => { setShowNew(false); setEditing(curriculum); }}>
-                      <Pencil className="h-3.5 w-3.5" /> Edit
-                    </Button>
+                    {!curriculum.stateCode && (
+                      <Button size="sm" variant="outline" onClick={() => { setShowNew(false); setEditing(curriculum); }}>
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
@@ -268,6 +271,13 @@ export function AdminCurriculumPage() {
               </CardContent>
             </Card>
           ))}
+          {data && data.totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</Button>
+              <span className="text-xs text-gray-500">Page {data.page} of {data.totalPages} · {data.total} curricula</span>
+              <Button size="sm" variant="outline" disabled={page >= data.totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+            </div>
+          )}
         </div>
       )}
     </div>

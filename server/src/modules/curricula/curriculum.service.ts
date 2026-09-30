@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { CurriculumModel } from './curriculum.model';
 import type { ICurriculum } from './curriculum.types';
 import type { CreateCurriculumDto, UpdateCurriculumDto, CurriculumAdminQueryDto, CurriculumCatalogQueryDto } from './curriculum.validators';
-import { NotFoundError, ValidationError, ConflictError } from '../../utils/error';
+import { AppError, NotFoundError, ValidationError, ConflictError } from '../../utils/error';
 import { CourseModel } from '../courses/course.model';
 import { CourseStatus } from '../courses/course.types';
 import { geoService } from '../geo/geo.service';
@@ -11,6 +11,9 @@ import type { PaginatedResult } from '../../shared/types';
 import { settingsService } from '../settings/settings.service';
 import { PLATFORM_SETTINGS_DEFAULTS } from '../settings/settings.model';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
+
+/** Admin-only import metadata never sent to students. */
+const STUDENT_HIDDEN_FIELDS = { sourceKind: 0, createdByAdminPublicId: 0 } as const;
 
 export class CurriculumService {
   async create(adminUserPublicId: string, dto: CreateCurriculumDto): Promise<ICurriculum> {
@@ -35,6 +38,13 @@ export class CurriculumService {
 
   async update(curriculumPublicId: string, dto: UpdateCurriculumDto): Promise<ICurriculum> {
     const { districtId, ...rest } = dto;
+    if (districtId || dto.topics) {
+      const current = await CurriculumModel.findOne({ publicId: curriculumPublicId, isDeleted: false }, { stateCode: 1, chapters: 1 }).lean();
+      if (!current) throw new NotFoundError('Curriculum');
+      if (current.stateCode || (current.chapters?.length ?? 0) > 0) {
+        throw new AppError('Imported state curricula cannot change district or topics; their topics come from chapters', 400);
+      }
+    }
     const setFields: Record<string, unknown> = { ...rest };
     if (districtId) Object.assign(setFields, locationFromDistrict(districtId));
     if (dto.topics) {
@@ -98,8 +108,12 @@ export class CurriculumService {
     );
   }
 
-  async getByPublicId(curriculumPublicId: string): Promise<ICurriculum> {
-    const curriculum = await CurriculumModel.findOne({ publicId: curriculumPublicId, isDeleted: false }).lean();
+  /** `forStudent` strips admin-only import metadata. */
+  async getByPublicId(curriculumPublicId: string, opts: { forStudent?: boolean } = {}): Promise<ICurriculum> {
+    const curriculum = await CurriculumModel.findOne(
+      { publicId: curriculumPublicId, isDeleted: false },
+      opts.forStudent ? STUDENT_HIDDEN_FIELDS : undefined,
+    ).lean();
     if (!curriculum) throw new NotFoundError('Curriculum');
     return curriculum;
   }
@@ -123,7 +137,7 @@ export class CurriculumService {
       stateCode: filters.stateCode, isPublished: true, isDeleted: false, subject: { $in: subjects },
     };
     if (filters.grade) filter.grade = filters.grade;
-    const curricula = await CurriculumModel.find(filter).sort({ title: 1 }).limit(2000).lean();
+    const curricula = await CurriculumModel.find(filter, STUDENT_HIDDEN_FIELDS).sort({ title: 1 }).limit(2000).lean();
     curricula.sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || a.title.localeCompare(b.title));
     const stateLoaded = curricula.length > 0
       || !!(await CurriculumModel.exists({ stateCode: filters.stateCode, isPublished: true, isDeleted: false }));
@@ -134,7 +148,7 @@ export class CurriculumService {
   async listForAdmin(query: CurriculumAdminQueryDto): Promise<PaginatedResult<ICurriculum>> {
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter: Record<string, unknown> = { isDeleted: false };
-    if (query.state) filter.state = query.state;
+    if (query.state) filter.$or = [{ state: query.state }, { stateCode: query.state }];
     if (query.countyFips) filter.countyFips = query.countyFips;
     if (query.districtId) filter.districtId = query.districtId;
     if (query.grade) filter.grade = query.grade;

@@ -32,6 +32,7 @@ describe('curriculumService.listByState', () => {
     const filter = (find.mock.calls as any[][])[0][0];
     expect(filter).toMatchObject({ stateCode: 'CO', isPublished: true, isDeleted: false });
     expect(filter.subject).toEqual({ $in: ['Mathematics', 'Science'] });
+    expect((find.mock.calls as any[][])[0][1]).toEqual({ sourceKind: 0, createdByAdminPublicId: 0 });
   });
 
   it('a disabled subject requested explicitly yields nothing', async () => {

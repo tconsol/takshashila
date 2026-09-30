@@ -95,8 +95,8 @@ export class CurriculumController {
 
   async getByPublicId(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await curriculumService.getByPublicId(req.params.curriculumPublicId);
       const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'SUPER_ADMIN';
+      const result = await curriculumService.getByPublicId(req.params.curriculumPublicId, { forStudent: !isAdmin });
       if (!isAdmin && !result.isPublished) {
         // Don't reveal that an unpublished curriculum exists at this id.
         throw new NotFoundError('Curriculum');
