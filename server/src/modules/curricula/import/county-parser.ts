@@ -22,7 +22,8 @@ function parseBand(text: string): { from: number; to: number } {
   return { from: Math.min(...nums), to: Math.max(...nums) };
 }
 
-const CATEGORY_LINE = /^([^:]{2,60}):\s*(.+)$/;
+// Category starts with a letter; the colon must be followed by whitespace (so "3:30" and "https://" do not split).
+const CATEGORY_LINE = /^([A-Za-z][^:]{1,59}):\s+(?!\/\/)(.+)$/;
 
 /**
  * Layout (Georgia and the other state files): H2 = county/district, H3 = grade band,
@@ -31,6 +32,7 @@ const CATEGORY_LINE = /^([^:]{2,60}):\s*(.+)$/;
  */
 export function parseCountyAdditions(paras: DocxParagraph[]): ParsedCountyAddition[] {
   const out: ParsedCountyAddition[] = [];
+  const byKey = new Map<string, ParsedCountyAddition>();
   let county = '';
   let district = '';
   let band: { from: number; to: number } | null = null;
@@ -53,8 +55,19 @@ export function parseCountyAdditions(paras: DocxParagraph[]): ParsedCountyAdditi
       if (!county || !band) continue;
       const m = CATEGORY_LINE.exec(text);
       if (m) {
-        last = { county, district, gradeFrom: band.from, gradeTo: band.to, category: m[1].trim(), description: m[2].trim() };
-        out.push(last);
+        const category = m[1].trim();
+        const description = m[2].trim();
+        // The unique index is (county, district, band, category): repeats merge, keeping first-seen order.
+        const key = JSON.stringify([county, district, band.from, band.to, category]);
+        const existing = byKey.get(key);
+        if (existing) {
+          existing.description = `${existing.description}\n${description}`;
+          last = existing;
+        } else {
+          last = { county, district, gradeFrom: band.from, gradeTo: band.to, category, description };
+          byKey.set(key, last);
+          out.push(last);
+        }
       } else if (last) {
         last.description = `${last.description} ${text}`;
       }

@@ -18,7 +18,7 @@ export interface ICountyAddition {
 
 const countyAdditionSchema = new Schema<ICountyAddition>(
   {
-    publicId: { type: String, default: uuidv4, unique: true, index: true },
+    publicId: { type: String, default: uuidv4, unique: true },
     stateCode: { type: String, required: true, uppercase: true, index: true },
     county: { type: String, required: true },
     district: { type: String, default: '' },
@@ -33,6 +33,10 @@ const countyAdditionSchema = new Schema<ICountyAddition>(
   },
   { timestamps: true, collection: 'countyadditions' },
 );
+
+countyAdditionSchema.path('gradeTo').validate(function (this: { gradeFrom?: number }, v: number) {
+  return this.gradeFrom === undefined || v >= this.gradeFrom;
+}, 'gradeFrom must not be greater than gradeTo');
 
 countyAdditionSchema.index({ stateCode: 1, county: 1, district: 1, gradeFrom: 1, gradeTo: 1, category: 1 }, { unique: true });
 

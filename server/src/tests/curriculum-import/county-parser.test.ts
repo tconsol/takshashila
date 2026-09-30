@@ -47,6 +47,36 @@ describe('parseCountyAdditions', () => {
   });
 });
 
+describe('parseCountyAdditions duplicates and continuations', () => {
+  it('merges the same category in one band into one entry', () => {
+    const out = parseCountyAdditions([h(2, 'Lee County'), h(3, 'Grade 3'), li('Field trip: Farm visit'), li('Field trip: Museum'), li('Art: Murals')]);
+    expect(out).toEqual([
+      { county: 'Lee County', district: '', gradeFrom: 3, gradeTo: 3, category: 'Field trip', description: 'Farm visit\nMuseum' },
+      { county: 'Lee County', district: '', gradeFrom: 3, gradeTo: 3, category: 'Art', description: 'Murals' },
+    ]);
+  });
+  it('merges when a band heading repeats under a county, but not across counties or bands', () => {
+    const out = parseCountyAdditions([h(2, 'Lee County'), h(3, 'Grade 3'), li('Art: A'), h(3, 'Grade 4'), li('Art: B'), h(3, 'Grade 3'), li('Art: C'), h(2, 'Polk County'), h(3, 'Grade 3'), li('Art: D')]);
+    expect(out.map((o) => [o.county, o.gradeFrom, o.description])).toEqual([['Lee County', 3, 'A\nC'], ['Lee County', 4, 'B'], ['Polk County', 3, 'D']]);
+  });
+  it('treats a time in a continuation line as a continuation', () => {
+    const out = parseCountyAdditions([h(2, 'Lee County'), li('Club: Robotics'), li('Meets at 3:30 pm')]);
+    expect(out).toEqual([{ county: 'Lee County', district: '', gradeFrom: 0, gradeTo: 12, category: 'Club', description: 'Robotics Meets at 3:30 pm' }]);
+  });
+  it('treats a URL line as a continuation', () => {
+    const out = parseCountyAdditions([h(2, 'Lee County'), li('Club: Robotics'), li('https://example.org/club')]);
+    expect(out).toHaveLength(1);
+    expect(out[0].description).toBe('Robotics https://example.org/club');
+  });
+  it('does not start a category with a digit', () => {
+    expect(parseCountyAdditions([h(2, 'Lee County'), li('3D: printing')])).toEqual([]);
+  });
+  it('still parses long category names', () => {
+    const out = parseCountyAdditions([h(2, 'Lee County'), li('Science, Technology, Engineering, and Mathematics: Magnet')]);
+    expect(out[0].category).toBe('Science, Technology, Engineering, and Mathematics');
+  });
+});
+
 describe('CountyAddition model', () => {
   const base = { stateCode: 'ga', county: 'Fulton County Schools', district: '', gradeFrom: 6, gradeTo: 8, category: 'Computer Science', description: 'Foundations' };
   it('accepts a valid entry with draft defaults', () => {
@@ -63,5 +93,9 @@ describe('CountyAddition model', () => {
     void stateCode; void county; void category;
     const err = new CountyAdditionModel(rest).validateSync();
     expect(Object.keys(err!.errors).sort()).toEqual(['category', 'county', 'stateCode']);
+  });
+  it('rejects gradeFrom greater than gradeTo', () => {
+    const err = new CountyAdditionModel({ ...base, gradeFrom: 9, gradeTo: 3 }).validateSync();
+    expect(err!.errors.gradeTo).toBeDefined();
   });
 });
