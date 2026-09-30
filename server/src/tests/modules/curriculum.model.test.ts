@@ -27,12 +27,12 @@ describe('Curriculum model', () => {
     expect(doc.topics[0].title).toBe('Linear Equations');
   });
 
-  it('requires districtId, district, state, countyFips, county, grade, subject and title', () => {
+  it('requires a stateCode or districtId, plus grade, subject and title', () => {
     const doc = new CurriculumModel({ publicId: 'curriculum-2', createdByAdminPublicId: 'admin-1', topics: [] });
     const err = doc.validateSync();
     expect(err).toBeDefined();
     expect(Object.keys(err!.errors)).toEqual(
-      expect.arrayContaining(['districtId', 'district', 'state', 'countyFips', 'county', 'grade', 'subject', 'title']),
+      expect.arrayContaining(['stateCode', 'grade', 'subject', 'title']),
     );
   });
 });

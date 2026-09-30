@@ -36,8 +36,8 @@ export async function listAttachableCurricula(tutor: TutorScope): Promise<Attach
     title: c.title,
     subject: c.subject,
     grade: c.grade,
-    district: c.district,
-    state: c.state,
+    district: c.district!,
+    state: c.state!,
     topics: [...c.topics]
       .sort((a, b) => a.order - b.order)
       .map((t) => ({ publicId: t.publicId, title: t.title, order: t.order })),
