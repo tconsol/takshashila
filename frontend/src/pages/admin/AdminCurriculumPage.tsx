@@ -271,11 +271,11 @@ export function AdminCurriculumPage() {
               </CardContent>
             </Card>
           ))}
-          {data && data.totalPages > 1 && (
+          {data && data.pagination.totalPages > 1 && (
             <div className="flex items-center justify-between pt-2">
               <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</Button>
-              <span className="text-xs text-gray-500">Page {data.page} of {data.totalPages} · {data.total} curricula</span>
-              <Button size="sm" variant="outline" disabled={page >= data.totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+              <span className="text-xs text-gray-500">Page {data.pagination.page} of {data.pagination.totalPages} · {data.pagination.total} curricula</span>
+              <Button size="sm" variant="outline" disabled={page >= data.pagination.totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
             </div>
           )}
         </div>

@@ -68,10 +68,7 @@ export interface CurriculumTutor {
 
 export interface PaginatedCurricula {
   items: Curriculum[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
 export interface AttachableCurriculum {
