@@ -64,13 +64,16 @@ export function checkCommitGuard(args: { commit: boolean; confirmDb?: string; co
   if (!args.backupPath) throw new Error('--commit requires a backup file to have been written first');
 }
 
+const VALUE_FLAGS = new Set(['dir', 'confirm-db', 'backup-dir', 'report-dir']);
 function parseArgs(argv: string[]) {
   const out: Record<string, string | boolean> = {};
-  for (const a of argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
     if (!a.startsWith('--')) continue;
     const eq = a.indexOf('=');
-    if (eq === -1) out[a.slice(2)] = true;
-    else out[a.slice(2, eq)] = a.slice(eq + 1);
+    if (eq !== -1) out[a.slice(2, eq)] = a.slice(eq + 1);
+    else if (VALUE_FLAGS.has(a.slice(2)) && i + 1 < argv.length) out[a.slice(2)] = argv[++i];
+    else out[a.slice(2)] = true;
   }
   return out;
 }
