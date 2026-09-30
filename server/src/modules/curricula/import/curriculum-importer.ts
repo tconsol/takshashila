@@ -6,7 +6,7 @@ import type { ParsedDoc } from './curriculum-parser';
 import { parseSources, pickSource } from './sources-parser';
 import { parseCountyAdditions } from './county-parser';
 
-export interface ImportFile { path: string; stateCode: string; kind: 'revised' | 'master' }
+export interface ImportFile { path: string; stateCode: string; kind: 'revised' | 'master'; /** only county additions are taken from this file */ countyOnly?: boolean }
 
 export interface StateReport {
   stateCode: string; kind: 'revised' | 'master';
@@ -39,6 +39,12 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
     highSchoolSkipped: [...doc.skippedHighSchoolGrades], countyAdditions: 0, subjectsSeen: [], duplicateSubjects: [],
   };
   const plan: PlannedCurriculum[] = [];
+  if (file.countyOnly) {
+    report.highSchoolSkipped = [];
+    const county = parseCountyAdditions(doc.countyParagraphs);
+    report.countyAdditions = county.length;
+    return { plan, report, county };
+  }
   const missing: string[] = [];
   const seen: string[] = [];
 
@@ -121,7 +127,7 @@ export async function applyImport(file: ImportFile, doc: ParsedDoc, opts: { comm
   const { plan, report, county } = buildPlan(file, doc);
   const stateCode = file.stateCode.toUpperCase();
 
-  const existing = await CurriculumModel.find({ stateCode, isDeleted: { $ne: true }, districtId: null });
+  const existing = file.countyOnly ? [] : await CurriculumModel.find({ stateCode, isDeleted: { $ne: true }, districtId: null });
   const index = new Map<string, (typeof existing)[number]>();
   for (const e of existing) {
     const k = `${e.grade}\u0000${e.subject}\u0000${e.courseName ?? ''}`;

@@ -117,3 +117,26 @@ describe('applyImport with mocked models', () => {
     expect(pubAdd.save).not.toHaveBeenCalled();
   });
 });
+
+describe('countyOnly files', () => {
+  const coFile: ImportFile = { path: 'x', stateCode: 'CO', kind: 'master', countyOnly: true };
+  const doc = () => mkDoc({ countyParagraphs: [
+    { style: 'Heading 2', text: 'A County' }, { style: 'Normal', text: 'Cat: d' },
+  ] });
+
+  it('planImport returns nothing', () => {
+    expect(planImport(coFile, doc())).toEqual([]);
+  });
+
+  it('applyImport writes only county additions and never touches curricula', async () => {
+    const findSpy = jest.spyOn(CurriculumModel, 'find').mockResolvedValue([] as never);
+    const createSpy = jest.spyOn(CurriculumModel, 'create').mockResolvedValue({} as never);
+    jest.spyOn(CountyAdditionModel, 'find').mockResolvedValue([] as never);
+    const countyCreate = jest.spyOn(CountyAdditionModel, 'create').mockResolvedValue({} as never);
+    const rep = await applyImport(coFile, doc(), { commit: true });
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(findSpy).not.toHaveBeenCalled();
+    expect(countyCreate).toHaveBeenCalledTimes(1);
+    expect(rep).toMatchObject({ created: 0, updated: 0, unchanged: 0, skippedPublished: 0, chapters: 0, topics: 0, countyAdditions: 1, subjectsSeen: [], highSchoolSkipped: [], subjectsSkippedNotVerified: [], emptySubjects: [] });
+  });
+});
