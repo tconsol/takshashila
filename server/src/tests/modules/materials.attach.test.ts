@@ -66,6 +66,15 @@ describe('listAttachableCurricula', () => {
     expect((findSpy.mock.calls[0] as unknown as [Record<string, unknown>])[0]).not.toHaveProperty('grade');
   });
 
+  it('adds High School to the grade filter for tutors teaching Grades 9-12 only', async () => {
+    const findSpy = jest.spyOn(CurriculumModel, 'find').mockReturnValue(chain([]) as never);
+    await listAttachableCurricula({ subjects: ['Mathematics'], gradesTaught: ['Grade 10'] });
+    await listAttachableCurricula({ subjects: ['Mathematics'], gradesTaught: ['Grade 5'] });
+    const f = (i: number) => (findSpy.mock.calls[i] as unknown as [Record<string, unknown>])[0];
+    expect(f(0).grade).toEqual({ $in: ['Grade 10', 'High School'] });
+    expect(f(1).grade).toEqual({ $in: ['Grade 5'] });
+  });
+
   it('returns nothing without querying when the tutor has no subjects', async () => {
     const findSpy = jest.spyOn(CurriculumModel, 'find');
     expect(await listAttachableCurricula({ subjects: [] })).toEqual([]);
@@ -94,6 +103,14 @@ describe('resolveTutorAttachment', () => {
     jest.spyOn(CurriculumModel, 'findOne').mockReturnValue(lean({ ...algebra, grade: 'Grade 3' }) as never);
     await expect(resolveTutorAttachment(tutor, { curriculumPublicId: 'cur-1', topicPublicIds: ['t-1'] }))
       .rejects.toMatchObject({ statusCode: 422 });
+  });
+
+  it('lets a Grade 10 tutor attach to High School, but not a Grade 5 tutor', async () => {
+    jest.spyOn(CurriculumModel, 'findOne').mockReturnValue(lean({ ...algebra, grade: 'High School' }) as never);
+    const input = { curriculumPublicId: 'cur-1', topicPublicIds: ['t-1'] };
+    await expect(resolveTutorAttachment({ ...tutor, gradesTaught: ['Grade 10'] }, input)).resolves.toBeDefined();
+    await expect(resolveTutorAttachment({ ...tutor, gradesTaught: ['Grade 5'] }, input)).rejects.toMatchObject({ statusCode: 422 });
+    await expect(resolveTutorAttachment({ ...tutor, gradesTaught: [] }, input)).resolves.toBeDefined();
   });
 
   it('rejects topics that are not in the curriculum', async () => {

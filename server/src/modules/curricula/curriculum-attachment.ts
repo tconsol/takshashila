@@ -2,6 +2,7 @@
 import { CurriculumModel } from './curriculum.model';
 import { NotFoundError, ValidationError } from '../../utils/error';
 import { normalizeSubject } from '../../utils/taxonomy';
+import { curriculumGradesForTutor } from '../../utils/grades';
 
 export interface AttachableCurriculum {
   publicId: string;
@@ -29,7 +30,7 @@ export async function listAttachableCurricula(tutor: TutorScope): Promise<Attach
     isDeleted: false,
     subject: { $in: subjectMatcher(tutor.subjects) },
   };
-  if (tutor.gradesTaught && tutor.gradesTaught.length > 0) filter.grade = { $in: tutor.gradesTaught };
+  if (tutor.gradesTaught && tutor.gradesTaught.length > 0) filter.grade = { $in: curriculumGradesForTutor(tutor.gradesTaught) };
   const curricula = await CurriculumModel.find(filter).sort({ title: 1 }).limit(200).lean();
   return curricula.map((c) => ({
     publicId: c.publicId,
@@ -58,7 +59,7 @@ export async function resolveTutorAttachment(tutor: TutorScope, input: Attachmen
   if (!input.topicPublicIds?.length) throw new ValidationError({ topicPublicIds: ['Pick at least one topic'] });
   const curriculum = await CurriculumModel.findOne({ publicId: input.curriculumPublicId, isPublished: true, isDeleted: false }).lean();
   const subjects = new Set(tutor.subjects.map((s) => normalizeSubject(s).toLowerCase()));
-  const gradeOk = !tutor.gradesTaught?.length || (curriculum && tutor.gradesTaught.includes(curriculum.grade));
+  const gradeOk = !tutor.gradesTaught?.length || (curriculum && curriculumGradesForTutor(tutor.gradesTaught).includes(curriculum.grade));
   if (!curriculum || !subjects.has(normalizeSubject(curriculum.subject).toLowerCase()) || !gradeOk) {
     throw new ValidationError({ curriculumPublicId: ['You can only attach to published curricula for subjects and grades you teach'] });
   }

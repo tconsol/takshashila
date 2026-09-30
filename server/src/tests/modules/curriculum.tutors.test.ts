@@ -39,6 +39,24 @@ describe('tutorService.findForCurriculum', () => {
     ]);
   });
 
+  it('matches a High School curriculum to tutors teaching any of Grades 9-12, or no grades', async () => {
+    const findSpy = jest.spyOn(TutorProfileModel, 'find').mockReturnValue(findChain([]) as never);
+    jest.spyOn(userRepository, 'findManyByPublicIds').mockResolvedValue([]);
+
+    await tutorService.findForCurriculum({ subject: 'Mathematics', grade: 'High School' });
+
+    const filter = (findSpy.mock.calls[0] as unknown as [Record<string, unknown>])[0];
+    expect(filter.$or).toEqual([
+      { gradesTaught: { $in: ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'] } },
+      { gradesTaught: { $exists: false } },
+      { gradesTaught: { $size: 0 } },
+    ]);
+    // Grade 5 is not among the accepted values; Grade 10 is.
+    const accepted = ((filter.$or as { gradesTaught: { $in?: string[] } }[])[0].gradesTaught.$in) as string[];
+    expect(accepted).toContain('Grade 10');
+    expect(accepted).not.toContain('Grade 5');
+  });
+
   it('escapes regex characters in the subject', async () => {
     const findSpy = jest.spyOn(TutorProfileModel, 'find').mockReturnValue(findChain([]) as never);
     jest.spyOn(userRepository, 'findManyByPublicIds').mockResolvedValue([]);
