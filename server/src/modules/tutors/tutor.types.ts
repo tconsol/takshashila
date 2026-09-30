@@ -40,6 +40,30 @@ export interface ITutorProfile {
   updatedAt: Date;
 }
 
+/**
+ * What an anonymous visitor may see about a tutor. This is an allow-list on purpose:
+ * the public directory must never carry earnings, commission, trust score, internal
+ * user/organization IDs or who verified or invited the tutor. Add a field here only
+ * if the tutor card genuinely shows it.
+ */
+export interface PublicTutorCard {
+  publicId: string;
+  displayName: string;
+  status: TutorStatus;
+  subjects: string[];
+  gradesTaught?: string[];
+  languages: string[];
+  hourlyRateCents: number;
+  bio?: string;
+  qualifications: string[];
+  timezone: string;
+  rating: number;
+  ratingCount: number;
+  totalStudents: number;
+  totalClassesCompleted: number;
+  isVerified: boolean;
+}
+
 export interface CreateTutorProfileDto {
   userPublicId: string;
   principalPublicId?: string;

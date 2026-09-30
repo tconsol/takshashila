@@ -71,7 +71,8 @@ export class TutorController {
     try {
       const { subject, language, timezone, minRating, minHourlyRateCents, maxHourlyRateCents, isVerified, ...paginationQuery } = req.query as Record<string, string>;
       // Public, read-heavy endpoint cache 60s per unique query to cut DB reads/compute.
-      const cacheKey = `tutors:search:${JSON.stringify(req.query)}`;
+      // "v2": the response shape is now an allow-list, so never serve entries cached in the old shape.
+      const cacheKey = `tutors:search:v2:${JSON.stringify(req.query)}`;
       const result = await cached(cacheKey, 60, () =>
         tutorService.search(
           {

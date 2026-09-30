@@ -21,6 +21,7 @@ import { Terminal, type TermLine } from '../components/landing/Terminal';
 import { ConnectionHub } from '../components/landing/ConnectionHub';
 import CardSwap, { Card } from '../components/landing/CardSwap';
 import { ChatBot } from '../components/landing/FloatingWidgets';
+import { MobileNavMenu } from '../components/shared/MobileNavMenu';
 
 const CODE_LINES: TermLine[] = [
   { type: 'cmd', text: 'brainbaseedu start --subject coding' },
@@ -208,13 +209,21 @@ export function LandingPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <MobileNavMenu
+              links={[
+                { label: 'Find Tutors', to: '/tutors' },
+                { label: 'Features', to: '#features' },
+                { label: 'How it works', to: '#how-it-works' },
+                { label: 'Reviews', to: '#testimonials' },
+              ]}
+            />
             {isAuthenticated && user ? (
               <Link to={ROLE_DASHBOARD_PATHS[user.role]} className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700">
                 Dashboard <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             ) : (
               <>
-                <Link to="/login" className="hidden text-sm font-semibold text-slate-600 transition-colors hover:text-indigo-600 sm:block">Sign in</Link>
+                <Link to="/login" className="text-sm font-semibold text-slate-600 transition-colors hover:text-indigo-600">Sign in</Link>
                 <Link to="/register/student" className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700">
                   Get started
                 </Link>

@@ -17,6 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Loading';
 import { BookClassModal } from '../../components/shared/BookClassModal';
+import { MobileNavMenu } from '../../components/shared/MobileNavMenu';
 import type { TutorProfile } from '../../services/tutors.service';
 
 interface TutorListing {
@@ -500,11 +501,12 @@ function PublicNav() {
   return (
     <header className="sticky top-4 z-40 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <nav className="flex h-16 items-center justify-between rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-sm px-4 shadow-sm sm:px-6 dark:bg-gray-950">
-        <Link to="/" className="flex items-center gap-2.5">
+        <Link to="/" aria-label="brainbaseedu home" className="flex items-center gap-2.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600">
             <GraduationCap className="h-5 w-5 text-white" />
           </div>
-          <span className="text-lg font-bold text-slate-900 dark:text-white">brainbaseedu</span>
+          {/* Icon only on the smallest phones so the menu, Sign in and Get started fit inside the bar. */}
+          <span className="hidden text-lg font-bold text-slate-900 min-[400px]:inline dark:text-white">brainbaseedu</span>
         </Link>
         <div className="hidden gap-7 md:flex">
           <Link to="/" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Home</Link>
@@ -512,13 +514,20 @@ function PublicNav() {
           <Link to="/#features" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Features</Link>
         </div>
         <div className="flex items-center gap-3">
+          <MobileNavMenu
+            links={[
+              { label: 'Home', to: '/' },
+              { label: 'Find Tutors', to: '/tutors' },
+              { label: 'Features', to: '/#features' },
+            ]}
+          />
           {isAuthenticated && user ? (
             <Link to={`/dashboard/${user.role.toLowerCase().replace('_', '-')}`}>
               <Button size="sm">Go to dashboard</Button>
             </Link>
           ) : (
             <>
-              <Link to="/login" className="hidden sm:block text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Sign in</Link>
+              <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Sign in</Link>
               <Link to="/register/student">
                 <Button size="sm">Get started</Button>
               </Link>

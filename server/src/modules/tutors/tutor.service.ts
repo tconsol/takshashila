@@ -3,7 +3,7 @@ import argon2 from 'argon2';
 import crypto from 'crypto';
 import { tutorRepository } from './tutor.repository';
 import { TutorStatus } from './tutor.types';
-import type { ITutorProfile, TutorSearchFilters } from './tutor.types';
+import type { ITutorProfile, TutorSearchFilters, PublicTutorCard } from './tutor.types';
 
 /** Public fields shown on the student's tutor picker — no earnings or internal scores. */
 export interface CurriculumTutorCard {
@@ -14,6 +14,30 @@ export interface CurriculumTutorCard {
   hourlyRateCents: number;
   bio?: string;
   isVerified: boolean;
+}
+
+/**
+ * Builds the anonymous-safe view of a tutor. Picks fields one by one (never spreads the
+ * database record), so a field added to the profile later stays private by default.
+ */
+export function toPublicTutorCard(t: ITutorProfile, displayName: string): PublicTutorCard {
+  return {
+    publicId: t.publicId,
+    displayName,
+    status: t.status,
+    subjects: t.subjects ?? [],
+    gradesTaught: t.gradesTaught,
+    languages: t.languages ?? [],
+    hourlyRateCents: t.hourlyRateCents,
+    bio: t.bio,
+    qualifications: t.qualifications ?? [],
+    timezone: t.timezone,
+    rating: t.rating,
+    ratingCount: t.ratingCount,
+    totalStudents: t.totalStudents,
+    totalClassesCompleted: t.totalClassesCompleted,
+    isVerified: t.isVerified,
+  };
 }
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { NotFoundError, ConflictError, AuthorizationError } from '../../utils/error';
@@ -221,7 +245,7 @@ export class TutorService {
   async search(
     filters: TutorSearchFilters,
     query: PaginationQuery,
-  ): Promise<PaginatedResult<ITutorProfile & { displayName: string }>> {
+  ): Promise<PaginatedResult<PublicTutorCard>> {
     const result = await tutorRepository.search(filters, query);
 
     // Hydrate each tutor profile with the user's full name
@@ -233,7 +257,7 @@ export class TutorService {
     const hydrated = result.items.flatMap((t) => {
       const u = userMap.get(t.userPublicId);
       if (!u || u.isDeleted) return [];
-      return [{ ...t, displayName: `${u.firstName} ${u.lastName}` }];
+      return [toPublicTutorCard(t, `${u.firstName} ${u.lastName}`)];
     });
 
     const dropped = result.items.length - hydrated.length;
