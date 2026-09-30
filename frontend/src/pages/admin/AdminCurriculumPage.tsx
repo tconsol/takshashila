@@ -227,7 +227,7 @@ export function AdminCurriculumPage() {
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {curriculum.stateCode ? curriculum.stateCode : <>{curriculum.district ? `${curriculum.district} · ` : ''}{curriculum.county ?? '—'}, {curriculum.state ?? '—'}</>} · {curriculum.grade} · {curriculum.subject}{curriculum.courseName ? ` · ${curriculum.courseName}` : ''}{curriculum.usualGrade ? ` · usually ${curriculum.usualGrade}` : ''} · {curriculum.topics.length} topics
+                      {curriculum.stateCode ? curriculum.stateCode : <>{curriculum.district ? `${curriculum.district} · ` : ''}{curriculum.county ?? '—'}, {curriculum.state ?? '—'}</>} · {curriculum.grade} · {curriculum.subject}{curriculum.courseName && curriculum.courseName !== curriculum.subject ? ` · ${curriculum.courseName}` : ''}{curriculum.usualGrade ? ` · usually ${curriculum.usualGrade}` : ''} · {curriculum.topics.length} topics
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

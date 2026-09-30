@@ -84,7 +84,7 @@ function CurriculumGrid({ curricula }: { curricula: Curriculum[] }) {
             </Link>
             {curriculum.grade === HIGH_SCHOOL && (
               <p className="mt-0.5 text-xs text-gray-500">
-                {[curriculum.courseName && `Course: ${curriculum.courseName}`, curriculum.usualGrade && `Usually taken in ${curriculum.usualGrade}`].filter(Boolean).join(' · ')}
+                {[curriculum.courseName && curriculum.courseName !== curriculum.subject && `Course: ${curriculum.courseName}`, curriculum.usualGrade && `Usually taken in ${curriculum.usualGrade}`].filter(Boolean).join(' · ')}
               </p>
             )}
             {curriculum.chapters && curriculum.chapters.length > 0 ? (
