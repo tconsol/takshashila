@@ -34,9 +34,12 @@ function createdAtFilter(range?: RevenueDateRange): Record<string, unknown> {
 
 // Refunds hand a student's money back and reversals claw a tutor's earning
 // back, so both are netted out: a refunded class no longer counts as revenue.
+// Demo classes are paid from free demo credits (idempotency key `demo-charge-<classId>`):
+// no real money moved, so they are not revenue.
 const REAL_CHARGE_MATCH = {
   type: { $in: [TransactionType.DEBIT, TransactionType.REFUND] },
   status: TransactionStatus.COMPLETED,
+  idempotencyKey: { $not: /^demo-charge-/ },
 };
 const CHARGE_NET = {
   $cond: [{ $eq: ['$type', TransactionType.REFUND] }, { $multiply: ['$amountCents', -1] }, '$amountCents'],

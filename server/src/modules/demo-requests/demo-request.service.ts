@@ -279,19 +279,31 @@ export class DemoRequestService {
         { new: true },
       ).lean();
 
-      // Connect student to this tutor: set tutorPublicId and activate them
-      const studentProfile = await StudentProfileModel.findOneAndUpdate(
+      // A student who already has an active tutor may still take a demo with someone else:
+      // that is just a class. Re-linking them would silently take them away from their
+      // tutor and leave both tutors' student counters wrong.
+      const current = await StudentProfileModel.findOne(
         { publicId: request.studentPublicId, isDeleted: false },
-        {
-          $set: {
-            tutorPublicId: tutorProfile.publicId,
-            status: StudentStatus.ACTIVE,
-            approvedBy: tutorUserPublicId,
-            approvedAt: new Date(),
-          },
-        },
-        { new: false },   // we need the status BEFORE this update to keep counters right
       ).lean();
+      const keepsCurrentTutor = !!current?.tutorPublicId
+        && current.tutorPublicId !== tutorProfile.publicId
+        && current.status === StudentStatus.ACTIVE;
+
+      // Otherwise connect the student to this tutor: set tutorPublicId and activate them
+      const studentProfile = keepsCurrentTutor
+        ? current
+        : await StudentProfileModel.findOneAndUpdate(
+          { publicId: request.studentPublicId, isDeleted: false },
+          {
+            $set: {
+              tutorPublicId: tutorProfile.publicId,
+              status: StudentStatus.ACTIVE,
+              approvedBy: tutorUserPublicId,
+              approvedAt: new Date(),
+            },
+          },
+          { new: false },   // we need the status BEFORE this update to keep counters right
+        ).lean();
 
       // Initialize demo credits for the student if not already done
       if (studentProfile?.userPublicId) {
@@ -304,21 +316,23 @@ export class DemoRequestService {
           subject: request.preferredSubject,
         });
 
-        // Move the tutor's/principal's student count only if this student was not already counted.
-        await adjustCountersForStatusChange(
-          studentProfile.status,
-          StudentStatus.ACTIVE,
-          tutorProfile.publicId,
-          tutorProfile.principalPublicId,
-        );
+        if (!keepsCurrentTutor) {
+          // Move the tutor's/principal's student count only if this student was not already counted.
+          await adjustCountersForStatusChange(
+            studentProfile.status,
+            StudentStatus.ACTIVE,
+            tutorProfile.publicId,
+            tutorProfile.principalPublicId,
+          );
 
-        // Invalidate student list for the tutor
-        domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
-          studentPublicId: request.studentPublicId,
-          studentUserPublicId: studentProfile.userPublicId,
-          tutorUserPublicId,
-          approvedBy: tutorUserPublicId,
-        });
+          // Invalidate student list for the tutor
+          domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
+            studentPublicId: request.studentPublicId,
+            studentUserPublicId: studentProfile.userPublicId,
+            tutorUserPublicId,
+            approvedBy: tutorUserPublicId,
+          });
+        }
       }
 
       return updated!;

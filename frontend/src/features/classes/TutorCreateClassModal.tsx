@@ -19,15 +19,25 @@ const CLASS_TYPES: { value: ClassType; label: string; desc: string }[] = [
   { value: 'RECURRING', label: 'Recurring', desc: 'Repeating schedule' },
 ];
 
+/**
+ * `<input type="datetime-local">` holds a wall-clock time in the browser's zone, and the
+ * submit handlers read it back with `new Date(value)` (also local). Format it in local
+ * time too: a UTC string here shifts every value by the zone offset.
+ */
+function toLocalInput(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function now15(): string {
   const d = new Date();
   d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
-  return d.toISOString().slice(0, 16);
+  return toLocalInput(d);
 }
 
 function addHour(dt: string): string {
   if (!dt) return '';
-  return new Date(new Date(dt).getTime() + 3_600_000).toISOString().slice(0, 16);
+  return toLocalInput(new Date(new Date(dt).getTime() + 3_600_000));
 }
 
 // ─── Create modal ─────────────────────────────────────────────────────────────
@@ -367,19 +377,24 @@ export function TutorRescheduleModal({ cls, open, onClose }: RescheduleProps) {
   const [startUTC, setStartUTC] = useState('');
   const [endUTC, setEndUTC] = useState('');
   const { mutateAsync: reschedule, isPending } = useTutorReschedule();
+  // Course classes are priced per class, so they are always exactly 60 minutes: only the start moves.
+  const isCourseClass = cls?.billingMode === 'COURSE_PREPAID';
 
   useEffect(() => {
     if (open && cls) {
-      setStartUTC(new Date(cls.scheduledStartUTC).toISOString().slice(0, 16));
-      setEndUTC(new Date(cls.scheduledEndUTC).toISOString().slice(0, 16));
+      setStartUTC(toLocalInput(new Date(cls.scheduledStartUTC)));
+      setEndUTC(toLocalInput(new Date(cls.scheduledEndUTC)));
     }
   }, [open, cls]);
 
   const handleSubmit = async () => {
     if (!cls || !startUTC || !endUTC) return;
+    const start = new Date(startUTC);
+    // Course classes are always 60 minutes: derive the end from the start (both local wall-clock).
+    const end = isCourseClass ? new Date(start.getTime() + 60 * 60_000) : new Date(endUTC);
     await reschedule({
       classId: cls.publicId,
-      dto: { startUTC: new Date(startUTC).toISOString(), endUTC: new Date(endUTC).toISOString() },
+      dto: { startUTC: start.toISOString(), endUTC: end.toISOString() },
     });
     onClose();
   };
@@ -419,16 +434,20 @@ export function TutorRescheduleModal({ cls, open, onClose }: RescheduleProps) {
             className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New End</label>
-          <input
-            type="datetime-local"
-            value={endUTC}
-            min={startUTC}
-            onChange={(e) => setEndUTC(e.target.value)}
-            className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
+        {isCourseClass ? (
+          <p className="text-xs text-gray-500">Course classes are always 60 minutes, so the end time follows the start.</p>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New End</label>
+            <input
+              type="datetime-local"
+              value={endUTC}
+              min={startUTC}
+              onChange={(e) => setEndUTC(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+        )}
       </div>
     </Modal>
   );

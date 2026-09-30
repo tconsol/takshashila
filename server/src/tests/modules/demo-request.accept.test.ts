@@ -41,8 +41,29 @@ describe('DemoRequestService.accept claim/rollback', () => {
     release = jest.spyOn(scheduleService, 'releaseSlot').mockResolvedValue(undefined as never);
     jest.spyOn(ScheduledClassModel, 'create').mockResolvedValue({ publicId: 'cls-1' } as never);
     jest.spyOn(ScheduledClassModel, 'updateOne').mockResolvedValue({} as never);
+    jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ userPublicId: 'su-1', status: 'PENDING_APPROVAL' }) as never);
     jest.spyOn(StudentProfileModel, 'findOneAndUpdate').mockReturnValue(lean({ userPublicId: 'su-1', status: 'PENDING_APPROVAL' }) as never);
     jest.spyOn(walletService, 'initializeDemoCredits').mockResolvedValue(undefined as never);
+    (adjustCountersForStatusChange as jest.Mock).mockClear();
+  });
+
+  it('a student who already has another active tutor keeps that tutor (the demo is just a class)', async () => {
+    (StudentProfileModel.findOne as jest.Mock).mockReturnValue(
+      lean({ userPublicId: 'su-1', status: 'ACTIVE', tutorPublicId: 'tp-OTHER' }),
+    );
+    await expect(service.accept('dr-1', 'tu-1')).resolves.toMatchObject({ classPublicId: 'cls-1' });
+    expect(StudentProfileModel.findOneAndUpdate).not.toHaveBeenCalled();
+    expect(adjustCountersForStatusChange).not.toHaveBeenCalled();
+    expect(walletService.initializeDemoCredits).toHaveBeenCalledWith('su-1');
+  });
+
+  it('a student with no tutor yet is linked to the accepting tutor', async () => {
+    await service.accept('dr-1', 'tu-1');
+    expect(StudentProfileModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { publicId: 'sp-1', isDeleted: false },
+      expect.objectContaining({ $set: expect.objectContaining({ tutorPublicId: 'tp-1', status: 'ACTIVE' }) }),
+      { new: false },
+    );
   });
 
   it('happy path claims first, blocks the slot, creates the class, adjusts counters', async () => {

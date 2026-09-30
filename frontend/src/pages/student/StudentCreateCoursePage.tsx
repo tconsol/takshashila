@@ -79,7 +79,7 @@ export function StudentCreateCoursePage() {
         <CardContent>
           <p className="text-sm font-semibold mb-1">Choose a tutor</p>
           <p className="mb-3 text-xs text-gray-500">
-            Each class costs the tutor's hourly rate shown below. The tutor decides how many classes your topics need,
+            Every class is 60 minutes and costs the tutor's hourly rate shown below. The tutor decides how many classes your topics need,
             and the whole amount (rate × number of classes) is taken from your wallet when they accept. Free demo credits
             cannot be used for this. Nothing is charged until then.
           </p>

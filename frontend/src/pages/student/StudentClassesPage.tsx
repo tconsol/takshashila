@@ -142,7 +142,9 @@ export function StudentClassesPage() {
                 {
                   key: 'status',
                   header: 'Status',
-                  render: (c) => <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>,
+                  render: (c) => c.isRefunded
+                    ? <Badge variant="default">REFUNDED</Badge>
+                    : <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>,
                 },
                 {
                   key: 'actions',

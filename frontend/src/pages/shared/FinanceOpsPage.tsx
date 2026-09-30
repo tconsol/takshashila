@@ -437,8 +437,9 @@ export function FinanceOpsPage() {
       {tab === 'refunds' && (
         <div className="space-y-4">
           <p className="text-xs text-slate-500">
-            Only completed, paid classes that have not already been refunded appear here — the
-            same set the refund endpoint will accept.
+            Only completed, paid classes that have not already been refunded and were completed within
+            the last 48 hours appear here — the same set the refund endpoint will accept. After 48 hours the
+            tutor's earnings are released for withdrawal, so a problem has to be raised before then.
           </p>
           <Table<RefundableClass>
             columns={[

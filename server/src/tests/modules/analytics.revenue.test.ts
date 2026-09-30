@@ -10,6 +10,7 @@ function matches(row: Record<string, any>, m: Record<string, any>): boolean {
     if (k === 'createdAt') return true;
     if (k === '$or') return (v as Array<Record<string, any>>).some((clause) => matches(row, clause));
     if (v && typeof v === 'object' && Array.isArray(v.$in)) return v.$in.includes(row[k]);
+    if (v && typeof v === 'object' && v.$not instanceof RegExp) return !v.$not.test(String(row[k] ?? ''));
     return row[k] === v;
   });
 }
@@ -60,6 +61,15 @@ describe('AnalyticsService revenue', () => {
     const r = await service.getPlatformRevenue();
     expect(r.totalCents).toBe(10000 - 2100);
     expect(r.tutorEarningsCents).toBe(7000 - 1900);
+  });
+
+  it('does not count demo-credit debits as revenue (no real money moved)', async () => {
+    agg.mockImplementation(fakeAggregate([
+      ...TX,
+      { type: TransactionType.DEBIT, status: TransactionStatus.COMPLETED, amountCents: 1000, idempotencyKey: 'demo-charge-class-1' },
+    ]) as never);
+    const r = await service.getPlatformRevenue();
+    expect(r.totalCents).toBe(10000);
   });
 
   it('never reports negative commission', async () => {

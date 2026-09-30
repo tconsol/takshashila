@@ -65,6 +65,7 @@ const scheduledClassSchema = new Schema<IScheduledClass>(
     rescheduledFromId: { type: String },
     autoResolution: { type: String, enum: Object.values(AutoResolution) },
     autoResolvedAt: { type: Date },
+    completedAt: { type: Date },
     isRefunded: { type: Boolean, default: false },
     refundedAt: { type: Date },
     billingFailed: { type: Boolean, default: false, index: true },

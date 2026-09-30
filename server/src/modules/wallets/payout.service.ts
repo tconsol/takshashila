@@ -175,8 +175,15 @@ export class PayoutService {
       // on {ownerPublicId, type, status: PENDING} is the real backstop; a
       // duplicate-key error from it means the same race the check was meant
       // to catch, so surface the same friendly message.
-      if ((error as { code?: number }).code === 11000) {
+      const err = error as { code?: number; message?: string; hasErrorLabel?: (label: string) => boolean };
+      if (err.code === 11000) {
         throw new AppError('You already have a payout awaiting review', 409);
+      }
+      // Another request for the same wallet is writing right now and Mongo aborted
+      // this one with a write conflict: same situation, so give the same clear answer
+      // instead of a raw 500 carrying database internals.
+      if (err.code === 112 || err.hasErrorLabel?.('TransientTransactionError') || /write conflict/i.test(err.message ?? '')) {
+        throw new AppError('Another payout request is being processed. Please wait a moment and check your wallet.', 409);
       }
       throw error;
     } finally {

@@ -234,6 +234,9 @@ export class AssignmentService {
     if (!assignment || !allowed) {
       throw new AppError('Not authorized to grade this submission', 403);
     }
+    if (typeof dto.score !== 'number' || !Number.isFinite(dto.score) || dto.score < 0) {
+      throw new AppError('Score must be a number, 0 or more', 422);
+    }
     if (dto.score > assignment.maxScore) {
       throw new AppError(`Score cannot exceed maximum of ${assignment.maxScore}`, 422);
     }

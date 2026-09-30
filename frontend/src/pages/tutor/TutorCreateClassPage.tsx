@@ -16,15 +16,21 @@ const CLASS_TYPES: { value: ClassType; label: string; desc: string }[] = [
   { value: 'RECURRING', label: 'Recurring', desc: 'Repeating schedule' },
 ];
 
+// datetime-local values are wall-clock time in the browser's zone: format them locally, not as UTC.
+function toLocalInput(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function now15(): string {
   const d = new Date();
   d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
-  return d.toISOString().slice(0, 16);
+  return toLocalInput(d);
 }
 
 function addHour(dt: string): string {
   if (!dt) return '';
-  return new Date(new Date(dt).getTime() + 3_600_000).toISOString().slice(0, 16);
+  return toLocalInput(new Date(new Date(dt).getTime() + 3_600_000));
 }
 
 export function TutorCreateClassPage() {

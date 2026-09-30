@@ -13,6 +13,8 @@ import { TutorProfileModel } from '../tutors/tutor.model';
 import { TutorStatus } from '../tutors/tutor.types';
 import { StudentProfileModel } from '../students/student.model';
 import { isWithinAvailability } from '../../shared/availability';
+import { COURSE_CLASS_MINUTES, isCourseClassLength } from '../courses/course.constants';
+import { EARNINGS_HOLD_HOURS } from '../wallets/payout.service';
 import { AppError, ConflictError, NotFoundError, ValidationError } from '../../utils/error';
 import { settingsService } from '../settings/settings.service';
 import { logger } from '../../lib/logger';
@@ -118,6 +120,8 @@ export class ClassService {
                 studentPublicId: studentProfile.publicId,
                 billingMode: BillingMode.STUDENT_REQUESTED,
                 status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+                // Free demo classes (cost 0) are paid from demo credits and charge no fee: nothing to reserve.
+                costCents: { $gt: 0 },
                 isDeleted: false,
               },
             },
@@ -179,9 +183,16 @@ export class ClassService {
 
     if (!scheduled) throw new NotFoundError('Scheduled class');
 
+    // The student needs to be in the event, or nobody is told the class is live.
+    const studentProfile = await StudentProfileModel.findOne(
+      { publicId: scheduled.studentPublicId, isDeleted: false },
+      { userPublicId: 1 },
+    ).lean();
+
     domainEvents.emit(DomainEvent.CLASS_STARTED, {
       classPublicId,
       tutorUserPublicId,
+      studentUserPublicId: studentProfile?.userPublicId ?? '',
       startedBy: 'TUTOR',
       wentLive: true,
     });
@@ -326,7 +337,7 @@ export class ClassService {
     // Guarded on status so a double-click or a race with the sweep completes (and pays) only once.
     let updated = await ScheduledClassModel.findOneAndUpdate(
       { publicId: classPublicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] } },
-      { $set: { status: ClassStatus.COMPLETED, needsTutorDecision: false } },
+      { $set: { status: ClassStatus.COMPLETED, needsTutorDecision: false, completedAt: new Date() } },
       { new: true },
     ).lean();
     if (!updated) throw new ConflictError('Class was already completed or cancelled');
@@ -736,6 +747,16 @@ export class ClassService {
       throw new ConflictError('Only completed classes can be refunded');
     }
     if (scheduled.isRefunded) throw new ConflictError('Class already refunded');
+
+    // The tutor's earnings are held for EARNINGS_HOLD_HOURS so problems can be raised and
+    // refunded in that window. Once the hold ends the tutor may withdraw the money, and it
+    // cannot be taken back, so a refund is no longer possible.
+    const completedAt = scheduled.completedAt ?? scheduled.endUTC;
+    if (completedAt && Date.now() - new Date(completedAt).getTime() > EARNINGS_HOLD_HOURS * 3_600_000) {
+      throw new ConflictError(
+        `Refunds can only be issued within ${EARNINGS_HOLD_HOURS} hours of the class being completed, because after that the tutor's earnings are released for withdrawal. Please raise any issue within that time.`,
+      );
+    }
 
     const studentAttended = !!scheduled.studentJoinedAt;
     const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
@@ -1198,6 +1219,10 @@ export class ClassService {
     // A course class was scheduled inside the student's stated free times; a
     // reschedule must respect them too, exactly like the first scheduling did.
     if (cls.coursePublicId) {
+      // Course classes are priced per class, so a reschedule may move the time but never the length.
+      if (!isCourseClassLength(newStart, newEnd)) {
+        throw new AppError(`Every course class must be exactly ${COURSE_CLASS_MINUTES} minutes long`, 400);
+      }
       const { CourseModel } = await import('../courses/course.model');
       const course = await CourseModel.findOne({ publicId: cls.coursePublicId }, { availabilityWindow: 1 }).lean();
       if (course?.availabilityWindow && !isWithinAvailability(course.availabilityWindow, newStart, newEnd)) {
@@ -1455,6 +1480,12 @@ export class ClassService {
       filter.status = ClassStatus.COMPLETED;
       filter.isRefunded = false;
       filter.costCents = { $gt: 0 };
+      // Only inside the refund window (see refundClass): older classes would 409.
+      const cutoff = new Date(Date.now() - EARNINGS_HOLD_HOURS * 3_600_000);
+      filter.$or = [
+        { completedAt: { $gte: cutoff } },
+        { completedAt: { $exists: false }, endUTC: { $gte: cutoff } },
+      ];
     } else {
       if (filters.status) filter.status = filters.status;
       if (filters.refunded !== undefined) filter.isRefunded = filters.refunded;

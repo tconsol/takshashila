@@ -253,4 +253,35 @@ describe('ClassService.refundClass refund/reversal flow', () => {
     await expect(classService.refundClass('class-1', 'admin-1', 'x')).rejects.toMatchObject({ statusCode: 409 });
     expect(refund).not.toHaveBeenCalled();
   });
+
+  describe('48-hour refund window (tutor earnings are released for withdrawal after that)', () => {
+    const HOUR = 3_600_000;
+
+    it('refuses a refund once the earnings hold has ended; no money moves', async () => {
+      jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(
+        lean(completed({ completedAt: new Date(Date.now() - 49 * HOUR) })) as never,
+      );
+      await expect(classService.refundClass('class-1', 'admin-1', 'late')).rejects.toMatchObject({
+        statusCode: 409,
+        message: expect.stringMatching(/within 48 hours/),
+      });
+      expect(atomic).not.toHaveBeenCalled();
+      expect(refund).not.toHaveBeenCalled();
+    });
+
+    it('allows a refund inside the window', async () => {
+      jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(
+        lean(completed({ completedAt: new Date(Date.now() - 47 * HOUR) })) as never,
+      );
+      await classService.refundClass('class-1', 'admin-1', 'in time');
+      expect(atomic).toHaveBeenCalledTimes(1);
+    });
+
+    it('older classes without a completedAt fall back to the scheduled end time', async () => {
+      jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(
+        lean(completed({ completedAt: undefined, endUTC: new Date(Date.now() - 72 * HOUR) })) as never,
+      );
+      await expect(classService.refundClass('class-1', 'admin-1', 'late')).rejects.toMatchObject({ statusCode: 409 });
+    });
+  });
 });

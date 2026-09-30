@@ -11,6 +11,7 @@ import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { logger } from '../../lib/logger';
 import type { RecurrenceDto } from './schedule.validators';
+import { settingsService } from '../settings/settings.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -77,6 +78,17 @@ export class ScheduleService {
     }
 
     const durationMinutes = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
+
+    // A slot longer than the platform's class limit could never be booked: booking
+    // rejects it. Say so here, when the tutor can still fix it.
+    const { minClassDurationMinutes, maxClassDurationMinutes } = await settingsService.get();
+    if (durationMinutes < minClassDurationMinutes || durationMinutes > maxClassDurationMinutes) {
+      throw new AppError(
+        `A slot must be between ${minClassDurationMinutes} and ${maxClassDurationMinutes} minutes (got ${durationMinutes}).`,
+        422,
+      );
+    }
+
     const occurrences = expandRecurrence(start, end, dto.isRecurring ? dto.recurrence : undefined);
     const recurringRuleId = occurrences.length > 1 ? uuidv4() : undefined;
 

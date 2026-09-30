@@ -18,6 +18,9 @@ import type { Course } from '../../services/courses.service';
 import { useConfirm } from '../../hooks/use-confirm';
 import { useMyTutorProfile } from '../../hooks/use-tutors';
 
+// Mirrors COURSE_CLASS_MINUTES in server/src/modules/courses/course.constants.ts.
+const COURSE_CLASS_MINUTES = 60;
+
 const STATUS_TABS = [
   { key: '', label: 'All' },
   { key: 'PENDING', label: 'Pending' },
@@ -43,7 +46,9 @@ function AcceptForm({ coursePublicId }: { coursePublicId: string }) {
         onChange={(e) => setClassesRequired(Number(e.target.value))}
         className="w-20 rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900"
       />
-      <span className="text-xs text-gray-500">classes needed to cover the selected topics</span>
+      <span className="text-xs text-gray-500">
+        classes of {COURSE_CLASS_MINUTES} min each = {totalCredits} credits ({classesRequired} × {rateCents / 100}/hr)
+      </span>
       <Button
         size="sm"
         variant="gradient"
@@ -52,7 +57,7 @@ function AcceptForm({ coursePublicId }: { coursePublicId: string }) {
         onClick={async () => {
           const { confirmed } = await confirm({
             title: 'Accept this course request?',
-            message: `The student will be charged ${totalCredits} credits up front (${classesRequired} classes at ${rateCents / 100} credits each) and you will schedule those classes. If they cannot afford it, the request stays pending.`,
+            message: `The student will be charged ${totalCredits} credits up front (${classesRequired} classes of ${COURSE_CLASS_MINUTES} minutes at your ${rateCents / 100}/hour rate) and you will schedule those classes. If they cannot afford it, the request stays pending.`,
             confirmLabel: 'Accept and charge student',
             tone: 'primary',
           });
@@ -75,7 +80,6 @@ function ScheduleClassForm({
   topicTitles?: string[];
 }) {
   const [startUTC, setStartUTC] = useState('');
-  const [endUTC, setEndUTC] = useState('');
   const [title, setTitle] = useState('');
   // No default: the tutor must consciously pick the topic this class covers.
   const [topicId, setTopicId] = useState('');
@@ -84,9 +88,9 @@ function ScheduleClassForm({
   return (
     <div className="mt-3 space-y-2 rounded-xl border border-gray-100 dark:border-gray-800 p-3">
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Class title" className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <input type="datetime-local" value={startUTC} onChange={(e) => setStartUTC(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
-        <input type="datetime-local" value={endUTC} onChange={(e) => setEndUTC(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
+        <span className="text-xs text-gray-500">Every class is {COURSE_CLASS_MINUTES} minutes</span>
       </div>
       <label className="block text-xs font-medium text-gray-500">
         Topic this class covers <span className="text-red-500">*</span>
@@ -104,7 +108,7 @@ function ScheduleClassForm({
         size="sm"
         variant="gradient"
         loading={isPending}
-        disabled={!title || !startUTC || !endUTC || !topicId}
+        disabled={!title || !startUTC || !topicId}
         onClick={() =>
           schedule(
             {
@@ -112,22 +116,22 @@ function ScheduleClassForm({
               dto: {
                 title,
                 startUTC: new Date(startUTC).toISOString(),
-                endUTC: new Date(endUTC).toISOString(),
+                endUTC: new Date(new Date(startUTC).getTime() + COURSE_CLASS_MINUTES * 60_000).toISOString(),
                 topicPublicId: topicId,
               },
             },
             {
               // Clear the form so the next class starts blank and a repeat click cannot double-book by accident.
-              onSuccess: () => { setTitle(''); setStartUTC(''); setEndUTC(''); setTopicId(''); },
+              onSuccess: () => { setTitle(''); setStartUTC(''); setTopicId(''); },
             },
           )
         }
       >
         <CalendarPlus className="h-3.5 w-3.5" /> Schedule class
       </Button>
-      {(!title || !startUTC || !endUTC || !topicId) && (
+      {(!title || !startUTC || !topicId) && (
         <p className="text-xs text-gray-500">
-          Add a {[!title && 'title', !startUTC && 'start time', !endUTC && 'end time', !topicId && 'topic'].filter(Boolean).join(', ')} to schedule this class.
+          Add a {[!title && 'title', !startUTC && 'start time', !topicId && 'topic'].filter(Boolean).join(', ')} to schedule this class.
         </p>
       )}
     </div>

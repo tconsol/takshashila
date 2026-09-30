@@ -62,5 +62,13 @@ describe('AssignmentService', () => {
         service.gradeSubmission('sub-1', 'tutor-1', { score: 150, feedback: '' }),
       ).rejects.toMatchObject({ statusCode: 422 });
     });
+
+    it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])('throws 422 for an invalid score (%p)', async (score) => {
+      (SubmissionModel.findOne as jest.Mock).mockResolvedValue({ assignmentPublicId: 'asgn-1' });
+      (AssignmentModel.findOne as jest.Mock).mockResolvedValue({ tutorPublicId: 'tutor-1', maxScore: 100 });
+      await expect(
+        service.gradeSubmission('sub-1', 'tutor-1', { score, feedback: '' }),
+      ).rejects.toMatchObject({ statusCode: 422 });
+    });
   });
 });

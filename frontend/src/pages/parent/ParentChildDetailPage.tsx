@@ -39,7 +39,13 @@ function ClassesTab({ studentPublicId }: { studentPublicId: string }) {
       columns={[
         { key: 'title', header: 'Class', render: (c) => <span className="font-medium text-gray-800 dark:text-gray-200">{c.title}</span> },
         { key: 'classType', header: 'Type', render: (c) => <Badge variant="info">{c.classType}</Badge> },
-        { key: 'status', header: 'Status', render: (c) => <Badge variant={classStatusBadge[c.status] ?? 'default'}>{c.status}</Badge> },
+        {
+          key: 'status',
+          header: 'Status',
+          render: (c) => c.isRefunded
+            ? <Badge variant="default">REFUNDED</Badge>
+            : <Badge variant={classStatusBadge[c.status] ?? 'default'}>{c.status}</Badge>,
+        },
         { key: 'startUTC', header: 'Date', render: (c) => c.startUTC ? format(new Date(c.startUTC), 'MMM d, yyyy h:mm a') : '' },
       ]}
       data={data?.items ?? []}

@@ -129,6 +129,8 @@ export interface IScheduledClass {
    */
   autoResolution?: AutoResolution;
   autoResolvedAt?: Date;
+  /** When the class was completed (and paid). Starts the refund window; see EARNINGS_HOLD_HOURS. */
+  completedAt?: Date;
   isRefunded?: boolean;
   refundedAt?: Date;
   /** Completed without payment because billing failed (e.g. student balance short). Admins: filter on this. */

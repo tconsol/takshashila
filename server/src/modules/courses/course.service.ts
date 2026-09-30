@@ -30,6 +30,7 @@ import { logger } from '../../lib/logger';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { isWithinAvailability } from '../../shared/availability';
+import { COURSE_CLASS_MINUTES, isCourseClassLength } from './course.constants';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 
@@ -398,6 +399,9 @@ export class CourseService {
     const start = new Date(dto.startUTC);
     const end = new Date(dto.endUTC);
     if (end <= start) throw new AppError('endUTC must be after startUTC', 400);
+    if (!isCourseClassLength(start, end)) {
+      throw new AppError(`Every course class must be exactly ${COURSE_CLASS_MINUTES} minutes long`, 400);
+    }
 
     const inWindow = isWithinAvailability(request.availabilityWindow, start, end);
     if (!inWindow) {
@@ -427,7 +431,7 @@ export class CourseService {
       );
     }
 
-    const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60_000);
+    const durationMinutes = COURSE_CLASS_MINUTES;
 
     const created = await ScheduledClassModel.create({
       publicId: uuidv4(),

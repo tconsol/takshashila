@@ -159,9 +159,7 @@ export class ChatService {
       participantPublicIds: userPublicId,
       isDeleted: false,
     });
-    if (!conversation) {
-      throw Object.assign(new Error('Conversation not found'), { statusCode: 404 });
-    }
+    if (!conversation) throw new NotFoundError('Conversation');
 
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter = { conversationPublicId, isDeleted: false, deletedFor: { $nin: [userPublicId] } };
@@ -196,9 +194,7 @@ export class ChatService {
       participantPublicIds: senderPublicId,
       isDeleted: false,
     });
-    if (!conversation) {
-      throw Object.assign(new Error('Conversation not found'), { statusCode: 404 });
-    }
+    if (!conversation) throw new NotFoundError('Conversation');
 
     const message = await MessageModel.create({
       publicId: uuidv4(),
@@ -341,6 +337,9 @@ export class ChatService {
   ): Promise<IMessage> {
     const message = await this.assertMessageAccess(conversationPublicId, messagePublicId, userPublicId);
 
+    if (!Number.isFinite(durationHours) || durationHours <= 0) {
+      throw new AppError('Choose how long to pin the message (durationHours)', 400);
+    }
     const pinnedUntil = new Date(Date.now() + durationHours * 60 * 60 * 1000);
     await MessageModel.updateOne({ publicId: messagePublicId }, { $set: { pinnedUntil, pinnedBy: userPublicId } });
     return { ...message.toObject(), pinnedUntil, pinnedBy: userPublicId };
