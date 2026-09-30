@@ -19,7 +19,7 @@ const mkDoc = (mathTopics: string[]): ParsedDoc => ({
     { name: 'Mathematics', notVerified: false, chapters: [{ title: 'Fractions', topics: mathTopics }, { title: 'Shapes', topics: ['Cube'] }] },
     { name: 'Science', notVerified: false, chapters: [{ title: 'Plants', topics: ['Roots'] }] },
   ] }],
-  skippedHighSchoolGrades: [], sourceParagraphs: [],
+  sourceParagraphs: [],
   countyParagraphs: [{ style: 'Heading 2', text: 'Zed County' }, { style: 'Heading 3', text: 'Grades 10-12' }, { style: 'Normal', text: 'Dual: enrol' }],
 });
 
@@ -75,5 +75,25 @@ d('curriculum importer (integration, ZZ)', () => {
     expect(r4).toMatchObject({ skippedPublished: 1, updated: 0, unchanged: 1 });
     const math4 = (await CurriculumModel.findOne({ stateCode: 'ZZ', subject: 'Mathematics' }))!;
     expect(math4.chapters[0].topics.map((t) => t.title)).toEqual(['Halves', 'Thirds']);
+  });
+
+  it('imports High School courses merged across grades, idempotently', async () => {
+    await clean();
+    const cs = (topics: string[]) => ({ name: 'Computer Science', notVerified: false, chapters: [{ title: 'Code', topics }] });
+    const hsDoc: ParsedDoc = {
+      grades: [
+        { grade: 'Grade 9', level: 'HIGH_SCHOOL', subjects: [cs(['Loops'])] },
+        { grade: 'Grade 10', level: 'HIGH_SCHOOL', subjects: [cs(['Loops', 'Functions']), { name: 'Science', courseName: 'Biology (HS Life Science)', notVerified: false, chapters: [{ title: 'Cells', topics: ['Mitosis'] }] }] },
+      ],
+      sourceParagraphs: [], countyParagraphs: [],
+    };
+    const r1 = await applyImport(file, hsDoc, { commit: true });
+    expect(r1).toMatchObject({ created: 2, highSchoolCourses: 2, highSchoolMerged: ['Computer Science / Computer Science: grades 9,10'] });
+    const doc = (await CurriculumModel.findOne({ stateCode: 'ZZ', subject: 'Computer Science' }).lean())!;
+    expect(doc).toMatchObject({ grade: 'High School', level: 'HIGH_SCHOOL', courseName: 'Computer Science', usualGrade: 'Grade 9', title: 'Computer Science - High School', isPublished: false });
+    expect(doc.chapters[0].topics.map((t) => t.title)).toEqual(['Loops', 'Functions']);
+    const r2 = await applyImport(file, hsDoc, { commit: true });
+    expect(r2).toMatchObject({ created: 0, updated: 0, unchanged: 2 });
+    expect(await CurriculumModel.countDocuments({ stateCode: 'ZZ' })).toBe(2);
   });
 });

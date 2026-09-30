@@ -1,4 +1,4 @@
-import { parseCurriculumDoc } from '../../modules/curricula/import/curriculum-parser';
+import { parseCurriculumDoc, splitSubjectHeading } from '../../modules/curricula/import/curriculum-parser';
 
 const h = (n: number, text: string) => ({ style: `Heading${n}`, text });
 const li = (text: string) => ({ style: 'ListBullet', text });
@@ -28,10 +28,32 @@ describe('parseCurriculumDoc', () => {
     const doc = parseCurriculumDoc([{ style: 'Heading 1', text: 'Grade 1' }, { style: 'heading2', text: 'Science' }, { style: 'Heading 3', text: 'Air' }, li('Wind')]);
     expect(doc.grades[0].subjects[0].chapters[0].topics).toEqual(['Wind']);
   });
-  it('skips grades 9 to 12 and reports them', () => {
-    const doc = parseCurriculumDoc([h(1, 'Grade 9'), h(2, 'Science'), h(3, 'Cells'), li('x'), h(1, 'Grade 3'), h(2, 'Science'), h(3, 'Air'), li('y')]);
-    expect(doc.grades.map((g) => g.grade)).toEqual(['Grade 3']);
-    expect(doc.skippedHighSchoolGrades).toEqual(['Grade 9']);
+  it('parses grades 9 to 12 as HIGH_SCHOOL, keeping the grade label', () => {
+    const doc = parseCurriculumDoc([h(1, 'Grade 9'), h(2, 'Science'), h(3, 'Cells'), li('x'), h(1, 'Grade 3'), h(2, 'Science'), h(3, 'Air'), li('y'), h(1, 'Grade 12'), h(2, 'Art'), h(3, 'Form'), li('z')]);
+    expect(doc.grades.map((g) => [g.grade, g.level])).toEqual([['Grade 9', 'HIGH_SCHOOL'], ['Grade 3', 'GRADE'], ['Grade 12', 'HIGH_SCHOOL']]);
+    expect(doc.grades[0].subjects[0].chapters).toEqual([{ title: 'Cells', topics: ['x'] }]);
+    expect(doc).not.toHaveProperty('skippedHighSchoolGrades');
+  });
+  it('takes everything inside the outermost brackets as the course (nested parens)', () => {
+    const doc = parseCurriculumDoc([
+      h(1, 'Colorado - Grade 10'),
+      h(2, 'Science (Biology (High School Life Science))'), h(3, 'Cells'), li('x'),
+      h(2, 'Social Studies (Civics, Economics, and Personal Financial Literacy)'), h(3, 'Gov'), li('y'),
+      h(2, 'Computer Science'), h(3, 'Code'), li('z'),
+    ]);
+    expect(doc.grades[0].subjects.map((s) => [s.name, s.courseName])).toEqual([
+      ['Science', 'Biology (High School Life Science)'],
+      ['Social Studies', 'Civics, Economics, and Personal Financial Literacy'],
+      ['Computer Science', undefined],
+    ]);
+  });
+  it('splitSubjectHeading only splits a trailing balanced bracket group', () => {
+    expect(splitSubjectHeading('Mathematics (Algebra I)')).toEqual({ name: 'Mathematics', courseName: 'Algebra I' });
+    expect(splitSubjectHeading('Science (Biology (HS Life Science))')).toEqual({ name: 'Science', courseName: 'Biology (HS Life Science)' });
+    expect(splitSubjectHeading('Arts (A) and (B)')).toEqual({ name: 'Arts (A) and (B)' });
+    expect(splitSubjectHeading('Music (Band) ')).toEqual({ name: 'Music', courseName: 'Band' });
+    expect(splitSubjectHeading('Music (Band')).toEqual({ name: 'Music (Band' });
+    expect(splitSubjectHeading('(Band)')).toEqual({ name: '(Band)' });
   });
   it('separates county and source sections', () => {
     const doc = parseCurriculumDoc([h(1, 'Grade 1'), h(2, 'Science'), h(3, 'Air'), li('Wind'), h(1, 'County Additions'), h(2, 'Adams County'), h(1, 'Sources and Verification Notes'), h(3, 'Standards used'), li('Science: NGSS (2013) - https://x.org')]);
@@ -53,10 +75,9 @@ describe('parseCurriculumDoc', () => {
       expect(doc.grades.map((g) => [g.grade, g.level])).toEqual([['Kindergarten', 'KINDERGARTEN'], ['Grade 7', 'GRADE'], ['Grade 1', 'GRADE']]);
       expect(doc.grades[2].subjects[0].chapters[0].topics).toEqual(['Mix']);
     });
-    it('skips prefixed high-school grade H1s', () => {
+    it('parses prefixed high-school grade H1s', () => {
       const doc = parseCurriculumDoc([h(1, 'Colorado - Grade 10'), h(2, 'Art'), h(3, 'x'), li('y')]);
-      expect(doc.grades).toEqual([]);
-      expect(doc.skippedHighSchoolGrades).toEqual(['Grade 10']);
+      expect(doc.grades).toEqual([{ grade: 'Grade 10', level: 'HIGH_SCHOOL', subjects: [{ name: 'Art', notVerified: false, chapters: [{ title: 'x', topics: ['y'] }] }] }]);
     });
     it('ignores Title and unstyled intro prose before the first H1', () => {
       const doc = parseCurriculumDoc([{ style: 'Title', text: 'Colorado Curriculum' }, p('This document is an intro.'), h(1, 'Colorado - Grade 1'), h(2, 'Art'), h(3, 'Line'), li('Draw')]);

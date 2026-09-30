@@ -30,10 +30,13 @@ export interface Curriculum {
   stateCode?: string; // USPS code; set on imported state curricula
   districtId?: string; // absent on curricula not yet migrated to a district
   district?: string;
-  grade: string;
+  grade: string; // 'High School' for imported high school courses
   subject: string;
   title: string;
   description?: string;
+  level?: 'KINDERGARTEN' | 'GRADE' | 'HIGH_SCHOOL';
+  courseName?: string; // high school: the course (e.g. 'Algebra I')
+  usualGrade?: string; // high school: lowest grade the course is taken in
   topics: CurriculumTopic[];
   chapters?: CurriculumChapter[];
   source?: CurriculumSource;

@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { CurriculumModel } from '../curriculum.model';
 import { CountyAdditionModel } from '../county-addition.model';
-import type { ICurriculumChapter, ICurriculumSource } from '../curriculum.types';
-import type { ParsedDoc } from './curriculum-parser';
+import { HIGH_SCHOOL_GRADE, type ICurriculumChapter, type ICurriculumSource } from '../curriculum.types';
+import type { ParsedDoc, GradeLevel } from './curriculum-parser';
 import { parseSources, pickSource } from './sources-parser';
 import { parseCountyAdditions } from './county-parser';
 
@@ -13,7 +13,11 @@ export interface StateReport {
   created: number; updated: number; unchanged: number; skippedPublished: number;
   chapters: number; topics: number;
   subjectsSkippedNotVerified: string[]; emptySubjects: string[];
-  emptyChapters: string[]; missingCitation: string[]; missingSourceUrl: string[]; highSchoolSkipped: string[];
+  emptyChapters: string[]; missingCitation: string[]; missingSourceUrl: string[];
+  /** High school courses planned (one per subject + course). */
+  highSchoolCourses: number;
+  /** Courses that appear in more than one high school grade, e.g. "Computer Science / Computer Science: grades 9,10,11,12". */
+  highSchoolMerged: string[];
   countyAdditions: number; subjectsSeen: string[];
   duplicateSubjects: string[];
 }
@@ -21,13 +25,25 @@ export interface StateReport {
 export interface PlannedCurriculum {
   key: { stateCode: string; subject: string; grade: string; courseName?: string };
   title: string;
-  level: 'KINDERGARTEN' | 'GRADE';
+  level: GradeLevel;
+  /** High school only: lowest grade the course appears in. */
+  usualGrade?: string;
   source?: ICurriculumSource;
   chapters: { title: string; topics: string[] }[];
 }
 
 const ADMIN = 'system:curriculum-import';
 const uniq = (xs: string[]) => [...new Set(xs)];
+const gradeNumber = (label: string) => Number(/(\d+)\s*$/.exec(label)?.[1] ?? 0);
+
+/** Appends chapters into `into`, merging same-titled chapters and same-titled topics (first appearance wins the order). */
+function unionChapters(into: PlannedCurriculum['chapters'], add: PlannedCurriculum['chapters']): void {
+  for (const c of add) {
+    const found = into.find((x) => x.title === c.title);
+    if (!found) { into.push({ title: c.title, topics: uniq(c.topics) }); continue; }
+    for (const t of c.topics) if (!found.topics.includes(t)) found.topics.push(t);
+  }
+}
 
 /** Pure: everything derived from the parsed document, no database. */
 function buildPlan(file: ImportFile, doc: ParsedDoc) {
@@ -36,11 +52,10 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
     stateCode: file.stateCode, kind: file.kind,
     created: 0, updated: 0, unchanged: 0, skippedPublished: 0, chapters: 0, topics: 0,
     subjectsSkippedNotVerified: [], emptySubjects: [], emptyChapters: [], missingCitation: [], missingSourceUrl: [],
-    highSchoolSkipped: [...doc.skippedHighSchoolGrades], countyAdditions: 0, subjectsSeen: [], duplicateSubjects: [],
+    highSchoolCourses: 0, highSchoolMerged: [], countyAdditions: 0, subjectsSeen: [], duplicateSubjects: [],
   };
   const plan: PlannedCurriculum[] = [];
   if (file.countyOnly) {
-    report.highSchoolSkipped = [];
     const county = parseCountyAdditions(doc.countyParagraphs);
     report.countyAdditions = county.length;
     return { plan, report, county };
@@ -48,6 +63,8 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
   const noCitation: string[] = [];
   const noUrl: string[] = [];
   const seen: string[] = [];
+  // High school: one curriculum per (subject, course) across Grades 9-12.
+  const hsByKey = new Map<string, { plan: PlannedCurriculum; grades: number[] }>();
 
   for (const g of doc.grades) {
     const byKey = new Map<string, PlannedCurriculum>();
@@ -58,8 +75,38 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
       if (s.notVerified) { report.subjectsSkippedNotVerified.push(where); continue; }
       if (!s.chapters.length) { report.emptySubjects.push(where); continue; }
 
-      const mapKey = `${s.name}\u0000${s.courseName ?? ''}`;
       const chapters = s.chapters.map((c) => ({ title: c.title, topics: [...c.topics] }));
+      if (g.level === 'HIGH_SCHOOL') {
+        const courseName = s.courseName ?? s.name;
+        const hsKey = `${s.name}\u0000${courseName}`;
+        const n = gradeNumber(g.grade);
+        const hs = hsByKey.get(hsKey);
+        if (hs) {
+          if (hs.grades.includes(n)) report.duplicateSubjects.push(where);
+          else hs.grades.push(n);
+          unionChapters(hs.plan.chapters, chapters);
+          if (n < gradeNumber(hs.plan.usualGrade!)) hs.plan.usualGrade = g.grade;
+          continue;
+        }
+        const ref = pickSource(sources, s.name);
+        if (!ref) noCitation.push(s.name);
+        else if (!ref.url) noUrl.push(s.name);
+        const merged: PlannedCurriculum['chapters'] = [];
+        unionChapters(merged, chapters);
+        const p: PlannedCurriculum = {
+          key: { stateCode: file.stateCode, subject: s.name, grade: HIGH_SCHOOL_GRADE, courseName },
+          title: courseName === s.name ? `${s.name} - ${HIGH_SCHOOL_GRADE}` : `${s.name} - ${courseName} - ${HIGH_SCHOOL_GRADE}`,
+          level: 'HIGH_SCHOOL',
+          usualGrade: g.grade,
+          ...(ref ? { source: { name: ref.name, year: ref.year, url: ref.url } } : {}),
+          chapters: merged,
+        };
+        hsByKey.set(hsKey, { plan: p, grades: [n] });
+        plan.push(p);
+        continue;
+      }
+
+      const mapKey = `${s.name}\u0000${s.courseName ?? ''}`;
       const dup = byKey.get(mapKey);
       if (dup) {
         dup.chapters.push(...chapters);
@@ -79,6 +126,10 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
       byKey.set(mapKey, p);
       plan.push(p);
     }
+  }
+  report.highSchoolCourses = hsByKey.size;
+  for (const { plan: p, grades } of hsByKey.values()) {
+    if (grades.length > 1) report.highSchoolMerged.push(`${p.key.subject} / ${p.key.courseName}: grades ${[...grades].sort((a, b) => a - b).join(',')}`);
   }
   for (const p of plan) {
     report.chapters += p.chapters.length;
@@ -146,7 +197,7 @@ export async function applyImport(file: ImportFile, doc: ParsedDoc, opts: { comm
         await CurriculumModel.create({
           country: 'US', stateCode, grade: p.key.grade, subject: p.key.subject,
           ...(p.key.courseName ? { courseName: p.key.courseName } : {}),
-          title: p.title, level: p.level, ...(p.source ? { source: p.source } : {}),
+          title: p.title, level: p.level, ...(p.usualGrade ? { usualGrade: p.usualGrade } : {}), ...(p.source ? { source: p.source } : {}),
           sourceKind: file.kind, chapters: rebuildChapters(p.chapters, []),
           createdByAdminPublicId: ADMIN, isPublished: false,
         });
@@ -159,12 +210,14 @@ export async function applyImport(file: ImportFile, doc: ParsedDoc, opts: { comm
     const changed =
       shape(chapters) !== shape(found.chapters ?? []) ||
       found.title !== p.title || found.level !== p.level || found.sourceKind !== file.kind ||
+      (found.usualGrade ?? '') !== (p.usualGrade ?? '') ||
       (!!p.source && srcShape(p.source) !== srcShape(found.source));
     if (!changed) { report.unchanged++; continue; }
     report.updated++;
     if (opts.commit) {
       found.title = p.title;
       found.level = p.level;
+      if (p.usualGrade) found.usualGrade = p.usualGrade;
       found.sourceKind = file.kind;
       if (p.source) found.source = p.source;
       found.chapters = chapters;

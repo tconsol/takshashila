@@ -2,10 +2,11 @@ import type { DocxParagraph } from './docx-reader';
 
 export interface ParsedChapter { title: string; topics: string[] }
 export interface ParsedSubject { name: string; courseName?: string; note?: string; notVerified: boolean; chapters: ParsedChapter[] }
-export interface ParsedGrade { grade: string; level: 'KINDERGARTEN' | 'GRADE'; subjects: ParsedSubject[] }
+export type GradeLevel = 'KINDERGARTEN' | 'GRADE' | 'HIGH_SCHOOL';
+/** Grades 9-12 keep their own label ('Grade 10') with level HIGH_SCHOOL; the importer merges them into courses. */
+export interface ParsedGrade { grade: string; level: GradeLevel; subjects: ParsedSubject[] }
 export interface ParsedDoc {
   grades: ParsedGrade[];
-  skippedHighSchoolGrades: string[];
   countyParagraphs: DocxParagraph[];
   sourceParagraphs: DocxParagraph[];
 }
@@ -16,17 +17,37 @@ const headingLevel = (style: string): number => {
 };
 
 /** Grade H1s may carry a state prefix ("Colorado - Grade 7"), so match the end of the text. */
-function matchGrade(text: string): { label: string; level: 'KINDERGARTEN' | 'GRADE'; n: number } | null {
-  if (/kindergarten\s*$/i.test(text)) return { label: 'Kindergarten', level: 'KINDERGARTEN', n: 0 };
+function matchGrade(text: string): { label: string; level: GradeLevel } | null {
+  if (/kindergarten\s*$/i.test(text)) return { label: 'Kindergarten', level: 'KINDERGARTEN' };
   const m = /\bgrade\s+(\d{1,2})\s*$/i.exec(text);
-  return m ? { label: `Grade ${Number(m[1])}`, level: 'GRADE', n: Number(m[1]) } : null;
+  if (!m) return null;
+  const n = Number(m[1]);
+  return { label: `Grade ${n}`, level: n >= 9 ? 'HIGH_SCHOOL' : 'GRADE' };
+}
+
+/** "Science (Biology (High School Life Science))" -> name "Science", course "Biology (High School Life Science)".
+ *  Splits only when the heading ends with the bracket group opened by its first "(" (so nested parens stay in the course). */
+export function splitSubjectHeading(text: string): { name: string; courseName?: string } {
+  const t = text.trim();
+  const open = t.indexOf('(');
+  if (open <= 0 || !t.endsWith(')')) return { name: t };
+  let depth = 0;
+  for (let i = open; i < t.length; i++) {
+    if (t[i] === '(') depth++;
+    else if (t[i] === ')' && --depth === 0) {
+      if (i !== t.length - 1) return { name: t };
+      const name = t.slice(0, open).trim();
+      const courseName = t.slice(open + 1, i).trim();
+      return name && courseName ? { name, courseName } : { name: t };
+    }
+  }
+  return { name: t };
 }
 
 export function parseCurriculumDoc(paras: DocxParagraph[]): ParsedDoc {
-  const doc: ParsedDoc = { grades: [], skippedHighSchoolGrades: [], countyParagraphs: [], sourceParagraphs: [] };
+  const doc: ParsedDoc = { grades: [], countyParagraphs: [], sourceParagraphs: [] };
   // 'ignored' = front matter before the first H1, or an unrecognised H1 section
   let section: 'grades' | 'county' | 'sources' | 'ignored' = 'ignored';
-  let skipGrade = false;
   let grade: ParsedGrade | null = null;
   let subject: ParsedSubject | null = null;
   let chapter: ParsedChapter | null = null;
@@ -54,21 +75,21 @@ export function parseCurriculumDoc(paras: DocxParagraph[]): ParsedDoc {
       else if (/^sources and verification/i.test(text)) { section = 'sources'; }
       else if (g) {
         section = 'grades';
-        if (g.n >= 9) { skipGrade = true; doc.skippedHighSchoolGrades.push(g.label); }
-        else { skipGrade = false; grade = { grade: g.label, level: g.level, subjects: [] }; doc.grades.push(grade); }
+        grade = { grade: g.label, level: g.level, subjects: [] };
+        doc.grades.push(grade);
       } else section = 'ignored';
       continue;
     }
 
     if (section === 'county') { doc.countyParagraphs.push(para); continue; }
     if (section === 'sources') { doc.sourceParagraphs.push(para); continue; }
-    if (section !== 'grades' || skipGrade || !grade) continue;
+    if (section !== 'grades' || !grade) continue;
 
     if (level === 2) {
       finishNote();
       chapter = null;
-      const m = /^(.*?)\s*\((.+)\)\s*$/.exec(text);
-      subject = { name: m ? m[1] : text, ...(m ? { courseName: m[2] } : {}), notVerified: false, chapters: [] };
+      const { name, courseName } = splitSubjectHeading(text);
+      subject = { name, ...(courseName ? { courseName } : {}), notVerified: false, chapters: [] };
       grade.subjects.push(subject);
     } else if (level === 3) {
       if (!subject) continue;

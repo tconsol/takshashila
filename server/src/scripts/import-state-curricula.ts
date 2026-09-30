@@ -102,12 +102,13 @@ Dry run by default (no database writes). With --commit a backup of curricula + c
 
 ${WARNING}`;
 
-const NUM_KEYS = ['created', 'updated', 'unchanged', 'skippedPublished', 'chapters', 'topics', 'countyAdditions'] as const;
+const NUM_KEYS = ['created', 'updated', 'unchanged', 'skippedPublished', 'chapters', 'topics', 'countyAdditions', 'highSchoolCourses'] as const;
+const colWidth = (k: string) => Math.max(7, k.length);
 
 function printReports(reports: { entry: ManifestEntry; report: StateReport }[]): void {
   const row = (label: string, kind: string, co: string, r: Record<(typeof NUM_KEYS)[number], number>) =>
-    `${label.padEnd(6)} ${kind.padEnd(8)} ${co.padEnd(11)} ${NUM_KEYS.map((k) => String(r[k]).padStart(k.length > 8 ? 8 : 7)).join(' ')}`;
-  console.log(`\n${'State'.padEnd(6)} ${'Kind'.padEnd(8)} ${'CountyOnly'.padEnd(11)} ${NUM_KEYS.map((k) => k.padStart(k.length > 8 ? 8 : 7)).join(' ')}`);
+    `${label.padEnd(6)} ${kind.padEnd(8)} ${co.padEnd(11)} ${NUM_KEYS.map((k) => String(r[k]).padStart(colWidth(k))).join(' ')}`;
+  console.log(`\n${'State'.padEnd(6)} ${'Kind'.padEnd(8)} ${'CountyOnly'.padEnd(11)} ${NUM_KEYS.map((k) => k.padStart(colWidth(k))).join(' ')}`);
   const tot = Object.fromEntries(NUM_KEYS.map((k) => [k, 0])) as Record<(typeof NUM_KEYS)[number], number>;
   for (const { entry: e, report: r } of reports) {
     console.log(row(e.stateCode, r.kind, e.countyOnly ? 'yes' : 'no', r));
@@ -117,6 +118,7 @@ function printReports(reports: { entry: ManifestEntry; report: StateReport }[]):
   for (const { entry: e, report: r } of reports) {
     if (r.missingCitation.length) console.log(`${e.stateCode} (${r.kind}${e.countyOnly ? ', county only' : ''}) no citation: ${r.missingCitation.join(', ')}`);
     if (r.missingSourceUrl.length) console.log(`${e.stateCode} (${r.kind}${e.countyOnly ? ', county only' : ''}) citation but no URL: ${r.missingSourceUrl.join(', ')}`);
+    if (r.highSchoolMerged.length) console.log(`${e.stateCode} (${r.kind}) high school courses merged across grades: ${r.highSchoolMerged.join('; ')}`);
   }
 }
 

@@ -8,3 +8,8 @@ export const GRADE_LIST = [
 export type Grade = (typeof GRADE_LIST)[number];
 
 export const GRADE_OPTIONS = GRADE_LIST.map((g) => ({ value: g, label: g }));
+
+/** Imported high school curricula are organised by course under this grade value, not per grade. */
+export const HIGH_SCHOOL = 'High School';
+export const isHighSchoolGrade = (grade?: string | null) =>
+  grade === 'Grade 9' || grade === 'Grade 10' || grade === 'Grade 11' || grade === 'Grade 12';

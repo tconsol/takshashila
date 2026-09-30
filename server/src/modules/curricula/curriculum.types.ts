@@ -32,8 +32,9 @@ export interface ICurriculum {
   description?: string;
   topics: ICurriculumTopic[];
   stateCode?: string;
-  level?: 'KINDERGARTEN' | 'GRADE';
+  level?: 'KINDERGARTEN' | 'GRADE' | 'HIGH_SCHOOL';
   courseName?: string;
+  /** High school only: the lowest grade the course appears in ('Grade 9'..'Grade 12'). */
   usualGrade?: string;
   source?: ICurriculumSource;
   sourceKind?: 'revised' | 'master';
@@ -44,3 +45,6 @@ export interface ICurriculum {
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** Grade value of imported high school curricula (organised by course, not by grade). */
+export const HIGH_SCHOOL_GRADE = 'High School';

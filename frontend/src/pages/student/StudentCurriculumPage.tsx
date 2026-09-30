@@ -4,7 +4,9 @@
 // not on the User/auth object, so this reads them via `useMyStudentProfile()`.
 // Curricula are looked up by the student's STATE (USPS code stored on the profile).
 // Two tabs: "My grade" (the student's grade in their state) and "All grades"
-// (every published curriculum in the state, grouped by grade). The tab is kept in
+// (every published curriculum in the state, grouped by grade). High school is organised by
+// course, not grade: Grade 9-12 students see the 'High School' courses under "My grade", and
+// "All grades" lists them in a "High School" section last. The tab is kept in
 // the URL (?tab=all) so back/refresh keep it.
 import { Link, useSearchParams } from 'react-router-dom';
 import { BookOpen, ArrowRight, Inbox, ChevronRight } from 'lucide-react';
@@ -16,7 +18,7 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Spinner } from '../../components/ui/Loading';
 import { Tabs } from '../../components/ui/Tabs';
-import { GRADE_LIST } from '../../constants/grades';
+import { GRADE_LIST, HIGH_SCHOOL, isHighSchoolGrade } from '../../constants/grades';
 import type { Curriculum, CurriculumChapter } from '../../services/curricula.service';
 
 type TabKey = 'mine' | 'all';
@@ -80,6 +82,11 @@ function CurriculumGrid({ curricula }: { curricula: Curriculum[] }) {
             <Link to={`/dashboard/student/curriculum/${curriculum.publicId}`} className="mt-2 block font-semibold text-gray-900 hover:text-brand-600 dark:text-white">
               {curriculum.title}
             </Link>
+            {curriculum.grade === HIGH_SCHOOL && (
+              <p className="mt-0.5 text-xs text-gray-500">
+                {[curriculum.courseName && `Course: ${curriculum.courseName}`, curriculum.usualGrade && `Usually taken in ${curriculum.usualGrade}`].filter(Boolean).join(' · ')}
+              </p>
+            )}
             {curriculum.chapters && curriculum.chapters.length > 0 ? (
               <ChapterList chapters={curriculum.chapters} />
             ) : (
@@ -93,13 +100,14 @@ function CurriculumGrid({ curricula }: { curricula: Curriculum[] }) {
   );
 }
 
-/** Groups in GRADE_LIST order; grades the list doesn't know go last. Empty grades are omitted. */
+/** Groups in GRADE_LIST order, then High School, then grades the list doesn't know. Empty grades are omitted. */
 function groupByGrade(curricula: Curriculum[]): Array<[string, Curriculum[]]> {
   const groups = new Map<string, Curriculum[]>();
   for (const c of curricula) groups.set(c.grade, [...(groups.get(c.grade) ?? []), c]);
   const rank = (g: string) => {
+    if (g === HIGH_SCHOOL) return GRADE_LIST.length;
     const i = (GRADE_LIST as readonly string[]).indexOf(g);
-    return i < 0 ? GRADE_LIST.length : i;
+    return i < 0 ? GRADE_LIST.length + 1 : i;
   };
   return [...groups.entries()].sort(([a], [b]) => rank(a) - rank(b));
 }
@@ -172,7 +180,9 @@ export function StudentCurriculumPage() {
       <Message>
         <Inbox className="h-6 w-6 text-gray-400" />
         <p className="text-sm text-gray-500">
-          {tab === 'mine' ? `No published curriculum yet for ${grade} in ${stateName}.` : `No published curriculum yet in ${stateName}.`}
+          {tab === 'mine'
+            ? `No published curriculum yet for ${isHighSchoolGrade(grade) ? 'high school' : grade} in ${stateName}.`
+            : `No published curriculum yet in ${stateName}.`}
         </p>
       </Message>
     );
@@ -185,7 +195,7 @@ export function StudentCurriculumPage() {
           <section key={g}>
             <div className="mb-3 flex items-center gap-2">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{g}</h2>
-              {g === grade && <Badge variant="success" tone="soft">Your grade</Badge>}
+              {(g === grade || (g === HIGH_SCHOOL && isHighSchoolGrade(grade))) && <Badge variant="success" tone="soft">Your grade</Badge>}
             </div>
             <CurriculumGrid curricula={curricula} />
           </section>
@@ -199,7 +209,9 @@ export function StudentCurriculumPage() {
       <PageHeader
         eyebrow="Curricula"
         title="Curriculum"
-        description={tab === 'mine' && grade ? `${grade} curriculum · ${stateName}` : `All grades · ${stateName}`}
+        description={tab === 'mine' && grade
+          ? (isHighSchoolGrade(grade) ? `High school courses (you're in ${grade}) · ${stateName}` : `${grade} curriculum · ${stateName}`)
+          : `All grades · ${stateName}`}
         icon={<BookOpen className="h-5 w-5" />}
       />
       <Tabs

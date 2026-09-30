@@ -24,6 +24,16 @@ describe('Curriculum model', () => {
     expect(doc.topics).toHaveLength(1);
     expect(doc.chapters).toHaveLength(0);
   });
+  it('accepts a High School course curriculum and rejects unknown levels', () => {
+    const hs = new CurriculumModel({
+      ...base, grade: 'High School', title: 'Mathematics - Algebra I - High School', stateCode: 'CO',
+      level: 'HIGH_SCHOOL', courseName: 'Algebra I', usualGrade: 'Grade 9',
+      chapters: [{ title: 'Linear', order: 0, topics: [{ title: 'Slope', order: 0 }] }],
+    });
+    expect(hs.validateSync()).toBeUndefined();
+    expect(hs.usualGrade).toBe('Grade 9');
+    expect(new CurriculumModel({ ...base, stateCode: 'CO', level: 'COLLEGE' }).validateSync()).toBeDefined();
+  });
   it('rejects a document with neither stateCode nor districtId', () => {
     expect(new CurriculumModel({ ...base }).validateSync()).toBeDefined();
   });

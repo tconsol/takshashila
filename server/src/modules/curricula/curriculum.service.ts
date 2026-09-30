@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { CurriculumModel } from './curriculum.model';
-import type { ICurriculum } from './curriculum.types';
+import { HIGH_SCHOOL_GRADE, type ICurriculum } from './curriculum.types';
 import type { CreateCurriculumDto, UpdateCurriculumDto, CurriculumAdminQueryDto, CurriculumCatalogQueryDto } from './curriculum.validators';
 import { AppError, NotFoundError, ValidationError, ConflictError } from '../../utils/error';
 import { CourseModel } from '../courses/course.model';
@@ -128,7 +128,8 @@ export class CurriculumService {
     return curricula.sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || a.title.localeCompare(b.title));
   }
 
-  /** State-based catalog: published curricula for a state, limited to subjects the admin has enabled. */
+  /** State-based catalog: published curricula for a state, limited to subjects the admin has enabled.
+   *  High school is organised by course, not grade: Grade 9-12 students get the 'High School' curricula. */
   async listByState(filters: { stateCode: string; grade?: string; subject?: string }): Promise<{ curricula: ICurriculum[]; stateLoaded: boolean }> {
     const { enabledSubjects } = await settingsService.get();
     const enabled = enabledSubjects ?? [...PLATFORM_SETTINGS_DEFAULTS.enabledSubjects];
@@ -136,7 +137,7 @@ export class CurriculumService {
     const filter: Record<string, unknown> = {
       stateCode: filters.stateCode, isPublished: true, isDeleted: false, subject: { $in: subjects },
     };
-    if (filters.grade) filter.grade = filters.grade;
+    if (filters.grade) filter.grade = HIGH_SCHOOL_GRADES.has(filters.grade) ? HIGH_SCHOOL_GRADE : filters.grade;
     const curricula = await CurriculumModel.find(filter, STUDENT_HIDDEN_FIELDS).sort({ title: 1 }).limit(2000).lean();
     curricula.sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || a.title.localeCompare(b.title));
     const stateLoaded = curricula.length > 0
@@ -200,10 +201,12 @@ function locationFromDistrict(districtId: string) {
   };
 }
 
+const HIGH_SCHOOL_GRADES = new Set<string>(['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']);
 const GRADE_RANK = new Map<string, number>(GRADE_LIST.map((g, i) => [g, i]));
-/** Unknown grade strings sort after every known grade. */
-function gradeRank(grade: string): number {
-  return GRADE_RANK.get(grade) ?? GRADE_LIST.length;
+/** 'High School' sorts after every grade (incl. legacy per-grade 9-12 curricula); unknown strings after that. */
+export function gradeRank(grade: string): number {
+  if (grade === HIGH_SCHOOL_GRADE) return GRADE_LIST.length;
+  return GRADE_RANK.get(grade) ?? GRADE_LIST.length + 1;
 }
 
 export const curriculumService = new CurriculumService();

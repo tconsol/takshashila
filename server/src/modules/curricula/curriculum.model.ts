@@ -42,7 +42,7 @@ const curriculumSchema = new Schema<ICurriculum>(
       // sync rule so validateSync() enforces it too (pre('validate') hooks do not run there)
       required: [function (this: { districtId?: string }) { return !this.districtId; }, 'A curriculum needs a stateCode or a districtId'],
     },
-    level: { type: String, enum: ['KINDERGARTEN', 'GRADE'] },
+    level: { type: String, enum: ['KINDERGARTEN', 'GRADE', 'HIGH_SCHOOL'] },
     courseName: { type: String },
     usualGrade: { type: String },
     source: {
