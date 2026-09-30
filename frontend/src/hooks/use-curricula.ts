@@ -23,6 +23,15 @@ export function useCurriculumCatalog(params: { districtId?: string; grade?: stri
   });
 }
 
+/** State-based catalog; no `grade` = all grades. */
+export function useStateCatalog(stateCode: string | undefined, grade?: string) {
+  return useQuery({
+    queryKey: [...curriculumKeys.all, 'state-catalog', stateCode ?? '', grade ?? 'all'] as const,
+    queryFn: () => curriculaService.getStateCatalog(stateCode!, grade),
+    enabled: !!stateCode,
+  });
+}
+
 export function useAdminCurricula(params?: Record<string, string>) {
   return useQuery({
     queryKey: curriculumKeys.admin(params),

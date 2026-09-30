@@ -8,6 +8,19 @@ export interface CurriculumTopic {
   order: number;
 }
 
+export interface CurriculumChapter {
+  publicId: string;
+  title: string;
+  order: number;
+  topics: CurriculumTopic[];
+}
+
+export interface CurriculumSource {
+  name: string;
+  year?: number;
+  url?: string;
+}
+
 export interface Curriculum {
   publicId: string;
   country: string;
@@ -21,8 +34,15 @@ export interface Curriculum {
   title: string;
   description?: string;
   topics: CurriculumTopic[];
+  chapters?: CurriculumChapter[];
+  source?: CurriculumSource;
   isPublished: boolean;
   createdAt: string;
+}
+
+export interface StateCatalog {
+  curricula: Curriculum[];
+  stateLoaded: boolean;
 }
 
 export interface CreateCurriculumDto {
@@ -76,6 +96,9 @@ export const curriculaService = {
 
   listCatalog: (params: { districtId?: string; grade?: string; subject?: string }): Promise<Curriculum[]> =>
     api.get('/curricula', { params }).then((r) => r.data.data),
+
+  getStateCatalog: (stateCode: string, grade?: string): Promise<StateCatalog> =>
+    api.get('/curricula/catalog/state', { params: { stateCode, ...(grade ? { grade } : {}) } }).then((r) => r.data.data),
 
   listForAdmin: (params: Record<string, string>): Promise<PaginatedCurricula> =>
     api.get('/curricula', { params }).then((r) => r.data.data),

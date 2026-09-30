@@ -2,20 +2,21 @@
 //
 // grade/district live on the Student PROFILE (server/src/modules/students/student.model.ts),
 // not on the User/auth object, so this reads them via `useMyStudentProfile()`.
-// Two tabs: "My grade" (the student's grade in their district) and "All grades"
-// (every published curriculum in the district, grouped by grade). The tab is kept in
+// Curricula are looked up by the student's STATE (USPS code stored on the profile).
+// Two tabs: "My grade" (the student's grade in their state) and "All grades"
+// (every published curriculum in the state, grouped by grade). The tab is kept in
 // the URL (?tab=all) so back/refresh keep it.
 import { Link, useSearchParams } from 'react-router-dom';
-import { BookOpen, ArrowRight, Inbox } from 'lucide-react';
+import { BookOpen, ArrowRight, Inbox, ChevronRight } from 'lucide-react';
 import { useMyStudentProfile } from '../../hooks/use-students';
-import { useCurriculumCatalog } from '../../hooks/use-curricula';
+import { useStateCatalog } from '../../hooks/use-curricula';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Spinner } from '../../components/ui/Loading';
 import { Tabs } from '../../components/ui/Tabs';
 import { GRADE_LIST } from '../../constants/grades';
-import type { Curriculum } from '../../services/curricula.service';
+import type { Curriculum, CurriculumChapter } from '../../services/curricula.service';
 
 type TabKey = 'mine' | 'all';
 
@@ -37,19 +38,55 @@ function ProfileLink() {
   );
 }
 
+function SourceLine({ source }: { source: NonNullable<Curriculum['source']> }) {
+  const label = [source.name, source.year].filter(Boolean).join(', ');
+  return (
+    <p className="mt-2 text-xs text-gray-500">
+      Source:{' '}
+      {source.url ? (
+        <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{label}</a>
+      ) : label}
+    </p>
+  );
+}
+
+function ChapterList({ chapters }: { chapters: CurriculumChapter[] }) {
+  return (
+    <div className="mt-3 space-y-1">
+      {[...chapters].sort((a, b) => a.order - b.order).map((chapter) => (
+        <details key={chapter.publicId} className="group rounded-md border border-gray-200 dark:border-gray-700">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm text-gray-800 dark:text-gray-200">
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform group-open:rotate-90" />
+            <span className="flex-1">{chapter.title}</span>
+            <span className="text-xs text-gray-500">{chapter.topics.length} {chapter.topics.length === 1 ? 'topic' : 'topics'}</span>
+          </summary>
+          <ul className="list-disc space-y-1 px-3 pb-2 pl-9 text-sm text-gray-600 dark:text-gray-400">
+            {[...chapter.topics].sort((a, b) => a.order - b.order).map((topic) => <li key={topic.publicId}>{topic.title}</li>)}
+          </ul>
+        </details>
+      ))}
+    </div>
+  );
+}
+
 function CurriculumGrid({ curricula }: { curricula: Curriculum[] }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 lg:grid-cols-2">
       {curricula.map((curriculum) => (
-        <Link key={curriculum.publicId} to={`/dashboard/student/curriculum/${curriculum.publicId}`}>
-          <Card className="h-full hover:border-brand-300 dark:hover:border-brand-700 transition-colors">
-            <CardContent>
-              <Badge variant="info" tone="soft">{curriculum.subject}</Badge>
-              <p className="mt-2 font-semibold text-gray-900 dark:text-white">{curriculum.title}</p>
+        <Card key={curriculum.publicId} className="h-full">
+          <CardContent>
+            <Badge variant="info" tone="soft">{curriculum.subject}</Badge>
+            <Link to={`/dashboard/student/curriculum/${curriculum.publicId}`} className="mt-2 block font-semibold text-gray-900 hover:text-brand-600 dark:text-white">
+              {curriculum.title}
+            </Link>
+            {curriculum.chapters && curriculum.chapters.length > 0 ? (
+              <ChapterList chapters={curriculum.chapters} />
+            ) : (
               <p className="mt-1 text-xs text-gray-500">{curriculum.topics.length} topics</p>
-            </CardContent>
-          </Card>
-        </Link>
+            )}
+            {curriculum.source && <SourceLine source={curriculum.source} />}
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -70,24 +107,24 @@ export function StudentCurriculumPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab: TabKey = searchParams.get('tab') === 'all' ? 'all' : 'mine';
   const { data: profile, isLoading: profileLoading } = useMyStudentProfile();
-  const districtId = profile?.districtId;
+  const stateCode = profile?.state;
   const grade = profile?.grade;
 
-  const mine = useCurriculumCatalog({ districtId: grade ? districtId : undefined, grade: grade || undefined });
-  const all = useCurriculumCatalog({ districtId });
+  const mine = useStateCatalog(grade ? stateCode : undefined, grade || undefined);
+  const all = useStateCatalog(stateCode);
   const active = tab === 'all' ? all : mine;
 
   if (profileLoading) {
     return <div className="flex justify-center py-16"><Spinner /></div>;
   }
 
-  if (!districtId) {
+  if (!stateCode) {
     return (
       <div className="animate-fade-in">
         <PageHeader eyebrow="Curricula" title="Curriculum" icon={<BookOpen className="h-5 w-5" />} />
         <Message>
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Set your school district in your profile to see your curriculum.
+            Set your state in your profile to see your curriculum.
           </p>
           <ProfileLink />
         </Message>
@@ -95,7 +132,7 @@ export function StudentCurriculumPage() {
     );
   }
 
-  const where = `${profile?.district}, ${profile?.state}`;
+  const where = stateCode;
 
   let body: React.ReactNode;
   if (tab === 'mine' && !grade) {
@@ -107,7 +144,21 @@ export function StudentCurriculumPage() {
     );
   } else if (active.isLoading) {
     body = <div className="flex justify-center py-16"><Spinner /></div>;
-  } else if (!active.data || active.data.length === 0) {
+  } else if (!active.data) {
+    body = (
+      <Message>
+        <Inbox className="h-6 w-6 text-gray-400" />
+        <p className="text-sm text-gray-500">Couldn't load curricula. Please try again.</p>
+      </Message>
+    );
+  } else if (!active.data.stateLoaded) {
+    body = (
+      <Message>
+        <Inbox className="h-6 w-6 text-gray-400" />
+        <p className="text-sm text-gray-500">Your state's curriculum isn't available yet. We're adding states over time.</p>
+      </Message>
+    );
+  } else if (active.data.curricula.length === 0) {
     body = (
       <Message>
         <Inbox className="h-6 w-6 text-gray-400" />
@@ -117,11 +168,11 @@ export function StudentCurriculumPage() {
       </Message>
     );
   } else if (tab === 'mine') {
-    body = <CurriculumGrid curricula={active.data} />;
+    body = <CurriculumGrid curricula={active.data.curricula} />;
   } else {
     body = (
       <div className="space-y-8">
-        {groupByGrade(active.data).map(([g, curricula]) => (
+        {groupByGrade(active.data.curricula).map(([g, curricula]) => (
           <section key={g}>
             <div className="mb-3 flex items-center gap-2">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{g}</h2>
