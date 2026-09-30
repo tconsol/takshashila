@@ -27,3 +27,32 @@ describe('validateManifest', () => {
     expect(() => validateManifest([e('AK'), e('AK')])).toThrow(/AK/);
   });
 });
+
+describe('verifyBackup', () => {
+  const fs = require('fs') as typeof import('fs');
+  const os = require('os') as typeof import('os');
+  const path = require('path') as typeof import('path');
+  const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'bk-')), 'b.json');
+  const write = (o: unknown) => { const f = tmp(); fs.writeFileSync(f, JSON.stringify(o)); return f; };
+  const { verifyBackup } = require('../../scripts/import-state-curricula') as typeof import('../../scripts/import-state-curricula');
+
+  it('accepts a backup whose array lengths match', () => {
+    const f = write({ curricula: [{}, {}], countyadditions: [{}] });
+    expect(() => verifyBackup(f, { curricula: 2, countyadditions: 1 })).not.toThrow();
+  });
+  it('rejects a missing file', () => {
+    expect(() => verifyBackup(path.join(os.tmpdir(), 'nope-xyz.json'), { curricula: 0, countyadditions: 0 })).toThrow(/backup/i);
+  });
+  it('rejects an empty file', () => {
+    const f = tmp(); fs.writeFileSync(f, '');
+    expect(() => verifyBackup(f, { curricula: 0, countyadditions: 0 })).toThrow(/backup/i);
+  });
+  it('rejects unparseable content', () => {
+    const f = tmp(); fs.writeFileSync(f, '{oops');
+    expect(() => verifyBackup(f, { curricula: 0, countyadditions: 0 })).toThrow(/backup/i);
+  });
+  it('rejects a count mismatch', () => {
+    const f = write({ curricula: [{}], countyadditions: [] });
+    expect(() => verifyBackup(f, { curricula: 2, countyadditions: 0 })).toThrow(/curricula/);
+  });
+});

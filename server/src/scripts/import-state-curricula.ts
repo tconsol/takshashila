@@ -18,9 +18,12 @@ import { readDocxParagraphs } from '../modules/curricula/import/docx-reader';
 import { parseCurriculumDoc } from '../modules/curricula/import/curriculum-parser';
 import { applyImport, type StateReport } from '../modules/curricula/import/curriculum-importer';
 
-export const WARNING =
-  'WARNING: re-running rewrites DRAFT curricula wholesale (admin edits to drafts are lost; published ones are never touched).\n' +
-  'WARNING: only ONE import run should be active at a time.';
+export const WARNING = [
+  'WARNING: re-running rewrites DRAFT curricula wholesale (admin edits to drafts are lost; published ones are never touched).',
+  'WARNING: only ONE import run should be active at a time.',
+  'WARNING: a failure mid-commit leaves partial data; restore manually from the curricula-backup-*.json file.',
+  'NOTE: this CLI never creates collections or indexes (on a fresh database the app creates them at start).',
+].join('\n');
 
 export interface ManifestEntry { file: string; stateCode: string; kind: 'revised' | 'master'; countyOnly?: boolean }
 
@@ -65,6 +68,21 @@ export function checkCommitGuard(args: { commit: boolean; confirmDb?: string; co
 }
 
 const VALUE_FLAGS = new Set(['dir', 'confirm-db', 'backup-dir', 'report-dir']);
+/** Confirms the backup file on disk is non-empty, parseable, and holds every document that was dumped. */
+export function verifyBackup(file: string, expected: { curricula: number; countyadditions: number }): void {
+  let size = 0;
+  try { size = fs.statSync(file).size; } catch { throw new Error(`Backup verification failed: ${file} does not exist`); }
+  if (size <= 0) throw new Error(`Backup verification failed: ${file} is empty`);
+  let parsed: { curricula?: unknown; countyadditions?: unknown };
+  try { parsed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error(`Backup verification failed: ${file} is not valid JSON`); }
+  for (const k of ['curricula', 'countyadditions'] as const) {
+    const arr = parsed[k];
+    if (!Array.isArray(arr) || arr.length !== expected[k]) {
+      throw new Error(`Backup verification failed: ${k} has ${Array.isArray(arr) ? arr.length : 'no'} entries in the file, expected ${expected[k]}`);
+    }
+  }
+}
+
 function parseArgs(argv: string[]) {
   const out: Record<string, string | boolean> = {};
   for (let i = 0; i < argv.length; i++) {
@@ -96,6 +114,10 @@ function printReports(reports: { entry: ManifestEntry; report: StateReport }[]):
     for (const k of NUM_KEYS) tot[k] += r[k];
   }
   console.log(row('TOTAL', '', '', tot));
+  for (const { entry: e, report: r } of reports) {
+    if (r.missingCitation.length) console.log(`${e.stateCode} (${r.kind}${e.countyOnly ? ', county only' : ''}) no citation: ${r.missingCitation.join(', ')}`);
+    if (r.missingSourceUrl.length) console.log(`${e.stateCode} (${r.kind}${e.countyOnly ? ', county only' : ''}) citation but no URL: ${r.missingSourceUrl.join(', ')}`);
+  }
 }
 
 async function main(): Promise<void> {
@@ -128,7 +150,10 @@ async function main(): Promise<void> {
     return { entry: e, full, doc: parseCurriculumDoc(readDocxParagraphs(fs.readFileSync(full))) };
   });
 
-  await mongoose.connect(env.MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
+  // autoIndex/autoCreate off: models are loaded, and connecting must not build indexes or create collections (even in a dry run).
+  mongoose.set('autoIndex', false);
+  mongoose.set('autoCreate', false);
+  await mongoose.connect(env.MONGODB_URI, { serverSelectionTimeoutMS: 10000, autoIndex: false, autoCreate: false });
   try {
     const connectedDb = mongoose.connection.name;
     console.log(`Connected to host: ${mongoose.connection.host} / db: ${connectedDb}`);
@@ -146,6 +171,7 @@ async function main(): Promise<void> {
         countyadditions: await CountyAdditionModel.find({}).lean(),
       };
       fs.writeFileSync(backupPath, JSON.stringify(backup));
+      verifyBackup(backupPath, { curricula: backup.curricula.length, countyadditions: backup.countyadditions.length });
       console.log(`Backup written: ${backupPath} (${backup.curricula.length} curricula, ${backup.countyadditions.length} county additions)`);
     }
     checkCommitGuard({ commit, confirmDb, connectedDb, backupPath });

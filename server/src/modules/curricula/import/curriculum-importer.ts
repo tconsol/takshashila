@@ -13,7 +13,7 @@ export interface StateReport {
   created: number; updated: number; unchanged: number; skippedPublished: number;
   chapters: number; topics: number;
   subjectsSkippedNotVerified: string[]; emptySubjects: string[];
-  emptyChapters: string[]; missingSource: string[]; highSchoolSkipped: string[];
+  emptyChapters: string[]; missingCitation: string[]; missingSourceUrl: string[]; highSchoolSkipped: string[];
   countyAdditions: number; subjectsSeen: string[];
   duplicateSubjects: string[];
 }
@@ -35,7 +35,7 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
   const report: StateReport = {
     stateCode: file.stateCode, kind: file.kind,
     created: 0, updated: 0, unchanged: 0, skippedPublished: 0, chapters: 0, topics: 0,
-    subjectsSkippedNotVerified: [], emptySubjects: [], emptyChapters: [], missingSource: [],
+    subjectsSkippedNotVerified: [], emptySubjects: [], emptyChapters: [], missingCitation: [], missingSourceUrl: [],
     highSchoolSkipped: [...doc.skippedHighSchoolGrades], countyAdditions: 0, subjectsSeen: [], duplicateSubjects: [],
   };
   const plan: PlannedCurriculum[] = [];
@@ -45,7 +45,8 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
     report.countyAdditions = county.length;
     return { plan, report, county };
   }
-  const missing: string[] = [];
+  const noCitation: string[] = [];
+  const noUrl: string[] = [];
   const seen: string[] = [];
 
   for (const g of doc.grades) {
@@ -66,7 +67,8 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
         continue;
       }
       const ref = pickSource(sources, s.name);
-      if (!ref || !ref.url) missing.push(s.name);
+      if (!ref) noCitation.push(s.name);
+      else if (!ref.url) noUrl.push(s.name);
       const p: PlannedCurriculum = {
         key: { stateCode: file.stateCode, subject: s.name, grade: g.grade, ...(s.courseName ? { courseName: s.courseName } : {}) },
         title: `${s.name}${s.courseName ? ' - ' + s.courseName : ''} - ${g.grade}`,
@@ -85,7 +87,8 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
       if (!c.topics.length) report.emptyChapters.push(`${p.key.grade} / ${p.key.subject} / ${c.title}`);
     }
   }
-  report.missingSource = uniq(missing);
+  report.missingCitation = uniq(noCitation);
+  report.missingSourceUrl = uniq(noUrl);
   report.subjectsSeen = uniq(seen);
   const county = parseCountyAdditions(doc.countyParagraphs);
   report.countyAdditions = county.length;

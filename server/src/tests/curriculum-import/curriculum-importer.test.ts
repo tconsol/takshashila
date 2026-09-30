@@ -66,7 +66,7 @@ describe('applyImport with mocked models', () => {
     expect(createSpy).toHaveBeenCalledTimes(1);
     expect(createSpy.mock.calls[0][0]).toMatchObject({ isPublished: false, createdByAdminPublicId: 'system:curriculum-import', sourceKind: 'revised', stateCode: 'CO' });
     expect(real).toEqual(dry);
-    expect(real).toMatchObject({ created: 1, updated: 0, unchanged: 0, chapters: 1, topics: 2, subjectsSkippedNotVerified: ['Grade 2 / Dance'], emptySubjects: ['Grade 2 / Art'], highSchoolSkipped: ['Grade 9'], missingSource: [] });
+    expect(real).toMatchObject({ created: 1, updated: 0, unchanged: 0, chapters: 1, topics: 2, subjectsSkippedNotVerified: ['Grade 2 / Dance'], emptySubjects: ['Grade 2 / Art'], highSchoolSkipped: ['Grade 9'], missingCitation: [], missingSourceUrl: [] });
   });
 
   it('unchanged when identical; updated preserves ids; published is skipped', async () => {
@@ -95,7 +95,8 @@ describe('applyImport with mocked models', () => {
     const s = (t: string) => ({ name: 'Music', notVerified: false, chapters: [{ title: t, topics: ['x'] }] });
     const doc = mkDoc({ grades: [{ grade: 'Grade 1', level: 'GRADE', subjects: [s('A'), s('B')] }], sourceParagraphs: [] });
     const rep = await applyImport(file, doc, { commit: true });
-    expect(rep.missingSource).toEqual(['Music']);
+    expect(rep.missingCitation).toEqual(['Music']);
+    expect(rep.missingSourceUrl).toEqual([]);
     expect(rep.duplicateSubjects).toEqual(['Grade 1 / Music']);
     expect(createSpy.mock.calls[0][0].source).toBeUndefined();
     expect(createSpy.mock.calls[0][0].chapters).toHaveLength(2);
@@ -115,6 +116,17 @@ describe('applyImport with mocked models', () => {
     expect(created).toHaveLength(1); // the published key is left alone
     expect(created[0]).toMatchObject({ stateCode: 'CO', gradeFrom: 10, gradeTo: 12, isPublished: false });
     expect(pubAdd.save).not.toHaveBeenCalled();
+  });
+});
+
+describe('source reporting', () => {
+  it('separates subjects with a citation but no URL from subjects with no citation', () => {
+    jest.spyOn(CurriculumModel, 'find').mockResolvedValue([] as never);
+    const doc = mkDoc({ sourceParagraphs: [{ style: 'Heading 3', text: 'Sources Used for Mathematics' }, { style: 'Normal', text: 'Colorado Academic Standards (Department of Education, 2020)' }] });
+    return applyImport(file, doc, { commit: false }).then((rep) => {
+      expect(rep.missingCitation).toEqual([]);
+      expect(rep.missingSourceUrl).toEqual(['Mathematics']);
+    });
   });
 });
 
