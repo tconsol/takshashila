@@ -8,6 +8,8 @@ import { CourseStatus } from '../courses/course.types';
 import { geoService } from '../geo/geo.service';
 import { GRADE_LIST } from '../students/student.validators';
 import type { PaginatedResult } from '../../shared/types';
+import { settingsService } from '../settings/settings.service';
+import { PLATFORM_SETTINGS_DEFAULTS } from '../settings/settings.model';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 
 export class CurriculumService {
@@ -110,6 +112,22 @@ export class CurriculumService {
     if (filters.subject) filter.subject = filters.subject;
     const curricula = await CurriculumModel.find(filter).sort({ title: 1 }).limit(500).lean();
     return curricula.sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || a.title.localeCompare(b.title));
+  }
+
+  /** State-based catalog: published curricula for a state, limited to subjects the admin has enabled. */
+  async listByState(filters: { stateCode: string; grade?: string; subject?: string }): Promise<{ curricula: ICurriculum[]; stateLoaded: boolean }> {
+    const { enabledSubjects } = await settingsService.get();
+    const enabled = enabledSubjects ?? [...PLATFORM_SETTINGS_DEFAULTS.enabledSubjects];
+    const subjects = filters.subject ? enabled.filter((s) => s === filters.subject) : enabled;
+    const filter: Record<string, unknown> = {
+      stateCode: filters.stateCode, isPublished: true, isDeleted: false, subject: { $in: subjects },
+    };
+    if (filters.grade) filter.grade = filters.grade;
+    const curricula = await CurriculumModel.find(filter).sort({ title: 1 }).limit(2000).lean();
+    curricula.sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || a.title.localeCompare(b.title));
+    const stateLoaded = curricula.length > 0
+      || !!(await CurriculumModel.exists({ stateCode: filters.stateCode, isPublished: true, isDeleted: false }));
+    return { curricula, stateLoaded };
   }
 
   /** Admin-facing listing: any county/grade/subject/published state. */

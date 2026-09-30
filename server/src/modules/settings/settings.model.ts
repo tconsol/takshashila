@@ -20,6 +20,8 @@ export interface IPlatformSettings {
   minClassDurationMinutes: number;
   maxClassDurationMinutes: number;
 
+  enabledSubjects: string[];
+
   maintenanceMode: boolean;
   maintenanceMessage: string;
   featureFlags: Record<string, boolean>;
@@ -52,6 +54,7 @@ export const PLATFORM_SETTINGS_DEFAULTS = {
   maxAdvanceBookingDays: 30,
   minClassDurationMinutes: 30,
   maxClassDurationMinutes: 180,
+  enabledSubjects: ['English Language Arts', 'Mathematics', 'Science', 'Social Studies', 'Computer Science'],
   maintenanceMode: false,
   maintenanceMessage: 'The platform is briefly down for maintenance. Please try again shortly.',
 } as const;
@@ -75,6 +78,8 @@ const platformSettingsSchema = new Schema<IPlatformSettings>(
     maxAdvanceBookingDays: { type: Number, default: PLATFORM_SETTINGS_DEFAULTS.maxAdvanceBookingDays, min: 1, max: 365 },
     minClassDurationMinutes: { type: Number, default: PLATFORM_SETTINGS_DEFAULTS.minClassDurationMinutes, min: 5, max: 600 },
     maxClassDurationMinutes: { type: Number, default: PLATFORM_SETTINGS_DEFAULTS.maxClassDurationMinutes, min: 5, max: 600 },
+
+    enabledSubjects: { type: [String], default: () => [...PLATFORM_SETTINGS_DEFAULTS.enabledSubjects] },
 
     maintenanceMode: { type: Boolean, default: PLATFORM_SETTINGS_DEFAULTS.maintenanceMode },
     maintenanceMessage: { type: String, default: PLATFORM_SETTINGS_DEFAULTS.maintenanceMessage },

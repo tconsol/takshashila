@@ -3,7 +3,7 @@ import type { AuthRequest } from '../../shared/types';
 import { curriculumService } from './curriculum.service';
 import { sendSuccess, sendCreated } from '../../utils/response';
 import { NotFoundError, ValidationError } from '../../utils/error';
-import { curriculumCatalogQuerySchema } from './curriculum.validators';
+import { curriculumCatalogQuerySchema, curriculumStateCatalogQuerySchema } from './curriculum.validators';
 import { tutorService } from '../tutors/tutor.service';
 import { listAttachableCurricula } from './curriculum-attachment';
 import { getCurriculumStructure } from '../courses/course-structure';
@@ -102,6 +102,18 @@ export class CurriculumController {
         throw new NotFoundError('Curriculum');
       }
       sendSuccess(res, result, 'Curriculum fetched');
+    } catch (error) { next(error); }
+  }
+
+  /** State-based catalog (any authenticated role). */
+  async listByState(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const parsed = curriculumStateCatalogQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+      }
+      const result = await curriculumService.listByState(parsed.data);
+      sendSuccess(res, result, 'Curricula fetched');
     } catch (error) { next(error); }
   }
 

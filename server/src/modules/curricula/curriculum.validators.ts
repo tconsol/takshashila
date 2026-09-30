@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { GRADE_LIST } from '../students/student.validators';
 import { districtIdSchema } from '../geo/geo.validators';
+import { US_STATES } from '../geo/us-states';
 import { normalizeSubject } from '../../utils/taxonomy';
 
 const topicInputSchema = z.object({
@@ -39,6 +40,15 @@ export const curriculumAdminQuerySchema = z.object({
 /** Student catalog: always district-scoped; no grade = "All grades". */
 export const curriculumCatalogQuerySchema = z.object({
   districtId: districtIdSchema,
+  grade: z.enum(GRADE_LIST).optional(),
+  subject: z.string().optional(),
+});
+
+const STATE_CODES = US_STATES.map((s) => s.code) as [string, ...string[]];
+
+/** State-based catalog: grade is optional ("All grades"). */
+export const curriculumStateCatalogQuerySchema = z.object({
+  stateCode: z.enum(STATE_CODES),
   grade: z.enum(GRADE_LIST).optional(),
   subject: z.string().optional(),
 });

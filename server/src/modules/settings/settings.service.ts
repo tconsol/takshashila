@@ -13,6 +13,8 @@ const EDITABLE_KEYS = Object.keys(PLATFORM_SETTINGS_DEFAULTS) as (keyof Platform
 
 const BOOLEAN_KEYS: (keyof PlatformSettingsDto)[] = ['maintenanceMode'];
 
+const ARRAY_KEYS: (keyof PlatformSettingsDto)[] = ['enabledSubjects'];
+
 const NUMERIC_KEYS: (keyof PlatformSettingsDto)[] = [
   'defaultTutorCommissionRatePercent',
   'defaultPrincipalCommissionRatePercent',
@@ -66,7 +68,13 @@ export class SettingsService {
     for (const key of EDITABLE_KEYS) {
       if (patch[key] === undefined) continue;
 
-      if (BOOLEAN_KEYS.includes(key)) {
+      if (ARRAY_KEYS.includes(key)) {
+        const v = patch[key];
+        if (!Array.isArray(v) || v.some((x) => typeof x !== 'string' || !x.trim())) {
+          throw invalid(`${key} must be a list of non-empty strings`);
+        }
+        (updates as Record<string, unknown>)[key] = [...new Set((v as string[]).map((x) => x.trim()))];
+      } else if (BOOLEAN_KEYS.includes(key)) {
         (updates as Record<string, unknown>)[key] = patch[key] === true || patch[key] === 'true';
       } else if (NUMERIC_KEYS.includes(key)) {
         const n = Number(patch[key]);

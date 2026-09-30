@@ -10,6 +10,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/', curriculumController.list.bind(curriculumController));
+router.get('/catalog/state', curriculumController.listByState.bind(curriculumController));
 router.get('/attachable', requireRole(Role.TUTOR, Role.PRINCIPAL), curriculumController.listAttachable.bind(curriculumController));
 router.get('/:curriculumPublicId/structure', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculumController.getStructure.bind(curriculumController));
 router.get('/:curriculumPublicId/tutors', curriculumController.listTutors.bind(curriculumController));
