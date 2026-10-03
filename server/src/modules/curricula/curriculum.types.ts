@@ -17,22 +17,20 @@ export interface ICurriculumSource {
   url: string;
 }
 
+/** One master curriculum per state, subject and grade (or high school course). */
 export interface ICurriculum {
   _id: string;
   publicId: string;
   country: string;
-  state?: string;
-  countyFips?: string;
-  county?: string;
-  districtId?: string; // NCES LEAID; state/countyFips/county/district are derived from it
-  district?: string;
+  /** USPS state code: the anchor of every curriculum. */
+  stateCode: string;
   grade: string;
   subject: string;
   title: string;
   description?: string;
+  /** Flat mirror of `chapters` (chapter ids); courses and materials still reference chapters through it. */
   topics: ICurriculumTopic[];
-  stateCode?: string;
-  level?: 'KINDERGARTEN' | 'GRADE' | 'HIGH_SCHOOL';
+  level: 'KINDERGARTEN' | 'GRADE' | 'HIGH_SCHOOL';
   courseName?: string;
   /** High school only: the lowest grade the course appears in ('Grade 9'..'Grade 12'). */
   usualGrade?: string;
@@ -46,5 +44,8 @@ export interface ICurriculum {
   updatedAt: Date;
 }
 
-/** Grade value of imported high school curricula (organised by course, not by grade). */
+/** Grade value of high school curricula (organised by course, not by grade). */
 export const HIGH_SCHOOL_GRADE = 'High School';
+
+export const levelForGrade = (grade: string): ICurriculum['level'] =>
+  grade === HIGH_SCHOOL_GRADE ? 'HIGH_SCHOOL' : grade === 'Kindergarten' ? 'KINDERGARTEN' : 'GRADE';

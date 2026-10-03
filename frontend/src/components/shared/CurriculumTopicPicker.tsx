@@ -44,7 +44,7 @@ export function CurriculumTopicPicker({ value, onChange }: {
         placeholder={isLoading ? 'Loading curricula…' : 'Select curriculum'}
         options={curricula.map((c) => ({
           value: c.publicId,
-          label: `${c.title} · ${c.grade} · ${c.subject}${c.district ? ` · ${c.district}` : ''}`,
+          label: `${c.title} · ${c.grade} · ${c.subject} · ${c.stateCode}`,
         }))}
         value={value.curriculumPublicId}
         onChange={(e) => onChange({ curriculumPublicId: e.target.value, topicPublicIds: [] })}

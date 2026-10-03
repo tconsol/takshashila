@@ -15,6 +15,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.post('/', requireRole(Role.STUDENT), validate(createCourseSchema), courseController.create.bind(courseController));
+router.post('/for-child/:studentPublicId', requireRole(Role.PARENT), validate(createCourseSchema), courseController.createForChild.bind(courseController));
 router.get('/mine', requireRole(Role.STUDENT), courseController.getMine.bind(courseController));
 const STRUCTURE_ROLES = [Role.STUDENT, Role.PARENT, Role.TUTOR, Role.PRINCIPAL, Role.ADMIN, Role.SUPER_ADMIN];
 router.get('/:coursePublicId/materials/:kind/:materialPublicId/submissions', requireRole(Role.TUTOR), courseController.getMaterialSubmissions.bind(courseController));

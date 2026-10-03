@@ -24,20 +24,15 @@ export interface CurriculumSource {
 export interface Curriculum {
   publicId: string;
   country: string;
-  state: string;
-  countyFips: string;
-  county: string; // display name, derived server-side from countyFips
-  stateCode?: string; // USPS code; set on imported state curricula
-  districtId?: string; // absent on curricula not yet migrated to a district
-  district?: string;
-  grade: string; // 'High School' for imported high school courses
+  stateCode: string; // USPS code: a curriculum belongs to one state
+  grade: string; // 'High School' for high school courses
   subject: string;
   title: string;
   description?: string;
-  level?: 'KINDERGARTEN' | 'GRADE' | 'HIGH_SCHOOL';
+  level: 'KINDERGARTEN' | 'GRADE' | 'HIGH_SCHOOL';
   courseName?: string; // high school: the course (e.g. 'Algebra I')
   usualGrade?: string; // high school: lowest grade the course is taken in
-  topics: CurriculumTopic[];
+  topics: CurriculumTopic[]; // mirrors `chapters` (chapter ids)
   chapters?: CurriculumChapter[];
   source?: CurriculumSource;
   isPublished: boolean;
@@ -49,14 +44,26 @@ export interface StateCatalog {
   stateLoaded: boolean;
 }
 
+/** Chapters and topics as sent to the server; items with a publicId keep their identity. */
+export interface ChapterInput {
+  publicId?: string;
+  title: string;
+  topics: Array<{ publicId?: string; title: string }>;
+}
+
 export interface CreateCurriculumDto {
-  districtId: string;
+  stateCode: string;
   grade: string;
   subject: string;
   title: string;
   description?: string;
-  topics: Omit<CurriculumTopic, 'publicId'>[] & { publicId?: string }[];
+  courseName?: string;
+  usualGrade?: string;
+  chapters: ChapterInput[];
 }
+
+/** The state cannot be changed after creation. */
+export type UpdateCurriculumDto = Partial<Omit<CreateCurriculumDto, 'stateCode'>>;
 
 /** A tutor a student can request this curriculum from (GET /curricula/:id/tutors). */
 export interface CurriculumTutor {
@@ -69,19 +76,29 @@ export interface CurriculumTutor {
   isVerified: boolean;
 }
 
-export interface PaginatedCurricula {
-  items: Curriculum[];
-  pagination: { page: number; limit: number; total: number; totalPages: number };
+export interface AdminStateSummary { stateCode: string; total: number; published: number }
+
+export interface AdminCurriculumSummary {
+  publicId: string;
+  title: string;
+  subject: string;
+  grade: string;
+  level: Curriculum['level'];
+  courseName?: string;
+  usualGrade?: string;
+  isPublished: boolean;
+  chapterCount: number;
+  topicCount: number;
 }
 
 export interface AttachableCurriculum {
-  publicId: string; title: string; subject: string; grade: string; district?: string; state: string;
+  publicId: string; title: string; subject: string; grade: string; stateCode: string;
   topics: { publicId: string; title: string; order: number }[];
 }
 
 export interface CurriculumStructure {
-  curriculum: { publicId: string; title: string; subject: string; grade: string; district?: string; state?: string };
-  topics: Array<{ publicId: string; title: string; order: number; materials: StructureMaterial[] }>;
+  curriculum: { publicId: string; title: string; subject: string; grade: string; stateCode?: string };
+  topics: Array<{ publicId: string; title: string; order: number; materials: StructureMaterial[]; subTopics: CurriculumTopic[] }>;
 }
 
 export type MaterialKind = 'resource' | 'assignment' | 'worksheet';
@@ -95,14 +112,13 @@ export const curriculaService = {
 
   listAttachable: (): Promise<AttachableCurriculum[]> => api.get('/curricula/attachable').then((r) => r.data.data),
 
-  listCatalog: (params: { districtId?: string; grade?: string; subject?: string }): Promise<Curriculum[]> =>
-    api.get('/curricula', { params }).then((r) => r.data.data),
-
   getStateCatalog: (stateCode: string, grade?: string): Promise<StateCatalog> =>
     api.get('/curricula/catalog/state', { params: { stateCode, ...(grade ? { grade } : {}) } }).then((r) => r.data.data),
 
-  listForAdmin: (params: Record<string, string>): Promise<PaginatedCurricula> =>
-    api.get('/curricula', { params }).then((r) => r.data.data),
+  adminStates: (): Promise<AdminStateSummary[]> => api.get('/curricula/admin/states').then((r) => r.data.data),
+
+  adminOverview: (stateCode: string): Promise<AdminCurriculumSummary[]> =>
+    api.get('/curricula/admin/overview', { params: { stateCode } }).then((r) => r.data.data),
 
   getByPublicId: (curriculumPublicId: string): Promise<Curriculum> =>
     api.get(`/curricula/${curriculumPublicId}`).then((r) => r.data.data),
@@ -113,7 +129,7 @@ export const curriculaService = {
   create: (dto: CreateCurriculumDto): Promise<Curriculum> =>
     api.post('/curricula', dto).then((r) => r.data.data),
 
-  update: (curriculumPublicId: string, dto: Partial<CreateCurriculumDto>): Promise<Curriculum> =>
+  update: (curriculumPublicId: string, dto: UpdateCurriculumDto): Promise<Curriculum> =>
     api.put(`/curricula/${curriculumPublicId}`, dto).then((r) => r.data.data),
 
   remove: (curriculumPublicId: string): Promise<void> =>

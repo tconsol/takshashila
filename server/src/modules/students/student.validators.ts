@@ -43,6 +43,9 @@ export const createStudentByTutorSchema = z.object({
   // child's behalf; the server records who agreed, when and to which version.
   guardianConsent: z.literal(true, { errorMap: () => ({ message: 'A parent or guardian must agree to the Terms of Use and Privacy Policy for this child' }) }),
   notes:           z.string().max(2000).optional(),
+  // Where the student goes to school: decides which state curriculum and county programs they see.
+  state:           z.string().length(2).toUpperCase().optional(),
+  countyFips:      z.string().regex(/^\d{5}$/).optional(),
 });
 
 export type CreateStudentByTutorDto = z.infer<typeof createStudentByTutorSchema>;
@@ -73,6 +76,9 @@ export const createStudentByPrincipalSchema = z.object({
   // child's behalf; the server records who agreed, when and to which version.
   guardianConsent: z.literal(true, { errorMap: () => ({ message: 'A parent or guardian must agree to the Terms of Use and Privacy Policy for this child' }) }),
   notes:           z.string().max(2000).optional(),
+  // Where the student goes to school: decides which state curriculum and county programs they see.
+  state:           z.string().length(2).toUpperCase().optional(),
+  countyFips:      z.string().regex(/^\d{5}$/).optional(),
 });
 
 export type CreateStudentByPrincipalDto = z.infer<typeof createStudentByPrincipalSchema>;
@@ -97,6 +103,24 @@ export const createStudentByParentSchema = z.object({
   // child's behalf; the server records who agreed, when and to which version.
   guardianConsent: z.literal(true, { errorMap: () => ({ message: 'A parent or guardian must agree to the Terms of Use and Privacy Policy for this child' }) }),
   notes:           z.string().max(2000).optional(),
+  // Where the child goes to school: decides which state curriculum and county programs they see.
+  state:           z.string().length(2).toUpperCase().optional(),
+  countyFips:      z.string().regex(/^\d{5}$/).optional(),
 });
 
 export type CreateStudentByParentDto = z.infer<typeof createStudentByParentSchema>;
+
+/** Fields a parent may change on a linked child. An empty state clears the location. */
+export const updateChildByParentSchema = z.object({
+  firstName:  z.string().trim().min(1).max(50).optional(),
+  lastName:   z.string().trim().min(1).max(50).optional(),
+  grade:      z.union([z.enum(GRADE_LIST), z.literal("")]).optional(),
+  state:      z.union([z.string().length(2).toUpperCase(), z.literal("")]).optional(),
+  countyFips: z.string().regex(/^\d{5}$/).optional(),
+});
+
+/** A tutor or principal setting where one of their students goes to school. An empty state clears it. */
+export const setStudentLocationSchema = z.object({
+  state:      z.union([z.string().length(2).toUpperCase(), z.literal('')]).optional(),
+  countyFips: z.string().regex(/^\d{5}$/).optional(),
+});

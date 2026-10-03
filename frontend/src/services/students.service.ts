@@ -53,6 +53,8 @@ export interface CreateStudentDto {
   password: string;
   customStudentId?: string;
   grade?: string;
+  state?: string;
+  countyFips?: string;
   notes?: string;
   /** A parent or guardian agrees to the Terms of Use and Privacy Policy for this child. */
   guardianConsent: true;
@@ -67,6 +69,8 @@ export interface CreateStudentByPrincipalDto {
   tutorPublicId: string;
   customStudentId?: string;
   grade?: string;
+  state?: string;
+  countyFips?: string;
   notes?: string;
   /** A parent or guardian agrees to the Terms of Use and Privacy Policy for this child. */
   guardianConsent: true;
@@ -124,6 +128,10 @@ export interface StudentTutorLink {
 export const studentsService = {
   createStudent: (dto: CreateStudentDto) =>
     api.post<{ data: StudentProfile }>('/students', dto).then((r) => r.data.data),
+
+  /** A tutor, or a principal for their tutors' students, sets where a student goes to school. */
+  setLocation: (studentPublicId: string, dto: { state?: string; countyFips?: string }) =>
+    api.patch(`/students/${studentPublicId}/location`, dto).then((r) => r.data.data as StudentProfile),
 
 
   getMyProfile: () =>

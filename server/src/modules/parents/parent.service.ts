@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ParentProfileModel } from './parent.model';
+import { buildLocationUpdate } from '../geo/location-update';
 import { ParentLinkRequestModel } from './parent-link-request.model';
 import { StudentProfileModel } from '../students/student.model';
 import { userRepository } from '../users/user.repository';
@@ -196,7 +197,7 @@ export class ParentService {
   async updateChild(
     parentUserPublicId: string,
     studentPublicId: string,
-    dto: { firstName?: string; lastName?: string; grade?: string },
+    dto: { firstName?: string; lastName?: string; grade?: string; state?: string; countyFips?: string },
   ): Promise<void> {
     await this.assertChildAccess(parentUserPublicId, studentPublicId);
     const studentProfile = await StudentProfileModel.findOne({ publicId: studentPublicId, isDeleted: false }).lean();
@@ -210,6 +211,14 @@ export class ParentService {
     }
     if (dto.grade !== undefined) {
       await StudentProfileModel.updateOne({ publicId: studentPublicId }, { grade: dto.grade || undefined });
+    }
+    if (dto.state !== undefined || dto.countyFips !== undefined) {
+      // Where the child goes to school decides which state curriculum and county programs they see.
+      const { set, unset } = buildLocationUpdate({ state: dto.state, countyFips: dto.countyFips }, studentProfile.state);
+      const update: Record<string, unknown> = {};
+      if (Object.keys(set).length) update.$set = set;
+      if (Object.keys(unset).length) update.$unset = unset;
+      if (Object.keys(update).length) await StudentProfileModel.updateOne({ publicId: studentPublicId }, update);
     }
   }
 

@@ -5,6 +5,8 @@ export interface ICountyAddition {
   publicId: string;
   stateCode: string;
   county: string;
+  /** FIPS of the county this add-on belongs to; missing until the heading could be matched to a county. */
+  countyFips?: string;
   district: string;
   gradeFrom: number;
   gradeTo: number;
@@ -21,6 +23,7 @@ const countyAdditionSchema = new Schema<ICountyAddition>(
     publicId: { type: String, default: uuidv4, unique: true },
     stateCode: { type: String, required: true, uppercase: true, index: true },
     county: { type: String, required: true },
+    countyFips: { type: String, index: true },
     district: { type: String, default: '' },
     gradeFrom: { type: Number, required: true, min: 0, max: 12 },
     gradeTo: { type: Number, required: true, min: 0, max: 12 },

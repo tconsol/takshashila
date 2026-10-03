@@ -8,7 +8,7 @@ import { requireRole, requirePermission } from '../../middlewares/permission.mid
 import { validate } from '../../middlewares/validation.middleware';
 import { Permission } from '../../constants/permissions';
 import { Role } from '../../constants/roles';
-import { createStudentByTutorSchema, inviteExistingStudentSchema, createStudentByPrincipalSchema, inviteStudentByPrincipalSchema, updateMyStudentProfileSchema } from './student.validators';
+import { createStudentByTutorSchema, inviteExistingStudentSchema, createStudentByPrincipalSchema, inviteStudentByPrincipalSchema, updateMyStudentProfileSchema, setStudentLocationSchema } from './student.validators';
 import { parentService } from '../parents/parent.service';
 import { StudentProfileModel } from './student.model';
 import { NotFoundError } from '../../utils/error';
@@ -90,6 +90,13 @@ router.post('/:studentId/reject', requirePermission(Permission.MANAGE_STUDENTS),
 router.post('/:studentId/suspend', requirePermission(Permission.MANAGE_STUDENTS), studentController.suspendStudent.bind(studentController));
 router.post('/:studentId/transfer', requirePermission(Permission.MANAGE_STUDENTS), studentController.transferStudent.bind(studentController));
 router.delete('/:studentId/unlink', requireRole(Role.TUTOR, Role.PRINCIPAL), studentController.unlinkStudent.bind(studentController));
+
+router.patch('/:studentId/location', requireRole(Role.TUTOR, Role.PRINCIPAL), validate(setStudentLocationSchema), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const updated = await studentService.setStudentLocation(req.params.studentId, { userPublicId: req.user!.publicId, role: req.user!.role }, req.body);
+    sendSuccess(res, updated, 'Student location updated');
+  } catch (e) { next(e); }
+});
 
 router.patch('/:studentId/status', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

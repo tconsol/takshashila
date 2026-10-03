@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Mail, BookOpen, Users, BarChart3, MessageSquare,
-  UserPlus, Send, ArrowRightLeft, Search, Eye, EyeOff, Trash2, Copy, Check, CheckCircle2,
+  UserPlus, Send, ArrowRightLeft, Search, Eye, EyeOff, Trash2, Copy, Check, CheckCircle2, MapPin,
 } from 'lucide-react';
+import { StateCountyFields, type StateCounty } from '../../components/shared/StateCountyFields';
+import { StudentLocationModal } from '../../components/shared/StudentLocationModal';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Avatar } from '../../components/ui/Avatar';
@@ -57,6 +59,7 @@ export function PrincipalStudentsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [assignTarget, setAssignTarget] = useState<StudentProfile | null>(null);
+  const [locationTarget, setLocationTarget] = useState<{ publicId: string; name: string; state?: string; countyFips?: string } | null>(null);
   const [unlinkTarget, setUnlinkTarget] = useState<StudentProfile | null>(null);
   const [createdInfo, setCreatedInfo] = useState<{ studentId: string; firstName: string; contactEmail?: string } | null>(null);
 
@@ -199,6 +202,7 @@ export function PrincipalStudentsPage() {
                       {student.email && (
                         <p className="max-w-xs truncate text-xs text-slate-400">{student.email}</p>
                       )}
+                      <p className="text-xs text-slate-400">{student.county ? `${student.county}, ${student.state}` : student.state ?? 'No state set'}</p>
                     </td>
                     <td className="hidden px-3 py-3.5 text-center sm:table-cell">
                       <span className="text-sm text-slate-500">{student.grade ?? ''}</span>
@@ -226,6 +230,14 @@ export function PrincipalStudentsPage() {
                           title="View details"
                         >
                           <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setLocationTarget({ publicId: student.publicId, name, state: student.state, countyFips: student.countyFips })}
+                          className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+                          title="Set state and county"
+                          aria-label={`Set state and county for ${name}`}
+                        >
+                          <MapPin className="h-3.5 w-3.5" />
                         </button>
                         {student.status === 'ACTIVE' && (
                           <>
@@ -327,6 +339,8 @@ export function PrincipalStudentsPage() {
         }}
         loading={inviting}
       />
+
+      {locationTarget && <StudentLocationModal key={locationTarget.publicId} student={locationTarget} onClose={() => setLocationTarget(null)} />}
 
       {/* Assign Tutor Modal */}
       <AssignTutorModal
@@ -461,12 +475,13 @@ function CreateStudentModal({
   open: boolean;
   onClose: () => void;
   tutors: TutorOption[];
-  onCreate: (data: { firstName: string; lastName: string; contactEmail?: string; password: string; tutorPublicId: string; customStudentId?: string; grade?: string; notes?: string; guardianConsent: true }) => Promise<void>;
+  onCreate: (data: { firstName: string; lastName: string; contactEmail?: string; password: string; tutorPublicId: string; customStudentId?: string; grade?: string; state?: string; countyFips?: string; notes?: string; guardianConsent: true }) => Promise<void>;
   loading: boolean;
 }) {
   const [form, setForm] = useState({
     firstName: '', lastName: '', contactEmail: '', password: '', tutorPublicId: '', customStudentId: '', grade: '', notes: '',
   });
+  const [place, setPlace] = useState<StateCounty>({ state: '', countyFips: '' });
   const [error, setError] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [guardianAgreed, setGuardianAgreed] = useState(false);
@@ -490,9 +505,12 @@ function CreateStudentModal({
         tutorPublicId: form.tutorPublicId,
         customStudentId: form.customStudentId || undefined,
         grade: form.grade || undefined,
+        state: place.state || undefined,
+        countyFips: place.countyFips || undefined,
         notes: form.notes || undefined,
       });
       setForm({ firstName: '', lastName: '', contactEmail: '', password: '', tutorPublicId: '', customStudentId: '', grade: '', notes: '' });
+      setPlace({ state: '', countyFips: '' });
       setGuardianAgreed(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create student');
@@ -557,6 +575,8 @@ function CreateStudentModal({
           value={form.grade}
           onChange={set('grade')}
         />
+
+        <StateCountyFields value={place} onChange={setPlace} />
 
         <Input
           label="Custom Student ID (optional)"

@@ -30,7 +30,10 @@ export interface Course {
 
 export interface CreateCourseDto {
   curriculumPublicId: string;
+  /** Chapter ids (the server still calls them topic ids). */
   topicPublicIds: string[];
+  /** Individual topics ticked inside those chapters. */
+  pickedTopicPublicIds?: string[];
   tutorPublicId: string;
   availabilityWindow: AvailabilityWindow;
 }
@@ -66,12 +69,14 @@ export interface StructureTopic {
   nextClass?: ProgressClass;
   classes: ProgressClass[];
   materials: StructureMaterial[];
+  /** Topics inside this chapter (admin structure view only). */
+  subTopics?: Array<{ publicId: string; title: string; order: number }>;
 }
 
 export interface CourseStructure {
   viewerRole: 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
   course: { publicId: string; status: Course['status']; classesRequired: number; classesCompletedCount: number; tutorName: string; studentName: string };
-  curriculum: { publicId: string; title: string; subject: string; grade: string; district?: string; state?: string };
+  curriculum: { publicId: string; title: string; subject: string; grade: string; stateCode?: string };
   topics: StructureTopic[];
   otherClasses: ProgressClass[];
 }
@@ -87,6 +92,9 @@ export interface PaginatedCourses {
 export const coursesService = {
   create: (dto: CreateCourseDto): Promise<Course> =>
     api.post('/courses', dto).then((r) => r.data.data),
+
+  createForChild: (studentPublicId: string, dto: CreateCourseDto): Promise<Course> =>
+    api.post(`/courses/for-child/${studentPublicId}`, dto).then((r) => r.data.data),
 
   getMine: (params?: Record<string, string>): Promise<PaginatedCourses> =>
     api.get('/courses/mine', { params }).then((r) => r.data.data),

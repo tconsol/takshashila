@@ -15,15 +15,6 @@ describe('Curriculum model', () => {
     expect(doc.topics[0].title).toBe('Fractions');
     expect(doc.chapters[0].topics[0].publicId).toBeTruthy();
   });
-  it('still accepts a legacy district curriculum', () => {
-    const doc = new CurriculumModel({
-      ...base, state: 'CO', countyFips: '08031', county: 'Denver', districtId: 'd1', district: 'Denver 1',
-      topics: [{ title: 'Old topic', order: 1 }],
-    });
-    expect(doc.validateSync()).toBeUndefined();
-    expect(doc.topics).toHaveLength(1);
-    expect(doc.chapters).toHaveLength(0);
-  });
   it('accepts a High School course curriculum and rejects unknown levels', () => {
     const hs = new CurriculumModel({
       ...base, grade: 'High School', title: 'Mathematics - Algebra I - High School', stateCode: 'CO',
@@ -34,7 +25,12 @@ describe('Curriculum model', () => {
     expect(hs.usualGrade).toBe('Grade 9');
     expect(new CurriculumModel({ ...base, stateCode: 'CO', level: 'COLLEGE' }).validateSync()).toBeDefined();
   });
-  it('rejects a document with neither stateCode nor districtId', () => {
-    expect(new CurriculumModel({ ...base }).validateSync()).toBeDefined();
+  it('requires a stateCode and a level (there is no district any more)', () => {
+    const err = new CurriculumModel({ ...base }).validateSync();
+    expect(Object.keys(err!.errors)).toEqual(expect.arrayContaining(['stateCode', 'level']));
+  });
+  it('has no district or county fields', () => {
+    const paths = Object.keys(CurriculumModel.schema.paths);
+    for (const gone of ['districtId', 'district', 'countyFips', 'county', 'state']) expect(paths).not.toContain(gone);
   });
 });

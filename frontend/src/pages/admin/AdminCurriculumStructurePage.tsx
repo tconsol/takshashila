@@ -33,7 +33,7 @@ export function AdminCurriculumStructurePage() {
       <PageHeader
         eyebrow="Curriculum structure"
         title={data.curriculum.title}
-        description={`${data.curriculum.subject} · ${data.curriculum.grade}${data.curriculum.district ? ` · ${data.curriculum.district}` : ''}`}
+        description={`${data.curriculum.subject} · ${data.curriculum.grade}${data.curriculum.stateCode ? ` · ${data.curriculum.stateCode}` : ''}`}
         icon={<GraduationCap className="h-5 w-5" />}
       />
       <Card>

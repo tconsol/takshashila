@@ -21,6 +21,8 @@ export interface ICourse {
   tutorPublicId: string;
   curriculumPublicId: string;
   topicPublicIds: string[];
+  /** Individual topics (inside the chosen chapters) the student picked; empty = whole chapters. */
+  pickedTopicPublicIds?: string[];
   availabilityWindow: IAvailabilityWindow;
   status: CourseStatus;
   classesRequired?: number;

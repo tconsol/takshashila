@@ -21,7 +21,7 @@ jest.mock('../../middlewares/auth.middleware', () => {
 const chain = (v: unknown) => ({ sort: () => ({ limit: () => ({ lean: () => Promise.resolve(v) }) }) });
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
 const algebra = {
-  publicId: 'cur-1', title: 'Algebra I', subject: 'Mathematics', grade: 'Grade 8', district: 'Wake', state: 'NC',
+  publicId: 'cur-1', title: 'Algebra I', subject: 'Mathematics', grade: 'Grade 8', stateCode: 'NC',
   isPublished: true, isDeleted: false,
   topics: [{ publicId: 't-1', title: 'Linear', order: 0 }, { publicId: 't-2', title: 'Quadratic', order: 1 }],
 };
@@ -55,7 +55,7 @@ describe('listAttachableCurricula', () => {
     const subjects = (filter.subject as { $in: RegExp[] }).$in;
     expect(subjects.some((r) => r.test('Mathematics'))).toBe(true);
     expect(result[0]).toEqual({
-      publicId: 'cur-1', title: 'Algebra I', subject: 'Mathematics', grade: 'Grade 8', district: 'Wake', state: 'NC',
+      publicId: 'cur-1', title: 'Algebra I', subject: 'Mathematics', grade: 'Grade 8', stateCode: 'NC',
       topics: [{ publicId: 't-1', title: 'Linear', order: 0 }, { publicId: 't-2', title: 'Quadratic', order: 1 }],
     });
   });

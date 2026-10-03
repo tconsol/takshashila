@@ -1,6 +1,7 @@
 import argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import { studentRepository } from './student.repository';
+import { buildLocationUpdate } from '../geo/location-update';
 import { StudentProfileModel } from './student.model';
 import { StudentStatus } from './student.types';
 import type { IStudentProfile, TransferStudentDto } from './student.types';
@@ -162,6 +163,8 @@ export class StudentService {
   ): Promise<IStudentProfile & { firstName: string; lastName: string; studentId: string; contactEmail?: string }> {
     const { tutorService } = await import('../tutors/tutor.service');
     const tutorProfile = await tutorService.getByUserPublicId(tutorUserPublicId);
+    // Checked first so a bad county never leaves a half-created account behind.
+    const location = buildLocationUpdate({ state: dto.state, countyFips: dto.countyFips }).set;
 
     // Validate custom studentId uniqueness
     if (dto.customStudentId) {
@@ -213,6 +216,7 @@ export class StudentService {
       totalClassesBooked: 0,
       attendanceRate: 0,
       grade: dto.grade,
+      ...location,
       notes: dto.notes,
       invitedBy: tutorUserPublicId,
       approvedBy: tutorUserPublicId,
@@ -755,6 +759,8 @@ export class StudentService {
     if (tutor.principalPublicId !== principalUserPublicId) {
       throw new AppError('This tutor does not belong to your organization', 403);
     }
+    // Checked first so a bad county never leaves a half-created account behind.
+    const location = buildLocationUpdate({ state: dto.state, countyFips: dto.countyFips }).set;
 
     if (dto.customStudentId) {
       const taken = await userRepository.existsByStudentId(dto.customStudentId);
@@ -804,6 +810,7 @@ export class StudentService {
       totalClassesBooked: 0,
       attendanceRate: 0,
       grade: dto.grade,
+      ...location,
       notes: dto.notes,
       invitedBy: principalUserPublicId,
       approvedBy: principalUserPublicId,
@@ -916,6 +923,8 @@ export class StudentService {
     parentUserPublicId: string,
     dto: CreateStudentByParentDto,
   ): Promise<IStudentProfile & { firstName: string; lastName: string; studentId: string }> {
+    // Checked first so a bad county never leaves a half-created account behind.
+    const location = buildLocationUpdate({ state: dto.state, countyFips: dto.countyFips }).set;
     if (dto.customStudentId) {
       const taken = await userRepository.existsByStudentId(dto.customStudentId);
       if (taken) throw new ConflictError('This Student ID is already in use');
@@ -964,6 +973,7 @@ export class StudentService {
       totalClassesBooked: 0,
       attendanceRate: 0,
       grade: dto.grade,
+      ...location,
       notes: dto.notes,
       contactEmail: parentUser?.email && !parentUser.email.endsWith('@student.internal') ? parentUser.email : undefined,
       invitedBy: parentUserPublicId,
@@ -1023,6 +1033,26 @@ export class StudentService {
     const updated = await studentRepository.update(studentPublicId, { status: newStatus as StudentStatus });
     if (!updated) throw new NotFoundError('Student profile');
     await adjustCountersForStatusChange(profile.status, newStatus as StudentStatus, profile.tutorPublicId, await principalOfTutor(profile.tutorPublicId));
+    return updated;
+  }
+
+  /** A tutor, or a principal for their tutors' students, sets where one of their students goes to school. */
+  async setStudentLocation(
+    studentPublicId: string,
+    actor: StudentActor,
+    input: { state?: string; countyFips?: string },
+  ): Promise<IStudentProfile> {
+    const profile = await studentRepository.findByPublicId(studentPublicId);
+    if (!profile) throw new NotFoundError('Student profile');
+    await assertActorCanManageStudent(profile, actor);
+    const { set, unset } = buildLocationUpdate(input, profile.state);
+    const update: Record<string, unknown> = {};
+    if (Object.keys(set).length) update.$set = set;
+    if (Object.keys(unset).length) update.$unset = unset;
+    const updated = Object.keys(update).length
+      ? await StudentProfileModel.findOneAndUpdate({ publicId: studentPublicId, isDeleted: false }, update, { new: true }).lean()
+      : profile;
+    if (!updated) throw new NotFoundError('Student profile');
     return updated;
   }
 

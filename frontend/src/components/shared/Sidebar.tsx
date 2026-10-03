@@ -131,6 +131,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   PARENT: [
     { label: 'Overview',        href: '/dashboard/parent',               icon: LayoutDashboard },
     { label: 'My Children',     href: '/dashboard/parent/children',      icon: Heart },
+    { label: 'Curriculum',      href: '/dashboard/parent/curriculum',    icon: BookOpen },
     { label: 'Courses',         href: '/dashboard/parent/courses',       icon: GraduationCap },
     { label: 'Find Tutors',     href: '/dashboard/parent/tutors',        icon: GraduationCap },
     { label: 'Find Principals', href: '/dashboard/parent/principals',    icon: Building2 },

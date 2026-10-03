@@ -2,26 +2,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { curriculaService } from '../services/curricula.service';
 import type { MaterialKind } from '../services/curricula.service';
-import type { CreateCurriculumDto } from '../services/curricula.service';
+import type { CreateCurriculumDto, UpdateCurriculumDto } from '../services/curricula.service';
 import { useToast } from '../components/ui/Toast';
 
 export const curriculumKeys = {
   all: ['curricula'] as const,
-  catalog: (params?: Record<string, string>) => [...curriculumKeys.all, 'catalog', params] as const,
-  admin: (params?: Record<string, string>) => [...curriculumKeys.all, 'admin', params] as const,
   detail: (id: string) => [...curriculumKeys.all, 'detail', id] as const,
   tutors: (id: string) => [...curriculumKeys.all, 'tutors', id] as const,
   attachable: ['curricula', 'attachable'] as const,
 };
-
-/** No `grade` = the "All grades" view of the district. */
-export function useCurriculumCatalog(params: { districtId?: string; grade?: string; subject?: string }) {
-  return useQuery({
-    queryKey: curriculumKeys.catalog({ districtId: params.districtId ?? '', grade: params.grade ?? 'all', subject: params.subject ?? '' }),
-    queryFn: () => curriculaService.listCatalog(params),
-    enabled: !!params.districtId,
-  });
-}
 
 /** State-based catalog; no `grade` = all grades. */
 export function useStateCatalog(stateCode: string | undefined, grade?: string) {
@@ -32,10 +21,17 @@ export function useStateCatalog(stateCode: string | undefined, grade?: string) {
   });
 }
 
-export function useAdminCurricula(params?: Record<string, string>) {
+/** Admin: states that have curricula. */
+export function useAdminStates() {
+  return useQuery({ queryKey: [...curriculumKeys.all, 'admin-states'] as const, queryFn: curriculaService.adminStates });
+}
+
+/** Admin: every curriculum of a state in a light form. */
+export function useAdminOverview(stateCode: string | undefined) {
   return useQuery({
-    queryKey: curriculumKeys.admin(params),
-    queryFn: () => curriculaService.listForAdmin(params ?? {}),
+    queryKey: [...curriculumKeys.all, 'admin-overview', stateCode ?? ''] as const,
+    queryFn: () => curriculaService.adminOverview(stateCode!),
+    enabled: !!stateCode,
   });
 }
 
@@ -72,7 +68,7 @@ export function useUpdateCurriculum() {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: ({ curriculumPublicId, dto }: { curriculumPublicId: string; dto: Partial<CreateCurriculumDto> }) =>
+    mutationFn: ({ curriculumPublicId, dto }: { curriculumPublicId: string; dto: UpdateCurriculumDto }) =>
       curriculaService.update(curriculumPublicId, dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: curriculumKeys.all });

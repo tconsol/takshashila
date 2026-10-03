@@ -23,8 +23,10 @@ import type { ClassRecord } from '../../services/classes.service';
 import { useStartConversation } from '../../features/chat/use-chat';
 import {
   UserPlus, GraduationCap, BookOpen, Eye, EyeOff, Search,
-  Trash2, Copy, Check, CheckCircle2, ToggleLeft, ToggleRight, MessageSquare, ArrowRight,
+  Trash2, Copy, Check, CheckCircle2, ToggleLeft, ToggleRight, MessageSquare, ArrowRight, MapPin,
 } from 'lucide-react';
+import { StateCountyFields, type StateCounty } from '../../components/shared/StateCountyFields';
+import { StudentLocationModal } from '../../components/shared/StudentLocationModal';
 import { GRADE_OPTIONS, GRADE_LIST } from '../../constants/grades';
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'default' | 'danger'> = {
@@ -72,6 +74,8 @@ export function TutorStudentsPage() {
   const [createdInfo, setCreatedInfo]     = useState<{ studentId: string; firstName: string; contactEmail?: string } | null>(null);
 
   const [guardianAgreed, setGuardianAgreed] = useState(false);
+  const [place, setPlace] = useState<StateCounty>({ state: '', countyFips: '' });
+  const [locationTarget, setLocationTarget] = useState<{ publicId: string; name: string; state?: string; countyFips?: string } | null>(null);
   const [form, setForm] = useState({
     firstName: '', lastName: '', contactEmail: '', phone: '',
     password: '', grade: '', customStudentId: '', notes: '',
@@ -149,6 +153,8 @@ export function TutorStudentsPage() {
         phone: form.phone || undefined,
         password: form.password,
         grade: form.grade as typeof GRADE_LIST[number] || undefined,
+        state: place.state || undefined,
+        countyFips: place.countyFips || undefined,
         customStudentId: form.customStudentId || undefined,
         notes: form.notes || undefined,
       }) as unknown as { studentId?: string };
@@ -158,6 +164,7 @@ export function TutorStudentsPage() {
         contactEmail: form.contactEmail || undefined,
       });
       setForm({ firstName: '', lastName: '', contactEmail: '', phone: '', password: '', grade: '', customStudentId: '', notes: '' });
+      setPlace({ state: '', countyFips: '' });
       setGuardianAgreed(false);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } }; message?: string };
@@ -248,6 +255,7 @@ export function TutorStudentsPage() {
                         {student.notes && (
                           <p className="text-xs text-ink-faint truncate max-w-xs mt-0.5 italic">{student.notes}</p>
                         )}
+                        <p className="text-xs text-ink-faint mt-0.5">{student.county ? `${student.county}, ${student.state}` : student.state ?? 'No state set'}</p>
                       </td>
                       <td className="px-3 py-3.5 text-center">
                         <span className="text-sm text-ink-muted">{student.grade ?? ''}</span>
@@ -274,6 +282,14 @@ export function TutorStudentsPage() {
                             className="flex h-7 w-7 items-center justify-center rounded border border-rule bg-surface-sunk text-ink-muted hover:text-accent hover:border-accent/40 transition-colors"
                           >
                             <MessageSquare className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setLocationTarget({ publicId: student.publicId, name, state: student.state, countyFips: student.countyFips })}
+                            title="Set state and county"
+                            aria-label={`Set state and county for ${name}`}
+                            className="flex h-7 w-7 items-center justify-center rounded border border-rule bg-surface-sunk text-ink-muted hover:text-accent hover:border-accent/40 transition-colors"
+                          >
+                            <MapPin className="h-3.5 w-3.5" />
                           </button>
                           {/* Active / Inactive toggle */}
                           {(student.status === 'ACTIVE' || student.status === 'INACTIVE') && (
@@ -522,6 +538,8 @@ export function TutorStudentsPage() {
               onChange={set('grade')}
             />
 
+            <StateCountyFields value={place} onChange={setPlace} />
+
             <Input
               label="Custom Student ID (optional)"
               placeholder="e.g. stujs1234 leave blank to auto-generate"
@@ -605,6 +623,7 @@ export function TutorStudentsPage() {
           Remove this student from your account? Their account won't be deleted they can be re-linked later.
         </p>
       </Modal>
+      {locationTarget && <StudentLocationModal key={locationTarget.publicId} student={locationTarget} onClose={() => setLocationTarget(null)} />}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 // server/src/modules/curricula/curriculum-attachment.ts
 import { CurriculumModel } from './curriculum.model';
 import { NotFoundError, ValidationError } from '../../utils/error';
-import { normalizeSubject } from '../../utils/taxonomy';
+import { curriculumSubjectFor } from '../../utils/taxonomy';
 import { curriculumGradesForTutor } from '../../utils/grades';
 
 export interface AttachableCurriculum {
@@ -9,8 +9,7 @@ export interface AttachableCurriculum {
   title: string;
   subject: string;
   grade: string;
-  district?: string;
-  state: string;
+  stateCode: string;
   topics: { publicId: string; title: string; order: number }[];
 }
 
@@ -20,7 +19,7 @@ export interface AttachmentFields { curriculumPublicId: string; topicPublicIds: 
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const subjectMatcher = (subjects: string[]) =>
-  subjects.map((s) => new RegExp(`^${escape(normalizeSubject(s))}$`, 'i'));
+  [...new Set(subjects.map(curriculumSubjectFor))].map((s) => new RegExp(`^${escape(s)}$`, 'i'));
 
 /** Published curricula whose subject the tutor teaches (and grade, when grades are set). */
 export async function listAttachableCurricula(tutor: TutorScope): Promise<AttachableCurriculum[]> {
@@ -37,8 +36,7 @@ export async function listAttachableCurricula(tutor: TutorScope): Promise<Attach
     title: c.title,
     subject: c.subject,
     grade: c.grade,
-    district: c.district!,
-    state: c.state!,
+    stateCode: c.stateCode,
     topics: [...c.topics]
       .sort((a, b) => a.order - b.order)
       .map((t) => ({ publicId: t.publicId, title: t.title, order: t.order })),
@@ -58,9 +56,9 @@ export async function resolveTutorAttachment(tutor: TutorScope, input: Attachmen
   if (!input.curriculumPublicId) throw new ValidationError({ curriculumPublicId: ['Pick a curriculum'] });
   if (!input.topicPublicIds?.length) throw new ValidationError({ topicPublicIds: ['Pick at least one topic'] });
   const curriculum = await CurriculumModel.findOne({ publicId: input.curriculumPublicId, isPublished: true, isDeleted: false }).lean();
-  const subjects = new Set(tutor.subjects.map((s) => normalizeSubject(s).toLowerCase()));
+  const subjects = new Set(tutor.subjects.map((s) => curriculumSubjectFor(s).toLowerCase()));
   const gradeOk = !tutor.gradesTaught?.length || (curriculum && curriculumGradesForTutor(tutor.gradesTaught).includes(curriculum.grade));
-  if (!curriculum || !subjects.has(normalizeSubject(curriculum.subject).toLowerCase()) || !gradeOk) {
+  if (!curriculum || !subjects.has(curriculumSubjectFor(curriculum.subject).toLowerCase()) || !gradeOk) {
     throw new ValidationError({ curriculumPublicId: ['You can only attach to published curricula for subjects and grades you teach'] });
   }
   const topicPublicIds = checkTopics(input.topicPublicIds, new Set(curriculum.topics.map((t) => t.publicId)));

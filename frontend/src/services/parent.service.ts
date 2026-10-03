@@ -13,6 +13,10 @@ export interface ChildStudent {
   tutorPublicId: string;
   status: string;
   grade?: string;
+  /** USPS state code from the child's profile. */
+  state?: string;
+  countyFips?: string;
+  county?: string;
   firstName: string;
   lastName: string;
   totalClassesAttended: number;
@@ -78,6 +82,8 @@ export interface CreateChildDto {
   password: string;
   customStudentId?: string;
   grade?: string;
+  state?: string;
+  countyFips?: string;
   notes?: string;
 }
 
@@ -136,7 +142,7 @@ export const parentService = {
   requestLinkChild: (studentPublicId: string) =>
     api.post('/parents/me/children/request', { studentPublicId }).then(() => null),
 
-  updateChild: (studentPublicId: string, dto: { firstName?: string; lastName?: string; grade?: string }) =>
+  updateChild: (studentPublicId: string, dto: { firstName?: string; lastName?: string; grade?: string; state?: string; countyFips?: string }) =>
     api.patch(`/parents/me/children/${studentPublicId}`, dto).then(() => null),
 
   unlinkChild: (studentPublicId: string) =>

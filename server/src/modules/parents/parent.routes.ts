@@ -7,7 +7,7 @@ import { Role } from '../../constants/roles';
 import { parentService } from './parent.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
 import { validate } from '../../middlewares/validation.middleware';
-import { createStudentByParentSchema } from '../students/student.validators';
+import { createStudentByParentSchema, updateChildByParentSchema } from '../students/student.validators';
 
 const router = Router();
 router.use(authMiddleware);
@@ -55,7 +55,7 @@ router.post('/me/children/request', async (req: AuthRequest, res: Response, next
   } catch (e) { next(e); }
 });
 
-router.patch('/me/children/:studentPublicId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.patch('/me/children/:studentPublicId', validate(updateChildByParentSchema), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await parentService.updateChild(req.user!.publicId, req.params.studentPublicId, req.body);
     sendSuccess(res, null, 'Child updated');

@@ -71,8 +71,7 @@ export const curriculumSummary = (c: ICurriculum) => ({
   title: c.title,
   subject: c.subject,
   grade: c.grade,
-  district: c.district,
-  state: c.state,
+  stateCode: c.stateCode,
 });
 
 export async function getCurriculumStructure(curriculumPublicId: string) {
@@ -81,9 +80,19 @@ export async function getCurriculumStructure(curriculumPublicId: string) {
   const byTopic = await loadMaterialsByTopic({ curriculumPublicId, isDeleted: false });
   return {
     curriculum: curriculumSummary(curriculum),
+    // Imported curricula keep their real topics inside `chapters`; the flat `topics` list mirrors the chapters.
+    // Each entry carries its nested `subTopics` so the admin view can show them.
     topics: [...curriculum.topics]
       .sort((a, b) => a.order - b.order)
-      .map((t) => ({ publicId: t.publicId, title: t.title, order: t.order, materials: byTopic.get(t.publicId) ?? [] })),
+      .map((t) => ({
+        publicId: t.publicId,
+        title: t.title,
+        order: t.order,
+        materials: byTopic.get(t.publicId) ?? [],
+        subTopics: [...(curriculum.chapters?.find((c) => c.publicId === t.publicId)?.topics ?? [])]
+          .sort((a, b) => a.order - b.order)
+          .map((s) => ({ publicId: s.publicId, title: s.title, order: s.order })),
+      })),
   };
 }
 export type CurriculumStructure = Awaited<ReturnType<typeof getCurriculumStructure>>;

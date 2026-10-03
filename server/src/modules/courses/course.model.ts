@@ -19,6 +19,7 @@ const courseSchema = new Schema<ICourse>(
     tutorPublicId: { type: String, required: true, index: true },
     curriculumPublicId: { type: String, required: true, index: true },
     topicPublicIds: [{ type: String }],
+    pickedTopicPublicIds: [{ type: String }],
     availabilityWindow: { type: availabilityWindowSchema, required: true },
     status: {
       type: String,

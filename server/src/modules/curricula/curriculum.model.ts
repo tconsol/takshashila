@@ -25,24 +25,13 @@ const curriculumSchema = new Schema<ICurriculum>(
   {
     publicId: { type: String, default: uuidv4, unique: true, index: true },
     country: { type: String, required: true, default: 'US' },
-    state: { type: String, required: false, index: true },
-    countyFips: { type: String, required: false, index: true },
-    county: { type: String, required: false }, // display name, derived from countyFips
-    districtId: { type: String, required: false, index: true },
-    district: { type: String, required: false }, // display name, derived from districtId
+    stateCode: { type: String, required: true, index: true, uppercase: true },
     grade: { type: String, required: true, index: true },
     subject: { type: String, required: true },
     title: { type: String, required: true },
     description: { type: String },
     topics: [curriculumTopicSchema],
-    stateCode: {
-      type: String,
-      index: true,
-      uppercase: true,
-      // sync rule so validateSync() enforces it too (pre('validate') hooks do not run there)
-      required: [function (this: { districtId?: string }) { return !this.districtId; }, 'A curriculum needs a stateCode or a districtId'],
-    },
-    level: { type: String, enum: ['KINDERGARTEN', 'GRADE', 'HIGH_SCHOOL'] },
+    level: { type: String, enum: ['KINDERGARTEN', 'GRADE', 'HIGH_SCHOOL'], required: true },
     courseName: { type: String },
     usualGrade: { type: String },
     source: {
@@ -69,7 +58,6 @@ const curriculumSchema = new Schema<ICurriculum>(
 );
 
 curriculumSchema.pre('validate', function (next) {
-  if (!this.stateCode && !this.districtId) return next(new Error('A curriculum needs a stateCode or a districtId'));
   if (this.chapters && this.chapters.length > 0) {
     this.topics = this.chapters.map((c) => ({ publicId: c.publicId, title: c.title, order: c.order })) as never;
   }
@@ -77,6 +65,5 @@ curriculumSchema.pre('validate', function (next) {
 });
 
 curriculumSchema.index({ stateCode: 1, grade: 1, subject: 1, isPublished: 1 });
-curriculumSchema.index({ districtId: 1, grade: 1, isPublished: 1 });
 
 export const CurriculumModel = mongoose.model<ICurriculum>('Curriculum', curriculumSchema, 'curricula');

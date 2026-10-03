@@ -51,6 +51,20 @@ export function useCreateCourse() {
   });
 }
 
+export function useCreateCourseForChild() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({ studentPublicId, dto }: { studentPublicId: string; dto: CreateCourseDto }) =>
+      coursesService.createForChild(studentPublicId, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: courseKeys.all });
+      toast.success('Course sent to tutor', 'The tutor will review and respond shortly.');
+    },
+    onError: (err: Error) => toast.error('Could not send course', err.message),
+  });
+}
+
 export function useAcceptCourse() {
   const qc = useQueryClient();
   const toast = useToast();

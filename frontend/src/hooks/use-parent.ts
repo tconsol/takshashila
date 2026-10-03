@@ -87,7 +87,7 @@ export function useUnlinkChild() {
 export function useUpdateChild() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ studentPublicId, ...dto }: { studentPublicId: string; firstName?: string; lastName?: string; grade?: string }) =>
+    mutationFn: ({ studentPublicId, ...dto }: { studentPublicId: string; firstName?: string; lastName?: string; grade?: string; state?: string; countyFips?: string }) =>
       parentService.updateChild(studentPublicId, dto),
     onSuccess: () => qc.invalidateQueries({ queryKey: parentKeys.children() }),
   });

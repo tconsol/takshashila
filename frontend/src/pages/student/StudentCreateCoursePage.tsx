@@ -1,42 +1,48 @@
 // frontend/src/pages/student/StudentCreateCoursePage.tsx
+//
+// Last step of "bundle chapters/topics into a course": shows the selection made on the curriculum
+// page, then tutor + availability. Also used by parents (route has :studentPublicId), who request
+// the course for one of their children.
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { CheckSquare, Square, BookOpen, Star, BadgeCheck, UserX } from 'lucide-react';
+import { Link, Navigate, useLocation, useParams, useNavigate } from 'react-router-dom';
+import { BookOpen, Star, BadgeCheck, UserX } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { useCurriculum, useCurriculumTutors } from '../../hooks/use-curricula';
-import { useCreateCourse } from '../../hooks/use-courses';
+import { useCreateCourse, useCreateCourseForChild } from '../../hooks/use-courses';
 import { formatCurrency } from '../../utils/currency';
+import type { CourseSelection } from '../../features/curriculum/CurriculumBrowser';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function StudentCreateCoursePage() {
-  const { curriculumPublicId } = useParams<{ curriculumPublicId: string }>();
+  const { curriculumPublicId, studentPublicId } = useParams<{ curriculumPublicId: string; studentPublicId?: string }>();
+  const forChild = !!studentPublicId;
+  const browseHref = forChild ? `/dashboard/parent/curriculum?child=${studentPublicId}` : '/dashboard/student/curriculum';
+  const doneHref = forChild ? '/dashboard/parent/courses' : '/dashboard/student/courses';
   const navigate = useNavigate();
+  const selection = useLocation().state as CourseSelection | null;
   const { data: curriculum, isLoading } = useCurriculum(curriculumPublicId);
   const { data: tutors, isLoading: tutorsLoading } = useCurriculumTutors(curriculumPublicId);
-  const { mutate: createRequest, isPending } = useCreateCourse();
+  const own = useCreateCourse();
+  const forKid = useCreateCourseForChild();
+  const isPending = forChild ? forKid.isPending : own.isPending;
 
-  const [selectedTopics, setSelectedTopics] = useState<Set<string>>(new Set());
   const [tutorPublicId, setTutorPublicId] = useState('');
   // Start with no day chosen: tapping a day switches it ON, which is what people expect.
   const [days, setDays] = useState<Set<number>>(new Set());
   const [startLocalTime, setStartLocalTime] = useState('16:00');
   const [endLocalTime, setEndLocalTime] = useState('19:00');
 
+  // Opened without a selection (a bookmark, a refresh): go back and choose chapters/topics first.
+  if (!selection || selection.curriculumPublicId !== curriculumPublicId || selection.chapterPublicIds.length === 0) {
+    return <Navigate to={browseHref} replace />;
+  }
   if (isLoading || !curriculum) {
     return <div className="flex justify-center py-16"><Spinner /></div>;
   }
-
-  const toggleTopic = (id: string) => {
-    setSelectedTopics((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
 
   const toggleDay = (day: number) => {
     setDays((prev) => {
@@ -46,7 +52,11 @@ export function StudentCreateCoursePage() {
     });
   };
 
-  const canSubmit = selectedTopics.size > 0 && !!tutorPublicId && days.size > 0;
+  const canSubmit = !!tutorPublicId && days.size > 0;
+
+  const chosen = (curriculum.chapters?.length ? curriculum.chapters : curriculum.topics.map((t) => ({ ...t, topics: [] })))
+    .filter((ch) => selection.chapterPublicIds.includes(ch.publicId))
+    .sort((a, b) => a.order - b.order);
 
   return (
     <div className="animate-fade-in">
@@ -54,24 +64,25 @@ export function StudentCreateCoursePage() {
 
       <Card className="mb-4">
         <CardContent>
-          <p className="text-sm font-semibold mb-3">Select the topics you want covered</p>
-          <div className="space-y-2">
-            {[...curriculum.topics].sort((a, b) => a.order - b.order).map((topic) => (
-              <button
-                key={topic.publicId}
-                type="button"
-                onClick={() => toggleTopic(topic.publicId)}
-                className="flex w-full items-center gap-2 rounded-lg border border-gray-100 dark:border-gray-800 p-3 text-left hover:border-brand-300"
-              >
-                {selectedTopics.has(topic.publicId) ? (
-                  <CheckSquare className="h-4 w-4 text-brand-600" />
-                ) : (
-                  <Square className="h-4 w-4 text-gray-400" />
-                )}
-                <span className="text-sm text-gray-800 dark:text-gray-200">{topic.title}</span>
-              </button>
-            ))}
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold">Your course</p>
+            <Link to={browseHref} className="text-xs text-brand-600 hover:underline">Change selection</Link>
           </div>
+          <ul className="space-y-2">
+            {chosen.map((ch) => {
+              const topics = ch.topics.filter((t) => selection.topicPublicIds.includes(t.publicId));
+              return (
+                <li key={ch.publicId} className="rounded-lg border border-rule p-3">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{ch.title}</p>
+                  {topics.length > 0 && (
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-gray-600 dark:text-gray-400">
+                      {topics.map((t) => <li key={t.publicId}>{t.title}</li>)}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </CardContent>
       </Card>
 
@@ -80,7 +91,7 @@ export function StudentCreateCoursePage() {
           <p className="text-sm font-semibold mb-1">Choose a tutor</p>
           <p className="mb-3 text-xs text-gray-500">
             Every class is 60 minutes and costs the tutor's hourly rate shown below. The tutor decides how many classes your topics need,
-            and the whole amount (rate × number of classes) is taken from your wallet when they accept. Free demo credits
+            and the whole amount (rate × number of classes) is taken from {forChild ? "your child's" : 'your'} wallet when they accept. Free demo credits
             cannot be used for this. Nothing is charged until then.
           </p>
           {tutorsLoading ? (
@@ -131,7 +142,7 @@ export function StudentCreateCoursePage() {
 
       <Card className="mb-4">
         <CardContent>
-          <p className="text-sm font-semibold mb-3">When are you free?</p>
+          <p className="text-sm font-semibold mb-3">When {forChild ? 'is your child' : 'are you'} free?</p>
           <div className="flex gap-1.5 mb-3">
             {DAY_LABELS.map((label, i) => (
               <button
@@ -145,7 +156,7 @@ export function StudentCreateCoursePage() {
             ))}
           </div>
           <p className="mb-3 -mt-1 text-xs text-gray-500">
-            {days.size === 0 ? 'Tap the days you are free (highlighted days are on).' : 'Highlighted days are the ones you are free.'}
+            {days.size === 0 ? 'Tap the available days (highlighted days are on).' : 'Highlighted days are the available ones.'}
           </p>
           <div className="flex items-center gap-2">
             <input type="time" value={startLocalTime} onChange={(e) => setStartLocalTime(e.target.value)} className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
@@ -159,22 +170,23 @@ export function StudentCreateCoursePage() {
         variant="gradient"
         disabled={!canSubmit}
         loading={isPending}
-        onClick={() =>
-          createRequest(
-            {
-              curriculumPublicId: curriculum.publicId,
-              topicPublicIds: [...selectedTopics],
-              tutorPublicId,
-              availabilityWindow: {
-                daysOfWeek: [...days],
-                startLocalTime,
-                endLocalTime,
-                ianaTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              },
+        onClick={() => {
+          const dto = {
+            curriculumPublicId: curriculum.publicId,
+            topicPublicIds: selection.chapterPublicIds,
+            pickedTopicPublicIds: selection.topicPublicIds,
+            tutorPublicId,
+            availabilityWindow: {
+              daysOfWeek: [...days],
+              startLocalTime,
+              endLocalTime,
+              ianaTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             },
-            { onSuccess: () => navigate('/dashboard/student/courses') },
-          )
-        }
+          };
+          const onSuccess = () => navigate(doneHref);
+          if (forChild) forKid.mutate({ studentPublicId: studentPublicId!, dto }, { onSuccess });
+          else own.mutate(dto, { onSuccess });
+        }}
       >
         Send course to tutor
       </Button>

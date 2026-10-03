@@ -11,6 +11,13 @@ export class CourseController {
     } catch (error) { next(error); }
   }
 
+  async createForChild(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await courseService.createForChild(req.user!.publicId, req.params.studentPublicId, req.body);
+      sendCreated(res, result, 'Course sent to tutor');
+    } catch (error) { next(error); }
+  }
+
   async getMine(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await courseService.getForStudent(req.user!.publicId, req.query as Record<string, string>);

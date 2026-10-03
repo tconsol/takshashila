@@ -46,25 +46,32 @@ describe('GET /geo', () => {
   });
 });
 
-describe('POST /curricula location validation', () => {
+describe('POST /curricula state validation', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  const body = { grade: 'Grade 8', subject: 'Math', title: 'Algebra I', topics: [] };
+  const body = { grade: 'Grade 8', subject: 'Math', title: 'Algebra I', chapters: [] };
 
-  it('422s an unknown district', async () => {
+  it('422s an unknown state', async () => {
     const createSpy = jest.spyOn(curriculumService, 'create');
-    const res = await request(app).post('/api/v1/curricula').send({ ...body, districtId: '9999999' });
+    const res = await request(app).post('/api/v1/curricula').send({ ...body, stateCode: 'ZZ' });
     expect(res.status).toBe(422);
     expect(createSpy).not.toHaveBeenCalled();
   });
 
-  it('accepts a valid district and strips client-sent location fields', async () => {
+  it('422s a request that names a school district instead of a state', async () => {
+    const createSpy = jest.spyOn(curriculumService, 'create');
+    const res = await request(app).post('/api/v1/curricula').send({ ...body, districtId: '3704720' });
+    expect(res.status).toBe(422);
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it('accepts a valid state and strips client-sent district and county fields', async () => {
     const createSpy = jest.spyOn(curriculumService, 'create').mockResolvedValue({ publicId: 'c-1' } as never);
-    const res = await request(app).post('/api/v1/curricula').send({ ...body, districtId: '3704720', state: 'VA', countyFips: '51059' });
+    const res = await request(app).post('/api/v1/curricula').send({ ...body, stateCode: 'CO', districtId: '3704720', countyFips: '51059' });
     expect(res.status).toBe(201);
     const dto = createSpy.mock.calls[0][1] as unknown as Record<string, unknown>;
-    expect(dto.districtId).toBe('3704720');
-    expect(dto.state).toBeUndefined();
+    expect(dto.stateCode).toBe('CO');
+    expect(dto.districtId).toBeUndefined();
     expect(dto.countyFips).toBeUndefined();
   });
 });

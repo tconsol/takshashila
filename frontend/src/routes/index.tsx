@@ -126,6 +126,7 @@ import { TutorProgramPage } from '../pages/tutor/TutorProgramPage';
 import { TutorProgramEnrollmentPage } from '../pages/tutor/TutorProgramEnrollmentPage';
 import { ParentCoursesPage } from '../pages/parent/ParentCoursesPage';
 import { ParentCoursePage } from '../pages/parent/ParentCoursePage';
+import { ParentCurriculumPage } from '../pages/parent/ParentCurriculumPage';
 import { AdminCurriculumStructurePage } from '../pages/admin/AdminCurriculumStructurePage';
 import { AdminProgramsPage } from '../pages/admin/AdminProgramsPage';
 import { StudentSkillsPage } from '../pages/student/StudentSkillsPage';
@@ -345,6 +346,8 @@ export const router = createBrowserRouter([
       children: [
         { path: '/dashboard/parent', element: <ParentDashboard /> },
         { path: '/dashboard/parent/children', element: <ParentChildrenPage /> },
+        { path: '/dashboard/parent/curriculum', element: <ParentCurriculumPage /> },
+        { path: '/dashboard/parent/curriculum/:studentPublicId/:curriculumPublicId', element: <StudentCreateCoursePage /> },
         { path: '/dashboard/parent/courses', element: <ParentCoursesPage /> },
         { path: '/dashboard/parent/courses/:coursePublicId', element: <ParentCoursePage /> },
         { path: '/dashboard/parent/programs/:enrollmentPublicId', element: <ParentProgramEnrollmentPage /> },

@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { tutorGradesForCurriculum } from '../../utils/grades';
+import { tutorSubjectsFor } from '../../utils/taxonomy';
 import argon2 from 'argon2';
 import crypto from 'crypto';
 import { tutorRepository } from './tutor.repository';
@@ -273,13 +274,16 @@ export class TutorService {
    *  subject (exact, case-insensitive — both sides are normalised on write) and its
    *  grade. A tutor with no gradesTaught is treated as teaching every grade. */
   async findForCurriculum(curriculum: { subject: string; grade: string }): Promise<CurriculumTutorCard[]> {
-    const escaped = curriculum.subject.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // A "Science" curriculum is taught by Physics/Chemistry/Biology tutors, etc.
+    const escaped = tutorSubjectsFor(curriculum.subject)
+      .map((s) => s.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|');
     const grades = tutorGradesForCurriculum(curriculum.grade);
     const gradeMatch = grades.length === 1 ? grades[0] : { $in: grades };
     const tutors = await TutorProfileModel.find({
       isDeleted: false,
       status: TutorStatus.ACTIVE,
-      subjects: new RegExp(`^${escaped}$`, 'i'),
+      subjects: new RegExp(`^(?:${escaped})$`, 'i'),
       $or: [
         { gradesTaught: gradeMatch },
         { gradesTaught: { $exists: false } },

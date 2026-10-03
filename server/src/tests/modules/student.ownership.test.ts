@@ -2,6 +2,7 @@ import { assertActorCanManageStudent, studentService } from '../../modules/stude
 import { studentRepository } from '../../modules/students/student.repository';
 import { tutorRepository } from '../../modules/tutors/tutor.repository';
 import { NotFoundError } from '../../utils/error';
+import { StudentProfileModel } from '../../modules/students/student.model';
 
 const student = (o: Record<string, unknown> = {}) =>
   ({ publicId: 's1', tutorPublicId: 't1', previousTutorPublicIds: [], status: 'ACTIVE', invitedBy: 'someone', ...o }) as never;
@@ -64,5 +65,32 @@ describe('transfer scope', () => {
   });
   it('unknown target tutor is NotFound even for admin', async () => {
     await expect(studentService.transfer('s1', { newTutorPublicId: 'nope' }, { userPublicId: 'a', role: 'ADMIN' })).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe('studentService.setStudentLocation', () => {
+  const actorT1 = { userPublicId: 'u-t1', role: 'TUTOR' } as const;
+  const profile = (o: Record<string, unknown> = {}) => student({ state: 'GA', ...o });
+
+  it('lets the owning tutor set state and county, and refuses another tutor', async () => {
+    jest.spyOn(studentRepository, 'findByPublicId').mockResolvedValue(profile());
+    const upd = jest.spyOn(StudentProfileModel, 'findOneAndUpdate').mockReturnValue({ lean: () => Promise.resolve({ publicId: 's1' }) } as never);
+    await studentService.setStudentLocation('s1', actorT1, { state: 'CO', countyFips: '08031' });
+    expect((upd.mock.calls[0][1] as any).$set).toMatchObject({ state: 'CO', countyFips: '08031', county: 'Denver County' });
+    await expect(studentService.setStudentLocation('s1', { userPublicId: 'u-t2', role: 'TUTOR' }, { state: 'CO' })).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('lets the tutor’s principal in, but not a principal of another organization', async () => {
+    jest.spyOn(studentRepository, 'findByPublicId').mockResolvedValue(profile());
+    jest.spyOn(StudentProfileModel, 'findOneAndUpdate').mockReturnValue({ lean: () => Promise.resolve({ publicId: 's1' }) } as never);
+    await expect(studentService.setStudentLocation('s1', { userPublicId: 'p1', role: 'PRINCIPAL' }, { state: 'CO' })).resolves.toBeDefined();
+    await expect(studentService.setStudentLocation('s1', { userPublicId: 'p2', role: 'PRINCIPAL' }, { state: 'CO' })).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('refuses a county outside the state before writing anything', async () => {
+    jest.spyOn(studentRepository, 'findByPublicId').mockResolvedValue(profile());
+    const upd = jest.spyOn(StudentProfileModel, 'findOneAndUpdate');
+    await expect(studentService.setStudentLocation('s1', actorT1, { state: 'GA', countyFips: '08031' })).rejects.toMatchObject({ statusCode: 422 });
+    expect(upd).not.toHaveBeenCalled();
   });
 });

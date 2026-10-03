@@ -3,6 +3,8 @@ import {
   normalizeLanguage,
   normalizeSubjects,
   normalizeLanguages,
+  curriculumSubjectFor,
+  tutorSubjectsFor,
 } from '../../utils/taxonomy';
 
 describe('normalizeSubject', () => {
@@ -31,6 +33,23 @@ describe('normalizeSubject', () => {
 
   it('returns empty for blank input so it can be dropped', () => {
     expect(normalizeSubject('   ')).toBe('');
+  });
+});
+
+describe('curriculum subject mapping', () => {
+  it('maps tutor disciplines onto the curriculum subject they belong to', () => {
+    expect(curriculumSubjectFor('phy')).toBe('Science');
+    expect(curriculumSubjectFor('Biology')).toBe('Science');
+    expect(curriculumSubjectFor('english')).toBe('English Language Arts');
+    expect(curriculumSubjectFor('History')).toBe('Social Studies');
+    expect(curriculumSubjectFor('maths')).toBe('Mathematics');
+  });
+
+  it('lists every tutor subject that satisfies a curriculum subject', () => {
+    expect(tutorSubjectsFor('Science')).toEqual(expect.arrayContaining(['Science', 'Physics', 'Chemistry', 'Biology']));
+    expect(tutorSubjectsFor('English Language Arts')).toEqual(expect.arrayContaining(['English Language Arts', 'English']));
+    expect(tutorSubjectsFor('Social Studies')).toEqual(expect.arrayContaining(['Social Studies', 'History', 'Geography']));
+    expect(tutorSubjectsFor('Mathematics')).toEqual(['Mathematics']);
   });
 });
 

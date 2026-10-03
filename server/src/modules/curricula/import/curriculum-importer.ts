@@ -5,6 +5,7 @@ import { HIGH_SCHOOL_GRADE, type ICurriculumChapter, type ICurriculumSource } fr
 import type { ParsedDoc, GradeLevel } from './curriculum-parser';
 import { parseSources, pickSource } from './sources-parser';
 import { parseCountyAdditions } from './county-parser';
+import { resolveCounty } from '../county-resolver';
 
 export interface ImportFile { path: string; stateCode: string; kind: 'revised' | 'master'; /** only county additions are taken from this file */ countyOnly?: boolean }
 
@@ -181,7 +182,7 @@ export async function applyImport(file: ImportFile, doc: ParsedDoc, opts: { comm
   const { plan, report, county } = buildPlan(file, doc);
   const stateCode = file.stateCode.toUpperCase();
 
-  const existing = file.countyOnly ? [] : await CurriculumModel.find({ stateCode, isDeleted: { $ne: true }, districtId: null });
+  const existing = file.countyOnly ? [] : await CurriculumModel.find({ stateCode, isDeleted: { $ne: true } });
   const index = new Map<string, (typeof existing)[number]>();
   for (const e of existing) {
     const k = `${e.grade}\u0000${e.subject}\u0000${e.courseName ?? ''}`;
@@ -233,7 +234,7 @@ export async function applyImport(file: ImportFile, doc: ParsedDoc, opts: { comm
     for (const c of county) {
       const found = cIndex.get(ck(c));
       if (!found) {
-        if (opts.commit) await CountyAdditionModel.create({ ...c, stateCode, isPublished: false });
+        if (opts.commit) await CountyAdditionModel.create({ ...c, stateCode, countyFips: resolveCounty(stateCode, c.county)?.fips, isPublished: false });
       } else if (!found.isPublished && found.description !== c.description && opts.commit) {
         found.description = c.description;
         await found.save();

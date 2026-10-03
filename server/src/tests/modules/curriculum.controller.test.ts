@@ -1,64 +1,37 @@
 import { curriculumController } from '../../modules/curricula/curriculum.controller';
 import { curriculumService } from '../../modules/curricula/curriculum.service';
 import type { AuthRequest } from '../../shared/types';
-import type { Response, NextFunction } from 'express';
+import type { Response } from 'express';
 
-const buildReq = (role: string, query: Record<string, unknown> = {}) =>
-  ({ user: { role, publicId: 'user-1' }, query, params: {}, body: {} } as unknown as AuthRequest);
+const buildReq = (query: Record<string, unknown> = {}) =>
+  ({ user: { role: 'ADMIN', publicId: 'user-1' }, query, params: {}, body: {} } as unknown as AuthRequest);
 
 const buildRes = () => ({ status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() } as unknown as Response);
 
-describe('CurriculumController.list', () => {
+describe('CurriculumController admin overview', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('calls listCatalog (not listForAdmin) for a non-admin role like STUDENT', async () => {
-    const catalogSpy = jest.spyOn(curriculumService, 'listCatalog').mockResolvedValue([] as never);
-    const adminSpy = jest.spyOn(curriculumService, 'listForAdmin').mockResolvedValue({} as never);
-    const next: NextFunction = jest.fn();
-
-    await curriculumController.list(buildReq('STUDENT', { districtId: '3704720' }), buildRes(), next);
-
-    expect(catalogSpy).toHaveBeenCalled();
-    expect(adminSpy).not.toHaveBeenCalled();
+  it('adminStates returns the states that have curricula', async () => {
+    const spy = jest.spyOn(curriculumService, 'listAdminStates').mockResolvedValue([{ stateCode: 'CO', total: 2, published: 1 }]);
+    const res = buildRes();
+    await curriculumController.adminStates(buildReq(), res, jest.fn());
+    expect(spy).toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ data: [{ stateCode: 'CO', total: 2, published: 1 }] }));
   });
 
-  it('calls listForAdmin (not listCatalog) for role ADMIN', async () => {
-    const catalogSpy = jest.spyOn(curriculumService, 'listCatalog').mockResolvedValue([] as never);
-    const adminSpy = jest.spyOn(curriculumService, 'listForAdmin').mockResolvedValue({} as never);
-    const next: NextFunction = jest.fn();
-
-    await curriculumController.list(buildReq('ADMIN'), buildRes(), next);
-
-    expect(adminSpy).toHaveBeenCalled();
-    expect(catalogSpy).not.toHaveBeenCalled();
+  it('adminOverview passes the state code to the service', async () => {
+    const spy = jest.spyOn(curriculumService, 'listAdminOverview').mockResolvedValue([]);
+    await curriculumController.adminOverview(buildReq({ stateCode: 'CO' }), buildRes(), jest.fn());
+    expect(spy).toHaveBeenCalledWith('CO');
   });
 
-  it('calls listForAdmin (not listCatalog) for role SUPER_ADMIN', async () => {
-    const catalogSpy = jest.spyOn(curriculumService, 'listCatalog').mockResolvedValue([] as never);
-    const adminSpy = jest.spyOn(curriculumService, 'listForAdmin').mockResolvedValue({} as never);
-    const next: NextFunction = jest.fn();
-
-    await curriculumController.list(buildReq('SUPER_ADMIN'), buildRes(), next);
-
-    expect(adminSpy).toHaveBeenCalled();
-    expect(catalogSpy).not.toHaveBeenCalled();
-  });
-
-  it('rejects a STUDENT catalog request without districtId (never an unscoped list)', async () => {
-    const catalogSpy = jest.spyOn(curriculumService, 'listCatalog').mockResolvedValue([] as never);
+  it('adminOverview rejects a missing or unknown state code', async () => {
+    const spy = jest.spyOn(curriculumService, 'listAdminOverview').mockResolvedValue([]);
     const next = jest.fn();
-
-    await curriculumController.list(buildReq('STUDENT'), buildRes(), next);
-
-    expect(catalogSpy).not.toHaveBeenCalled();
+    await curriculumController.adminOverview(buildReq(), buildRes(), next);
+    await curriculumController.adminOverview(buildReq({ stateCode: 'ZZ' }), buildRes(), next);
+    expect(spy).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(2);
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 422 }));
-  });
-
-  it('passes districtId and optional grade through to listCatalog', async () => {
-    const catalogSpy = jest.spyOn(curriculumService, 'listCatalog').mockResolvedValue([] as never);
-
-    await curriculumController.list(buildReq('STUDENT', { districtId: '3704720' }), buildRes(), jest.fn());
-
-    expect(catalogSpy).toHaveBeenCalledWith({ districtId: '3704720' });
   });
 });

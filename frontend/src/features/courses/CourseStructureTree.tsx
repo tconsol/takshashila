@@ -115,6 +115,14 @@ function TopicNode({ topic, index, showStatus, hideClasses, hideMaterials, onOpe
       {open && (
         <div className="space-y-3 border-t border-rule px-3 pb-3 pl-12 pt-3">
           {renderTopicActions?.(topic)}
+          {topic.subTopics && topic.subTopics.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Topics ({topic.subTopics.length})</p>
+              <ul className="list-disc space-y-0.5 pl-4 text-xs text-gray-700 dark:text-gray-300">
+                {topic.subTopics.map((s) => <li key={s.publicId}>{s.title}</li>)}
+              </ul>
+            </div>
+          )}
           {!hideClasses && (
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Classes</p>

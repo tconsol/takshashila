@@ -38,7 +38,7 @@ export function CourseStructureView({ coursePublicId, backTo, backLabel, renderM
       <PageHeader
         eyebrow="Course"
         title={curriculum.title}
-        description={`${curriculum.subject} · ${curriculum.grade}${curriculum.district ? ` · ${curriculum.district}` : ''} · ${who}`}
+        description={`${curriculum.subject} · ${curriculum.grade}${curriculum.stateCode ? ` · ${curriculum.stateCode}` : ''} · ${who}`}
         icon={<BookOpen className="h-5 w-5" />}
       />
       <Card className="mb-4">

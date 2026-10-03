@@ -57,6 +57,18 @@ describe('tutorService.findForCurriculum', () => {
     expect(accepted).not.toContain('Grade 5');
   });
 
+  it('matches Physics/Chemistry/Biology tutors to a Science curriculum', async () => {
+    const findSpy = jest.spyOn(TutorProfileModel, 'find').mockReturnValue(findChain([]) as never);
+    jest.spyOn(userRepository, 'findManyByPublicIds').mockResolvedValue([]);
+
+    await tutorService.findForCurriculum({ subject: 'Science', grade: 'Grade 8' });
+
+    const subjects = (findSpy.mock.calls[0] as unknown as [Record<string, unknown>])[0].subjects as RegExp;
+    for (const s of ['Science', 'Physics', 'chemistry', 'Biology']) expect(subjects.test(s)).toBe(true);
+    expect(subjects.test('Mathematics')).toBe(false);
+    expect(subjects.test('Applied Physics')).toBe(false);
+  });
+
   it('escapes regex characters in the subject', async () => {
     const findSpy = jest.spyOn(TutorProfileModel, 'find').mockReturnValue(findChain([]) as never);
     jest.spyOn(userRepository, 'findManyByPublicIds').mockResolvedValue([]);
@@ -118,7 +130,7 @@ describe('validators', () => {
 
   it('curriculum subject is normalised the same way tutor subjects are', () => {
     const parsed = createCurriculumSchema.parse({
-      districtId: '3704720', grade: 'Grade 8', subject: '  maths ', title: 'Algebra', topics: [],
+      stateCode: 'CO', grade: 'Grade 8', subject: '  maths ', title: 'Algebra', chapters: [],
     });
     expect(parsed.subject).toBe('Mathematics');
   });

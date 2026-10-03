@@ -1,119 +1,35 @@
 // frontend/src/pages/admin/AdminCurriculumPage.tsx
-import { useConfirm } from '../../hooks/use-confirm';
+//
+// State curricula grouped by grade. Pick a country and state (the first state is selected by default),
+// open a grade tile to see that grade's subject curricula, then open a curriculum to see its chapters and topics.
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { GraduationCap, Plus, Eye, EyeOff, Trash2, Save, AlertTriangle, MapPin, Pencil, ListTree } from 'lucide-react';
+import { GraduationCap, Plus, Eye, EyeOff, Trash2, Pencil, ListTree, ChevronRight } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Spinner } from '../../components/ui/Loading';
-import { useAdminCurricula, useCreateCurriculum, usePublishCurriculum, useUpdateCurriculum, useDeleteCurriculum } from '../../hooks/use-curricula';
 import { Modal } from '../../components/ui/Modal';
-import type { Curriculum, CurriculumTopic } from '../../services/curricula.service';
-import type { Location } from '../../services/geo.service';
 import { Select } from '../../components/ui/Select';
-import { LocationSelect, EMPTY_LOCATION } from '../../components/shared/LocationSelect';
-import { GRADE_OPTIONS } from '../../constants/grades';
-import { SUBJECT_OPTIONS } from '../../constants/subjects';
+import { Spinner } from '../../components/ui/Loading';
+import { useConfirm } from '../../hooks/use-confirm';
+import {
+  useAdminStates, useAdminOverview, useCurriculum, usePublishCurriculum, useDeleteCurriculum,
+} from '../../hooks/use-curricula';
+import { useUsStates } from '../../hooks/use-geo';
+import { CurriculumEditorModal } from '../../features/curriculum/CurriculumEditorModal';
+import { CountyAdditionsPanel } from '../../features/curriculum/CountyAdditionsPanel';
+import { Tabs } from '../../components/ui/Tabs';
+import { GRADE_LIST, HIGH_SCHOOL } from '../../constants/grades';
+import type { AdminCurriculumSummary } from '../../services/curricula.service';
 
-type TopicDraft = Omit<CurriculumTopic, 'publicId'> & { publicId?: string };
+const gradeRank = (g: string) => {
+  if (g === HIGH_SCHOOL) return GRADE_LIST.length;
+  const i = (GRADE_LIST as readonly string[]).indexOf(g);
+  return i < 0 ? GRADE_LIST.length + 1 : i;
+};
 
-const inputClass = 'rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm bg-white dark:bg-gray-900';
-
-/** Create a curriculum, or edit `curriculum` when given. Existing topics keep their publicId and
- *  attached resources/assignments/worksheets, so renaming one doesn't detach its content. */
-function CurriculumForm({ curriculum, onDone }: { curriculum?: Curriculum; onDone: () => void }) {
-  const { mutate: create, isPending: creating } = useCreateCurriculum();
-  const { mutate: update, isPending: updating } = useUpdateCurriculum();
-  const [location, setLocation] = useState<Location>(
-    curriculum
-      ? { country: 'US', state: curriculum.state ?? '', countyFips: curriculum.countyFips ?? '', districtId: curriculum.districtId ?? '' }
-      : EMPTY_LOCATION,
-  );
-  const [grade, setGrade] = useState(curriculum?.grade ?? 'Grade 8');
-  const [subject, setSubject] = useState(curriculum?.subject ?? '');
-  const [title, setTitle] = useState(curriculum?.title ?? '');
-  const [description, setDescription] = useState(curriculum?.description ?? '');
-  const [topics, setTopics] = useState<TopicDraft[]>(
-    curriculum ? [...curriculum.topics].sort((a, b) => a.order - b.order) : [],
-  );
-
-  const addTopic = () => setTopics((t) => [...t, { title: '', order: t.length }]);
-  const updateTopicTitle = (i: number, value: string) =>
-    setTopics((t) => t.map((topic, idx) => (idx === i ? { ...topic, title: value } : topic)));
-  const removeTopic = (i: number) => setTopics((t) => t.filter((_, idx) => idx !== i));
-
-  const save = () => {
-    const dto = {
-      districtId: location.districtId,
-      grade,
-      subject,
-      title,
-      description: description || undefined,
-      topics: topics.map((t, i) => ({ ...t, order: i })),
-    };
-    if (curriculum) update({ curriculumPublicId: curriculum.publicId, dto }, { onSuccess: onDone });
-    else create(dto, { onSuccess: onDone });
-  };
-
-  return (
-    <Card className="mb-4">
-      <CardContent className="space-y-3">
-        {curriculum && <p className="text-sm font-semibold text-gray-900 dark:text-white">Edit curriculum</p>}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          <LocationSelect value={location} onChange={setLocation} requireDistrict />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Select label="Grade" options={GRADE_OPTIONS} value={grade} onChange={(e) => setGrade(e.target.value)} />
-          <Select
-            label="Subject"
-            // Keep an older curriculum's free-text subject selectable while editing it.
-            options={[...new Set([...SUBJECT_OPTIONS, ...(subject ? [subject] : [])])].map((s) => ({ value: s, label: s }))}
-            placeholder="Select subject"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-          />
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Curriculum title" className={inputClass} />
-        </div>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description (optional)"
-          rows={2}
-          maxLength={2000}
-          className={`w-full ${inputClass}`}
-        />
-
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-gray-500">Topics (in order)</p>
-          {topics.map((topic, i) => (
-            <div key={topic.publicId ?? `new-${i}`} className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 w-6">{i + 1}.</span>
-              <input value={topic.title} onChange={(e) => updateTopicTitle(i, e.target.value)} placeholder="Topic title" className="flex-1 rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-sm bg-white dark:bg-gray-900" />
-              <button onClick={() => removeTopic(i)} type="button" className="text-gray-400 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
-            </div>
-          ))}
-          <Button size="sm" variant="outline" onClick={addTopic}><Plus className="h-3.5 w-3.5" /> Add topic</Button>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant="gradient"
-            loading={creating || updating}
-            disabled={!location.districtId || !grade || !subject || !title || topics.some((t) => !t.title)}
-            onClick={save}
-          >
-            <Save className="h-3.5 w-3.5" /> {curriculum ? 'Save changes' : 'Save curriculum'}
-          </Button>
-          <Button variant="outline" onClick={onDone}>Cancel</Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function DeleteCurriculumModal({ curriculum, onClose }: { curriculum: Curriculum; onClose: () => void }) {
+function DeleteCurriculumModal({ curriculum, onClose }: { curriculum: AdminCurriculumSummary; onClose: () => void }) {
   const { mutate: remove, isPending } = useDeleteCurriculum();
   return (
     <Modal
@@ -138,148 +54,205 @@ function DeleteCurriculumModal({ curriculum, onClose }: { curriculum: Curriculum
   );
 }
 
-/** For curricula authored before districts existed (see migrate-curriculum-districts.ts). */
-function AssignDistrictModal({ curriculum, onClose }: { curriculum: Curriculum; onClose: () => void }) {
-  const { mutate: update, isPending } = useUpdateCurriculum();
-  const [location, setLocation] = useState<Location>({
-    country: 'US',
-    state: curriculum.state ?? '',
-    countyFips: curriculum.countyFips ?? '',
-    districtId: '',
-  });
-
+/** The chapters and topics of one curriculum (loaded when its row is opened). */
+function StructureExpansion({ curriculumPublicId }: { curriculumPublicId: string }) {
+  const { data, isLoading } = useCurriculum(curriculumPublicId);
+  if (isLoading) return <div className="flex justify-center py-4"><Spinner /></div>;
+  const chapters = [...(data?.chapters ?? [])].sort((a, b) => a.order - b.order);
+  if (chapters.length === 0) return <p className="py-2 text-xs text-gray-500">No chapters yet. Use Edit to add some.</p>;
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={`Assign district — ${curriculum.title}`}
-      footer={
-        <Button
-          variant="gradient"
-          loading={isPending}
-          disabled={!location.districtId}
-          onClick={() =>
-            update({ curriculumPublicId: curriculum.publicId, dto: { districtId: location.districtId } }, { onSuccess: onClose })
-          }
-        >
-          <Save className="h-3.5 w-3.5" /> Save district
-        </Button>
-      }
-    >
-      <div className="grid gap-3">
-        <LocationSelect value={location} onChange={setLocation} requireDistrict />
-      </div>
-    </Modal>
+    <ol className="space-y-2">
+      {chapters.map((ch, i) => (
+        <li key={ch.publicId} className="rounded-lg border border-rule p-3">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">{i + 1}. {ch.title}</p>
+          {ch.topics.length > 0 ? (
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-9 text-xs text-gray-700 dark:text-gray-300">
+              {[...ch.topics].sort((a, b) => a.order - b.order).map((t) => <li key={t.publicId}>{t.title}</li>)}
+            </ul>
+          ) : (
+            <p className="mt-1 pl-5 text-xs text-gray-400">No topics.</p>
+          )}
+        </li>
+      ))}
+    </ol>
   );
 }
 
 export function AdminCurriculumPage() {
   const base = useLocation().pathname.startsWith('/dashboard/super-admin') ? '/dashboard/super-admin/curriculum' : '/dashboard/admin/curriculum';
-  const [showNew, setShowNew] = useState(false);
-  const [filter, setFilter] = useState<Location>(EMPTY_LOCATION);
-  const [assigning, setAssigning] = useState<Curriculum | null>(null);
-  const [editing, setEditing] = useState<Curriculum | null>(null);
-  const [deleting, setDeleting] = useState<Curriculum | null>(null);
-  const [page, setPage] = useState(1);
-  const params: Record<string, string> = { limit: '50', page: String(page) };
-  if (filter.state) params.state = filter.state;
-  if (filter.countyFips) params.countyFips = filter.countyFips;
-  if (filter.districtId) params.districtId = filter.districtId;
-  const { data, isLoading } = useAdminCurricula(params);
   const { confirm, confirmDialog } = useConfirm();
+  const { data: usStates = [] } = useUsStates();
+  const { data: adminStates, isLoading: statesLoading } = useAdminStates();
+
+  // States that have curricula, alphabetical by name; the first one is selected until the admin picks another.
+  const nameOf = (code: string) => usStates.find((s) => s.code === code)?.name ?? code;
+  const stateOptions = [...(adminStates ?? [])].sort((a, b) => nameOf(a.stateCode).localeCompare(nameOf(b.stateCode)));
+  const [pickedState, setPickedState] = useState<string | undefined>();
+  const stateCode = pickedState ?? stateOptions[0]?.stateCode;
+
+  const { data: curricula = [], isLoading } = useAdminOverview(stateCode);
   const { mutate: setPublished, isPending: publishing } = usePublishCurriculum();
-  const curricula = data?.items ?? [];
+
+  const [tab, setTab] = useState<'state' | 'county'>('state');
+  const [openGrade, setOpenGrade] = useState<string | null>(null);
+  const [openCurriculum, setOpenCurriculum] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | 'new' | null>(null);
+  const [deleting, setDeleting] = useState<AdminCurriculumSummary | null>(null);
+
+  const byGrade = new Map<string, AdminCurriculumSummary[]>();
+  for (const c of curricula) byGrade.set(c.grade, [...(byGrade.get(c.grade) ?? []), c]);
+  const grades = [...byGrade.keys()].sort((a, b) => gradeRank(a) - gradeRank(b));
+
+  const editTarget = editing && editing !== 'new' ? curricula.find((c) => c.publicId === editing) : undefined;
 
   return (
     <div className="animate-fade-in">
-      {confirmDialog}
       <PageHeader
         eyebrow="Platform"
         title="Curriculum"
-        description="Author curricula per US school district and grade for students to browse and request."
+        description={tab === 'state'
+          ? 'State standards by grade. Open a grade to see its subjects, then a subject to see its chapters and topics.'
+          : 'Extra programs counties offer on top of the state curriculum. Shown to students and parents in that county once published.'}
         icon={<GraduationCap className="h-5 w-5" />}
-        actions={<Button variant="gradient" onClick={() => { setEditing(null); setShowNew((v) => !v); }}><Plus className="h-3.5 w-3.5" /> New curriculum</Button>}
+        actions={tab === 'state' ? <Button variant="gradient" onClick={() => setEditing('new')}><Plus className="h-4 w-4" /> New curriculum</Button> : undefined}
       />
 
-      {showNew && <CurriculumForm onDone={() => setShowNew(false)} />}
-      {editing && <CurriculumForm key={editing.publicId} curriculum={editing} onDone={() => setEditing(null)} />}
-
-      <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-        <LocationSelect value={filter} onChange={(l) => { setFilter(l); setPage(1); }} />
+      <div className="mb-5 grid max-w-xl gap-3 sm:grid-cols-2">
+        <Select label="Country" options={[{ value: 'US', label: 'United States' }]} value="US" disabled />
+        <Select
+          label="State"
+          placeholder={statesLoading ? 'Loading…' : 'No curricula yet'}
+          options={stateOptions.map((s) => ({ value: s.stateCode, label: `${nameOf(s.stateCode)} (${s.published}/${s.total} published)` }))}
+          value={stateCode ?? ''}
+          onChange={(e) => { setPickedState(e.target.value); setOpenGrade(null); setOpenCurriculum(null); }}
+          disabled={stateOptions.length === 0}
+        />
       </div>
-      {assigning && <AssignDistrictModal curriculum={assigning} onClose={() => setAssigning(null)} />}
-      {deleting && <DeleteCurriculumModal curriculum={deleting} onClose={() => setDeleting(null)} />}
 
-      {isLoading ? (
+      <Tabs
+        className="mb-5"
+        tabs={[{ key: 'state', label: 'State curriculum' }, { key: 'county', label: 'County add-ons' }]}
+        activeTab={tab}
+        onChange={(key) => setTab(key as 'state' | 'county')}
+      />
+
+      {tab === 'county' && stateCode ? (
+        <CountyAdditionsPanel stateCode={stateCode} />
+      ) : statesLoading || (stateCode && isLoading) ? (
         <div className="flex justify-center py-16"><Spinner /></div>
+      ) : grades.length === 0 ? (
+        <Card><CardContent><p className="py-10 text-center text-sm text-gray-500">No curricula yet. Use New curriculum to add one.</p></CardContent></Card>
       ) : (
-        <div className="space-y-3">
-          {curricula.map((curriculum) => (
-            <Card key={curriculum.publicId}>
-              <CardContent>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-gray-900 dark:text-white">{curriculum.title}</p>
-                      {curriculum.isPublished ? <Badge variant="success" tone="soft">Published</Badge> : <Badge variant="default" tone="soft">Draft</Badge>}
-                      {!curriculum.districtId && !curriculum.stateCode && (
-                        <Badge variant="warning" tone="soft"><AlertTriangle className="h-3 w-3" /> No district</Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {curriculum.stateCode ? curriculum.stateCode : <>{curriculum.district ? `${curriculum.district} · ` : ''}{curriculum.county ?? '—'}, {curriculum.state ?? '—'}</>} · {curriculum.grade} · {curriculum.subject}{curriculum.courseName && curriculum.courseName !== curriculum.subject ? ` · ${curriculum.courseName}` : ''}{curriculum.usualGrade ? ` · usually ${curriculum.usualGrade}` : ''} · {curriculum.topics.length} topics
-                    </p>
+        <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {grades.map((grade) => {
+            const list = byGrade.get(grade)!;
+            const open = openGrade === grade;
+            const published = list.filter((c) => c.isPublished).length;
+            return (
+              <div key={grade} className={`rounded-xl border border-rule bg-surface ${open ? 'col-span-full' : ''}`}>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => { setOpenGrade(open ? null : grade); setOpenCurriculum(null); }}
+                  className="flex w-full items-center gap-3 p-4 text-left"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900 dark:text-white">{grade}</p>
+                    <p className="mt-0.5 text-xs text-gray-500">{list.length} {list.length === 1 ? 'curriculum' : 'curricula'} · {published} published</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {!curriculum.districtId && !curriculum.stateCode && (
-                      <Button size="sm" variant="outline" onClick={() => setAssigning(curriculum)}>
-                        <MapPin className="h-3.5 w-3.5" /> Assign district
-                      </Button>
-                    )}
-                    <Link to={`${base}/${curriculum.publicId}`}>
-                      <Button size="sm" variant="outline"><ListTree className="h-3.5 w-3.5" /> Structure</Button>
-                    </Link>
-                    {!curriculum.stateCode && (
-                      <Button size="sm" variant="outline" onClick={() => { setShowNew(false); setEditing(curriculum); }}>
-                        <Pencil className="h-3.5 w-3.5" /> Edit
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      loading={publishing}
-                      onClick={async () => {
-                        const publish = !curriculum.isPublished;
-                        const { confirmed } = await confirm({
-                          title: publish ? 'Publish this curriculum?' : 'Unpublish this curriculum?',
-                          message: publish
-                            ? `Students in the matching school district and grade will see "${curriculum.title}" straight away, and tutors can attach worksheets and assignments to it.`
-                            : `Students will no longer see "${curriculum.title}", and tutors cannot attach new work to it. Existing work stays.`,
-                          confirmLabel: publish ? 'Publish' : 'Unpublish',
-                          tone: publish ? 'primary' : 'danger',
-                        });
-                        if (confirmed) setPublished({ curriculumPublicId: curriculum.publicId, publish });
-                      }}
-                    >
-                      {curriculum.isPublished ? <><EyeOff className="h-3.5 w-3.5" /> Unpublish</> : <><Eye className="h-3.5 w-3.5" /> Publish</>}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setDeleting(curriculum)} aria-label={`Delete ${curriculum.title}`}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          {data && data.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between pt-2">
-              <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Prev</Button>
-              <span className="text-xs text-gray-500">Page {data.pagination.page} of {data.pagination.totalPages} · {data.pagination.total} curricula</span>
-              <Button size="sm" variant="outline" disabled={page >= data.pagination.totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
-            </div>
-          )}
+                  <ChevronRight className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`} />
+                </button>
+
+                {open && (
+                  <ul className="space-y-2 border-t border-rule p-4">
+                    {list.map((c) => {
+                      const expanded = openCurriculum === c.publicId;
+                      return (
+                        <li key={c.publicId} className="rounded-lg border border-rule">
+                          <div className="flex flex-wrap items-center gap-3 p-3">
+                            <button
+                              type="button"
+                              aria-expanded={expanded}
+                              onClick={() => setOpenCurriculum(expanded ? null : c.publicId)}
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                            >
+                              <ChevronRight className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                              <span className="min-w-0">
+                                <span className="flex flex-wrap items-center gap-2">
+                                  <span className="text-sm font-medium text-gray-900 dark:text-white">{c.subject}</span>
+                                  {c.isPublished ? <Badge variant="success" tone="soft">Published</Badge> : <Badge variant="default" tone="soft">Draft</Badge>}
+                                </span>
+                                <span className="block text-xs text-gray-500">
+                                  {[c.courseName && c.courseName !== c.subject && c.courseName, c.usualGrade && `usually ${c.usualGrade}`, `${c.chapterCount} chapters`, `${c.topicCount} topics`].filter(Boolean).join(' · ')}
+                                </span>
+                              </span>
+                            </button>
+                            <div className="flex flex-wrap gap-2">
+                              <Link to={`${base}/${c.publicId}`}>
+                                <Button size="sm" variant="outline"><ListTree className="h-3.5 w-3.5" /> Materials</Button>
+                              </Link>
+                              <Button size="sm" variant="outline" onClick={() => setEditing(c.publicId)}>
+                                <Pencil className="h-3.5 w-3.5" /> Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                loading={publishing}
+                                onClick={async () => {
+                                  const publish = !c.isPublished;
+                                  const { confirmed } = await confirm({
+                                    title: publish ? 'Publish this curriculum?' : 'Unpublish this curriculum?',
+                                    message: publish
+                                      ? `Students in ${nameOf(stateCode!)} will see "${c.title}" straight away, and tutors can attach worksheets and assignments to it.`
+                                      : `Students will no longer see "${c.title}", and tutors cannot attach new work to it. Existing work stays.`,
+                                    confirmLabel: publish ? 'Publish' : 'Unpublish',
+                                    tone: publish ? 'primary' : 'danger',
+                                  });
+                                  if (confirmed) setPublished({ curriculumPublicId: c.publicId, publish });
+                                }}
+                              >
+                                {c.isPublished ? <><EyeOff className="h-3.5 w-3.5" /> Unpublish</> : <><Eye className="h-3.5 w-3.5" /> Publish</>}
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setDeleting(c)} aria-label={`Delete ${c.title}`}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          {expanded && (
+                            <div className="border-t border-rule p-3">
+                              <StructureExpansion curriculumPublicId={c.publicId} />
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+
+      {editing && (editing === 'new' || editTarget) && (
+        <EditorLoader
+          key={editing}
+          curriculumPublicId={editing === 'new' ? undefined : editing}
+          defaultState={stateCode}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {deleting && <DeleteCurriculumModal curriculum={deleting} onClose={() => setDeleting(null)} />}
+      {confirmDialog}
     </div>
   );
+}
+
+/** The editor needs the full curriculum (chapters and topics), so load it before opening. */
+function EditorLoader({ curriculumPublicId, defaultState, onClose }: { curriculumPublicId?: string; defaultState?: string; onClose: () => void }) {
+  const { data, isLoading } = useCurriculum(curriculumPublicId);
+  if (curriculumPublicId && (isLoading || !data)) {
+    return <Modal open onClose={onClose} title="Edit curriculum"><div className="flex justify-center py-10"><Spinner /></div></Modal>;
+  }
+  return <CurriculumEditorModal curriculum={data} defaultState={defaultState} onClose={onClose} />;
 }

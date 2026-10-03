@@ -1,23 +1,20 @@
 import { CurriculumModel } from '../../modules/curricula/curriculum.model';
 
 describe('Curriculum model', () => {
-  it('validates a curriculum with ordered topics', () => {
+  it('validates a curriculum with ordered chapters', () => {
     const doc = new CurriculumModel({
       publicId: 'curriculum-1',
       country: 'US',
-      state: 'NC',
-      countyFips: '37183',
-      county: 'Wake County',
-      districtId: '3704720',
-      district: 'Wake County Schools',
+      stateCode: 'NC',
+      level: 'GRADE',
       grade: 'Grade 8',
       subject: 'Mathematics',
       title: 'Algebra I',
       createdByAdminPublicId: 'admin-1',
       isPublished: false,
-      topics: [
-        { publicId: 'topic-1', title: 'Linear Equations', order: 0 },
-        { publicId: 'topic-2', title: 'Quadratic Equations', order: 1 },
+      chapters: [
+        { publicId: 'ch-1', title: 'Linear Equations', order: 0, topics: [] },
+        { publicId: 'ch-2', title: 'Quadratic Equations', order: 1, topics: [] },
       ],
       isDeleted: false,
     });
@@ -27,12 +24,12 @@ describe('Curriculum model', () => {
     expect(doc.topics[0].title).toBe('Linear Equations');
   });
 
-  it('requires a stateCode or districtId, plus grade, subject and title', () => {
+  it('requires a stateCode, level, grade, subject and title', () => {
     const doc = new CurriculumModel({ publicId: 'curriculum-2', createdByAdminPublicId: 'admin-1', topics: [] });
     const err = doc.validateSync();
     expect(err).toBeDefined();
     expect(Object.keys(err!.errors)).toEqual(
-      expect.arrayContaining(['stateCode', 'grade', 'subject', 'title']),
+      expect.arrayContaining(['stateCode', 'level', 'grade', 'subject', 'title']),
     );
   });
 });

@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const createCourseSchema = z.object({
   curriculumPublicId: z.string().min(1),
   topicPublicIds: z.array(z.string()).min(1, 'Select at least one topic'),
+  // Optional: the individual topics ticked inside the chosen chapters. Empty = whole chapters.
+  pickedTopicPublicIds: z.array(z.string()).optional(),
   tutorPublicId: z.string().min(1),
   availabilityWindow: z.object({
     daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1),

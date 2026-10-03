@@ -124,6 +124,40 @@ function normalizeList(fn: (raw: string) => string, values: string[]): string[] 
 export const normalizeSubjects = (values: string[]): string[] => normalizeList(normalizeSubject, values);
 export const normalizeLanguages = (values: string[]): string[] => normalizeList(normalizeLanguage, values);
 
+/**
+ * Curricula use the state-standards subject names (Science, English Language Arts,
+ * Social Studies) while tutors list the specific discipline they teach. Tutor profiles
+ * keep their own spelling; this maps a canonical tutor subject onto the curriculum
+ * subject it belongs to, so matching works in both directions.
+ */
+const CURRICULUM_SUBJECT_OF: Record<string, string> = {
+  Physics: 'Science',
+  Chemistry: 'Science',
+  Biology: 'Science',
+  'Environmental Science': 'Science',
+  English: 'English Language Arts',
+  History: 'Social Studies',
+  Geography: 'Social Studies',
+  Economics: 'Social Studies',
+  'Political Science': 'Social Studies',
+  Art: 'Visual Arts',
+};
+
+/** Curriculum subject a tutor subject (any spelling) falls under; itself when there is no mapping. */
+export function curriculumSubjectFor(raw: string): string {
+  const subject = normalizeSubject(raw);
+  return CURRICULUM_SUBJECT_OF[subject] ?? subject;
+}
+
+/** Every canonical tutor-side subject name that satisfies a curriculum subject (including itself). */
+export function tutorSubjectsFor(curriculumSubject: string): string[] {
+  const target = curriculumSubjectFor(curriculumSubject);
+  const names = Object.entries(CURRICULUM_SUBJECT_OF)
+    .filter(([, mapped]) => mapped === target)
+    .map(([tutorSubject]) => tutorSubject);
+  return [...new Set([target, ...names])];
+}
+
 /** Canonical names offered as suggestions in the UI. */
 export const SUGGESTED_SUBJECTS = [...new Set(Object.values(SUBJECT_ALIASES))].sort();
 export const SUGGESTED_LANGUAGES = [...new Set(Object.values(LANGUAGE_ALIASES))].sort();

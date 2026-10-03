@@ -102,6 +102,18 @@ export function useStudentPrincipal() {
   });
 }
 
+/** Sets where one of the caller's students goes to school; refreshes every students list. */
+export function useSetStudentLocation() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({ studentPublicId, ...dto }: { studentPublicId: string; state?: string; countyFips?: string }) =>
+      studentsService.setLocation(studentPublicId, dto),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: studentKeys.all }); toast.success('Location saved'); },
+    onError: (err: Error) => toast.error('Could not save location', err.message),
+  });
+}
+
 export function useCreateStudent() {
   const qc = useQueryClient();
   return useMutation({

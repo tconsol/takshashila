@@ -59,7 +59,7 @@ async function enrichCourses(items: ICourse[]): Promise<EnrichedCourse[]> {
   const [tutorProfiles, studentProfiles, curricula] = await Promise.all([
     TutorProfileModel.find({ publicId: { $in: tutorIds } }, { publicId: 1, userPublicId: 1 }).lean(),
     StudentProfileModel.find({ publicId: { $in: studentIds } }, { publicId: 1, userPublicId: 1 }).lean(),
-    CurriculumModel.find({ publicId: { $in: curriculumIds } }, { publicId: 1, title: 1, topics: 1 }).lean(),
+    CurriculumModel.find({ publicId: { $in: curriculumIds } }, { publicId: 1, title: 1, topics: 1, chapters: 1 }).lean(),
   ]);
 
   const { UserModel } = await import('../users/user.model');
@@ -86,11 +86,26 @@ async function enrichCourses(items: ICourse[]): Promise<EnrichedCourse[]> {
       tutorName: tutorNameByProfile.get(r.tutorPublicId) ?? 'Unknown tutor',
       curriculumTitle: curriculum?.title ?? 'Unknown curriculum',
       topicTitles: r.topicPublicIds.map((id) => topicTitleByPublicId.get(id) ?? 'Unknown topic'),
+      // Exact topics ticked inside the chapters (empty = whole chapters).
+      selectedTopicTitles: (r.pickedTopicPublicIds ?? []).map(
+        (id) => (curriculum?.chapters ?? []).flatMap((c) => c.topics).find((t) => t.publicId === id)?.title ?? 'Unknown topic',
+      ),
     };
   });
 }
 
 export class CourseService {
+  /** A parent requests a course on behalf of one of their linked children. Same rules and billing as the student's own request. */
+  async createForChild(parentUserPublicId: string, childStudentPublicId: string, dto: CreateCourseDto): Promise<ICourse> {
+    const parent = await ParentProfileModel.findOne({ userPublicId: parentUserPublicId, isDeleted: false }).lean();
+    if (!parent?.childStudentPublicIds.includes(childStudentPublicId)) {
+      throw new AppError('You do not have access to this student', 403);
+    }
+    const child = await StudentProfileModel.findOne({ publicId: childStudentPublicId, isDeleted: false }).lean();
+    if (!child) throw new NotFoundError('Student profile');
+    return this.create(child.userPublicId, dto);
+  }
+
   async create(studentUserPublicId: string, dto: CreateCourseDto): Promise<ICourse> {
     const studentProfile = await studentService.getByUserPublicId(studentUserPublicId);
 
@@ -106,6 +121,16 @@ export class CourseService {
     const hasUnknownTopic = dto.topicPublicIds.some((id) => !curriculumTopicIds.has(id));
     if (hasUnknownTopic) {
       throw new AppError('One or more selected topics do not belong to this curriculum', 400);
+    }
+    // Individual topics must sit inside one of the chosen chapters.
+    const pickedTopicPublicIds = dto.pickedTopicPublicIds ?? [];
+    if (pickedTopicPublicIds.length > 0) {
+      const allowed = new Set(
+        (curriculum.chapters ?? []).filter((c) => dto.topicPublicIds.includes(c.publicId)).flatMap((c) => c.topics.map((t) => t.publicId)),
+      );
+      if (pickedTopicPublicIds.some((id) => !allowed.has(id))) {
+        throw new AppError('One or more selected topics are not inside the chosen chapters', 400);
+      }
     }
 
     // Verify the tutor exists BEFORE creating the row — otherwise a bad
@@ -128,6 +153,7 @@ export class CourseService {
       tutorPublicId: dto.tutorPublicId,
       curriculumPublicId: dto.curriculumPublicId,
       topicPublicIds: dto.topicPublicIds,
+      pickedTopicPublicIds,
       availabilityWindow: dto.availabilityWindow,
       status: CourseStatus.PENDING,
       classesScheduledCount: 0,

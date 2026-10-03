@@ -11,6 +11,7 @@ import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { Spinner } from '../../components/ui/Loading';
+import { StateCountyFields, type StateCounty } from '../../components/shared/StateCountyFields';
 import { usePendingLinkRequests, useCancelLinkRequest, useParentChildren, useRequestLinkChild, useUnlinkChild, useCreateChild, useUpdateChild } from '../../hooks/use-parent';
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'default' | 'danger'> = {
@@ -29,7 +30,7 @@ const GRADE_LIST = [
 export function ParentChildrenPage() {
   const [mode, setMode] = useState<'create' | 'link' | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
-  const [editTarget, setEditTarget] = useState<{ publicId: string; firstName: string; lastName: string; grade?: string } | null>(null);
+  const [editTarget, setEditTarget] = useState<{ publicId: string; firstName: string; lastName: string; grade?: string; state?: string; countyFips?: string } | null>(null);
 
   const { data: children = [], isLoading } = useParentChildren();
   const { data: pendingRequests = [] } = usePendingLinkRequests();
@@ -143,7 +144,7 @@ export function ParentChildrenPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setEditTarget({ publicId: child.publicId, firstName: child.firstName, lastName: child.lastName, grade: child.grade })}
+                    onClick={() => setEditTarget({ publicId: child.publicId, firstName: child.firstName, lastName: child.lastName, grade: child.grade, state: child.state, countyFips: child.countyFips })}
                     className="text-slate-400 hover:bg-sky-50 hover:text-sky-600"
                   >
                     <Pencil className="h-4 w-4" />
@@ -245,10 +246,11 @@ function CreateChildModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreate: (dto: { firstName: string; lastName: string; password: string; customStudentId?: string; grade?: string; guardianConsent: true }) => Promise<void>;
+  onCreate: (dto: { firstName: string; lastName: string; password: string; customStudentId?: string; grade?: string; state?: string; countyFips?: string; guardianConsent: true }) => Promise<void>;
   loading: boolean;
 }) {
   const [form, setForm] = useState({ firstName: '', lastName: '', password: '', customStudentId: '', grade: '' });
+  const [place, setPlace] = useState<StateCounty>({ state: '', countyFips: '' });
   const [error, setError] = useState('');
   const [created, setCreated] = useState<{ studentId: string; firstName: string } | null>(null);
   const [showPwd, setShowPwd] = useState(false);
@@ -289,9 +291,12 @@ function CreateChildModal({
         password: form.password,
         customStudentId: form.customStudentId || undefined,
         grade: form.grade || undefined,
+        state: place.state || undefined,
+        countyFips: place.countyFips || undefined,
       }) as unknown as { studentId?: string };
       setCreated({ studentId: (result as { studentId: string }).studentId ?? form.customStudentId ?? '', firstName: form.firstName });
       setForm({ firstName: '', lastName: '', password: '', customStudentId: '', grade: '' });
+      setPlace({ state: '', countyFips: '' });
       setIdManuallyEdited(false);
       setGuardianAgreed(false);
     } catch (err: unknown) {
@@ -367,6 +372,8 @@ function CreateChildModal({
           onChange={set('grade')}
           options={GRADE_LIST.map((g) => ({ value: g, label: g }))}
         />
+
+        <StateCountyFields value={place} onChange={setPlace} />
 
         <Input
           label="Student ID (auto-generated edit if needed)"
@@ -464,29 +471,34 @@ function EditChildModal({
 }: {
   open: boolean;
   onClose: () => void;
-  child: { publicId: string; firstName: string; lastName: string; grade?: string } | null;
-  onSave: (dto: { firstName?: string; lastName?: string; grade?: string }) => Promise<void>;
+  child: { publicId: string; firstName: string; lastName: string; grade?: string; state?: string; countyFips?: string } | null;
+  onSave: (dto: { firstName?: string; lastName?: string; grade?: string; state?: string; countyFips?: string }) => Promise<void>;
   loading: boolean;
 }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [grade, setGrade] = useState('');
+  const [place, setPlace] = useState<StateCounty>({ state: '', countyFips: '' });
   const [error, setError] = useState('');
 
   if (child && open && !firstName && child.firstName) {
     setFirstName(child.firstName);
     setLastName(child.lastName);
     setGrade(child.grade ?? '');
+    setPlace({ state: child.state ?? '', countyFips: child.countyFips ?? '' });
   }
   if (!open && firstName) {
-    setFirstName(''); setLastName(''); setGrade(''); setError('');
+    setFirstName(''); setLastName(''); setGrade(''); setPlace({ state: '', countyFips: '' }); setError('');
   }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      await onSave({ firstName: firstName || undefined, lastName: lastName || undefined, grade: grade || undefined });
+      await onSave({
+        firstName: firstName || undefined, lastName: lastName || undefined, grade: grade || undefined,
+        state: place.state || undefined, countyFips: place.countyFips || undefined,
+      });
     } catch (err: unknown) {
       const e2 = err as { response?: { data?: { message?: string } }; message?: string };
       setError(e2.response?.data?.message ?? e2.message ?? 'Failed to update');
@@ -498,7 +510,7 @@ function EditChildModal({
       open={open}
       onClose={() => { setError(''); onClose(); }}
       title="Edit Child Details"
-      size="sm"
+      size="md"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
@@ -521,6 +533,8 @@ function EditChildModal({
           onChange={(e) => setGrade(e.target.value)}
           options={GRADE_LIST.map((g) => ({ value: g, label: g }))}
         />
+        <StateCountyFields value={place} onChange={setPlace} />
+        <p className="-mt-2 text-xs text-slate-500">Where your child goes to school: it decides which state curriculum and county programs they see.</p>
       </form>
     </Modal>
   );

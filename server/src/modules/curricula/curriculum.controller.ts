@@ -3,7 +3,7 @@ import type { AuthRequest } from '../../shared/types';
 import { curriculumService } from './curriculum.service';
 import { sendSuccess, sendCreated } from '../../utils/response';
 import { NotFoundError, ValidationError } from '../../utils/error';
-import { curriculumCatalogQuerySchema, curriculumStateCatalogQuerySchema } from './curriculum.validators';
+import { curriculumAdminOverviewQuerySchema, curriculumStateCatalogQuerySchema } from './curriculum.validators';
 import { tutorService } from '../tutors/tutor.service';
 import { listAttachableCurricula } from './curriculum-attachment';
 import { getCurriculumStructure } from '../courses/course-structure';
@@ -117,21 +117,21 @@ export class CurriculumController {
     } catch (error) { next(error); }
   }
 
-  /** Admin/SuperAdmin management listing vs. the Student-facing published catalog. */
-  async list(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  /** Admin: states that have curricula, with published counts. */
+  async adminStates(_req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'SUPER_ADMIN';
-      if (isAdmin) {
-        const result = await curriculumService.listForAdmin(req.query as never);
-        sendSuccess(res, result, 'Curricula fetched');
-      } else {
-        const parsed = curriculumCatalogQuerySchema.safeParse(req.query);
-        if (!parsed.success) {
-          throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>);
-        }
-        const result = await curriculumService.listCatalog(parsed.data);
-        sendSuccess(res, result, 'Curricula fetched');
+      sendSuccess(res, await curriculumService.listAdminStates(), 'States fetched');
+    } catch (error) { next(error); }
+  }
+
+  /** Admin: every curriculum of one state (grade → subject view). */
+  async adminOverview(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const parsed = curriculumAdminOverviewQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>);
       }
+      sendSuccess(res, await curriculumService.listAdminOverview(parsed.data.stateCode), 'Curricula fetched');
     } catch (error) { next(error); }
   }
 }
