@@ -125,6 +125,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Games',           href: '/dashboard/student/games',            icon: Gamepad2 },
     { label: 'Resources',       href: '/dashboard/student/resources',        icon: FolderOpen,     badgeKey: 'resources' },
     { label: 'Messages',        href: '/chat',                               icon: MessageSquare,  badgeKey: 'messages' },
+    { label: 'Wallet',          href: '/dashboard/student/wallet',           icon: Wallet },
     { label: 'Help & Support', href: '/support', icon: Headphones },
     { label: 'Profile',         href: '/profile',                            icon: UserCircle },
   ],
