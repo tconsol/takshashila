@@ -32,6 +32,15 @@ const STATUS_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'info' |
   SCHEDULED: 'info',
 };
 
+/** The in-app room opens 15 minutes before the start; external Meet/Zoom links open in a new tab. */
+function joinClass(cls: ClassRecord, navigate: (to: string) => void) {
+  if (cls.meetingUrl && cls.meetingProvider && cls.meetingProvider !== 'native') {
+    window.open(cls.meetingUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  navigate(`/class/${cls.publicId}`);
+}
+
 export function TutorClassesPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('ALL');
@@ -187,6 +196,9 @@ export function TutorClassesPage() {
                 render: (c) =>
                   c.status === 'LIVE' || c.status === 'SCHEDULED' ? (
                     <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      {(c.status === 'LIVE' || Date.now() >= new Date(c.scheduledStartUTC).getTime() - 15 * 60_000) && (
+                        <Button size="sm" onClick={() => joinClass(c, navigate)}>Join</Button>
+                      )}
                       {c.status === 'LIVE' && (
                         <Button size="sm" onClick={() => handleAction('complete', c)}>Complete</Button>
                       )}
