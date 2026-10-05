@@ -15,6 +15,7 @@ import { useTabActivity } from '../../hooks/use-tab-activity';
 import { WorksheetUploadModal } from '../../features/worksheets/WorksheetUploadModal';
 import { TutorRescheduleModal } from '../../features/classes/TutorCreateClassModal';
 import type { ClassRecord } from '../../services/classes.service';
+import { collapseGroupSessions, type ClassSession } from '../../utils/class-groups';
 
 const EMPTY_LABELS: Record<string, string> = {
   ALL: 'No classes yet',
@@ -76,8 +77,11 @@ export function TutorClassesPage() {
     .filter((s) => s.status === 'ACTIVE' || s.status === 'APPROVED')
     .map((s) => ({ publicId: s.publicId, name: s.displayName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim() || 'Student' }));
 
-  const classes = (data?.items ?? []).slice().sort(
-    (a, b) => new Date(b.scheduledStartUTC).getTime() - new Date(a.scheduledStartUTC).getTime(),
+  // A group session is one class per student on the server; show it as one row naming everyone.
+  const classes = collapseGroupSessions(
+    (data?.items ?? []).slice().sort(
+      (a, b) => new Date(b.scheduledStartUTC).getTime() - new Date(a.scheduledStartUTC).getTime(),
+    ),
   ); // newest → oldest
 
   const TABS = [
@@ -147,7 +151,16 @@ export function TutorClassesPage() {
               {
                 key: 'subject',
                 header: 'Class',
-                render: (c) => <span className="font-medium text-gray-900 dark:text-white">{c.subject || 'Class'}</span>,
+                render: (c) => (
+                  <div>
+                    <span className="font-medium text-gray-900 dark:text-white">{c.subject || 'Class'}</span>
+                    {c.studentName && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {c.studentCount > 1 ? `${c.studentCount} students: ` : ''}{c.studentName}
+                      </p>
+                    )}
+                  </div>
+                ),
               },
               {
                 key: 'classType',
@@ -276,6 +289,9 @@ export function TutorClassesPage() {
           <p className="text-sm text-gray-600 dark:text-gray-300">
             Please provide a reason for cancelling this class. The student is told, and if they were already charged
             they are refunded automatically.
+            {cancelTarget && (cancelTarget as ClassSession).studentCount > 1 && (
+              <> This cancels the class for all {(cancelTarget as ClassSession).studentCount} students.</>
+            )}
           </p>
           <p className="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
             Cancelling a paid class less than 24 hours before it starts costs you a 1 credit platform fee.

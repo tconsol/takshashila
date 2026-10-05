@@ -19,6 +19,7 @@ function mapClass(raw: any): ClassRecord {
     notes: raw.notes ?? raw.description,
     isRefunded: raw.isRefunded ?? false,
     studentJoinedAt: raw.studentJoinedAt,
+    groupPublicId: raw.groupPublicId,
     durationMinutes: raw.durationMinutes,
     billingMode: raw.billingMode,
     refundedAt: raw.refundedAt,
@@ -77,6 +78,8 @@ export interface ClassRecord {
   notes?: string;
   isRefunded?: boolean;
   studentJoinedAt?: string;
+  /** Shared by the records (one per student) of one group session. */
+  groupPublicId?: string;
   durationMinutes?: number;
   billingMode?: string;
   refundedAt?: string;
