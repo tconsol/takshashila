@@ -93,7 +93,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Profile',     href: '/profile',                       icon: UserCircle },
   ],
   TUTOR: [
-    { label: 'Overview',       href: '/dashboard/tutor',                  icon: LayoutDashboard },
+    { label: 'Home',           href: '/dashboard/tutor',                  icon: LayoutDashboard },
     { label: 'Demo Requests',  href: '/dashboard/tutor/demo-requests',    icon: Sparkles,     badgeKey: 'demoRequests' },
     { label: 'Course Requests', href: '/dashboard/tutor/course-requests', icon: ClipboardList },
     { label: 'Skill Programs', href: '/dashboard/tutor/programs',          icon: Sparkles },
@@ -175,6 +175,8 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
   const searchLower = searchQuery.toLowerCase().trim();
 
   const allItems = NAV_ITEMS[user?.role ?? 'STUDENT'] ?? [];
+  // First nav entry is each role's Home page; the brand mark goes there, not to the public site.
+  const homeHref = allItems[0]?.href ?? '/';
   const items = searchLower ? allItems.filter((item) => item.label.toLowerCase().includes(searchLower)) : allItems;
 
   useEffect(() => {
@@ -245,12 +247,12 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
           collapsed ? 'justify-center' : 'justify-between px-3.5',
         )}>
           {collapsed ? (
-            <Link to="/" className="flex h-9 w-9 items-center justify-center rounded border border-rule bg-surface-sunk p-1 transition-colors hover:bg-surface-hover">
+            <Link to={homeHref} className="flex h-9 w-9 items-center justify-center rounded border border-rule bg-surface-sunk p-1 transition-colors hover:bg-surface-hover">
               <img src={brandLogo} alt="Brainbase Edu" className="h-full w-full object-contain" />
             </Link>
           ) : (
             <>
-              <Link to="/" className="flex min-w-0 flex-1 items-center gap-2.5">
+              <Link to={homeHref} className="flex min-w-0 flex-1 items-center gap-2.5">
                 <img src={brandLogo} alt="" className="h-7 w-7 shrink-0 rounded border border-rule bg-surface-sunk object-contain p-0.5" />
                 <span className="truncate font-display text-[15px] font-semibold text-ink">Brainbase</span>
               </Link>
