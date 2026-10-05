@@ -615,6 +615,68 @@ export class ClassService {
     return updated!;
   }
 
+  /** The other still-open records of the same group session (one record per student). */
+  private async _openGroupSiblings(cls: Pick<IScheduledClass, 'publicId' | 'groupPublicId'>) {
+    if (!cls.groupPublicId) return [];
+    return ScheduledClassModel.find(
+      {
+        groupPublicId: cls.groupPublicId,
+        publicId: { $ne: cls.publicId },
+        isDeleted: false,
+        status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+      },
+      { publicId: 1, startUTC: 1, endUTC: 1, durationMinutes: 1, studentJoinedAt: 1, tutorJoinedAt: 1 },
+    ).lean();
+  }
+
+  /**
+   * The tutor's Complete for a group session: one press completes (and bills, per
+   * attending student) every student's record, not just the one that was clicked.
+   * Every record must be completable first, so the session is never left half done.
+   */
+  async completeSession(classPublicId: string, tutorUserPublicId: string): Promise<IScheduledClass> {
+    const clicked = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (!clicked) throw new NotFoundError('Scheduled class');
+    const siblings = await this._openGroupSiblings(clicked);
+    for (const sibling of siblings) this._assertCanCompleteNow(sibling);
+
+    const completed = await this.completeClass(classPublicId, tutorUserPublicId, { manual: true });
+    for (const sibling of siblings) {
+      try {
+        await this.completeClass(sibling.publicId, tutorUserPublicId, { manual: true });
+      } catch (error) {
+        // One record failing must not undo the others; the sweep settles it later.
+        logger.warn('Group session: could not complete a student record', {
+          groupPublicId: clicked.groupPublicId, classPublicId: sibling.publicId, error: (error as Error).message,
+        });
+      }
+    }
+    return completed;
+  }
+
+  /**
+   * Cancel for the tutor, a principal or an admin: cancelling a group session cancels
+   * every student's record. A student cancelling still only cancels their own
+   * record (use `cancelClass`).
+   */
+  async cancelSession(classPublicId: string, actorPublicId: string, dto: CancelClassDto): Promise<IScheduledClass> {
+    const clicked = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (!clicked) throw new NotFoundError('Scheduled class');
+    const siblings = await this._openGroupSiblings(clicked);
+
+    const cancelled = await this.cancelClass(classPublicId, actorPublicId, dto);
+    for (const sibling of siblings) {
+      try {
+        await this.cancelClass(sibling.publicId, actorPublicId, dto);
+      } catch (error) {
+        logger.warn('Group session: could not cancel a student record', {
+          groupPublicId: clicked.groupPublicId, classPublicId: sibling.publicId, error: (error as Error).message,
+        });
+      }
+    }
+    return cancelled;
+  }
+
   async cancelClass(
     classPublicId: string,
     actorPublicId: string,
@@ -1256,6 +1318,8 @@ export class ClassService {
     // The tutor must not be double-booked against any other live booking.
     const overlapping = await ScheduledClassModel.findOne({
       publicId: { $ne: classPublicId },
+      // The other students of this same group session move with it; they are not a clash.
+      ...(cls.groupPublicId ? { groupPublicId: { $ne: cls.groupPublicId } } : {}),
       tutorPublicId: tutorProfile.publicId,
       isDeleted: false,
       status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
@@ -1317,6 +1381,33 @@ export class ClassService {
       studentUserPublicId: studentProfile?.userPublicId ?? '',
       newStartUTC: dto.startUTC,
     });
+
+    // A group session moves as a whole: every student's record gets the new time.
+    const siblings = await this._openGroupSiblings(cls);
+    if (siblings.length > 0) {
+      await ScheduledClassModel.updateMany(
+        { publicId: { $in: siblings.map((x) => x.publicId) } },
+        { $set: { startUTC: newStart, endUTC: newEnd, durationMinutes }, $unset: { reminderSentAt: '' } },
+      );
+      const siblingRecords = await ScheduledClassModel.find(
+        { publicId: { $in: siblings.map((x) => x.publicId) } },
+        { publicId: 1, studentPublicId: 1 },
+      ).lean();
+      const siblingStudents = await StudentProfileModel.find(
+        { publicId: { $in: siblingRecords.map((x) => x.studentPublicId) }, isDeleted: false },
+        { publicId: 1, userPublicId: 1 },
+      ).lean();
+      for (const record of siblingRecords) {
+        const student = siblingStudents.find((x) => x.publicId === record.studentPublicId);
+        domainEvents.emit(DomainEvent.CLASS_RESCHEDULED, {
+          classPublicId: record.publicId,
+          tutorPublicId: tutorProfile.publicId,
+          tutorUserPublicId,
+          studentUserPublicId: student?.userPublicId ?? '',
+          newStartUTC: dto.startUTC,
+        });
+      }
+    }
 
     return updated!;
   }

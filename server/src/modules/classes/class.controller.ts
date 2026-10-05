@@ -49,7 +49,7 @@ export class ClassController {
   async completeClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       await assertClassParty(req.user!, req.params.classId, { allowStudent: false });
-      const cls = await classService.completeClass(req.params.classId, req.user!.publicId, { manual: true });
+      const cls = await classService.completeSession(req.params.classId, req.user!.publicId);
       sendSuccess(res, cls, 'Class completed');
     } catch (error) { next(error); }
   }
@@ -57,7 +57,9 @@ export class ClassController {
   async cancelClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       await assertClassParty(req.user!, req.params.classId, { allowStudent: true });
-      const cls = await classService.cancelClass(req.params.classId, req.user!.publicId, req.body);
+      // A student cancels only their own record; the tutor (or principal/admin) cancels the whole session.
+      const cancel = req.user!.role === 'STUDENT' ? classService.cancelClass : classService.cancelSession;
+      const cls = await cancel.call(classService, req.params.classId, req.user!.publicId, req.body);
       sendSuccess(res, cls, 'Class cancelled');
     } catch (error) { next(error); }
   }
