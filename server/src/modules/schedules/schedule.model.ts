@@ -58,6 +58,8 @@ const scheduledClassSchema = new Schema<IScheduledClass>(
     idempotencyKey: { type: String, required: true, unique: true },
     studentJoinedAt: { type: Date },
     tutorJoinedAt: { type: Date },
+    // Records created together for one group session share this id: they share one live room.
+    groupPublicId: { type: String, index: true },
     startedAt: { type: Date },
     needsTutorDecision: { type: Boolean, default: false, index: true },
     cancellationReason: { type: String },

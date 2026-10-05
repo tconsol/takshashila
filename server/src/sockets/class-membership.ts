@@ -7,6 +7,18 @@ import { ParentProfileModel } from '../modules/parents/parent.model';
 export type ClassMembership = 'tutor' | 'student' | 'observer' | null;
 
 /**
+ * The key of the live room a class uses. The records of one group session share a
+ * `groupPublicId` and therefore one room; any other class uses its own id.
+ */
+export async function getClassRoomKey(classPublicId: string): Promise<string> {
+  const cls = await ScheduledClassModel.findOne(
+    { publicId: classPublicId, isDeleted: false },
+    { groupPublicId: 1 },
+  ).lean();
+  return cls?.groupPublicId ?? classPublicId;
+}
+
+/**
  * Non-throwing sibling of `assertClassParty` (modules/classes/class-access.ts) for the
  * socket layer. Tutor and student are active participants; the tutor's principal,
  * the student's parent and admins are watch-only observers. Anyone else gets null.

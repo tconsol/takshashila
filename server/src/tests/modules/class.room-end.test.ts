@@ -22,6 +22,12 @@ describe('class room end notification', () => {
     expect(emit).toHaveBeenCalledWith('class:status-changed', expect.objectContaining({ classPublicId: 'c1', status: 'COMPLETED' }));
   });
 
+  it('keeps a group room open while another record of the session is still running', () => {
+    const { io, to } = fakeIo();
+    endClassRoom(io, 'g1', 'CANCELLED', false);
+    expect(to).not.toHaveBeenCalled();
+  });
+
   it('does nothing without a class id', () => {
     const { io, to } = fakeIo();
     endClassRoom(io, undefined, 'CANCELLED');

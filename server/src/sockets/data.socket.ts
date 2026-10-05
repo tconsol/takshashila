@@ -22,9 +22,15 @@ function push(rooms: string[], event: string, payload: unknown = {}) {
  * so people stayed in a "LIVE" room (with chat) for a class that had ended.
  * The class room is a Socket.IO room, so this does not go through Pusher.
  */
-export function endClassRoom(io: IOServer, classPublicId: string | undefined, status: 'COMPLETED' | 'CANCELLED'): void {
-  if (!classPublicId) return;
-  io.to(`class:${classPublicId}`).emit('class:status-changed', { classPublicId, status, updatedBy: 'system' });
+export function endClassRoom(
+  io: IOServer,
+  roomPublicId: string | undefined,
+  status: 'COMPLETED' | 'CANCELLED',
+  roomEnded = true,
+): void {
+  // A group's room stays open while any student's record of it is still running.
+  if (!roomPublicId || !roomEnded) return;
+  io.to(`class:${roomPublicId}`).emit('class:status-changed', { classPublicId: roomPublicId, status, updatedBy: 'system' });
 }
 
 async function notifyTutorConnections(
@@ -78,8 +84,8 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     push(rooms, 'schedule:alert');
   });
 
-  domainEvents.on(DomainEvent.CLASS_CANCELLED, (payload: { classPublicId?: string; tutorUserPublicId: string; studentUserPublicId: string }) => {
-    endClassRoom(io, payload.classPublicId, 'CANCELLED');
+  domainEvents.on(DomainEvent.CLASS_CANCELLED, (payload: { classPublicId?: string; roomPublicId?: string; roomEnded?: boolean; tutorUserPublicId: string; studentUserPublicId: string }) => {
+    endClassRoom(io, payload.roomPublicId ?? payload.classPublicId, 'CANCELLED', payload.roomEnded);
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, [...rooms, 'role:PRINCIPAL'], 'classes');
     invalidate(io, rooms, 'wallet');
@@ -106,8 +112,8 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     });
   });
 
-  domainEvents.on(DomainEvent.CLASS_COMPLETED, (payload: { classPublicId?: string; tutorUserPublicId: string; studentUserPublicId: string }) => {
-    endClassRoom(io, payload.classPublicId, 'COMPLETED');
+  domainEvents.on(DomainEvent.CLASS_COMPLETED, (payload: { classPublicId?: string; roomPublicId?: string; roomEnded?: boolean; tutorUserPublicId: string; studentUserPublicId: string }) => {
+    endClassRoom(io, payload.roomPublicId ?? payload.classPublicId, 'COMPLETED', payload.roomEnded);
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, rooms, 'classes');
     invalidate(io, [`user:${payload.tutorUserPublicId}`], 'wallet');

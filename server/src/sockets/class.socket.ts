@@ -1,15 +1,16 @@
 import { Server as IOServer } from 'socket.io';
 import type { AuthSocket } from './socket.handler';
 import { logger } from '../lib/logger';
-import { getClassMembership, type ClassMembership } from './class-membership';
-
-const room = (classPublicId: string) => `class:${classPublicId}`;
+import { getClassMembership, getClassRoomKey, type ClassMembership } from './class-membership';
 
 type Ack = (res: { ok: boolean; error?: string }) => void;
 
 export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
   // Classes this socket has been verified for (populated only by class:join).
   const memberships = new Map<string, Exclude<ClassMembership, null>>();
+  // The room each joined class uses: the records of one group session share a room.
+  const roomKeys = new Map<string, string>();
+  const room = (classPublicId: string) => `class:${roomKeys.get(classPublicId) ?? classPublicId}`;
 
   /** Member of the class room: tutor, student or watch-only observer. */
   const isMember = (classPublicId: unknown): classPublicId is string =>
@@ -43,6 +44,7 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
         return;
       }
       memberships.set(classPublicId, membership);
+      roomKeys.set(classPublicId, await getClassRoomKey(classPublicId));
     } catch (e) {
       logger.error('class:join membership check failed', { error: e });
       if (typeof ack === 'function') ack({ ok: false, error: 'Could not join class' });
@@ -64,6 +66,7 @@ export function registerClassSocket(io: IOServer, socket: AuthSocket): void {
     socket.to(room(classPublicId)).emit('class:user-left', {
       userPublicId: socket.userPublicId,
     });
+    roomKeys.delete(classPublicId);
   });
 
   socket.on('class:status-update', (payload: { classPublicId: string; status: string }) => {

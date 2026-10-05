@@ -191,11 +191,13 @@ export class ClassController {
 
       if (!authorized) throw new AppError('Not authorized to join this class', 403);
 
+      // Students of one group session share one room: their records carry the same groupPublicId.
+      const channel = cls.groupPublicId ?? classId;
       const expireTime = Math.floor(Date.now() / 1000) + env.AGORA_TOKEN_EXPIRE_SECONDS;
       const token = RtcTokenBuilder.buildTokenWithUid(
         env.AGORA_APP_ID,
         env.AGORA_APP_CERTIFICATE,
-        classId,   // channel name = classPublicId
+        channel,   // channel name = groupPublicId, or classPublicId for a single class
         0,         // uid 0 = auto-assign
         rtcRole,
         env.AGORA_TOKEN_EXPIRE_SECONDS, // token expire (seconds)
@@ -204,7 +206,7 @@ export class ClassController {
 
       sendSuccess(res, {
         appId: env.AGORA_APP_ID,
-        channel: classId,
+        channel,
         token,
         uid: 0,
         expireTime,

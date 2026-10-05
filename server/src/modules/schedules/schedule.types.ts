@@ -110,6 +110,8 @@ export interface IScheduledClass {
   idempotencyKey: string;
   studentJoinedAt?: Date;
   tutorJoinedAt?: Date;
+  /** Shared by the records of one group session (one record per student); they use one live room. */
+  groupPublicId?: string;
   /** When the class actually went LIVE, which is not the scheduled start. */
   startedAt?: Date;
   /**

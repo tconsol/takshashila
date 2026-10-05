@@ -182,6 +182,7 @@ export class ClassService {
     ).lean();
 
     if (!scheduled) throw new NotFoundError('Scheduled class');
+    if (scheduled.groupPublicId) await this._startGroupSiblings(scheduled);
 
     // The student needs to be in the event, or nobody is told the class is live.
     const studentProfile = await StudentProfileModel.findOne(
@@ -246,6 +247,9 @@ export class ClassService {
       return (await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean()) ?? cls;
     }
 
+    // The tutor is in one room for the whole group: every student's record starts with them.
+    if (role === 'TUTOR' && cls.groupPublicId) await this._startGroupSiblings(cls);
+
     // Emit with full payload so socket can invalidate both parties
     const [tutorProfile, studentProfile] = await Promise.all([
       TutorProfileModel.findOne({ publicId: cls.tutorPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
@@ -263,6 +267,41 @@ export class ClassService {
     });
 
     return updated;
+  }
+
+  /**
+   * Which live room a class uses and whether it is over. The room of a group session
+   * ends only when none of its students' records is still open, so one student
+   * cancelling their own record does not throw everyone else out.
+   */
+  private async _roomState(
+    cls: Pick<IScheduledClass, 'publicId' | 'groupPublicId'>,
+  ): Promise<{ roomPublicId: string; roomEnded: boolean }> {
+    if (!cls.groupPublicId) return { roomPublicId: cls.publicId, roomEnded: true };
+    const stillOpen = await ScheduledClassModel.countDocuments({
+      groupPublicId: cls.groupPublicId,
+      isDeleted: false,
+      status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+    });
+    return { roomPublicId: cls.groupPublicId, roomEnded: stillOpen === 0 };
+  }
+
+  /**
+   * When the tutor enters a group's shared room, mark every other student's record
+   * of that session as joined by the tutor and LIVE, so each student's record can be
+   * completed and billed on its own (billing needs both people present).
+   */
+  private async _startGroupSiblings(cls: Pick<IScheduledClass, 'publicId' | 'groupPublicId'>): Promise<void> {
+    const siblings = { groupPublicId: cls.groupPublicId, publicId: { $ne: cls.publicId }, isDeleted: false };
+    const now = new Date();
+    await ScheduledClassModel.updateMany(
+      { ...siblings, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] }, tutorJoinedAt: { $exists: false } },
+      { $set: { tutorJoinedAt: now } },
+    );
+    await ScheduledClassModel.updateMany(
+      { ...siblings, status: ClassStatus.SCHEDULED },
+      { $set: { status: ClassStatus.LIVE, startedAt: now } },
+    );
   }
 
   /**
@@ -565,6 +604,7 @@ export class ClassService {
 
     domainEvents.emit(DomainEvent.CLASS_COMPLETED, {
       classPublicId,
+      ...(await this._roomState(scheduled)),
       tutorPublicId: scheduled.tutorPublicId,
       tutorUserPublicId,
       studentPublicId: scheduled.studentPublicId,
@@ -671,6 +711,7 @@ export class ClassService {
 
     domainEvents.emit(DomainEvent.CLASS_CANCELLED, {
       classPublicId,
+      ...(await this._roomState(scheduled)),
       cancelledBy: actorPublicId,
       reason: dto.reason,
       tutorUserPublicId: cancelledTutorProfile?.userPublicId ?? '',
@@ -1130,6 +1171,8 @@ export class ClassService {
     for (const occ of occurrences) {
       // For GROUP/RECURRING with multiple students, create one class per student so each has their own record
       const targets = studentPublicIds.length > 0 ? studentPublicIds : [''];
+      // Several students in one session = one group: their records share a live room.
+      const groupPublicId = targets.length > 1 ? uuidv4() : undefined;
       for (const studentPublicId of targets) {
         const cls = await ScheduledClassModel.create({
           publicId: uuidv4(),
@@ -1147,6 +1190,7 @@ export class ClassService {
           billingMode: BillingMode.TUTOR_INVITED,
           meetingUrl: externalUrl,
           meetingProvider,
+          groupPublicId,
           idempotencyKey: uuidv4(),
           isDeleted: false,
         });
