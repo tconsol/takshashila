@@ -11,8 +11,11 @@ export type ClassType = (typeof ClassType)[keyof typeof ClassType];
  * How a class is billed on completion:
  * - STUDENT_REQUESTED: student booked the tutor. Student pays (rate + platform fee),
  *   tutor earns (rate − platform fee). Platform keeps a fee from both sides.
- * - TUTOR_INVITED: tutor created the class and invited students. Students attend free;
- *   the tutor pays the platform fee (both sides) and earns nothing.
+ * - TUTOR_INVITED: LEGACY. Tutor created the class and invited students. Students attend free;
+ *   the tutor pays the platform fee (both sides) and earns nothing. No longer created.
+ * - TUTOR_REQUESTED: tutor created the class at a per-student price and the student must
+ *   accept it first (see RequestStatus). Once accepted it is billed exactly like STUDENT_REQUESTED:
+ *   student pays (price + platform fee), tutor earns (price - platform fee), charged on completion.
  * - COURSE_PREPAID: student already paid the full course series up front
  *   (see Course). On completion the student is NOT charged again — only
  *   the tutor earns (rate − platform fee), same math as STUDENT_REQUESTED. On
@@ -23,6 +26,7 @@ export type ClassType = (typeof ClassType)[keyof typeof ClassType];
 export const BillingMode = {
   STUDENT_REQUESTED: 'STUDENT_REQUESTED',
   TUTOR_INVITED: 'TUTOR_INVITED',
+  TUTOR_REQUESTED: 'TUTOR_REQUESTED',
   COURSE_PREPAID: 'COURSE_PREPAID',
   PROGRAM_PREPAID: 'PROGRAM_PREPAID',
 } as const;
@@ -31,6 +35,26 @@ export type BillingMode = (typeof BillingMode)[keyof typeof BillingMode];
 /** Paid up front in bulk (course or skill program): no per-class charge; cancelled classes are refunded. */
 export const isPrepaid = (mode: BillingMode | string): boolean =>
   mode === BillingMode.COURSE_PREPAID || mode === BillingMode.PROGRAM_PREPAID;
+
+/**
+ * Where a tutor-created class (TUTOR_REQUESTED) stands with its student. Kept apart from
+ * ClassStatus on purpose: a pending record is still SCHEDULED, a declined or expired one
+ * is CANCELLED, so no list or room code needs to learn a new status. Classes that never
+ * needed acceptance (student bookings, legacy, demos, prepaid) have no requestStatus.
+ */
+export const RequestStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  DECLINED: 'DECLINED',
+  EXPIRED: 'EXPIRED',
+} as const;
+export type RequestStatus = (typeof RequestStatus)[keyof typeof RequestStatus];
+
+/**
+ * A recurring request is funded in blocks this long: to accept, the student needs balance
+ * for the sessions in the first block; the next block is funded later (see fundedThrough).
+ */
+export const FUNDING_BLOCK_DAYS = 30;
 
 export const ClassStatus = {
   SCHEDULED: 'SCHEDULED',
@@ -114,6 +138,16 @@ export interface IScheduledClass {
   tutorJoinedAt?: Date;
   /** Shared by the records of one group session (one record per student); they use one live room. */
   groupPublicId?: string;
+  /** Request state for tutor-created classes that the student has to accept; absent for other classes. */
+  requestStatus?: RequestStatus;
+  /** Shared by every session and student of one tutor create call: one series, accepted per student. */
+  seriesPublicId?: string;
+  /** Price per hour the tutor set for this class (costCents is this scaled by the class length). */
+  pricePerHourCents?: number;
+  /** End of the funded block: sessions starting before this are covered by the student's hold. */
+  fundedThrough?: Date;
+  /** When the student accepted or declined, or the request expired. */
+  requestRespondedAt?: Date;
   /** When the class actually went LIVE, which is not the scheduled start. */
   startedAt?: Date;
   /**

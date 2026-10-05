@@ -69,10 +69,30 @@ export function registerNotificationListeners(): void {
 
   domainEvents.on(DomainEvent.CLASS_CREATED_BY_TUTOR, (p: {
     studentUserPublicIds: string[]; title: string; count: number;
+    requiresAcceptance?: boolean; studentChargeCents?: number;
   }) => {
+    if (p.requiresAcceptance) {
+      const price = p.studentChargeCents ? ` Each session is ${p.studentChargeCents / 100} credits, charged only after it is completed.` : '';
+      const what = p.count > 1 ? `${p.count} sessions of "${p.title}"` : `"${p.title}"`;
+      p.studentUserPublicIds.forEach((uid) =>
+        notify(uid, NotificationType.CLASS_BOOKED, 'Class request',
+          `Your tutor invited you to ${what}.${price} Accept it in your Classes to confirm your place.`));
+      return;
+    }
     const body = p.count > 1 ? `${p.count} sessions were scheduled for you.` : `"${p.title}" was scheduled for you.`;
     p.studentUserPublicIds.forEach((uid) =>
       notify(uid, NotificationType.CLASS_BOOKED, 'New class scheduled', body));
+  });
+
+  domainEvents.on(DomainEvent.CLASS_REQUEST_RESPONDED, async (p: {
+    classPublicId: string; title: string; answer: 'ACCEPTED' | 'DECLINED' | 'EXPIRED'; sessions: number;
+    tutorUserPublicId: string; studentUserPublicId: string;
+  }) => {
+    const student = await displayName(p.studentUserPublicId, 'A student');
+    const what = p.sessions > 1 ? `${p.sessions} sessions of "${p.title}"` : `"${p.title}"`;
+    const verb = p.answer === 'ACCEPTED' ? 'accepted' : p.answer === 'DECLINED' ? 'declined' : 'did not answer in time for';
+    notify(p.tutorUserPublicId, NotificationType.CLASS_BOOKED, `Class request ${p.answer.toLowerCase()}`,
+      `${student} ${verb} ${what}.`, { classPublicId: p.classPublicId });
   });
 
   domainEvents.on(DomainEvent.CLASS_STARTED, async (p: {

@@ -147,6 +147,23 @@ export function useTutorCreateClass() {
   });
 }
 
+/** A student's answer to a tutor's class request. Accepting is where the credits are checked. */
+export function useRespondToClassRequest() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({ classId, answer }: { classId: string; answer: 'accept' | 'decline' }) =>
+      answer === 'accept' ? classesService.accept(classId) : classesService.decline(classId),
+    onSuccess: (_res, { answer }) => {
+      qc.invalidateQueries({ queryKey: classKeys.all });
+      qc.invalidateQueries({ queryKey: ['wallet'] });
+      if (answer === 'accept') toast.success('Class accepted', 'Credits are charged only after each session is completed.');
+      else toast.warning('Class declined', 'The tutor has been told.');
+    },
+    onError: (err: Error) => toast.error('Could not answer the request', err.message),
+  });
+}
+
 export function useTutorReschedule() {
   const qc = useQueryClient();
   const toast = useToast();

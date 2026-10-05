@@ -161,6 +161,13 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     invalidate(io, [`user:${payload.tutorUserPublicId}`], 'tutors');
   });
 
+  // A student answered a tutor's class request: both lists change.
+  domainEvents.on(DomainEvent.CLASS_REQUEST_RESPONDED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
+    const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
+    invalidate(io, rooms, 'classes');
+    invalidate(io, [`user:${payload.studentUserPublicId}`], 'wallet');
+  });
+
   domainEvents.on(DomainEvent.CLASS_RESCHEDULED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, rooms, 'classes');

@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import { ClassType, ClassStatus, AvailabilityStatus, BillingMode, AutoResolution } from './schedule.types';
+import { ClassType, ClassStatus, AvailabilityStatus, BillingMode, AutoResolution, RequestStatus } from './schedule.types';
 import type { IAvailabilitySlot, IScheduledClass } from './schedule.types';
 
 const availabilitySlotSchema = new Schema<IAvailabilitySlot>(
@@ -60,6 +60,11 @@ const scheduledClassSchema = new Schema<IScheduledClass>(
     tutorJoinedAt: { type: Date },
     // Records created together for one group session share this id: they share one live room.
     groupPublicId: { type: String, index: true },
+    requestStatus: { type: String, enum: Object.values(RequestStatus), index: true },
+    seriesPublicId: { type: String, index: true },
+    pricePerHourCents: { type: Number },
+    fundedThrough: { type: Date },
+    requestRespondedAt: { type: Date },
     startedAt: { type: Date },
     needsTutorDecision: { type: Boolean, default: false, index: true },
     cancellationReason: { type: String },

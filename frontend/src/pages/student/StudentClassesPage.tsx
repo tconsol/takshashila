@@ -6,7 +6,8 @@ import { BookClassModal } from '../../components/shared/BookClassModal';
 import { Tabs } from '../../components/ui/Tabs';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { useMyClassesAsStudent, useCancelClass, LIVE_STATUS_POLL } from '../../hooks/use-classes';
+import { useMyClassesAsStudent, useCancelClass, useRespondToClassRequest, LIVE_STATUS_POLL } from '../../hooks/use-classes';
+import { useConfirm } from '../../hooks/use-confirm';
 import { useTutorSearch } from '../../hooks/use-tutors';
 import { useTabActivity } from '../../hooks/use-tab-activity';
 import type { ClassRecord } from '../../services/classes.service';
@@ -71,6 +72,8 @@ export function StudentClassesPage() {
   const { data, isLoading } = useMyClassesAsStudent(activeTab === 'ALL' ? { limit: '100' } : { status: activeTab });
   const { data: tutorResult } = useTutorSearch({ limit: 20 });
   const { mutateAsync: cancelClass, isPending: cancelling } = useCancelClass();
+  const { mutateAsync: respond } = useRespondToClassRequest();
+  const { confirm, confirmDialog } = useConfirm();
   const { mutateAsync: startConversation } = useStartConversation();
   const navigate = useNavigate();
 
@@ -83,9 +86,44 @@ export function StudentClassesPage() {
     (a, b) => new Date(b.scheduledStartUTC).getTime() - new Date(a.scheduledStartUTC).getTime(),
   ); // newest → oldest
   const tutors = tutorResult?.items ?? [];
+  // Tutor-created classes waiting for this student's accept or decline (one per series, not per session).
+  const requestCount = new Set(
+    classes.filter((c) => c.requestStatus === 'PENDING' && c.status === 'SCHEDULED').map((c) => c.seriesPublicId ?? c.publicId),
+  ).size;
 
-  const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate', cls: ClassRecord) => {
-    if (action === 'cancel') { setCancelTarget(cls); setCancelReason(''); }
+  /** Answering a tutor's class request covers the whole series; say what accepting commits the student to. */
+  const answerRequest = async (answer: 'accept' | 'decline', cls: ClassRecord) => {
+    const open = classes.filter((c) => c.requestStatus === 'PENDING' && c.status === 'SCHEDULED'
+      && (cls.seriesPublicId ? c.seriesPublicId === cls.seriesPublicId : c.publicId === cls.publicId));
+    const sessions = Math.max(1, open.length);
+    if (answer === 'decline') {
+      const { confirmed } = await confirm({
+        title: 'Decline this class?',
+        message: `You will not be charged. ${sessions > 1 ? `All ${sessions} sessions in this request are declined.` : 'The tutor is told you declined.'}`,
+        confirmLabel: 'Decline',
+        tone: 'danger',
+      });
+      if (confirmed) await respond({ classId: cls.publicId, answer }).catch(() => {});
+      return;
+    }
+    const starts = open.map((c) => new Date(c.scheduledStartUTC).getTime()).sort((a, b) => a - b);
+    const blockEnd = (starts[0] ?? Date.now()) + 30 * 86_400_000;
+    const inBlock = open.filter((c) => new Date(c.scheduledStartUTC).getTime() < blockEnd);
+    const holdCents = inBlock.reduce((sum, c) => sum + (c.costCents > 0 ? c.costCents + 100 : 0), 0);
+    const { confirmed } = await confirm({
+      title: 'Accept this class?',
+      message: holdCents > 0
+        ? `You need ${(holdCents / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })} credits available to cover ${inBlock.length > 1 ? `the ${inBlock.length} sessions in the next 30 days` : 'this session'} (price plus 1 credit platform fee each). Nothing is deducted now: each session is charged only after it is completed.${sessions > inBlock.length ? ' Later sessions are confirmed as the series goes on.' : ''}`
+        : 'This session is free.',
+      confirmLabel: 'Accept',
+      tone: 'primary',
+    });
+    if (confirmed) await respond({ classId: cls.publicId, answer }).catch(() => {});
+  };
+
+  const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate' | 'accept' | 'decline', cls: ClassRecord) => {
+    if (action === 'accept' || action === 'decline') { void answerRequest(action, cls); }
+    else if (action === 'cancel') { setCancelTarget(cls); setCancelReason(''); }
     else if (action === 'rate') { setRateTarget(cls); }
     else if (action === 'join' && cls.meetingUrl) window.open(cls.meetingUrl, '_blank');
   };
@@ -103,6 +141,17 @@ export function StudentClassesPage() {
           <PageHeader title="My Classes" subtitle="View and manage your booked sessions" />
           <Button onClick={() => setShowFindTutor(true)}>+ Book a Class</Button>
         </div>
+
+        {requestCount > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/40 dark:bg-amber-900/20">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              <strong>{requestCount}</strong> class request{requestCount === 1 ? '' : 's'} from your tutors {requestCount === 1 ? 'is' : 'are'} waiting for your answer.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => { setActiveTab('SCHEDULED'); markSeen('SCHEDULED'); }}>
+              Review
+            </Button>
+          </div>
+        )}
 
         <Tabs tabs={TABS} activeTab={activeTab} onChange={(key) => { setActiveTab(key); markSeen(key); }} />
 
@@ -145,7 +194,9 @@ export function StudentClassesPage() {
                   header: 'Status',
                   render: (c) => c.isRefunded
                     ? <Badge variant="default">REFUNDED</Badge>
-                    : <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>,
+                    : c.requestStatus === 'PENDING' && c.status === 'SCHEDULED'
+                      ? <Badge variant="warning">AWAITING YOUR ANSWER</Badge>
+                      : <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>,
                 },
                 {
                   key: 'actions',
@@ -154,6 +205,14 @@ export function StudentClassesPage() {
                     const live = c.status === 'LIVE' || c.status === 'IN_PROGRESS';
                     const startMs = new Date(c.scheduledStartUTC).getTime();
                     const joinable = live || (c.status === 'SCHEDULED' && Date.now() >= startMs - 15 * 60_000);
+                    if (c.requestStatus === 'PENDING' && c.status === 'SCHEDULED') {
+                      return (
+                        <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          <Button size="sm" onClick={() => handleAction('accept', c)}>Accept</Button>
+                          <Button size="sm" variant="outline" onClick={() => handleAction('decline', c)}>Decline</Button>
+                        </div>
+                      );
+                    }
                     return (
                       <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                         {(live || c.status === 'SCHEDULED') && (
@@ -190,6 +249,8 @@ export function StudentClassesPage() {
           </div>
         )}
       </div>
+
+      {confirmDialog}
 
       {/* Find tutor modal */}
       <Modal

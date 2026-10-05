@@ -22,6 +22,8 @@ export async function sendClassReminders(now: Date = new Date()): Promise<number
       isDeleted: false,
       startUTC: { $gt: now, $lte: horizon },
       reminderSentAt: { $exists: false },
+      // A request the student has not accepted is not a commitment to remind anyone about.
+      requestStatus: { $ne: 'PENDING' },
     },
     { publicId: 1 },
   ).limit(500).lean();

@@ -1,6 +1,7 @@
+import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { ScheduledClassModel } from '../schedules/schedule.model';
-import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES, MIN_SESSION_MINUTES, isPrepaid } from '../schedules/schedule.types';
+import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES, MIN_SESSION_MINUTES, RequestStatus, FUNDING_BLOCK_DAYS, isPrepaid } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { scheduleService } from '../schedules/schedule.service';
 import { walletService, spendableCents } from '../wallets/wallet.service';
@@ -141,8 +142,12 @@ export class ClassService {
             },
             { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
           ]).session(session);
-          const outstandingCents = outstanding[0]?.totalCents ?? 0;
-          const outstandingCount = outstanding[0]?.count ?? 0;
+          // Accepted tutor-created classes reserve money the same way as the student's own bookings.
+          const tutorRequested = await this._reservedTutorRequested(
+            await studentService.getProfileIdsByUser(studentUserPublicId), session,
+          );
+          const outstandingCents = (outstanding[0]?.totalCents ?? 0) + tutorRequested.totalCents;
+          const outstandingCount = (outstanding[0]?.count ?? 0) + tutorRequested.count;
           const totalOwedCents =
             outstandingCents + (outstandingCount + 1) * PLATFORM_FEE_CENTS + costCents;
           const availableCents = spendableCents(wallet);
@@ -184,7 +189,25 @@ export class ClassService {
     }
   }
 
+  /**
+   * A tutor-created class is only teachable once the student accepted it, and only for
+   * sessions inside the block the student has funded. Anything else has no money behind it.
+   */
+  private _assertStudentCommitted(
+    cls: Pick<IScheduledClass, 'billingMode' | 'requestStatus' | 'startUTC' | 'fundedThrough'>,
+  ): void {
+    if (cls.billingMode !== BillingMode.TUTOR_REQUESTED) return;
+    if (cls.requestStatus !== RequestStatus.ACCEPTED) {
+      throw new ConflictError('The student has not accepted this class yet.');
+    }
+    if (cls.fundedThrough && new Date(cls.startUTC).getTime() >= new Date(cls.fundedThrough).getTime()) {
+      throw new ConflictError('The student has not funded this session yet.');
+    }
+  }
+
   async startClass(classPublicId: string, tutorUserPublicId: string): Promise<IScheduledClass> {
+    const toStart = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (toStart) this._assertStudentCommitted(toStart);
     const scheduled = await ScheduledClassModel.findOneAndUpdate(
       {
         publicId: classPublicId,
@@ -238,6 +261,8 @@ export class ClassService {
 
     // Terminal states — nothing to update.
     if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED || cls.status === ClassStatus.INCOMPLETE) return cls;
+
+    this._assertStudentCommitted(cls);
 
     // Transition SCHEDULED → LIVE, and ALWAYS record the student's join time the
     // first time they join — even if the tutor already started the class (LIVE).
@@ -310,7 +335,13 @@ export class ClassService {
    * completed and billed on its own (billing needs both people present).
    */
   private async _startGroupSiblings(cls: Pick<IScheduledClass, 'publicId' | 'groupPublicId'>): Promise<void> {
-    const siblings = { groupPublicId: cls.groupPublicId, publicId: { $ne: cls.publicId }, isDeleted: false };
+    // Students who have not accepted are not in the room: leave their records alone.
+    const siblings = {
+      groupPublicId: cls.groupPublicId,
+      publicId: { $ne: cls.publicId },
+      isDeleted: false,
+      requestStatus: { $ne: RequestStatus.PENDING },
+    };
     const now = new Date();
     await ScheduledClassModel.updateMany(
       { ...siblings, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] }, tutorJoinedAt: { $exists: false } },
@@ -392,6 +423,9 @@ export class ClassService {
     // Classes that have presence records are judged on how long each person was there;
     // older ones (and prepaid course/program classes) keep the join-time rule.
     const settlement = await this._presenceSettlement(scheduled);
+    if (scheduled.requestStatus === RequestStatus.PENDING) {
+      throw new ConflictError('The student has not accepted this class, so it cannot be completed.');
+    }
     if (opts.manual) this._assertCanCompleteNow(scheduled, settlement);
 
     // The tutor was not there for the required share: nothing happened that can be billed.
@@ -656,7 +690,10 @@ export class ClassService {
   }
 
   /** The other still-open records of the same group session (one record per student). */
-  private async _openGroupSiblings(cls: Pick<IScheduledClass, 'publicId' | 'groupPublicId'>) {
+  private async _openGroupSiblings(
+    cls: Pick<IScheduledClass, 'publicId' | 'groupPublicId'>,
+    opts: { includePending?: boolean } = {},
+  ) {
     if (!cls.groupPublicId) return [];
     return ScheduledClassModel.find(
       {
@@ -664,6 +701,8 @@ export class ClassService {
         publicId: { $ne: cls.publicId },
         isDeleted: false,
         status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+        // Completing a session never touches a student who did not accept; cancelling it cancels everyone's request.
+        ...(opts.includePending ? {} : { requestStatus: { $ne: RequestStatus.PENDING } }),
       },
       {
         publicId: 1, groupPublicId: 1, tutorPublicId: 1, studentPublicId: 1, billingMode: 1,
@@ -705,7 +744,7 @@ export class ClassService {
   async cancelSession(classPublicId: string, actorPublicId: string, dto: CancelClassDto): Promise<IScheduledClass> {
     const clicked = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
     if (!clicked) throw new NotFoundError('Scheduled class');
-    const siblings = await this._openGroupSiblings(clicked);
+    const siblings = await this._openGroupSiblings(clicked, { includePending: true });
 
     const cancelled = await this.cancelClass(classPublicId, actorPublicId, dto);
     for (const sibling of siblings) {
@@ -807,7 +846,7 @@ export class ClassService {
       StudentProfileModel.findOne({ publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
     ]);
 
-    if (!isPrepaid(scheduled.billingMode) && this._cancellationFeeApplies(scheduled)) {
+    if (!isPrepaid(scheduled.billingMode) && scheduled.requestStatus !== RequestStatus.PENDING && this._cancellationFeeApplies(scheduled)) {
       await this._chargeCancellationFee(classPublicId, actorPublicId, {
         tutorUserPublicId: cancelledTutorProfile?.userPublicId,
         studentUserPublicId: cancelledStudentProfile?.userPublicId,
@@ -1177,6 +1216,146 @@ export class ClassService {
     }, { startUTC: 1, endUTC: 1 }).lean() as unknown as Promise<{ startUTC: Date; endUTC: Date } | null>;
   }
 
+  /**
+   * Money already promised by a student's accepted tutor-created classes: sessions inside
+   * the funded block that have not been billed yet (price + fee each). Together with their
+   * own unfinished bookings this is what their balance has to cover.
+   */
+  private async _reservedTutorRequested(
+    studentProfileIds: string[],
+    session?: mongoose.ClientSession,
+  ): Promise<{ totalCents: number; count: number }> {
+    if (studentProfileIds.length === 0) return { totalCents: 0, count: 0 };
+    const query = ScheduledClassModel.aggregate([
+      {
+        $match: {
+          studentPublicId: { $in: studentProfileIds },
+          billingMode: BillingMode.TUTOR_REQUESTED,
+          requestStatus: RequestStatus.ACCEPTED,
+          status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+          costCents: { $gt: 0 },
+          isDeleted: false,
+          $expr: { $lt: ['$startUTC', '$fundedThrough'] },
+        },
+      },
+      { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
+    ]);
+    const rows = await (session ? query.session(session) : query);
+    // Prices only; the caller adds the platform fee for each class, as it does for the student's own bookings.
+    return { totalCents: rows[0]?.totalCents ?? 0, count: rows[0]?.count ?? 0 };
+  }
+
+  /**
+   * The student's answer to a tutor-created class. One answer covers the student's whole
+   * series (every session the tutor created in that request).
+   * ACCEPT needs the student's balance to cover every session in the first funding block
+   * (price + fee each) on top of what is already promised; nothing is deducted, the
+   * sessions are charged one by one as they complete. DECLINE cancels this student's
+   * sessions only; the rest of a group carries on.
+   */
+  async respondToRequest(
+    classPublicId: string,
+    studentUserPublicId: string,
+    action: 'ACCEPT' | 'DECLINE',
+  ): Promise<{ accepted: number; fundedThrough?: Date }> {
+    const cls = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (!cls) throw new NotFoundError('Scheduled class');
+    // A student has one profile per tutor link: the request is for the class's own profile.
+    const own = await StudentProfileModel.findOne(
+      { userPublicId: studentUserPublicId, publicId: cls.studentPublicId, isDeleted: false },
+      { publicId: 1 },
+    ).lean();
+    if (!own) throw new NotFoundError('Scheduled class');
+    if (cls.billingMode !== BillingMode.TUTOR_REQUESTED || cls.requestStatus !== RequestStatus.PENDING) {
+      throw new ConflictError('This class is not waiting for your answer.');
+    }
+    const now = new Date();
+    if (cls.status !== ClassStatus.SCHEDULED || new Date(cls.startUTC).getTime() <= now.getTime()) {
+      throw new ConflictError('This request has expired: the class has already started.');
+    }
+
+    // Every still-open session of this request for this student.
+    const mine = {
+      studentPublicId: cls.studentPublicId,
+      requestStatus: RequestStatus.PENDING,
+      status: ClassStatus.SCHEDULED,
+      startUTC: { $gt: now },
+      isDeleted: false,
+      ...(cls.seriesPublicId ? { seriesPublicId: cls.seriesPublicId } : { publicId: cls.publicId }),
+    };
+    const tutorProfile = await TutorProfileModel.findOne(
+      { publicId: cls.tutorPublicId, isDeleted: false }, { userPublicId: 1 },
+    ).lean();
+    const announce = (answer: 'ACCEPTED' | 'DECLINED', sessions: number) =>
+      domainEvents.emit(DomainEvent.CLASS_REQUEST_RESPONDED, {
+        classPublicId,
+        title: cls.title,
+        answer,
+        sessions,
+        tutorUserPublicId: tutorProfile?.userPublicId ?? '',
+        studentUserPublicId,
+      });
+
+    if (action === 'DECLINE') {
+      const res = await ScheduledClassModel.updateMany(mine, {
+        $set: {
+          status: ClassStatus.CANCELLED,
+          requestStatus: RequestStatus.DECLINED,
+          requestRespondedAt: now,
+          cancellationReason: 'Declined by the student',
+          cancelledBy: studentUserPublicId,
+        },
+      });
+      announce('DECLINED', res.modifiedCount);
+      return { accepted: 0 };
+    }
+
+    const series = await ScheduledClassModel.find(mine, { costCents: 1, startUTC: 1 }).sort({ startUTC: 1 }).lean();
+    if (series.length === 0) throw new ConflictError('This request has expired: the class has already started.');
+
+    // Fund the first block only; later sessions are funded as the series goes on.
+    const fundedThrough = new Date(new Date(series[0].startUTC).getTime() + FUNDING_BLOCK_DAYS * 86_400_000);
+    const firstBlock = series.filter((c) => new Date(c.startUTC).getTime() < fundedThrough.getTime());
+    const needCents = firstBlock.reduce((sum, c) => sum + (c.costCents > 0 ? c.costCents + PLATFORM_FEE_CENTS : 0), 0);
+    const accept = { $set: { requestStatus: RequestStatus.ACCEPTED, requestRespondedAt: now, fundedThrough } };
+
+    if (needCents > 0) {
+      await walletService.getWallet(studentUserPublicId); // the lock below needs a wallet document to write
+      const profileIds = await studentService.getProfileIdsByUser(studentUserPublicId);
+      await walletService.runWithBookingLock(studentUserPublicId, async ({ session, wallet }) => {
+        const bookings = await ScheduledClassModel.aggregate([
+          {
+            $match: {
+              studentPublicId: { $in: profileIds },
+              billingMode: BillingMode.STUDENT_REQUESTED,
+              status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+              costCents: { $gt: 0 },
+              isDeleted: false,
+            },
+          },
+          { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
+        ]).session(session);
+        const tutorRequested = await this._reservedTutorRequested(profileIds, session);
+        const reservedCents =
+          (bookings[0]?.totalCents ?? 0) + (bookings[0]?.count ?? 0) * PLATFORM_FEE_CENTS
+          + tutorRequested.totalCents + tutorRequested.count * PLATFORM_FEE_CENTS;
+        const availableCents = spendableCents(wallet);
+        if (availableCents < reservedCents + needCents) {
+          const reservedNote = reservedCents > 0 ? ` ${reservedCents / 100} credits are already reserved for your other classes.` : '';
+          throw new AppError(
+            `Not enough credits to accept. These sessions need ${needCents / 100} credits (price plus platform fee) and you have ${availableCents / 100} available.${reservedNote} Top up your wallet and try again.`,
+            402,
+          );
+        }
+        await ScheduledClassModel.updateMany(mine, accept, { session });
+      });
+    } else {
+      await ScheduledClassModel.updateMany(mine, accept);
+    }
+    announce('ACCEPTED', series.length);
+    return { accepted: series.length, fundedThrough };
+  }
+
   async tutorCreateClasses(
     tutorUserPublicId: string,
     dto: TutorCreateClassDto,
@@ -1257,10 +1436,19 @@ export class ClassService {
       );
     }
 
-    // The tutor pays a 2-credit platform fee per attending student on completion.
+    // A class for named students is a REQUEST: the student must accept, and pays the price the
+    // tutor sets (plus the platform fee) after each session completes. The tutor pays nothing.
+    // Demo classes and classes with no students keep the old tutor-pays model.
+    const requestMode = dto.classType !== ClassType.DEMO && studentPublicIds.length > 0;
+    const durationMinutes = Math.round(durationMs / 60_000);
+    const pricePerHourCents = dto.pricePerHourCents ?? tutorProfile.hourlyRateCents ?? 0;
+    const requestCostCents = Math.round((pricePerHourCents * durationMinutes) / 60);
+    const seriesPublicId = requestMode ? uuidv4() : undefined;
+
+    // Legacy: the tutor pays a 2-credit platform fee per attending student on completion.
     // Require enough balance up front so they can't create a class they can't fund.
     const PER_STUDENT_FEE_CENTS = PLATFORM_FEE_CENTS * 2;
-    const billableCount = studentPublicIds.length * occurrences.length;
+    const billableCount = requestMode ? 0 : studentPublicIds.length * occurrences.length;
     if (billableCount > 0) {
       const requiredCents = billableCount * PER_STUDENT_FEE_CENTS;
       const wallet = await walletService.getWallet(tutorProfile.userPublicId);
@@ -1275,7 +1463,6 @@ export class ClassService {
     // Create one ScheduledClass per occurrence × student (or just for the tutor if no students)
     const created: IScheduledClass[] = [];
     const ianaTimezone = 'UTC';
-    const durationMinutes = Math.round(durationMs / 60_000);
 
     for (const occ of occurrences) {
       // For GROUP/RECURRING with multiple students, create one class per student so each has their own record
@@ -1295,8 +1482,13 @@ export class ClassService {
           durationMinutes,
           title: dto.title,
           description: dto.description,
-          costCents: 0,
-          billingMode: BillingMode.TUTOR_INVITED,
+          costCents: requestMode ? requestCostCents : 0,
+          billingMode: requestMode ? BillingMode.TUTOR_REQUESTED : BillingMode.TUTOR_INVITED,
+          ...(requestMode && {
+            requestStatus: RequestStatus.PENDING,
+            seriesPublicId,
+            pricePerHourCents,
+          }),
           meetingUrl: externalUrl,
           meetingProvider,
           groupPublicId,
@@ -1313,7 +1505,7 @@ export class ClassService {
         { publicId: { $in: studentPublicIds }, isDeleted: false },
         { userPublicId: 1, publicId: 1 },
       ).lean();
-      for (const sp of studentProfiles) {
+      for (const sp of requestMode ? [] : studentProfiles) {
         domainEvents.emit(DomainEvent.CLASS_BOOKED, {
           // The student's own first record, not the first one created for anybody.
           classPublicId: created.find((c) => c.studentPublicId === sp.publicId)?.publicId ?? '',
@@ -1334,6 +1526,11 @@ export class ClassService {
         classType: dto.classType,
         // Sessions per student, not the records created for all students together.
         count: occurrences.length,
+        ...(requestMode && {
+          requiresAcceptance: true,
+          // What one student pays for one session, so the notice can say it.
+          studentChargeCents: requestCostCents > 0 ? requestCostCents + PLATFORM_FEE_CENTS : 0,
+        }),
       });
     }
 

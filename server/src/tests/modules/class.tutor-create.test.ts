@@ -89,8 +89,8 @@ describe('ClassService.tutorCreateClasses notifications for a group', () => {
     emit = jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
   });
 
-  it("points each student's CLASS_BOOKED event at that student's own class", async () => {
-    await classService.tutorCreateClasses('tu1', base({ studentPublicIds: ['s1', 's2'] }));
+  it("points each student's CLASS_BOOKED event at that student's own class (legacy demo classes)", async () => {
+    await classService.tutorCreateClasses('tu1', base({ classType: 'DEMO', studentPublicIds: ['s1', 's2'] }));
     const booked = emit.mock.calls.filter(([e]) => e === 'CLASS_BOOKED').map(([, p]) => [p.studentPublicId, p.classPublicId]);
     expect(booked).toEqual(expect.arrayContaining([['s1', 'c1'], ['s2', 'c2']]));
   });
@@ -141,15 +141,15 @@ describe('ClassService.tutorCreateClasses group rules', () => {
     expect(create.mock.calls[0][0]).toMatchObject({ meetingUrl, meetingProvider: provider });
   });
 
-  it('needs 2 credits per student per session in the tutor wallet', async () => {
+  it('legacy (demo) classes still need 2 credits per student per session in the tutor wallet', async () => {
     arrange(3, 599); // 3 students x 2 credits = 600 cents
-    await expect(classService.tutorCreateClasses('tu1', base({ studentPublicIds: [] })))
+    await expect(classService.tutorCreateClasses('tu1', base({ classType: 'DEMO', studentPublicIds: [] })))
       .rejects.toMatchObject({ statusCode: 402, message: expect.stringContaining('6 credits') });
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('accepts a wallet that covers every student and session', async () => {
+  it('accepts a wallet that covers every student and session (legacy demo classes)', async () => {
     arrange(3, 600);
-    await expect(classService.tutorCreateClasses('tu1', base({ studentPublicIds: [] }))).resolves.toHaveLength(3);
+    await expect(classService.tutorCreateClasses('tu1', base({ classType: 'DEMO', studentPublicIds: [] }))).resolves.toHaveLength(3);
   });
 });

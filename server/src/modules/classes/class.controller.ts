@@ -58,6 +58,15 @@ export class ClassController {
     } catch (error) { next(error); }
   }
 
+  /** A student's answer to a tutor-created class (covers their whole series). */
+  async respondToRequest(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const action = req.path.endsWith('/decline') ? 'DECLINE' : 'ACCEPT';
+      const result = await classService.respondToRequest(req.params.classId, req.user!.publicId, action);
+      sendSuccess(res, result, action === 'ACCEPT' ? 'Class accepted' : 'Class declined');
+    } catch (error) { next(error); }
+  }
+
   async completeClass(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       await assertClassParty(req.user!, req.params.classId, { allowStudent: false });

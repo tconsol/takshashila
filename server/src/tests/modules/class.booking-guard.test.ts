@@ -34,6 +34,7 @@ describe('ClassService.bookClass overbooking guard', () => {
     jest.spyOn(settingsService, 'isFeatureEnabled').mockResolvedValue(true);
     jest.spyOn(settingsService, 'get').mockResolvedValue({ maxAdvanceBookingDays: 30, minClassDurationMinutes: 30, maxClassDurationMinutes: 180 } as never);
     jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+    jest.spyOn(studentService, 'getProfileIdsByUser').mockResolvedValue(['student-prof-1']);
     jest.spyOn(walletService, 'getWallet').mockResolvedValue({ balanceCents } as never);
     jest.spyOn(scheduleService, 'blockSlot').mockResolvedValue(undefined as never);
     release = jest.spyOn(scheduleService, 'releaseSlot').mockResolvedValue(undefined as never);
@@ -41,9 +42,12 @@ describe('ClassService.bookClass overbooking guard', () => {
     lock = jest.spyOn(walletService, 'runWithBookingLock').mockImplementation(
       (async (_owner: string, fn: (c: unknown) => unknown) => fn({ session, wallet: { balanceCents } })) as never,
     );
-    aggregate = jest.spyOn(ScheduledClassModel, 'aggregate').mockReturnValue({
-      session: () => Promise.resolve(outstanding ? [outstanding] : []),
-    } as never);
+    // First query: the student's own bookings. Second: accepted tutor-created classes (none here).
+    aggregate = jest.spyOn(ScheduledClassModel, 'aggregate').mockImplementation(((pipeline: Array<{ $match?: { billingMode?: string } }>) => ({
+      session: () => Promise.resolve(
+        pipeline[0].$match?.billingMode === BillingMode.TUTOR_REQUESTED ? [] : (outstanding ? [outstanding] : []),
+      ),
+    })) as never);
     const doc = { publicId: 'c1', toObject: () => ({ publicId: 'c1' }) };
     create = jest.spyOn(ScheduledClassModel, 'create').mockImplementation(
       (async (docs: unknown) => (Array.isArray(docs) ? [doc] : doc)) as never,
@@ -80,8 +84,12 @@ describe('ClassService.bookClass overbooking guard', () => {
     setup(2100, null);
     // Emulate serialization: each locked run sees rows committed by the previous.
     let committed = 0;
-    aggregate.mockImplementation((() => ({
-      session: () => Promise.resolve(committed ? [{ totalCents: committed * 2000, count: committed }] : []),
+    aggregate.mockImplementation(((pipeline: Array<{ $match?: { billingMode?: string } }>) => ({
+      session: () => Promise.resolve(
+        pipeline[0].$match?.billingMode === BillingMode.TUTOR_REQUESTED
+          ? []
+          : (committed ? [{ totalCents: committed * 2000, count: committed }] : []),
+      ),
     })) as never);
     create.mockImplementation((async () => {
       committed++;

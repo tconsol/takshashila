@@ -12,6 +12,9 @@ describe('ClassService.startClass event', () => {
   beforeEach(() => jest.restoreAllMocks());
 
   it('includes the student user id and marks the class as newly live', async () => {
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(
+      lean({ publicId: 'c1', billingMode: 'STUDENT_REQUESTED' }) as never,
+    );
     jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(
       lean({ publicId: 'c1', studentPublicId: 'sp1', tutorPublicId: 'tp1' }) as never,
     );

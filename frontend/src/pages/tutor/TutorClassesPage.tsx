@@ -114,7 +114,7 @@ export function TutorClassesPage() {
     { key: 'INCOMPLETE', label: 'Incomplete' },
   ];
 
-  const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate' | 'reschedule', cls: ClassRecord) => {
+  const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate' | 'reschedule' | 'accept' | 'decline', cls: ClassRecord) => {
     if (action === 'complete') {
       void (async () => {
         const { confirmed } = await confirm({
@@ -199,7 +199,18 @@ export function TutorClassesPage() {
               {
                 key: 'status',
                 header: 'Status',
-                render: (c) => <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>,
+                render: (c) => {
+                  const total = c.students.filter((s) => s.requestStatus).length;
+                  const accepted = c.students.filter((s) => s.requestStatus === 'ACCEPTED').length;
+                  return (
+                    <div className="flex flex-col items-start gap-1">
+                      <Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge>
+                      {total > 0 && c.status === 'SCHEDULED' && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{accepted} of {total} accepted</span>
+                      )}
+                    </div>
+                  );
+                },
               },
               {
                 key: 'actions',
@@ -207,7 +218,7 @@ export function TutorClassesPage() {
                 render: (c) =>
                   c.status === 'LIVE' || c.status === 'SCHEDULED' ? (
                     <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                      {(c.status === 'LIVE' || Date.now() >= new Date(c.scheduledStartUTC).getTime() - 15 * 60_000) && (
+                      {c.requestStatus !== 'PENDING' && (c.status === 'LIVE' || Date.now() >= new Date(c.scheduledStartUTC).getTime() - 15 * 60_000) && (
                         <Button size="sm" onClick={() => joinClass(c, navigate)}>Join</Button>
                       )}
                       {c.status === 'LIVE' && (
@@ -228,7 +239,7 @@ export function TutorClassesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {classes.map((cls) => (
             <div key={cls.publicId} className="flex flex-col gap-0">
-              <ClassCard cls={cls} perspective="tutor" onAction={handleAction} />
+              <ClassCard cls={cls} perspective="tutor" onAction={handleAction} students={cls.students} />
 
               {/* Reschedule button for SCHEDULED classes */}
               {cls.status === 'SCHEDULED' && (

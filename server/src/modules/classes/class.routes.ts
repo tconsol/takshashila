@@ -44,6 +44,8 @@ router.get('/admin/list', requireRole(Role.SUPER_ADMIN, Role.ADMIN), async (req,
 
 router.get('/:classId', classController.getByPublicId.bind(classController));
 router.post('/:classId/join', classController.joinClass.bind(classController));
+router.post('/:classId/accept', requireRole(Role.STUDENT), classController.respondToRequest.bind(classController));
+router.post('/:classId/decline', requireRole(Role.STUDENT), classController.respondToRequest.bind(classController));
 router.post('/:classId/presence', classController.recordPresence.bind(classController));
 router.post('/:classId/leave', classController.recordPresence.bind(classController));
 router.post('/:classId/start', requireRole(Role.TUTOR, Role.PRINCIPAL), classController.startClass.bind(classController));

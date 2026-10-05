@@ -30,6 +30,10 @@ function mapClass(raw: any): ClassRecord {
     attendedMinutes: raw.attendedMinutes,
     requiredMinutes: raw.requiredMinutes,
     studentLeftEarly: raw.studentLeftEarly,
+    requestStatus: raw.requestStatus,
+    seriesPublicId: raw.seriesPublicId,
+    pricePerHourCents: raw.pricePerHourCents,
+    fundedThrough: raw.fundedThrough,
     autoResolvedAt: raw.autoResolvedAt,
     createdAt: raw.createdAt,
   };
@@ -59,6 +63,8 @@ export interface TutorCreateClassDto {
   studentPublicIds: string[];
   meetingUrl?: string;
   meetingProvider?: 'zoom' | 'google_meet' | 'native';
+  /** Price per student per hour, in cents. Defaults to the tutor's own rate on the server. */
+  pricePerHourCents?: number;
 }
 
 export interface TutorRescheduleDto {
@@ -99,6 +105,13 @@ export interface ClassRecord {
   requiredMinutes?: number;
   /** Billed as completed although this student did not attend the required share. */
   studentLeftEarly?: boolean;
+  /** Tutor-created classes: whether the student has accepted. Absent for classes that never needed it. */
+  requestStatus?: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
+  /** Every session and student of one tutor request share this. */
+  seriesPublicId?: string;
+  pricePerHourCents?: number;
+  /** Sessions starting before this are covered by the student's funded block. */
+  fundedThrough?: string;
   createdAt: string;
 }
 
@@ -187,6 +200,13 @@ export const classesService = {
 
   getAgoraToken: (classId: string): Promise<{ appId: string; channel: string; token: string; uid: number; canPublish?: boolean }> =>
     api.get(`/classes/${classId}/agora-token`).then((r) => r.data.data),
+
+  /** The student's answer to a tutor's class request; it covers their whole series. */
+  accept: (classId: string) =>
+    api.post(`/classes/${classId}/accept`).then((r) => r.data.data as { accepted: number; fundedThrough?: string }),
+
+  decline: (classId: string) =>
+    api.post(`/classes/${classId}/decline`).then((r) => r.data.data as { accepted: number }),
 
   tutorCreate: (dto: TutorCreateClassDto) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

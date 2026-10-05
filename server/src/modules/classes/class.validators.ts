@@ -49,6 +49,9 @@ export const tutorCreateClassSchema = z.object({
   // tutor supplies an external Google Meet / Zoom link instead.
   meetingUrl: z.string().url().max(500).optional().or(z.literal('')),
   meetingProvider: z.enum(['zoom', 'google_meet', 'native']).optional(),
+  // Price per student per hour, in cents. Defaults to the tutor's own hourly rate. Students pay it
+  // scaled by the class length (plus the platform fee) after they accept.
+  pricePerHourCents: z.number().int().min(0).max(100_000).optional(),
 });
 
 export const tutorRescheduleSchema = z.object({

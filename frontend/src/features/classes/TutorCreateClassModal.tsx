@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { useTutorCreateClass, useTutorReschedule } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
+import { useMyTutorProfile } from '../../hooks/use-tutors';
 import { PLATFORM_FEE_CREDITS } from '../../lib/billing';
 import { useAuthStore } from '../../stores/auth.store';
 import type { ClassRecord } from '../../services/classes.service';
@@ -59,6 +60,8 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showStudents, setShowStudents] = useState(false);
   const [creditError, setCreditError] = useState<string | null>(null);
+  // Price per student per hour, in credits. Empty until the tutor edits it: then the tutor's own rate applies.
+  const [priceInput, setPriceInput] = useState('');
 
   const navigate = useNavigate();
   const role = useAuthStore((s) => s.user?.role);
@@ -71,6 +74,12 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
 
   const { mutateAsync: create, isPending } = useTutorCreateClass();
   const { data: studentsData } = useMyStudentsAsTutor({ limit: '200' });
+  const { data: myProfile } = useMyTutorProfile();
+  const defaultRateCredits = (myProfile?.hourlyRateCents ?? 0) / 100;
+  const priceCredits = priceInput === '' ? defaultRateCredits : Number(priceInput);
+  const minutes = Math.max(0, Math.round((new Date(endUTC).getTime() - new Date(startUTC).getTime()) / 60_000));
+  const sessionPrice = Number.isFinite(priceCredits) ? Math.round(priceCredits * minutes / 60 * 100) / 100 : 0;
+  const priceInvalid = priceInput !== '' && (!Number.isFinite(Number(priceInput)) || Number(priceInput) < 0);
   const students = (studentsData?.items ?? [])
     .filter((s) => s.status === 'ACTIVE' || s.status === 'APPROVED')
     .map((s) => ({
@@ -97,6 +106,7 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
     setStudentMode('all');
     setSelected(new Set());
     setShowStudents(false);
+    setPriceInput('');
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -116,6 +126,7 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
           ? new Date(recurrenceEndDate).toISOString()
           : undefined,
         studentPublicIds: studentMode === 'all' ? [] : [...selected],
+        ...(type !== 'DEMO' && { pricePerHourCents: Math.round(priceCredits * 100) }),
       });
       handleClose();
     } catch (e) {
@@ -167,7 +178,7 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
             variant="gradient"
             onClick={handleSubmit}
             loading={isPending}
-            disabled={!title.trim() || !startUTC || !endUTC || new Date(endUTC) <= new Date(startUTC)}
+            disabled={!title.trim() || !startUTC || !endUTC || new Date(endUTC) <= new Date(startUTC) || priceInvalid}
           >
             <CalendarPlus className="h-4 w-4" /> Create Class
           </Button>
@@ -175,15 +186,38 @@ export function TutorCreateClassModal({ open, onClose }: CreateProps) {
       }
     >
       <div className="space-y-5">
-        {/* Billing notice tutor-created classes are free for students */}
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 dark:border-amber-800/40 dark:bg-amber-900/20">
-          <p className="text-xs text-amber-700 dark:text-amber-300">
-            <strong>Heads up:</strong> classes you create and invite students to are <strong>free for students</strong>.
-            You'll be charged a <strong>{PLATFORM_FEE_CREDITS * 2}-credit</strong> platform fee from your wallet per
-            student who attends (e.g. {PLATFORM_FEE_CREDITS * 2 * 10} credits for 10 attendees in a group class).
-            No-shows cost nothing.
-          </p>
-        </div>
+        {type === 'DEMO' ? (
+          /* Demo classes keep the old rule: free for students, the platform fee comes from the tutor's wallet. */
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 dark:border-amber-800/40 dark:bg-amber-900/20">
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              <strong>Heads up:</strong> demo classes are <strong>free for students</strong>.
+              You'll be charged a <strong>{PLATFORM_FEE_CREDITS * 2}-credit</strong> platform fee from your wallet per
+              student who attends. No-shows cost nothing.
+            </p>
+          </div>
+        ) : (
+          /* Everything else is a request: the student accepts first, then pays the price you set after each session. */
+          <div className="space-y-2 rounded-xl border border-brand-200 bg-brand-50 px-3.5 py-3 dark:border-brand-800/40 dark:bg-brand-900/20">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Price per student (credits per hour)
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="0.5"
+              value={priceInput}
+              placeholder={String(defaultRateCredits)}
+              onChange={(e) => setPriceInput(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p className="text-xs text-brand-700 dark:text-brand-300">
+              Students get a <strong>request</strong> and must accept it. Nothing is charged until a session is completed.
+              {minutes > 0 && sessionPrice > 0 && (
+                <> For this {minutes}-minute session each student pays <strong>{sessionPrice + PLATFORM_FEE_CREDITS} credits</strong> ({sessionPrice} + {PLATFORM_FEE_CREDITS} platform fee) and you receive <strong>{Math.max(0, sessionPrice - PLATFORM_FEE_CREDITS)} credits</strong> ({sessionPrice} − {PLATFORM_FEE_CREDITS} platform fee). You pay nothing up front.</>
+              )}
+            </p>
+          </div>
+        )}
 
         {/* Class type */}
         <div>
