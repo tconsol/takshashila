@@ -5,6 +5,7 @@ import type { IDemoRequest } from './demo-request.types';
 import type { CreateDemoRequestDto, RejectDemoRequestDto } from './demo-request.validators';
 import { scheduleService } from '../schedules/schedule.service';
 import { studentService } from '../students/student.service';
+import { studentRepository } from '../students/student.repository';
 import { tutorService } from '../tutors/tutor.service';
 import { AvailabilitySlotModel, ScheduledClassModel } from '../schedules/schedule.model';
 import { StudentProfileModel } from '../students/student.model';
@@ -19,8 +20,14 @@ import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { adjustCountersForStatusChange } from '../students/student.service';
 
-async function getOrCreateStudentProfile(userPublicId: string) {
+async function getOrCreateStudentProfile(userPublicId: string, tutorPublicId?: string) {
   try {
+    // A student can hold one profile per tutor link: prefer the one already tied to
+    // this tutor so the request is not attached to an unrelated link.
+    if (tutorPublicId) {
+      const linked = await studentRepository.findByUserAndTutor(userPublicId, tutorPublicId);
+      if (linked) return linked;
+    }
     return await studentService.getByUserPublicId(userPublicId);
   } catch {
     // Profile missing create it for legacy accounts
@@ -69,7 +76,7 @@ async function enrichWithSlot(items: IDemoRequest[]): Promise<EnrichedDemoReques
 
 export class DemoRequestService {
   async create(studentUserPublicId: string, dto: CreateDemoRequestDto): Promise<IDemoRequest> {
-    const studentProfile = await getOrCreateStudentProfile(studentUserPublicId);
+    const studentProfile = await getOrCreateStudentProfile(studentUserPublicId, dto.tutorPublicId);
     const slot = await scheduleService.getSlotByPublicId(dto.availabilitySlotPublicId);
 
     if (slot.tutorPublicId !== dto.tutorPublicId) {
