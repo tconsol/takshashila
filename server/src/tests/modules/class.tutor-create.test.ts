@@ -67,3 +67,37 @@ describe('ClassService.tutorCreateClasses guards', () => {
     }))).resolves.toHaveLength(1);
   });
 });
+
+describe('ClassService.tutorCreateClasses notifications for a group', () => {
+  let emit: jest.SpyInstance;
+  let n = 0;
+
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    n = 0;
+    jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tp1', userPublicId: 'tu1' } as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([
+      { publicId: 's1', userPublicId: 'su1' }, { publicId: 's2', userPublicId: 'su2' },
+    ]) as never);
+    jest.spyOn(settingsService, 'get').mockResolvedValue({ maxAdvanceBookingDays: 30, minClassDurationMinutes: 30, maxClassDurationMinutes: 180 } as never);
+    jest.spyOn(walletService, 'getWallet').mockResolvedValue({ balanceCents: 1_000_000 } as never);
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(null) as never);
+    jest.spyOn(ScheduledClassModel, 'create').mockImplementation((async (d: { studentPublicId: string }) => {
+      const doc = { publicId: `c${++n}`, studentPublicId: d.studentPublicId };
+      return { ...doc, toObject: () => doc };
+    }) as never);
+    emit = jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+  });
+
+  it("points each student's CLASS_BOOKED event at that student's own class", async () => {
+    await classService.tutorCreateClasses('tu1', base({ studentPublicIds: ['s1', 's2'] }));
+    const booked = emit.mock.calls.filter(([e]) => e === 'CLASS_BOOKED').map(([, p]) => [p.studentPublicId, p.classPublicId]);
+    expect(booked).toEqual(expect.arrayContaining([['s1', 'c1'], ['s2', 'c2']]));
+  });
+
+  it('reports sessions per student, not records for everyone', async () => {
+    await classService.tutorCreateClasses('tu1', base({ studentPublicIds: ['s1', 's2'] }));
+    const created = emit.mock.calls.find(([e]) => e === 'CLASS_CREATED_BY_TUTOR');
+    expect(created?.[1].count).toBe(1);
+  });
+});

@@ -1160,7 +1160,8 @@ export class ClassService {
       ).lean();
       for (const sp of studentProfiles) {
         domainEvents.emit(DomainEvent.CLASS_BOOKED, {
-          classPublicId: created[0]?.publicId ?? '',
+          // The student's own first record, not the first one created for anybody.
+          classPublicId: created.find((c) => c.studentPublicId === sp.publicId)?.publicId ?? '',
           tutorPublicId: tutorProfile.publicId,
           tutorUserPublicId,
           studentPublicId: sp.publicId ?? '',
@@ -1176,7 +1177,8 @@ export class ClassService {
         studentUserPublicIds: studentProfiles.map((sp) => sp.userPublicId),
         title: dto.title,
         classType: dto.classType,
-        count: created.length,
+        // Sessions per student, not the records created for all students together.
+        count: occurrences.length,
       });
     }
 
