@@ -597,9 +597,25 @@ export class StudentService {
     return profile;
   }
 
-  async acceptInvite(studentUserPublicId: string): Promise<IStudentProfile> {
-    const profile = await studentRepository.findByUserPublicId(studentUserPublicId);
+  /**
+   * The profile an accept/decline acts on. A student can hold several profiles
+   * (one per tutor link), so the first one is not necessarily the invite:
+   * use the link the student clicked, else their pending invite.
+   */
+  private async findInviteProfile(studentUserPublicId: string, linkId?: string): Promise<IStudentProfile> {
+    if (linkId) return this.assertOwnsLink(studentUserPublicId, linkId);
+    const pending = await StudentProfileModel.findOne({
+      userPublicId: studentUserPublicId,
+      status: StudentStatus.PENDING_APPROVAL,
+      isDeleted: false,
+    }).lean();
+    const profile = pending ?? (await studentRepository.findByUserPublicId(studentUserPublicId));
     if (!profile) throw new NotFoundError('No pending invite found');
+    return profile as unknown as IStudentProfile;
+  }
+
+  async acceptInvite(studentUserPublicId: string, linkId?: string): Promise<IStudentProfile> {
+    const profile = await this.findInviteProfile(studentUserPublicId, linkId);
     if (profile.status !== StudentStatus.PENDING_APPROVAL) {
       throw new ConflictError('No pending invite to accept');
     }
@@ -684,9 +700,8 @@ export class StudentService {
     });
   }
 
-  async declineInvite(studentUserPublicId: string): Promise<void> {
-    const profile = await studentRepository.findByUserPublicId(studentUserPublicId);
-    if (!profile) throw new NotFoundError('No pending invite found');
+  async declineInvite(studentUserPublicId: string, linkId?: string): Promise<void> {
+    const profile = await this.findInviteProfile(studentUserPublicId, linkId);
     if (profile.status !== StudentStatus.PENDING_APPROVAL) {
       throw new ConflictError('No pending invite to decline');
     }

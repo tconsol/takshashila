@@ -35,14 +35,12 @@ router.get('/me/tutor-links', requireRole(Role.STUDENT), async (req: AuthRequest
 });
 router.post('/me/tutor-links/:linkId/accept', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await studentService.assertOwnsLink(req.user!.publicId, req.params.linkId);
-    sendSuccess(res, await studentService.acceptInvite(req.user!.publicId), 'Invite accepted');
+    sendSuccess(res, await studentService.acceptInvite(req.user!.publicId, req.params.linkId), 'Invite accepted');
   } catch (e) { next(e); }
 });
 router.post('/me/tutor-links/:linkId/decline', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await studentService.assertOwnsLink(req.user!.publicId, req.params.linkId);
-    await studentService.declineInvite(req.user!.publicId);
+    await studentService.declineInvite(req.user!.publicId, req.params.linkId);
     sendSuccess(res, null, 'Invite declined');
   } catch (e) { next(e); }
 });
