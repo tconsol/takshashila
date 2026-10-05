@@ -101,3 +101,55 @@ describe('ClassService.tutorCreateClasses notifications for a group', () => {
     expect(created?.[1].count).toBe(1);
   });
 });
+
+describe('ClassService.tutorCreateClasses group rules', () => {
+  let create: jest.SpyInstance;
+  const students = (n: number) => Array.from({ length: n }, (_, i) => ({ publicId: `s${i}`, userPublicId: `su${i}` }));
+
+  const arrange = (count: number, balanceCents = 1_000_000) => {
+    jest.restoreAllMocks();
+    jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tp1', userPublicId: 'tu1' } as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean(students(count)) as never);
+    jest.spyOn(settingsService, 'get').mockResolvedValue({ maxAdvanceBookingDays: 30, minClassDurationMinutes: 30, maxClassDurationMinutes: 180 } as never);
+    jest.spyOn(walletService, 'getWallet').mockResolvedValue({ balanceCents } as never);
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(null) as never);
+    create = jest.spyOn(ScheduledClassModel, 'create').mockImplementation((async (d: object) => ({ toObject: () => d })) as never);
+    jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+  };
+
+  it('needs a Meet/Zoom link for more than 10 students', async () => {
+    arrange(11);
+    await expect(classService.tutorCreateClasses('tu1', base({ studentPublicIds: [] })))
+      .rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining('11 students') });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('allows exactly 10 students in the in-app room', async () => {
+    arrange(10);
+    await classService.tutorCreateClasses('tu1', base({ studentPublicIds: [] }));
+    expect(create).toHaveBeenCalledTimes(10);
+    expect(create.mock.calls[0][0]).toMatchObject({ meetingProvider: 'native' });
+  });
+
+  it.each([
+    ['https://zoom.us/j/123', 'zoom'],
+    ['https://meet.google.com/abc-defg-hij', 'google_meet'],
+  ])('hosts more than 10 students on an external link (%s -> %s)', async (meetingUrl, provider) => {
+    arrange(12);
+    await classService.tutorCreateClasses('tu1', base({ studentPublicIds: [], meetingUrl }));
+    expect(create).toHaveBeenCalledTimes(12);
+    expect(create.mock.calls[0][0]).toMatchObject({ meetingUrl, meetingProvider: provider });
+  });
+
+  it('needs 2 credits per student per session in the tutor wallet', async () => {
+    arrange(3, 599); // 3 students x 2 credits = 600 cents
+    await expect(classService.tutorCreateClasses('tu1', base({ studentPublicIds: [] })))
+      .rejects.toMatchObject({ statusCode: 402, message: expect.stringContaining('6 credits') });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('accepts a wallet that covers every student and session', async () => {
+    arrange(3, 600);
+    await expect(classService.tutorCreateClasses('tu1', base({ studentPublicIds: [] }))).resolves.toHaveLength(3);
+  });
+});
