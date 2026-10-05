@@ -749,7 +749,7 @@ export class ClassService {
     const cancelled = await this.cancelClass(classPublicId, actorPublicId, dto);
     for (const sibling of siblings) {
       try {
-        await this.cancelClass(sibling.publicId, actorPublicId, dto);
+        await this.cancelClass(sibling.publicId, actorPublicId, dto, { skipFee: true });
       } catch (error) {
         logger.warn('Group session: could not cancel a student record', {
           groupPublicId: clicked.groupPublicId, classPublicId: sibling.publicId, error: (error as Error).message,
@@ -759,10 +759,15 @@ export class ClassService {
     return cancelled;
   }
 
+  /**
+   * `skipFee` is for the other students' records of a group session the tutor cancels: the
+   * session carries one cancellation fee, charged on the record that was clicked.
+   */
   async cancelClass(
     classPublicId: string,
     actorPublicId: string,
     dto: CancelClassDto,
+    opts: { skipFee?: boolean } = {},
   ): Promise<IScheduledClass> {
     const scheduled = await ScheduledClassModel.findOne({
       publicId: classPublicId,
@@ -846,7 +851,7 @@ export class ClassService {
       StudentProfileModel.findOne({ publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
     ]);
 
-    if (!isPrepaid(scheduled.billingMode) && scheduled.requestStatus !== RequestStatus.PENDING && this._cancellationFeeApplies(scheduled)) {
+    if (!opts.skipFee && !isPrepaid(scheduled.billingMode) && scheduled.requestStatus !== RequestStatus.PENDING && this._cancellationFeeApplies(scheduled)) {
       await this._chargeCancellationFee(classPublicId, actorPublicId, {
         tutorUserPublicId: cancelledTutorProfile?.userPublicId,
         studentUserPublicId: cancelledStudentProfile?.userPublicId,

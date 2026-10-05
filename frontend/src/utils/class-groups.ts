@@ -9,6 +9,8 @@ const STATUS_RANK: Record<string, number> = { LIVE: 3, IN_PROGRESS: 3, SCHEDULED
 const rank = (cls: ClassRecord) => (STATUS_RANK[cls.status] ?? 1) * 2 + (cls.requestStatus === 'PENDING' ? 0 : 1);
 
 export interface SessionStudent {
+  /** The student profile id, so a make-up session can be set up for the same students. */
+  publicId: string;
   name: string;
   /** Absent for classes that never needed the student's acceptance. */
   requestStatus?: ClassRecord['requestStatus'];
@@ -33,7 +35,7 @@ export function collapseGroupSessions(classes: ClassRecord[]): ClassSession[] {
 
   for (const cls of classes) {
     const key = cls.groupPublicId;
-    const student: SessionStudent = { name: cls.studentName ?? '', requestStatus: cls.requestStatus };
+    const student: SessionStudent = { publicId: cls.studentPublicId, name: cls.studentName ?? '', requestStatus: cls.requestStatus };
     if (!key) {
       result.push({ ...cls, studentCount: 1, students: [student] });
       continue;

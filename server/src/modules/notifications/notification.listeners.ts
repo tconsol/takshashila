@@ -139,7 +139,7 @@ export function registerNotificationListeners(): void {
         'The tutor was not in the session for long enough, so it was marked incomplete. You were not charged.',
         { classPublicId: p.classPublicId });
       notify(p.tutorUserPublicId, NotificationType.CLASS_COMPLETED, 'Class incomplete',
-        'You were not in the session for the required time, so it was marked incomplete and not paid.',
+        'You were not in the session for the required time, so it was marked incomplete and not paid. Open it in your Classes and choose "Schedule make-up session" to make it up to your students.',
         { classPublicId: p.classPublicId });
       return;
     }

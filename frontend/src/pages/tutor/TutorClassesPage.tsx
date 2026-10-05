@@ -241,6 +241,20 @@ export function TutorClassesPage() {
             <div key={cls.publicId} className="flex flex-col gap-0">
               <ClassCard cls={cls} perspective="tutor" onAction={handleAction} students={cls.students} />
 
+              {/* An incomplete session (the tutor was not there long enough): offer a make-up for the same students */}
+              {cls.status === 'INCOMPLETE' && (
+                <div className="flex gap-2 px-5 pb-3 -mt-1 bg-white dark:bg-gray-800 rounded-b-xl border border-t-0 border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => navigate('/dashboard/tutor/classes/create', {
+                      state: { makeUp: { title: cls.subject, studentPublicIds: cls.students.map((s) => s.publicId).filter(Boolean) } },
+                    })}
+                    className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg py-1.5 transition-colors"
+                  >
+                    <Calendar className="h-3.5 w-3.5" /> Schedule make-up session
+                  </button>
+                </div>
+              )}
+
               {/* Reschedule button for SCHEDULED classes */}
               {cls.status === 'SCHEDULED' && (
                 <div className="flex gap-2 px-5 pb-3 -mt-1 bg-white dark:bg-gray-800 rounded-b-xl border border-t-0 border-gray-200 dark:border-gray-700">

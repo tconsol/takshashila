@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { CalendarPlus, Users, User, RefreshCw, ChevronDown, ChevronUp, ArrowLeft, Wallet } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useTutorCreateClass } from '../../hooks/use-classes';
 import { useMyStudentsAsTutor } from '../../hooks/use-students';
+import { useMyTutorProfile } from '../../hooks/use-tutors';
+import { PLATFORM_FEE_CREDITS } from '../../lib/billing';
 import { useAuthStore } from '../../stores/auth.store';
 
 type ClassType = 'DEMO' | 'ONE_ON_ONE' | 'GROUP' | 'RECURRING';
@@ -33,19 +35,27 @@ function addHour(dt: string): string {
   return toLocalInput(new Date(new Date(dt).getTime() + 3_600_000));
 }
 
+/** Sent by the Classes page when the tutor chooses "Schedule make-up" on an incomplete session. */
+interface MakeUpState {
+  makeUp?: { title: string; studentPublicIds: string[] };
+}
+
 export function TutorCreateClassPage() {
   const navigate = useNavigate();
+  const makeUp = (useLocation().state as MakeUpState | null)?.makeUp;
 
-  const [type, setType] = useState<ClassType>('ONE_ON_ONE');
-  const [title, setTitle] = useState('');
+  const [type, setType] = useState<ClassType>(makeUp && makeUp.studentPublicIds.length > 1 ? 'GROUP' : 'ONE_ON_ONE');
+  const [title, setTitle] = useState(makeUp ? `Make-up: ${makeUp.title}` : '');
   const [description, setDescription] = useState('');
   const [startUTC, setStartUTC] = useState(now15);
   const [endUTC, setEndUTC] = useState(() => addHour(now15()));
   const [recurrence, setRecurrence] = useState<Recurrence>('NONE');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
-  const [studentMode, setStudentMode] = useState<'all' | 'specific'>('all');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [studentMode, setStudentMode] = useState<'all' | 'specific'>(makeUp ? 'specific' : 'all');
+  const [selected, setSelected] = useState<Set<string>>(new Set(makeUp?.studentPublicIds ?? []));
   const [showStudents, setShowStudents] = useState(false);
+  // Price per student per hour, in credits. Empty means the tutor's own rate.
+  const [priceInput, setPriceInput] = useState('');
   const [meetingUrl, setMeetingUrl] = useState('');
   const [creditError, setCreditError] = useState<string | null>(null);
 
@@ -56,6 +66,12 @@ export function TutorCreateClassPage() {
 
   const { mutateAsync: create, isPending } = useTutorCreateClass();
   const { data: studentsData } = useMyStudentsAsTutor({ limit: '200' });
+  const { data: myProfile } = useMyTutorProfile();
+  const defaultRateCredits = (myProfile?.hourlyRateCents ?? 0) / 100;
+  const priceCredits = priceInput === '' ? defaultRateCredits : Number(priceInput);
+  const priceInvalid = priceInput !== '' && (!Number.isFinite(Number(priceInput)) || Number(priceInput) < 0);
+  const minutes = Math.max(0, Math.round((new Date(endUTC).getTime() - new Date(startUTC).getTime()) / 60_000));
+  const sessionPrice = Number.isFinite(priceCredits) ? Math.round((priceCredits * minutes) / 60 * 100) / 100 : 0;
   const students = (studentsData?.items ?? [])
     .filter((s) => s.status === 'ACTIVE' || s.status === 'APPROVED')
     .map((s) => ({
@@ -83,6 +99,7 @@ export function TutorCreateClassPage() {
     startUTC.length > 0 &&
     endUTC.length > 0 &&
     new Date(endUTC) > new Date(startUTC) &&
+    !priceInvalid &&
     (!exceedsNative || meetingUrl.trim().length > 0); // big groups need an external link
 
   const handleSubmit = async () => {
@@ -102,6 +119,7 @@ export function TutorCreateClassPage() {
             : undefined,
         studentPublicIds: studentMode === 'all' ? [] : [...selected],
         meetingUrl: meetingUrl.trim() || undefined,
+        ...(type !== 'DEMO' && { pricePerHourCents: Math.round(priceCredits * 100) }),
       });
       navigate('/dashboard/tutor/classes');
     } catch (e) {
@@ -176,6 +194,39 @@ export function TutorCreateClassPage() {
             ))}
           </div>
         </div>
+
+        {/* Price: everything except a demo is a request the student accepts, then pays per session */}
+        {type === 'DEMO' ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 dark:border-amber-800/40 dark:bg-amber-900/20">
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              <strong>Heads up:</strong> demo classes are <strong>free for students</strong>. You'll be charged a{' '}
+              <strong>{PLATFORM_FEE_CREDITS * 2}-credit</strong> platform fee from your wallet per student who attends.
+              No-shows cost nothing.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2 rounded-xl border border-brand-200 bg-brand-50 px-3.5 py-3 dark:border-brand-800/40 dark:bg-brand-900/20">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Price per student (credits per hour)
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="0.5"
+              value={priceInput}
+              placeholder={String(defaultRateCredits)}
+              onChange={(e) => setPriceInput(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p className="text-xs text-brand-700 dark:text-brand-300">
+              Students get a <strong>request</strong> and must accept it. Nothing is charged until a session is completed.
+              {minutes > 0 && sessionPrice > 0 && (
+                <> For this {minutes}-minute session each student pays <strong>{sessionPrice + PLATFORM_FEE_CREDITS} credits</strong> ({sessionPrice} + {PLATFORM_FEE_CREDITS} platform fee) and you receive <strong>{Math.max(0, sessionPrice - PLATFORM_FEE_CREDITS)} credits</strong> ({sessionPrice} − {PLATFORM_FEE_CREDITS} platform fee). You pay nothing up front.</>
+              )}
+              {type === 'RECURRING' && <> For a repeating class, students need credits for the first 30 days of sessions to accept, and fund each following 30 days later.</>}
+            </p>
+          </div>
+        )}
 
         {/* Title */}
         <div>
