@@ -13,6 +13,7 @@ import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
 import { ParentProfileModel } from '../parents/parent.model';
 import { assertClassParty, assertClassViewer } from './class-access';
+import { classPresenceService } from './class-presence.service';
 
 function parseClassFilters(query: Record<string, unknown>) {
   return {
@@ -43,6 +44,17 @@ export class ClassController {
       await assertClassViewer(req.user!, req.params.classId);
       const cls = await classService.joinClass(req.params.classId, req.user!.publicId, req.user!.role);
       sendSuccess(res, cls, 'Joined class');
+    } catch (error) { next(error); }
+  }
+
+  /**
+   * Heartbeat from the room page, and the last one when the person leaves. Both
+   * routes do the same thing: note that this person was present just now.
+   */
+  async recordPresence(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await classPresenceService.recordPresence(req.params.classId, req.user!.publicId);
+      sendSuccess(res, { ok: true }, 'Presence recorded');
     } catch (error) { next(error); }
   }
 
