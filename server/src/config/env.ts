@@ -3,6 +3,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+/** First address of a possibly comma-separated list, without a trailing slash. */
+export function normalizeFrontendUrl(value: string): string {
+  const first = value.split(',')[0].trim();
+  return first.replace(/\/+$/, '');
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().default(5000),
@@ -34,8 +40,10 @@ const envSchema = z.object({
 
   COOKIE_SECRET: z.string().min(32, 'COOKIE_SECRET must be at least 32 chars'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
-  // Strip any trailing slash so links never become `https://site.com//verify-email`.
-  FRONTEND_URL: z.string().default('http://localhost:5173').transform((s) => s.replace(/\/+$/, '')),
+  // One site address, used to build links in emails. If the env var holds a list
+  // ("https://a.com/,https://www.a.com/") only the first entry is used, and any
+  // trailing slash is dropped so links never become `https://site.com//verify-email`.
+  FRONTEND_URL: z.string().default('http://localhost:5173').transform(normalizeFrontendUrl),
 
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().default(1025),
