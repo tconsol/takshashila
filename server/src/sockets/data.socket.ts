@@ -15,6 +15,18 @@ function push(rooms: string[], event: string, payload: unknown = {}) {
   void realtime.emit(rooms, event, payload);
 }
 
+/**
+ * Tells everyone inside the live room that the class is over. The room page
+ * leaves on `class:status-changed` COMPLETED/CANCELLED; completing or cancelling
+ * through the REST endpoints used to change the status without telling the room,
+ * so people stayed in a "LIVE" room (with chat) for a class that had ended.
+ * The class room is a Socket.IO room, so this does not go through Pusher.
+ */
+export function endClassRoom(io: IOServer, classPublicId: string | undefined, status: 'COMPLETED' | 'CANCELLED'): void {
+  if (!classPublicId) return;
+  io.to(`class:${classPublicId}`).emit('class:status-changed', { classPublicId, status, updatedBy: 'system' });
+}
+
 async function notifyTutorConnections(
   io: IOServer,
   tutorPublicId: string,
@@ -66,7 +78,8 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     push(rooms, 'schedule:alert');
   });
 
-  domainEvents.on(DomainEvent.CLASS_CANCELLED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
+  domainEvents.on(DomainEvent.CLASS_CANCELLED, (payload: { classPublicId?: string; tutorUserPublicId: string; studentUserPublicId: string }) => {
+    endClassRoom(io, payload.classPublicId, 'CANCELLED');
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, [...rooms, 'role:PRINCIPAL'], 'classes');
     invalidate(io, rooms, 'wallet');
@@ -93,7 +106,8 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     });
   });
 
-  domainEvents.on(DomainEvent.CLASS_COMPLETED, (payload: { tutorUserPublicId: string; studentUserPublicId: string }) => {
+  domainEvents.on(DomainEvent.CLASS_COMPLETED, (payload: { classPublicId?: string; tutorUserPublicId: string; studentUserPublicId: string }) => {
+    endClassRoom(io, payload.classPublicId, 'COMPLETED');
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, rooms, 'classes');
     invalidate(io, [`user:${payload.tutorUserPublicId}`], 'wallet');

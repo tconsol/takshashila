@@ -8,6 +8,7 @@ import { NotFoundError, AppError } from '../../utils/error';
 import { RtcTokenBuilder, RtcRole } from 'agora-token';
 import { env } from '../../config/env';
 import { ScheduledClassModel } from '../schedules/schedule.model';
+import { ClassStatus } from '../schedules/schedule.types';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
 import { ParentProfileModel } from '../parents/parent.model';
@@ -159,6 +160,11 @@ export class ClassController {
 
       const cls = await ScheduledClassModel.findOne({ publicId: classId, isDeleted: false }).lean();
       if (!cls) throw new NotFoundError('Class');
+
+      // An ended class has no room: do not hand out a video token for it.
+      if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED) {
+        throw new AppError('This class has ended', 409);
+      }
 
       // Verify the requesting user belongs to this class
       // Every branch is an explicit allow; the default is deny.
