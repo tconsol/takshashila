@@ -85,14 +85,32 @@ export function registerNotificationListeners(): void {
   });
 
   domainEvents.on(DomainEvent.CLASS_REQUEST_RESPONDED, async (p: {
-    classPublicId: string; title: string; answer: 'ACCEPTED' | 'DECLINED' | 'EXPIRED'; sessions: number;
+    classPublicId: string; title: string; answer: 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'FUNDED' | 'UNFUNDED'; sessions: number;
     tutorUserPublicId: string; studentUserPublicId: string;
   }) => {
     const student = await displayName(p.studentUserPublicId, 'A student');
     const what = p.sessions > 1 ? `${p.sessions} sessions of "${p.title}"` : `"${p.title}"`;
+    if (p.answer === 'UNFUNDED') {
+      notify(p.tutorUserPublicId, NotificationType.CLASS_CANCELLED, 'Recurring class cancelled',
+        `${student} did not fund the next 30 days, so ${what} ${p.sessions > 1 ? 'were' : 'was'} cancelled.`, { classPublicId: p.classPublicId });
+      notify(p.studentUserPublicId, NotificationType.CLASS_CANCELLED, 'Recurring class cancelled',
+        `You did not fund the next 30 days in time, so ${what} ${p.sessions > 1 ? 'were' : 'was'} cancelled. You were not charged.`, { classPublicId: p.classPublicId });
+      return;
+    }
+    if (p.answer === 'FUNDED') return; // the student knows; the tutor's list refreshes through the socket event
     const verb = p.answer === 'ACCEPTED' ? 'accepted' : p.answer === 'DECLINED' ? 'declined' : 'did not answer in time for';
     notify(p.tutorUserPublicId, NotificationType.CLASS_BOOKED, `Class request ${p.answer.toLowerCase()}`,
       `${student} ${verb} ${what}.`, { classPublicId: p.classPublicId });
+  });
+
+  domainEvents.on(DomainEvent.CLASS_FUNDING_REMINDER, (p: {
+    classPublicId: string; title: string; studentUserPublicId: string; sessions: number; needCents: number; deadline: Date;
+  }) => {
+    const credits = (p.needCents / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    const by = new Date(p.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    notify(p.studentUserPublicId, NotificationType.CLASS_REMINDER, 'Fund your next 30 days',
+      `"${p.title}" continues on ${by}. Fund the next ${p.sessions} session${p.sessions === 1 ? '' : 's'} (${credits} credits) in your Classes before then, or the remaining sessions are cancelled. Nothing is charged until each session is completed.`,
+      { classPublicId: p.classPublicId });
   });
 
   domainEvents.on(DomainEvent.CLASS_STARTED, async (p: {

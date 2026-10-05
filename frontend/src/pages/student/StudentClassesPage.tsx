@@ -6,7 +6,7 @@ import { BookClassModal } from '../../components/shared/BookClassModal';
 import { Tabs } from '../../components/ui/Tabs';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { useMyClassesAsStudent, useCancelClass, useRespondToClassRequest, LIVE_STATUS_POLL } from '../../hooks/use-classes';
+import { useMyClassesAsStudent, useCancelClass, useRespondToClassRequest, useFundNextBlock, LIVE_STATUS_POLL } from '../../hooks/use-classes';
 import { useConfirm } from '../../hooks/use-confirm';
 import { useTutorSearch } from '../../hooks/use-tutors';
 import { useTabActivity } from '../../hooks/use-tab-activity';
@@ -73,6 +73,7 @@ export function StudentClassesPage() {
   const { data: tutorResult } = useTutorSearch({ limit: 20 });
   const { mutateAsync: cancelClass, isPending: cancelling } = useCancelClass();
   const { mutateAsync: respond } = useRespondToClassRequest();
+  const { mutateAsync: fundNext, isPending: funding } = useFundNextBlock();
   const { confirm, confirmDialog } = useConfirm();
   const { mutateAsync: startConversation } = useStartConversation();
   const navigate = useNavigate();
@@ -86,6 +87,26 @@ export function StudentClassesPage() {
     (a, b) => new Date(b.scheduledStartUTC).getTime() - new Date(a.scheduledStartUTC).getTime(),
   ); // newest → oldest
   const tutors = tutorResult?.items ?? [];
+  // Accepted recurring requests whose next 30 days still need funding (one entry per series).
+  const unfundedSeries = (() => {
+    const bySeries = new Map<string, { cls: ClassRecord; sessions: ClassRecord[] }>();
+    for (const c of classes) {
+      if (c.requestStatus !== 'ACCEPTED' || c.status !== 'SCHEDULED' || !c.fundedThrough) continue;
+      if (new Date(c.scheduledStartUTC).getTime() < new Date(c.fundedThrough).getTime()) continue;
+      const key = c.seriesPublicId ?? c.publicId;
+      const entry = bySeries.get(key) ?? { cls: c, sessions: [] };
+      entry.sessions.push(c);
+      bySeries.set(key, entry);
+    }
+    return [...bySeries.values()].map(({ cls, sessions }) => {
+      const sorted = sessions.sort((a, b) => new Date(a.scheduledStartUTC).getTime() - new Date(b.scheduledStartUTC).getTime());
+      const first = new Date(sorted[0].scheduledStartUTC).getTime();
+      const block = sorted.filter((s) => new Date(s.scheduledStartUTC).getTime() < first + 30 * 86_400_000);
+      const credits = block.reduce((sum, s) => sum + (s.costCents > 0 ? s.costCents + 100 : 0), 0) / 100;
+      const opensAt = first - 15 * 86_400_000;
+      return { cls: sorted[0], title: cls.subject, sessions: block.length, credits, first, opensAt, open: Date.now() >= opensAt };
+    });
+  })();
   // Tutor-created classes waiting for this student's accept or decline (one per series, not per session).
   const requestCount = new Set(
     classes.filter((c) => c.requestStatus === 'PENDING' && c.status === 'SCHEDULED').map((c) => c.seriesPublicId ?? c.publicId),
@@ -152,6 +173,20 @@ export function StudentClassesPage() {
             </Button>
           </div>
         )}
+
+        {unfundedSeries.map((u) => (
+          <div key={u.cls.seriesPublicId ?? u.cls.publicId} className="flex items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-800/40 dark:bg-sky-900/20">
+            <p className="text-sm text-sky-800 dark:text-sky-200">
+              <strong>{u.title || 'Recurring class'}</strong> continues on {new Date(u.first).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.
+              {' '}Fund the next {u.sessions} session{u.sessions === 1 ? '' : 's'} ({u.credits.toLocaleString('en-US', { maximumFractionDigits: 2 })} credits) before then, or the remaining sessions are cancelled.
+              {' '}Nothing is charged until each session is completed.
+              {!u.open && <> You can fund from {new Date(u.opensAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.</>}
+            </p>
+            <Button size="sm" disabled={!u.open || funding} onClick={() => { void fundNext(u.cls.publicId).catch(() => {}); }}>
+              Fund next 30 days
+            </Button>
+          </div>
+        ))}
 
         <Tabs tabs={TABS} activeTab={activeTab} onChange={(key) => { setActiveTab(key); markSeen(key); }} />
 

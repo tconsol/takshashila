@@ -56,6 +56,9 @@ export type RequestStatus = (typeof RequestStatus)[keyof typeof RequestStatus];
  */
 export const FUNDING_BLOCK_DAYS = 30;
 
+/** Reminders to fund the next block start this long before its first session; funding opens then too. */
+export const FUNDING_REMINDER_DAYS = 15;
+
 export const ClassStatus = {
   SCHEDULED: 'SCHEDULED',
   LIVE: 'LIVE',
@@ -148,6 +151,8 @@ export interface IScheduledClass {
   fundedThrough?: Date;
   /** When the student accepted or declined, or the request expired. */
   requestRespondedAt?: Date;
+  /** Last time the student was reminded to fund the block this session belongs to. */
+  fundingReminderAt?: Date;
   /** When the class actually went LIVE, which is not the scheduled start. */
   startedAt?: Date;
   /**

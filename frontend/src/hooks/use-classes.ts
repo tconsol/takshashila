@@ -164,6 +164,20 @@ export function useRespondToClassRequest() {
   });
 }
 
+export function useFundNextBlock() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: (classId: string) => classesService.fundNextBlock(classId),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: classKeys.all });
+      qc.invalidateQueries({ queryKey: ['wallet'] });
+      toast.success('Next 30 days funded', `${res.funded} session${res.funded === 1 ? '' : 's'} confirmed. Credits are charged only after each session is completed.`);
+    },
+    onError: (err: Error) => toast.error('Could not fund the next 30 days', err.message),
+  });
+}
+
 export function useTutorReschedule() {
   const qc = useQueryClient();
   const toast = useToast();

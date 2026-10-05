@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { ScheduledClassModel } from '../schedules/schedule.model';
-import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES, MIN_SESSION_MINUTES, RequestStatus, FUNDING_BLOCK_DAYS, isPrepaid } from '../schedules/schedule.types';
+import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES, MIN_SESSION_MINUTES, RequestStatus, FUNDING_BLOCK_DAYS, FUNDING_REMINDER_DAYS, isPrepaid } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { scheduleService } from '../schedules/schedule.service';
 import { walletService, spendableCents } from '../wallets/wallet.service';
@@ -1214,6 +1214,222 @@ export class ClassService {
       status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
       $or: ranges.map((r) => ({ startUTC: { $lt: r.end }, endUTC: { $gt: r.start } })),
     }, { startUTC: 1, endUTC: 1 }).lean() as unknown as Promise<{ startUTC: Date; endUTC: Date } | null>;
+  }
+
+  /**
+   * The student's still-unfunded sessions of one accepted series: those at or after the end of
+   * the funded block. `first` is where the next block starts; it anchors the 15-day reminder
+   * window, the cancellation moment, and (+30 days) the end of the next block.
+   */
+  private async _unfundedSessions(
+    cls: Pick<IScheduledClass, 'studentPublicId' | 'seriesPublicId' | 'publicId'>,
+    now: Date,
+  ) {
+    const mine = {
+      studentPublicId: cls.studentPublicId,
+      billingMode: BillingMode.TUTOR_REQUESTED,
+      requestStatus: RequestStatus.ACCEPTED,
+      status: ClassStatus.SCHEDULED,
+      isDeleted: false,
+      startUTC: { $gt: now },
+      ...(cls.seriesPublicId ? { seriesPublicId: cls.seriesPublicId } : { publicId: cls.publicId }),
+    };
+    const sessions = await ScheduledClassModel.find(mine, { costCents: 1, startUTC: 1, fundedThrough: 1 })
+      .sort({ startUTC: 1 })
+      .lean();
+    const unfunded = sessions.filter(
+      (c) => c.fundedThrough && new Date(c.startUTC).getTime() >= new Date(c.fundedThrough).getTime(),
+    );
+    return { filter: mine, sessions, unfunded };
+  }
+
+  /**
+   * The student funds the next 30 days of an accepted recurring request. Allowed from 15 days
+   * before the next block's first session. Same check as accepting: the balance must cover the
+   * block's sessions (price + fee each) on top of everything already promised. Nothing is deducted.
+   */
+  async fundNextBlock(classPublicId: string, studentUserPublicId: string): Promise<{ funded: number; fundedThrough: Date }> {
+    const cls = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
+    if (!cls) throw new NotFoundError('Scheduled class');
+    const own = await StudentProfileModel.findOne(
+      { userPublicId: studentUserPublicId, publicId: cls.studentPublicId, isDeleted: false },
+      { publicId: 1 },
+    ).lean();
+    if (!own) throw new NotFoundError('Scheduled class');
+    if (cls.billingMode !== BillingMode.TUTOR_REQUESTED || cls.requestStatus !== RequestStatus.ACCEPTED) {
+      throw new ConflictError('This class does not need funding.');
+    }
+
+    const now = new Date();
+    const { filter, unfunded } = await this._unfundedSessions(cls, now);
+    if (unfunded.length === 0) throw new ConflictError('Every upcoming session of this class is already funded.');
+
+    const firstStart = new Date(unfunded[0].startUTC).getTime();
+    const opensAt = firstStart - FUNDING_REMINDER_DAYS * 86_400_000;
+    if (now.getTime() < opensAt) {
+      throw new ConflictError(`You can fund the next 30 days from ${new Date(opensAt).toISOString().slice(0, 10)}.`);
+    }
+
+    const fundedThrough = new Date(firstStart + FUNDING_BLOCK_DAYS * 86_400_000);
+    const block = unfunded.filter((c) => new Date(c.startUTC).getTime() < fundedThrough.getTime());
+    const needCents = block.reduce((sum, c) => sum + (c.costCents > 0 ? c.costCents + PLATFORM_FEE_CENTS : 0), 0);
+    const extend = { $set: { fundedThrough } };
+
+    if (needCents > 0) {
+      await walletService.getWallet(studentUserPublicId);
+      const profileIds = await studentService.getProfileIdsByUser(studentUserPublicId);
+      await walletService.runWithBookingLock(studentUserPublicId, async ({ session, wallet }) => {
+        const bookings = await ScheduledClassModel.aggregate([
+          {
+            $match: {
+              studentPublicId: { $in: profileIds },
+              billingMode: BillingMode.STUDENT_REQUESTED,
+              status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+              costCents: { $gt: 0 },
+              isDeleted: false,
+            },
+          },
+          { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
+        ]).session(session);
+        const tutorRequested = await this._reservedTutorRequested(profileIds, session);
+        const reservedCents =
+          (bookings[0]?.totalCents ?? 0) + (bookings[0]?.count ?? 0) * PLATFORM_FEE_CENTS
+          + tutorRequested.totalCents + tutorRequested.count * PLATFORM_FEE_CENTS;
+        const availableCents = spendableCents(wallet);
+        if (availableCents < reservedCents + needCents) {
+          const reservedNote = reservedCents > 0 ? ` ${reservedCents / 100} credits are already reserved for your other classes.` : '';
+          throw new AppError(
+            `Not enough credits to fund the next 30 days. They need ${needCents / 100} credits (price plus platform fee) and you have ${availableCents / 100} available.${reservedNote} Top up your wallet and try again.`,
+            402,
+          );
+        }
+        await ScheduledClassModel.updateMany(filter, extend, { session });
+      });
+    } else {
+      await ScheduledClassModel.updateMany(filter, extend);
+    }
+
+    domainEvents.emit(DomainEvent.CLASS_REQUEST_RESPONDED, {
+      classPublicId,
+      title: cls.title,
+      answer: 'FUNDED',
+      sessions: block.length,
+      tutorUserPublicId: (await TutorProfileModel.findOne({ publicId: cls.tutorPublicId }, { userPublicId: 1 }).lean())?.userPublicId ?? '',
+      studentUserPublicId,
+    });
+    return { funded: block.length, fundedThrough };
+  }
+
+  /**
+   * The first session after a funded block has begun and the student has not funded the next one:
+   * every remaining session of that student's series is cancelled, with no charge and no fee, and
+   * both people are told. (Such a session could never be joined anyway: see _assertStudentCommitted.)
+   * Other students of a group keep their own sessions.
+   */
+  async cancelUnfundedSeries(now: Date = new Date()): Promise<number> {
+    const due = await ScheduledClassModel.find(
+      {
+        billingMode: BillingMode.TUTOR_REQUESTED,
+        requestStatus: RequestStatus.ACCEPTED,
+        status: ClassStatus.SCHEDULED,
+        isDeleted: false,
+        startUTC: { $lte: now },
+        $expr: { $gte: ['$startUTC', '$fundedThrough'] },
+      },
+      { publicId: 1, studentPublicId: 1, tutorPublicId: 1, seriesPublicId: 1, title: 1 },
+    ).limit(200).lean();
+
+    let cancelled = 0;
+    const handled = new Set<string>();
+    for (const cls of due) {
+      const key = `${cls.studentPublicId}|${cls.seriesPublicId ?? cls.publicId}`;
+      if (handled.has(key)) continue;
+      handled.add(key);
+
+      // Everything still to come in this student's series, funded or not: the series is over.
+      const rest = {
+        studentPublicId: cls.studentPublicId,
+        billingMode: BillingMode.TUTOR_REQUESTED,
+        requestStatus: RequestStatus.ACCEPTED,
+        status: ClassStatus.SCHEDULED,
+        isDeleted: false,
+        ...(cls.seriesPublicId ? { seriesPublicId: cls.seriesPublicId } : { publicId: cls.publicId }),
+        $expr: { $gte: ['$startUTC', '$fundedThrough'] },
+      };
+      const res = await ScheduledClassModel.updateMany(rest, {
+        $set: {
+          status: ClassStatus.CANCELLED,
+          cancellationReason: 'The student did not fund the next 30 days in time',
+          cancelledBy: 'system',
+        },
+      });
+      if (res.modifiedCount === 0) continue;
+      cancelled += res.modifiedCount;
+
+      const [student, tutor] = await Promise.all([
+        StudentProfileModel.findOne({ publicId: cls.studentPublicId }, { userPublicId: 1 }).lean(),
+        TutorProfileModel.findOne({ publicId: cls.tutorPublicId }, { userPublicId: 1 }).lean(),
+      ]);
+      domainEvents.emit(DomainEvent.CLASS_REQUEST_RESPONDED, {
+        classPublicId: cls.publicId,
+        title: cls.title,
+        answer: 'UNFUNDED',
+        sessions: res.modifiedCount,
+        tutorUserPublicId: tutor?.userPublicId ?? '',
+        studentUserPublicId: student?.userPublicId ?? '',
+      });
+    }
+    return cancelled;
+  }
+
+  /**
+   * From 15 days before the next block's first session, remind the student (at most once a day)
+   * to fund it. Run a few times a day.
+   */
+  async sendFundingReminders(now: Date = new Date()): Promise<number> {
+    const horizon = new Date(now.getTime() + FUNDING_REMINDER_DAYS * 86_400_000);
+    const candidates = await ScheduledClassModel.find(
+      {
+        billingMode: BillingMode.TUTOR_REQUESTED,
+        requestStatus: RequestStatus.ACCEPTED,
+        status: ClassStatus.SCHEDULED,
+        isDeleted: false,
+        startUTC: { $gt: now, $lte: horizon },
+        $expr: { $gte: ['$startUTC', '$fundedThrough'] },
+      },
+      { publicId: 1, studentPublicId: 1, seriesPublicId: 1, title: 1, fundingReminderAt: 1 },
+    ).sort({ startUTC: 1 }).limit(500).lean();
+
+    const dayAgo = now.getTime() - 86_400_000;
+    let sent = 0;
+    const handled = new Set<string>();
+    for (const cls of candidates) {
+      const key = `${cls.studentPublicId}|${cls.seriesPublicId ?? cls.publicId}`;
+      if (handled.has(key)) continue;
+      handled.add(key);
+      if (cls.fundingReminderAt && new Date(cls.fundingReminderAt).getTime() > dayAgo) continue;
+
+      const student = await StudentProfileModel.findOne({ publicId: cls.studentPublicId }, { userPublicId: 1 }).lean();
+      if (!student?.userPublicId) continue;
+      const { filter, unfunded } = await this._unfundedSessions(cls, now);
+      if (unfunded.length === 0) continue;
+      const firstStart = new Date(unfunded[0].startUTC);
+      const blockEnd = firstStart.getTime() + FUNDING_BLOCK_DAYS * 86_400_000;
+      const block = unfunded.filter((c) => new Date(c.startUTC).getTime() < blockEnd);
+      const needCents = block.reduce((sum, c) => sum + (c.costCents > 0 ? c.costCents + PLATFORM_FEE_CENTS : 0), 0);
+
+      await ScheduledClassModel.updateMany(filter, { $set: { fundingReminderAt: now } });
+      domainEvents.emit(DomainEvent.CLASS_FUNDING_REMINDER, {
+        classPublicId: cls.publicId,
+        title: cls.title,
+        studentUserPublicId: student.userPublicId,
+        sessions: block.length,
+        needCents,
+        deadline: firstStart,
+      });
+      sent += 1;
+    }
+    return sent;
   }
 
   /**

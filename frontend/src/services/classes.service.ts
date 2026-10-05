@@ -205,6 +205,10 @@ export const classesService = {
   accept: (classId: string) =>
     api.post(`/classes/${classId}/accept`).then((r) => r.data.data as { accepted: number; fundedThrough?: string }),
 
+  /** Fund the next 30-day block of an accepted recurring request (opens 15 days before it starts). */
+  fundNextBlock: (classId: string) =>
+    api.post(`/classes/${classId}/fund`).then((r) => r.data.data as { funded: number; fundedThrough: string }),
+
   decline: (classId: string) =>
     api.post(`/classes/${classId}/decline`).then((r) => r.data.data as { accepted: number }),
 

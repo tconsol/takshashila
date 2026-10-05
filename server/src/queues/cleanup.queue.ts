@@ -27,6 +27,14 @@ export function startCleanupWorker(): Worker {
         // Same two-minute tick: class requests the student left unanswered until the class began.
         const expired = await classService.expirePendingRequests();
         if (expired) logger.info('Expired unanswered class requests', { expired });
+        const unfunded = await classService.cancelUnfundedSeries();
+        if (unfunded) logger.info('Cancelled unfunded recurring sessions', { unfunded });
+      }
+
+      if (job.name === 'class-funding-reminders') {
+        const { classService } = await import('../modules/classes/class.service');
+        const sent = await classService.sendFundingReminders();
+        if (sent) logger.info('Sent class funding reminders', { sent });
       }
     },
     { connection: redisConnection, concurrency: 1 },
@@ -50,6 +58,12 @@ export async function scheduleCleanupJobs() {
       'auto-resolve-classes',
       {},
       { repeat: { every: 2 * 60 * 1000 }, jobId: 'auto-resolve-classes' },
+    );
+    // A few times a day: students are reminded at most once a day anyway.
+    await cleanupQueue.add(
+      'class-funding-reminders',
+      {},
+      { repeat: { every: 6 * 60 * 60 * 1000 }, jobId: 'class-funding-reminders' },
     );
 
     logger.info('Cleanup job scheduler registered');

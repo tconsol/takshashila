@@ -65,6 +65,7 @@ const scheduledClassSchema = new Schema<IScheduledClass>(
     pricePerHourCents: { type: Number },
     fundedThrough: { type: Date },
     requestRespondedAt: { type: Date },
+    fundingReminderAt: { type: Date },
     startedAt: { type: Date },
     needsTutorDecision: { type: Boolean, default: false, index: true },
     cancellationReason: { type: String },

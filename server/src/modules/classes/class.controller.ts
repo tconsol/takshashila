@@ -58,6 +58,14 @@ export class ClassController {
     } catch (error) { next(error); }
   }
 
+  /** The student funds the next 30-day block of an accepted recurring request. */
+  async fundNextBlock(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await classService.fundNextBlock(req.params.classId, req.user!.publicId);
+      sendSuccess(res, result, 'Next 30 days funded');
+    } catch (error) { next(error); }
+  }
+
   /** A student's answer to a tutor-created class (covers their whole series). */
   async respondToRequest(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
