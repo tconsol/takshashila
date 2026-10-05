@@ -110,7 +110,13 @@ export function BookClassModal({ open, onClose, tutor, defaultClassType = 'DEMO'
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={isPending}>Cancel</Button>
-          <Button onClick={handleSubmit(onSubmit)} loading={isPending} disabled={bookingClosed && !isDemo}>
+          {/* With no slot there is nothing to submit: the slot field (and its error) is not even shown. */}
+          <Button
+            onClick={handleSubmit(onSubmit)}
+            loading={isPending}
+            disabled={(bookingClosed && !isDemo) || slotsLoading || availableSlots.length === 0}
+            title={!slotsLoading && availableSlots.length === 0 ? 'This tutor has no available slots right now' : undefined}
+          >
             {isDemo ? 'Send Demo Request' : 'Confirm Booking'}
           </Button>
         </>
