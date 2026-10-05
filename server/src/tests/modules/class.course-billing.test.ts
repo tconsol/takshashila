@@ -28,6 +28,7 @@ function coursePrepaidClass(over: Record<string, unknown> = {}) {
     durationMinutes: 60,
     title: 'Algebra I – Topic 2',
     studentJoinedAt: new Date(),
+    tutorJoinedAt: new Date(),
     coursePublicId: 'cr-1',
     ...over,
   };

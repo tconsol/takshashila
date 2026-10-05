@@ -36,6 +36,7 @@ function baseClass(over: Record<string, unknown> = {}) {
     durationMinutes: 60,
     title: 'Physics',
     studentJoinedAt: new Date(), // attended by default
+    tutorJoinedAt: new Date(), // the tutor was there too
     ...over,
   };
 }
@@ -111,6 +112,28 @@ describe('ClassService.completeClass money flow', () => {
     await classService.completeClass('class-1', 'tutor-user-1');
 
     expect(transfer).not.toHaveBeenCalled();
+  });
+
+  it('tutor never joined (student alone in the room) → no transfer, no hosted-class fee', async () => {
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(baseClass({ tutorJoinedAt: undefined })) as never);
+    await classService.completeClass('class-1', 'tutor-user-1');
+    expect(transfer).not.toHaveBeenCalled();
+
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(
+      lean(baseClass({ billingMode: BillingMode.TUTOR_INVITED, costCents: 0, tutorJoinedAt: undefined })) as never,
+    );
+    await classService.completeClass('class-1', 'tutor-user-1');
+    expect(debit).not.toHaveBeenCalled();
+  });
+
+  it('manual Complete while the student waits and the tutor never joined → says the tutor has not joined', async () => {
+    const start = Date.now() - 10 * 60_000;
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(baseClass({
+      startUTC: new Date(start), endUTC: new Date(start + 60 * 60_000), durationMinutes: 60,
+      studentJoinedAt: new Date(start), tutorJoinedAt: undefined,
+    })) as never);
+    await expect(classService.completeClass('class-1', 'tutor-user-1', { manual: true }))
+      .rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('You have not joined this class yet') });
   });
 
   it('free class (costCents = 0) → no money moves', async () => {

@@ -349,7 +349,9 @@ export class ClassService {
 
     // ── Billing on completion ──────────────────────────────────────────────
     const tutorProfile = await tutorService.getByPublicId(scheduled.tutorPublicId);
-    const studentAttended = !!scheduled.studentJoinedAt;
+    // A session only happened if the tutor was there too: a student sitting alone in
+    // a room (or a tutor who never joined) must not be charged, paid, or billed for.
+    const studentAttended = !!scheduled.studentJoinedAt && !!scheduled.tutorJoinedAt;
 
     if (scheduled.classType === ClassType.DEMO) {
       // A demo costs 10 credits, drawn from the student's free demo-credit bucket.
@@ -549,7 +551,7 @@ export class ClassService {
 
     // Auto-create attendance based on whether student actually joined the class
     if (scheduled.studentPublicId) {
-      const attended = !!scheduled.studentJoinedAt;
+      const attended = !!scheduled.studentJoinedAt && !!scheduled.tutorJoinedAt;
       await attendanceService.markAttendance(
         {
           classPublicId,
@@ -1415,6 +1417,14 @@ export class ClassService {
       );
     }
     if (now >= endMs || !cls.studentJoinedAt) return;
+
+    // The student is waiting but the tutor never entered: say so, instead of
+    // reporting "the student joined 0 minutes ago".
+    if (!cls.tutorJoinedAt) {
+      throw new ConflictError(
+        'You have not joined this class yet. Join the room first, or cancel the class if you cannot teach it.',
+      );
+    }
 
     const bothPresentFrom = Math.max(
       new Date(cls.studentJoinedAt).getTime(),
