@@ -11,6 +11,12 @@ import type { PresenceInterval } from './class-presence';
 
 const MAX_WRITE_ATTEMPTS = 3;
 
+/** What the room page shows the person: how long they have been present against what is needed. */
+export interface PresenceProgress {
+  attendedMinutes: number;
+  requiredMinutes: number;
+}
+
 export class ClassPresenceService {
   /** Room (and presence) key: a group session shares one, a single class uses its own id. */
   roomKey(cls: Pick<IScheduledClass, 'publicId' | 'groupPublicId'>): string {
@@ -39,18 +45,31 @@ export class ClassPresenceService {
 
   /**
    * Called by the room page every 30 seconds, and once more when the person leaves.
-   * Time is the server's clock, never the client's. Closed classes are ignored.
+   * Time is the server's clock, never the client's. Closed classes are ignored (null).
+   * Returns this person's progress so the page can warn before they leave too early.
    */
-  async recordPresence(classPublicId: string, userPublicId: string, now: Date = new Date()): Promise<void> {
+  async recordPresence(
+    classPublicId: string,
+    userPublicId: string,
+    now: Date = new Date(),
+  ): Promise<PresenceProgress | null> {
     const cls = await ScheduledClassModel.findOne(
       { publicId: classPublicId, isDeleted: false },
-      { publicId: 1, groupPublicId: 1, tutorPublicId: 1, studentPublicId: 1, status: 1 },
+      {
+        publicId: 1, groupPublicId: 1, tutorPublicId: 1, studentPublicId: 1, status: 1,
+        startUTC: 1, endUTC: 1, durationMinutes: 1,
+      },
     ).lean();
     if (!cls) throw new NotFoundError('Scheduled class');
     const role = await this.roleInClass(cls, userPublicId);
-    if (cls.status !== ClassStatus.SCHEDULED && cls.status !== ClassStatus.LIVE) return;
+    if (cls.status !== ClassStatus.SCHEDULED && cls.status !== ClassStatus.LIVE) return null;
 
-    const graceMs = (await settingsService.get()).disconnectGraceMinutes * 60_000;
+    const settings = await settingsService.get();
+    const graceMs = settings.disconnectGraceMinutes * 60_000;
+    const progressOf = (intervals: PresenceInterval[]): PresenceProgress => ({
+      attendedMinutes: attendedMs(intervals, cls.startUTC, cls.endUTC) / 60_000,
+      requiredMinutes: requiredAttendanceMinutes(cls.durationMinutes, settings.minAttendancePercent),
+    });
     const filter = { roomKey: this.roomKey(cls), userPublicId };
 
     // Compare-and-set on lastSeenAt: two tabs of one person must not overwrite each other.
@@ -58,10 +77,9 @@ export class ClassPresenceService {
       const current = await ClassPresenceModel.findOne(filter).lean();
       if (!current) {
         try {
-          await ClassPresenceModel.create({
-            ...filter, role, intervals: applyHeartbeat([], now, graceMs), lastSeenAt: now,
-          });
-          return;
+          const first = applyHeartbeat([], now, graceMs);
+          await ClassPresenceModel.create({ ...filter, role, intervals: first, lastSeenAt: now });
+          return progressOf(first);
         } catch (err) {
           if ((err as { code?: number }).code === 11000) continue; // the other tab created it first
           throw err;
@@ -73,8 +91,9 @@ export class ClassPresenceService {
         { ...filter, lastSeenAt: current.lastSeenAt },
         { $set: { intervals, lastSeenAt } },
       );
-      if (res.modifiedCount === 1) return;
+      if (res.modifiedCount === 1) return progressOf(intervals);
     }
+    return null;
   }
 
   /** Minutes of the scheduled window this person was present, from stored presence. */

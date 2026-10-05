@@ -53,8 +53,8 @@ export class ClassController {
    */
   async recordPresence(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      await classPresenceService.recordPresence(req.params.classId, req.user!.publicId);
-      sendSuccess(res, { ok: true }, 'Presence recorded');
+      const progress = await classPresenceService.recordPresence(req.params.classId, req.user!.publicId);
+      sendSuccess(res, progress, 'Presence recorded');
     } catch (error) { next(error); }
   }
 

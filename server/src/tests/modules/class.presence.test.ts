@@ -93,6 +93,7 @@ describe('ClassPresenceService', () => {
   const cls = {
     publicId: 'c1', groupPublicId: undefined as string | undefined,
     tutorPublicId: 'tp1', studentPublicId: 'sp1', status: 'LIVE',
+    startUTC: at(0), endUTC: at(60), durationMinutes: 60,
   };
 
   const mockClass = (over: object = {}) =>
@@ -150,7 +151,7 @@ describe('ClassPresenceService', () => {
     mockClass(); mockPeople('tu1');
     jest.spyOn(ClassPresenceModel, 'findOne').mockReturnValue(lean({ intervals: [], lastSeenAt: at(2) }) as never);
     const update = jest.spyOn(ClassPresenceModel, 'updateOne').mockResolvedValue({ modifiedCount: 0 } as never);
-    await expect(classPresenceService.recordPresence('c1', 'tu1', at(3))).resolves.toBeUndefined();
+    await expect(classPresenceService.recordPresence('c1', 'tu1', at(3))).resolves.toBeNull();
     expect(update).toHaveBeenCalledTimes(3);
   });
 
@@ -169,8 +170,26 @@ describe('ClassPresenceService', () => {
   it('records nothing for a class that is no longer open', async () => {
     mockClass({ status: 'COMPLETED' }); mockPeople('tu1');
     const find = jest.spyOn(ClassPresenceModel, 'findOne');
-    await classPresenceService.recordPresence('c1', 'tu1', at(1));
+    await expect(classPresenceService.recordPresence('c1', 'tu1', at(1))).resolves.toBeNull();
     expect(find).not.toHaveBeenCalled();
+  });
+
+  it('returns progress: minutes present so far against the minutes required', async () => {
+    mockClass(); mockPeople('tu1');
+    jest.spyOn(ClassPresenceModel, 'findOne').mockReturnValue(lean({
+      intervals: [{ start: at(0), end: at(14) }], lastSeenAt: at(14),
+    }) as never);
+    jest.spyOn(ClassPresenceModel, 'updateOne').mockResolvedValue({ modifiedCount: 1 } as never);
+    await expect(classPresenceService.recordPresence('c1', 'tu1', at(15)))
+      .resolves.toEqual({ attendedMinutes: 15, requiredMinutes: 50 });
+  });
+
+  it('returns progress for a first heartbeat too', async () => {
+    mockClass(); mockPeople('tu1');
+    jest.spyOn(ClassPresenceModel, 'findOne').mockReturnValue(lean(null) as never);
+    jest.spyOn(ClassPresenceModel, 'create').mockResolvedValue({} as never);
+    await expect(classPresenceService.recordPresence('c1', 'tu1', at(1)))
+      .resolves.toEqual({ attendedMinutes: 0, requiredMinutes: 50 });
   });
 
   it('refuses someone who is not the tutor or student of the class', async () => {

@@ -1,4 +1,5 @@
-﻿import { api } from '../lib/axios';
+﻿import { api, API_BASE } from '../lib/axios';
+import { useAuthStore } from '../stores/auth.store';
 
 // Maps raw API response (startUTC/endUTC/title) to the frontend ClassRecord shape
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,7 +127,31 @@ function mapPage(raw: any): PaginatedClasses {
   };
 }
 
+/** How long a person has been present in a live class against what the class needs. */
+export interface PresenceProgress {
+  attendedMinutes: number;
+  requiredMinutes: number;
+}
+
 export const classesService = {
+  /** Heartbeat from the room page: "I am here now". Returns this person's progress, or null once the class is closed. */
+  presence: (classId: string): Promise<PresenceProgress | null> =>
+    api.post(`/classes/${classId}/presence`).then((r) => r.data.data ?? null),
+
+  /**
+   * Last heartbeat as the page goes away (tab or window closed). A plain request can be
+   * cancelled mid-unload, so this uses fetch with keepalive, which the browser lets finish.
+   */
+  sendLeave: (classId: string): void => {
+    const token = useAuthStore.getState().accessToken;
+    void fetch(`${API_BASE}/classes/${classId}/leave`, {
+      method: 'POST',
+      keepalive: true,
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).catch(() => {});
+  },
+
   book: (dto: BookClassDto) =>
     api.post('/classes/book', dto).then((r) => mapClass(r.data.data)),
 

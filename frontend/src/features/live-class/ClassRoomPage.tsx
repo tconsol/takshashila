@@ -9,6 +9,9 @@ import { useWhiteboardSync } from '../../hooks/use-whiteboard-sync';
 import { useAuthStore } from '../../stores/auth.store';
 import { realtime } from '../../lib/realtime';
 import { classesService } from '../../services/classes.service';
+import type { PresenceProgress } from '../../services/classes.service';
+import { useConfirm } from '../../hooks/use-confirm';
+import { PRESENCE_HEARTBEAT_MS, isUnderRequired, leaveWarning } from './exit-rule';
 import { SocketEvent } from '../../sockets/socket.events';
 import { VideoGrid } from './VideoGrid';
 import { ControlBar } from './ControlBar';
@@ -24,12 +27,16 @@ export function ClassRoomPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const { socket } = useSocket();
+  const { confirm, confirmDialog } = useConfirm();
 
   const [messages, setMessages] = useState<ClassChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [joined, setJoined] = useState(false);
+  // How long this person has been present against what the class needs (from the server's heartbeat reply).
+  const [progress, setProgress] = useState<PresenceProgress | null>(null);
   // uid (string) → display name  e.g. "3645669908" → "Ravi Kumar (Tutor)"
   const [participantNames, setParticipantNames] = useState<Map<string, string>>(new Map());
   const [isHandRaised, setIsHandRaised] = useState(false);
@@ -42,6 +49,8 @@ export function ClassRoomPage() {
   // A group session's records share one room: the key tells which "class ended" news is about this room.
   const roomKeyRef = useRef<string | null>(null);
   const leavingRef = useRef(false);
+  const progressRef = useRef<PresenceProgress | null>(null);
+  const classEndRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isTutor = user?.role === 'TUTOR';
@@ -60,11 +69,56 @@ export function ClassRoomPage() {
     if (!classPublicId) return;
     classesService.join(classPublicId).then((cls) => {
       roomKeyRef.current = cls.groupPublicId ?? null;
+      const end = Date.parse(cls.scheduledEndUTC);
+      classEndRef.current = Number.isNaN(end) ? null : end;
+      setJoined(true);
     }).catch((err) => {
       const msg = err?.response?.data?.message ?? err?.message ?? 'Failed to join class';
       setJoinError(msg);
     });
   }, [classPublicId]);
+
+  // Presence: tell the server we are here every 30 s. It counts the time toward the required
+  // attendance (a short gap still counts), and answers with how long we have been here.
+  // Only the class's own tutor and student are counted; observers are not.
+  useEffect(() => {
+    if (!classPublicId || !joined || (user?.role !== 'TUTOR' && user?.role !== 'STUDENT')) return;
+    const beat = () => {
+      if (leavingRef.current) return;
+      classesService.presence(classPublicId).then((p) => {
+        if (!p) return;
+        progressRef.current = p;
+        setProgress(p);
+      }).catch(() => {});
+    };
+    beat();
+    const timer = setInterval(beat, PRESENCE_HEARTBEAT_MS);
+    // A background tab throttles timers: beat as soon as the tab is visible again.
+    const onVisible = () => { if (document.visibilityState === 'visible') beat(); };
+    // Tab or window closed: the browser cannot tell that from a lost connection, so say goodbye while we can.
+    const onPageHide = () => { if (!leavingRef.current) classesService.sendLeave(classPublicId); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, [classPublicId, joined, user?.role]);
+
+  // Closing the tab while still short of the required time: ask first. Browsers show their own
+  // generic text here; a custom message is not allowed.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (leavingRef.current) return;
+      if (isUnderRequired(progressRef.current, classEndRef.current)) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
 
   // When we get our own Agora UID, broadcast our name to others in the room
   useEffect(() => {
@@ -198,7 +252,26 @@ export function ClassRoomPage() {
     }
   }
 
+  /** The Leave button: warns first when leaving now could cost this person. */
+  async function handleLeaveClick() {
+    if (leavingRef.current) return;
+    const current = progressRef.current;
+    if (current && isUnderRequired(current, classEndRef.current)) {
+      const warning = leaveWarning(current, isTutor);
+      const { confirmed } = await confirm({
+        title: warning.title,
+        message: warning.message,
+        confirmLabel: 'Leave anyway',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
+    }
+    leavingRef.current = true;
+    await handleLeave();
+  }
+
   async function handleLeave() {
+    if (classPublicId) classesService.sendLeave(classPublicId);
     await agora.cleanup();
     queryClient.invalidateQueries({ queryKey: ['classes'] });
     const dashPath =
@@ -245,6 +318,18 @@ export function ClassRoomPage() {
               <PinOff className="h-3.5 w-3.5" />
               Unpin
             </button>
+          )}
+          {progress && (
+            <span
+              className={`hidden rounded-lg px-2.5 py-1.5 text-xs sm:inline ${
+                progress.attendedMinutes >= progress.requiredMinutes
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'bg-amber-500/15 text-amber-300'
+              }`}
+              title="Minutes you have been present, against the minutes this class needs"
+            >
+              {Math.floor(progress.attendedMinutes)} / {progress.requiredMinutes} min
+            </span>
           )}
           <span className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-neutral-300">
             <Users className="h-3.5 w-3.5" />
@@ -358,8 +443,10 @@ export function ClassRoomPage() {
         onToggleWhiteboard={() => setIsWhiteboardOpen((v) => !v)}
         onRaiseHand={handleRaiseHand}
         isHandRaised={isHandRaised}
-        onLeave={handleLeave}
+        onLeave={handleLeaveClick}
       />
+
+      {confirmDialog}
 
       {isWhiteboardOpen && (
         <WhiteboardPanel
