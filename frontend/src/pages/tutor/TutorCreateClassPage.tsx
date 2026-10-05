@@ -63,6 +63,9 @@ export function TutorCreateClassPage() {
       name: s.displayName || `${s.firstName ?? ''} ${s.lastName ?? ''}`.trim() || 'Student',
     }));
 
+  // Students still waiting for approval cannot be added to a class; say so instead of skipping them silently.
+  const pendingCount = (studentsData?.items ?? []).filter((s) => String(s.status).startsWith('PENDING')).length;
+
   const toggle = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -285,6 +288,13 @@ export function TutorCreateClassPage() {
               <User className="h-4 w-4" /> Specific Students
             </button>
           </div>
+
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            {studentCount === 0
+              ? 'No students selected.'
+              : `${studentCount} student${studentCount !== 1 ? 's' : ''} will be included.`}
+            {pendingCount > 0 && ` ${pendingCount} student${pendingCount !== 1 ? 's are' : ' is'} still waiting for approval and cannot be added yet.`}
+          </p>
 
           {studentMode === 'specific' && (
             <div className="mt-2">
