@@ -75,6 +75,7 @@ export function TutorCreateClassPage() {
 
   const studentCount = studentMode === 'all' ? students.length : selected.size;
   const exceedsNative = studentCount > MAX_NATIVE_STUDENTS;
+  const groupTooSmall = type === 'GROUP' && studentCount < 2;
   const showMeetingField = type === 'GROUP' || type === 'RECURRING' || exceedsNative;
 
   const canSubmit =
@@ -289,10 +290,11 @@ export function TutorCreateClassPage() {
             </button>
           </div>
 
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          <p className={`mt-2 text-xs ${groupTooSmall ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
             {studentCount === 0
               ? 'No students selected.'
               : `${studentCount} student${studentCount !== 1 ? 's' : ''} will be included.`}
+            {groupTooSmall && ' A group class needs 2 or more students; with fewer it works like a one-on-one class.'}
             {pendingCount > 0 && ` ${pendingCount} student${pendingCount !== 1 ? 's are' : ' is'} still waiting for approval and cannot be added yet.`}
           </p>
 
