@@ -30,7 +30,42 @@ export function endClassRoom(
 ): void {
   // A group's room stays open while any student's record of it is still running.
   if (!roomPublicId || !roomEnded) return;
-  io.to(`class:${roomPublicId}`).emit('class:status-changed', { classPublicId: roomPublicId, status, updatedBy: 'system' });
+  io.to(`class:${roomPublicId}`).emit('class:status-changed', {
+    classPublicId: roomPublicId, roomPublicId, roomEnded: true, status, updatedBy: 'system',
+  });
+}
+
+interface ClassEndedPayload {
+  classPublicId?: string;
+  roomPublicId?: string;
+  roomEnded?: boolean;
+  tutorUserPublicId?: string;
+  studentUserPublicId?: string;
+}
+
+/**
+ * The same news over the broadcast layer (Pusher, or Socket.IO as the fallback),
+ * addressed to the people's own user channels. Unlike the room emit above, that
+ * reaches them whichever server instance handled the request, and Socket.IO's room
+ * only exists on the instance their socket is connected to.
+ * The student is told whenever their own record ends; the tutor only once the
+ * whole room has ended, so one student cancelling does not eject the tutor.
+ */
+export function notifyClassEnded(payload: ClassEndedPayload, status: 'COMPLETED' | 'CANCELLED'): void {
+  if (!payload.classPublicId) return;
+  const rooms = [payload.studentUserPublicId];
+  if (payload.roomEnded !== false) rooms.push(payload.tutorUserPublicId);
+  push(
+    rooms.filter((r): r is string => !!r).map((id) => `user:${id}`),
+    'class:status-changed',
+    {
+      classPublicId: payload.classPublicId,
+      roomPublicId: payload.roomPublicId ?? payload.classPublicId,
+      roomEnded: payload.roomEnded !== false,
+      status,
+      updatedBy: 'system',
+    },
+  );
 }
 
 async function notifyTutorConnections(
@@ -86,6 +121,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
 
   domainEvents.on(DomainEvent.CLASS_CANCELLED, (payload: { classPublicId?: string; roomPublicId?: string; roomEnded?: boolean; tutorUserPublicId: string; studentUserPublicId: string }) => {
     endClassRoom(io, payload.roomPublicId ?? payload.classPublicId, 'CANCELLED', payload.roomEnded);
+    notifyClassEnded(payload, 'CANCELLED');
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, [...rooms, 'role:PRINCIPAL'], 'classes');
     invalidate(io, rooms, 'wallet');
@@ -114,6 +150,7 @@ export function registerDataInvalidationSocket(io: IOServer): void {
 
   domainEvents.on(DomainEvent.CLASS_COMPLETED, (payload: { classPublicId?: string; roomPublicId?: string; roomEnded?: boolean; tutorUserPublicId: string; studentUserPublicId: string }) => {
     endClassRoom(io, payload.roomPublicId ?? payload.classPublicId, 'COMPLETED', payload.roomEnded);
+    notifyClassEnded(payload, 'COMPLETED');
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, rooms, 'classes');
     invalidate(io, [`user:${payload.tutorUserPublicId}`], 'wallet');

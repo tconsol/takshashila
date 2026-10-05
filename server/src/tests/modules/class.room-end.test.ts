@@ -1,6 +1,7 @@
 /* Completing or cancelling a class must tell the live room, and an ended class gets no video token. */
 jest.mock('../../modules/realtime/realtime.service', () => ({ realtime: { emit: jest.fn().mockResolvedValue('none') } }));
-import { registerDataInvalidationSocket, endClassRoom } from '../../sockets/data.socket';
+import { registerDataInvalidationSocket, endClassRoom, notifyClassEnded } from '../../sockets/data.socket';
+import { realtime } from '../../modules/realtime/realtime.service';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { classController } from '../../modules/classes/class.controller';
@@ -44,6 +45,42 @@ describe('class room end notification', () => {
     domainEvents.emit(event, { classPublicId: 'c9', tutorUserPublicId: 't', studentUserPublicId: 's' });
     expect(to).toHaveBeenCalledWith('class:c9');
     expect(emit).toHaveBeenCalledWith('class:status-changed', expect.objectContaining({ status }));
+    domainEvents.removeAllListeners();
+  });
+});
+
+describe('notifyClassEnded (reaches people on any server instance)', () => {
+  const emit = realtime.emit as jest.Mock;
+  beforeEach(() => emit.mockClear());
+
+  it('tells the student and the tutor when the whole room has ended', () => {
+    notifyClassEnded({ classPublicId: 'c1', roomPublicId: 'g1', roomEnded: true, tutorUserPublicId: 't', studentUserPublicId: 's' }, 'COMPLETED');
+    expect(emit).toHaveBeenCalledWith(['user:s', 'user:t'], 'class:status-changed',
+      expect.objectContaining({ classPublicId: 'c1', roomPublicId: 'g1', roomEnded: true, status: 'COMPLETED' }));
+  });
+
+  it('tells only the student when other records of the group are still running', () => {
+    notifyClassEnded({ classPublicId: 'c1', roomPublicId: 'g1', roomEnded: false, tutorUserPublicId: 't', studentUserPublicId: 's' }, 'CANCELLED');
+    expect(emit.mock.calls[0][0]).toEqual(['user:s']);
+    expect(emit.mock.calls[0][2]).toMatchObject({ roomEnded: false, status: 'CANCELLED' });
+  });
+
+  it('treats a single class (no room info) as ended for both people', () => {
+    notifyClassEnded({ classPublicId: 'c1', tutorUserPublicId: 't', studentUserPublicId: 's' }, 'COMPLETED');
+    expect(emit.mock.calls[0][0]).toEqual(['user:s', 'user:t']);
+    expect(emit.mock.calls[0][2]).toMatchObject({ roomPublicId: 'c1', roomEnded: true });
+  });
+
+  it('sends nothing without a class id', () => {
+    notifyClassEnded({ tutorUserPublicId: 't', studentUserPublicId: 's' }, 'COMPLETED');
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('is sent when a class is completed through the domain event', () => {
+    domainEvents.removeAllListeners();
+    registerDataInvalidationSocket({ to: jest.fn().mockReturnValue({ emit: jest.fn() }) } as never);
+    domainEvents.emit(DomainEvent.CLASS_COMPLETED, { classPublicId: 'c9', tutorUserPublicId: 't', studentUserPublicId: 's' });
+    expect(emit.mock.calls.some(([, event]) => event === 'class:status-changed')).toBe(true);
     domainEvents.removeAllListeners();
   });
 });

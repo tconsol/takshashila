@@ -7,6 +7,7 @@ import { useClassSocket } from '../../sockets/class.socket';
 import { useAgora } from '../../hooks/use-agora';
 import { useWhiteboardSync } from '../../hooks/use-whiteboard-sync';
 import { useAuthStore } from '../../stores/auth.store';
+import { realtime } from '../../lib/realtime';
 import { classesService } from '../../services/classes.service';
 import { SocketEvent } from '../../sockets/socket.events';
 import { VideoGrid } from './VideoGrid';
@@ -35,6 +36,9 @@ export function ClassRoomPage() {
   // deliberate pin should outrank someone starting to share.
   const [pinnedKey, setPinnedKey] = useState<string | null>(null);
   const handTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A group session's records share one room: the key tells which "class ended" news is about this room.
+  const roomKeyRef = useRef<string | null>(null);
+  const leavingRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isTutor = user?.role === 'TUTOR';
@@ -51,7 +55,9 @@ export function ClassRoomPage() {
   // Auto-join: transitions SCHEDULED → LIVE, no-op if already LIVE
   useEffect(() => {
     if (!classPublicId) return;
-    classesService.join(classPublicId).catch((err) => {
+    classesService.join(classPublicId).then((cls) => {
+      roomKeyRef.current = cls.groupPublicId ?? null;
+    }).catch((err) => {
       const msg = err?.response?.data?.message ?? err?.message ?? 'Failed to join class';
       setJoinError(msg);
     });
@@ -124,10 +130,20 @@ export function ClassRoomPage() {
       setMessages((prev) => [...prev, msg]);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     });
-    const unsubStatus = onStatusChanged(({ status }) => {
-      if (status === 'COMPLETED' || status === 'CANCELLED') handleLeave();
-    });
-    return () => { unsubChat(); unsubStatus(); };
+    // The same "class ended" news arrives over the class socket and over the broadcast layer
+    // (Pusher), which also reaches us when another server instance handled the request.
+    const onEnded = (p: { classPublicId?: string; roomPublicId?: string; status?: string }) => {
+      if (p.status !== 'COMPLETED' && p.status !== 'CANCELLED') return;
+      const about = p.classPublicId === classPublicId
+        || p.roomPublicId === classPublicId
+        || (!!roomKeyRef.current && p.roomPublicId === roomKeyRef.current);
+      if (!about || leavingRef.current) return;
+      leavingRef.current = true;
+      void handleLeave();
+    };
+    const unsubStatus = onStatusChanged(onEnded);
+    const unsubRealtime = realtime.on('class:status-changed', (p) => onEnded(p as Parameters<typeof onEnded>[0]));
+    return () => { unsubChat(); unsubStatus(); unsubRealtime(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onChatMessage, onStatusChanged]);
 
