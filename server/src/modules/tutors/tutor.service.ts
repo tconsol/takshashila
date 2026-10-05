@@ -45,6 +45,8 @@ import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { NotFoundError, ConflictError, AuthorizationError } from '../../utils/error';
 import { Role } from '../../constants/roles';
 import { domainEvents } from '../../events/event-emitter';
+import { notificationService } from '../notifications/notification.service';
+import { logger } from '../../lib/logger';
 import { walletService } from '../wallets/wallet.service';
 import { userRepository } from '../users/user.repository';
 import { UserStatus } from '../users/user.types';
@@ -439,7 +441,8 @@ export class TutorService {
 
     await walletService.createWallet(user.publicId).catch(() => {});
 
-    domainEvents.emit(DomainEvent.USER_REGISTERED, {
+    // Await the send: a fire-and-forget email can be lost once the response is sent.
+    const invite = {
       userId: user.publicId,
       email: user.email,
       role: user.role,
@@ -448,7 +451,15 @@ export class TutorService {
       firstName: params.firstName,
       lastName: params.lastName,
       invitedBy: params.invitedBy,
-    });
+    };
+    let emailSent = false;
+    try {
+      await notificationService.sendVerificationEmail(invite);
+      emailSent = true;
+    } catch (err) {
+      logger.error('Tutor invite email failed', { userId: user.publicId, error: (err as Error).message });
+    }
+    domainEvents.emit(DomainEvent.USER_REGISTERED, { ...invite, emailSent });
 
     return profile;
   }

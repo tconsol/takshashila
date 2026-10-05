@@ -11,6 +11,16 @@ import { sendEmailNow } from '../../queues/email.queue';
 import { env } from '../../config/env';
 import { UserModel } from '../users/user.model';
 
+export interface VerificationEmailPayload {
+  userId: string;
+  email: string;
+  role: string;
+  verificationToken: string;
+  isInvite?: boolean;
+  firstName?: string;
+  lastName?: string;
+}
+
 export class NotificationService {
   async create(dto: CreateNotificationDto): Promise<INotification> {
     const notification = await NotificationModel.create({
@@ -89,49 +99,60 @@ export class NotificationService {
     );
   }
 
+  /**
+   * Send the verification / invite email and WAIT for SMTP to finish. Callers that
+   * respond to an HTTP request must await this: on request-billed hosts (Cloud Run,
+   * scale to zero) a send left running after the response can be throttled or killed,
+   * so the user never receives the link.
+   */
+  async sendVerificationEmail(payload: VerificationEmailPayload): Promise<void> {
+    if (payload.isInvite) {
+      const inviteUrl = `${env.FRONTEND_URL}/accept-invite?token=${payload.verificationToken}&email=${encodeURIComponent(payload.email)}&firstName=${encodeURIComponent(payload.firstName ?? '')}&lastName=${encodeURIComponent(payload.lastName ?? '')}`;
+      await sendEmailNow({
+        to: payload.email,
+        subject: "You've been invited to brainbaseedu!",
+        html: `
+          <div style="font-family:sans-serif;max-width:520px;margin:auto">
+            <h2 style="color:#4f46e5">You're invited!</h2>
+            <p>Hi ${payload.firstName ?? ''},</p>
+            <p>You have been invited to join brainbaseedu as a <strong>${payload.role.toLowerCase()}</strong>. Click the button below to set your password and activate your account.</p>
+            <a href="${inviteUrl}"
+               style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
+              Accept Invitation
+            </a>
+            <p style="color:#6b7280;font-size:13px">Or copy this link: <a href="${inviteUrl}">${inviteUrl}</a></p>
+            <p style="color:#6b7280;font-size:13px">This invite link expires in 7 days.</p>
+          </div>
+        `,
+        text: `You're invited to brainbaseedu. Accept your invitation: ${inviteUrl}`,
+      });
+    } else {
+      const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${payload.verificationToken}`;
+      await sendEmailNow({
+        to: payload.email,
+        subject: 'Verify your brainbaseedu account',
+        html: `
+          <div style="font-family:sans-serif;max-width:520px;margin:auto">
+            <h2 style="color:#4f46e5">Welcome to brainbaseedu!</h2>
+            <p>Thanks for signing up. Please click the button below to verify your email address.</p>
+            <a href="${verifyUrl}"
+               style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
+              Verify Email
+            </a>
+            <p style="color:#6b7280;font-size:13px">Or copy this link: <a href="${verifyUrl}">${verifyUrl}</a></p>
+            <p style="color:#6b7280;font-size:13px">This link expires in 24 hours. If you did not sign up, you can ignore this email.</p>
+          </div>
+        `,
+        text: `Verify your email: ${verifyUrl}`,
+      });
+    }
+  }
+
   setupEventListeners(): void {
-    domainEvents.on(DomainEvent.USER_REGISTERED, async (payload: { userId: string; email: string; role: string; verificationToken: string; isInvite?: boolean; firstName?: string; lastName?: string }) => {
+    domainEvents.on(DomainEvent.USER_REGISTERED, async (payload: VerificationEmailPayload & { emailSent?: boolean }) => {
+      if (payload.emailSent) return; // the caller already sent it and awaited the result
       try {
-        if (payload.isInvite) {
-          const inviteUrl = `${env.FRONTEND_URL}/accept-invite?token=${payload.verificationToken}&email=${encodeURIComponent(payload.email)}&firstName=${encodeURIComponent(payload.firstName ?? '')}&lastName=${encodeURIComponent(payload.lastName ?? '')}`;
-          await sendEmailNow({
-            to: payload.email,
-            subject: "You've been invited to brainbaseedu!",
-            html: `
-              <div style="font-family:sans-serif;max-width:520px;margin:auto">
-                <h2 style="color:#4f46e5">You're invited!</h2>
-                <p>Hi ${payload.firstName ?? ''},</p>
-                <p>You have been invited to join brainbaseedu as a <strong>${payload.role.toLowerCase()}</strong>. Click the button below to set your password and activate your account.</p>
-                <a href="${inviteUrl}"
-                   style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
-                  Accept Invitation
-                </a>
-                <p style="color:#6b7280;font-size:13px">Or copy this link: <a href="${inviteUrl}">${inviteUrl}</a></p>
-                <p style="color:#6b7280;font-size:13px">This invite link expires in 7 days.</p>
-              </div>
-            `,
-            text: `You're invited to brainbaseedu. Accept your invitation: ${inviteUrl}`,
-          });
-        } else {
-          const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${payload.verificationToken}`;
-          await sendEmailNow({
-            to: payload.email,
-            subject: 'Verify your brainbaseedu account',
-            html: `
-              <div style="font-family:sans-serif;max-width:520px;margin:auto">
-                <h2 style="color:#4f46e5">Welcome to brainbaseedu!</h2>
-                <p>Thanks for signing up. Please click the button below to verify your email address.</p>
-                <a href="${verifyUrl}"
-                   style="display:inline-block;margin:16px 0;padding:12px 28px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
-                  Verify Email
-                </a>
-                <p style="color:#6b7280;font-size:13px">Or copy this link: <a href="${verifyUrl}">${verifyUrl}</a></p>
-                <p style="color:#6b7280;font-size:13px">This link expires in 24 hours. If you did not sign up, you can ignore this email.</p>
-              </div>
-            `,
-            text: `Verify your email: ${verifyUrl}`,
-          });
-        }
+        await this.sendVerificationEmail(payload);
       } catch (e) {
         logger.error('Failed to send verification/invite email', { error: e });
       }

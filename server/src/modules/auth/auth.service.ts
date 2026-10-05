@@ -23,6 +23,7 @@ import {
 } from '../../utils/error';
 import { logger } from '../../lib/logger';
 import { domainEvents } from '../../events/event-emitter';
+import { notificationService } from '../notifications/notification.service';
 import { DomainEvent } from '../../constants/events';
 import type { Role } from '../../constants/roles';
 import type {
@@ -104,7 +105,7 @@ export class AuthService {
 
       await this._provisionForRole(existing.publicId, role, dto);
 
-      domainEvents.emit(DomainEvent.USER_REGISTERED, {
+      await this._emitRegistered({
         userId: existing.publicId,
         email: existing.email,
         role,
@@ -136,7 +137,7 @@ export class AuthService {
       isDeleted: false,
     });
 
-    domainEvents.emit(DomainEvent.USER_REGISTERED, {
+    await this._emitRegistered({
       userId: user.publicId,
       email: user.email,
       role: user.role,
@@ -531,6 +532,27 @@ export class AuthService {
   }
 
   /**
+   * Send the verification/invite email and wait for SMTP before the request returns.
+   * Fire-and-forget loses the email when the host throttles or stops the instance once
+   * the response is sent. A send failure must not fail sign-up (the user can resend),
+   * but it is logged so it is visible.
+   */
+  private async _emitRegistered(payload: {
+    userId: string; email: string; role: string; verificationToken: string;
+    isInvite?: boolean; firstName?: string; lastName?: string;
+  }): Promise<void> {
+    let emailSent = false;
+    try {
+      await notificationService.sendVerificationEmail(payload);
+      emailSent = true;
+    } catch (err) {
+      logger.error('Verification email failed', { userId: payload.userId, error: (err as Error).message });
+    }
+    // emailSent=true tells the listener not to send a second copy.
+    domainEvents.emit(DomainEvent.USER_REGISTERED, { ...payload, emailSent });
+  }
+
+  /**
    * Re-send the verification email for a not-yet-verified account. Always resolves
    * (no account enumeration); regenerates the token so old links stop working.
    */
@@ -546,7 +568,7 @@ export class AuthService {
       emailVerificationExpiry: verificationExpiry,
     });
 
-    domainEvents.emit(DomainEvent.USER_REGISTERED, {
+    await this._emitRegistered({
       userId: user.publicId,
       email: user.email,
       role: user.role,
