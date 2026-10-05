@@ -136,7 +136,7 @@ export function ClassRoomPage() {
     // The same "class ended" news arrives over the class socket and over the broadcast layer
     // (Pusher), which also reaches us when another server instance handled the request.
     const onEnded = (p: { classPublicId?: string; roomPublicId?: string; status?: string }) => {
-      if (p.status !== 'COMPLETED' && p.status !== 'CANCELLED') return;
+      if (p.status !== 'COMPLETED' && p.status !== 'CANCELLED' && p.status !== 'INCOMPLETE') return;
       const about = p.classPublicId === classPublicId
         || p.roomPublicId === classPublicId
         || (!!roomKeyRef.current && p.roomPublicId === roomKeyRef.current);
@@ -159,7 +159,7 @@ export function ClassRoomPage() {
     const timer = setInterval(() => {
       if (leavingRef.current) return;
       classesService.getById(classPublicId).then((cls) => {
-        if ((cls.status === 'COMPLETED' || cls.status === 'CANCELLED') && !leavingRef.current) {
+        if ((cls.status === 'COMPLETED' || cls.status === 'CANCELLED' || cls.status === 'INCOMPLETE') && !leavingRef.current) {
           leavingRef.current = true;
           void handleLeave();
         }

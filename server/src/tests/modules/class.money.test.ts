@@ -11,6 +11,7 @@
        earns nothing
    Spies on the real singletons so we exercise the actual orchestration. */
 import { classService } from '../../modules/classes/class.service';
+import { classPresenceService } from '../../modules/classes/class-presence.service';
 import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
 import { StudentProfileModel } from '../../modules/students/student.model';
 import { ClassStatus, ClassType, BillingMode } from '../../modules/schedules/schedule.types';
@@ -49,6 +50,7 @@ describe('ClassService.completeClass money flow', () => {
 
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.spyOn(classPresenceService, 'hasPresenceData').mockResolvedValue(false);
     jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ userPublicId: 'student-user-1' }) as never);
     jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(lean({ ...baseClass(), status: ClassStatus.COMPLETED }) as never);
     jest.spyOn(tutorService, 'getByPublicId').mockResolvedValue({ userPublicId: 'tutor-user-1', commissionRatePercent: 20 } as never);
@@ -198,6 +200,7 @@ describe('ClassService.refundClass refund/reversal flow', () => {
 
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.spyOn(classPresenceService, 'hasPresenceData').mockResolvedValue(false);
     jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ userPublicId: 'student-user-1' }) as never);
     jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(lean({ ...completed(), isRefunded: true }) as never);
     jest.spyOn(tutorService, 'getByPublicId').mockResolvedValue({ userPublicId: 'tutor-user-1', commissionRatePercent: 20 } as never);

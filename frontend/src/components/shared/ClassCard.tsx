@@ -11,6 +11,7 @@ const statusColors: Record<string, BadgeVariant> = {
   IN_PROGRESS: 'warning',
   COMPLETED: 'success',
   CANCELLED: 'danger',
+  INCOMPLETE: 'warning',
   NO_SHOW: 'default',
 };
 
@@ -85,6 +86,21 @@ export function ClassCard({ cls, perspective, onAction, ratedClassIds }: ClassCa
         <div className="flex flex-col items-end gap-1.5">
           <Badge variant={statusColors[cls.status] ?? 'default'}>{cls.status.replace('_', ' ')}</Badge>
           <Badge variant={classTypeColors[cls.classType] ?? 'default'}>{cls.classType}</Badge>
+          {cls.status === 'INCOMPLETE' && (
+            <Badge variant="warning" tone="outline" title="No credits were charged or paid">
+              {perspective === 'student' ? 'Not charged' : 'Not paid'}
+            </Badge>
+          )}
+          {cls.studentLeftEarly && perspective !== 'student' && (
+            <Badge variant="info" tone="outline" title="The student attended less than the required share; the class was still billed">
+              Student left early
+            </Badge>
+          )}
+          {cls.studentLeftEarly && perspective === 'student' && (
+            <Badge variant="info" tone="outline" title="You attended less than the required share, so the class was still charged">
+              You left early
+            </Badge>
+          )}
           {cls.autoResolution && (
             <Badge
               variant={cls.autoResolution === 'AUTO_COMPLETED' ? 'info' : 'warning'}

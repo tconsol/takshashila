@@ -40,6 +40,8 @@ export const ClassStatus = {
   CANCELLED: 'CANCELLED',
   RESCHEDULED: 'RESCHEDULED',
   FAILED: 'FAILED',
+  /** Ran, but the tutor was not present for the required share of it. No money moves. */
+  INCOMPLETE: 'INCOMPLETE',
 } as const;
 export type ClassStatus = (typeof ClassStatus)[keyof typeof ClassStatus];
 
@@ -133,6 +135,12 @@ export interface IScheduledClass {
   autoResolvedAt?: Date;
   /** When the class was completed (and paid). Starts the refund window; see EARNINGS_HOLD_HOURS. */
   completedAt?: Date;
+  /** Minutes each person was present inside the scheduled window, kept when presence settled the class. */
+  attendedMinutes?: { tutor: number; student: number };
+  /** Minutes each person had to attend (the admin percentage of the class length). */
+  requiredMinutes?: number;
+  /** Billed as completed although this student did not attend the required share (the tutor did). */
+  studentLeftEarly?: boolean;
   isRefunded?: boolean;
   refundedAt?: Date;
   /** Completed without payment because billing failed (e.g. student balance short). Admins: filter on this. */

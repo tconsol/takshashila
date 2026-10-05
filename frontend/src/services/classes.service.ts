@@ -26,6 +26,9 @@ function mapClass(raw: any): ClassRecord {
     tutorName: raw.tutorName,
     studentName: raw.studentName,
     autoResolution: raw.autoResolution,
+    attendedMinutes: raw.attendedMinutes,
+    requiredMinutes: raw.requiredMinutes,
+    studentLeftEarly: raw.studentLeftEarly,
     autoResolvedAt: raw.autoResolvedAt,
     createdAt: raw.createdAt,
   };
@@ -89,6 +92,12 @@ export interface ClassRecord {
   /** Set when the grace-period sweep closed this class instead of a person. */
   autoResolution?: 'AUTO_COMPLETED' | 'AUTO_CANCELLED';
   autoResolvedAt?: string;
+  /** Minutes each person was present, kept once the class has been settled by attendance. */
+  attendedMinutes?: { tutor: number; student: number };
+  /** Minutes each person had to attend. */
+  requiredMinutes?: number;
+  /** Billed as completed although this student did not attend the required share. */
+  studentLeftEarly?: boolean;
   createdAt: string;
 }
 

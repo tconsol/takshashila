@@ -172,7 +172,7 @@ export class ClassController {
       if (!cls) throw new NotFoundError('Class');
 
       // An ended class has no room: do not hand out a video token for it.
-      if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED) {
+      if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED || cls.status === ClassStatus.INCOMPLETE) {
         throw new AppError('This class has ended', 409);
       }
 

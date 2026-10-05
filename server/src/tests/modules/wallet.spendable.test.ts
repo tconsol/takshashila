@@ -5,8 +5,12 @@ import { spendableCents } from '../../modules/wallets/wallet.service';
 import { getWithdrawableCents, EARNINGS_HOLD_HOURS } from '../../modules/wallets/payout.service';
 import { WalletTransactionModel } from '../../modules/wallets/wallet-transaction.model';
 import { classService } from '../../modules/classes/class.service';
+import { classPresenceService } from '../../modules/classes/class-presence.service';
 import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
 import { ClassStatus, ClassType, BillingMode } from '../../modules/schedules/schedule.types';
+
+// Presence records are not part of these tests: keep every class on the join-time rule.
+beforeEach(() => { jest.spyOn(classPresenceService, 'hasPresenceData').mockResolvedValue(false); });
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
 const MINUTE = 60_000;

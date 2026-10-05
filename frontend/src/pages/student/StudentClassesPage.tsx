@@ -58,6 +58,7 @@ export function StudentClassesPage() {
     { key: 'LIVE', label: 'In Progress', indicator: hasLive },
     { key: 'COMPLETED', label: 'Completed', indicator: dirty.has('COMPLETED') },
     { key: 'CANCELLED', label: 'Cancelled', indicator: dirty.has('CANCELLED') },
+    { key: 'INCOMPLETE', label: 'Incomplete' },
   ];
   const [bookingTutor, setBookingTutor] = useState<TutorProfile | null>(null);
   const [cancelTarget, setCancelTarget] = useState<ClassRecord | null>(null);

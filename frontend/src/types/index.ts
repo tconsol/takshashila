@@ -102,7 +102,7 @@ export interface WalletTransaction {
 }
 
 export type ClassType = 'DEMO' | 'ONE_ON_ONE' | 'GROUP' | 'RECURRING' | 'RECORDED';
-export type ClassStatus = 'SCHEDULED' | 'LIVE' | 'COMPLETED' | 'MISSED' | 'CANCELLED' | 'RESCHEDULED' | 'FAILED';
+export type ClassStatus = 'SCHEDULED' | 'LIVE' | 'COMPLETED' | 'MISSED' | 'CANCELLED' | 'RESCHEDULED' | 'FAILED' | 'INCOMPLETE';
 
 export interface ScheduledClass {
   publicId: string;

@@ -2,6 +2,7 @@
 import request from 'supertest';
 import app from '../../app';
 import { classService } from '../../modules/classes/class.service';
+import { classPresenceService } from '../../modules/classes/class-presence.service';
 import { programEnrollmentService, sessionCost } from '../../modules/programs/program-enrollment.service';
 import { programService } from '../../modules/programs/program.service';
 import { createProgramSchema, enrollSchema } from '../../modules/programs/program.validators';
@@ -15,6 +16,9 @@ import { walletService } from '../../modules/wallets/wallet.service';
 import { settingsService } from '../../modules/settings/settings.service';
 import { domainEvents } from '../../events/event-emitter';
 import { logger } from '../../lib/logger';
+
+// Presence records are not part of these tests: keep every class on the join-time rule.
+beforeEach(() => { jest.spyOn(classPresenceService, 'hasPresenceData').mockResolvedValue(false); });
 
 jest.mock('../../middlewares/auth.middleware', () => {
   const stub = (req: never, _res: never, next: () => void) => {

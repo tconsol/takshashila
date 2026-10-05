@@ -24,6 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
   LIVE:        'bg-rose-500 hover:bg-rose-600',
   COMPLETED:   'bg-emerald-500 hover:bg-emerald-600',
   CANCELLED:   'bg-gray-400 hover:bg-gray-500',
+  INCOMPLETE:  'bg-amber-500 hover:bg-amber-600',
   MISSED:      'bg-gray-400 hover:bg-gray-500',
   RESCHEDULED: 'bg-amber-500 hover:bg-amber-600',
   FAILED:      'bg-red-500 hover:bg-red-600',
@@ -34,6 +35,7 @@ const STATUS_LEGEND: Array<{ key: string; label: string }> = [
   { key: 'LIVE',       label: 'Live now' },
   { key: 'COMPLETED',  label: 'Completed' },
   { key: 'CANCELLED',  label: 'Cancelled / Missed' },
+  { key: 'INCOMPLETE', label: 'Incomplete' },
 ];
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -320,6 +322,7 @@ const DETAIL_STATUS_CONFIG: Record<string, { text: string; dot: string; label: s
   LIVE:        { text: 'text-rose-700 dark:text-rose-300',       dot: 'bg-rose-500',    label: 'Live now' },
   COMPLETED:   { text: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500', label: 'Completed' },
   CANCELLED:   { text: 'text-gray-600 dark:text-gray-300',       dot: 'bg-gray-500',    label: 'Cancelled' },
+  INCOMPLETE:  { text: 'text-amber-700 dark:text-amber-300',     dot: 'bg-amber-500',   label: 'Incomplete' },
   MISSED:      { text: 'text-gray-600 dark:text-gray-300',       dot: 'bg-gray-500',    label: 'Missed' },
   RESCHEDULED: { text: 'text-amber-700 dark:text-amber-300',     dot: 'bg-amber-500',   label: 'Rescheduled' },
   FAILED:      { text: 'text-red-600 dark:text-red-400',         dot: 'bg-red-500',     label: 'Failed' },

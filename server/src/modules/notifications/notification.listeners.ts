@@ -94,8 +94,17 @@ export function registerNotificationListeners(): void {
   });
 
   domainEvents.on(DomainEvent.CLASS_COMPLETED, (p: {
-    tutorUserPublicId: string; studentUserPublicId: string; classPublicId?: string;
+    tutorUserPublicId: string; studentUserPublicId: string; classPublicId?: string; incomplete?: boolean;
   }) => {
+    if (p.incomplete) {
+      notify(p.studentUserPublicId, NotificationType.CLASS_COMPLETED, 'Class incomplete',
+        'The tutor was not in the session for long enough, so it was marked incomplete. You were not charged.',
+        { classPublicId: p.classPublicId });
+      notify(p.tutorUserPublicId, NotificationType.CLASS_COMPLETED, 'Class incomplete',
+        'You were not in the session for the required time, so it was marked incomplete and not paid.',
+        { classPublicId: p.classPublicId });
+      return;
+    }
     notify(p.studentUserPublicId, NotificationType.CLASS_COMPLETED, 'Class completed',
       'Your session has ended. Leave a rating for your tutor.', { classPublicId: p.classPublicId });
   });

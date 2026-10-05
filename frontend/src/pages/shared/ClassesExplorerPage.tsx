@@ -42,6 +42,7 @@ const STATUS_VARIANT: Record<string, Variant> = {
   LIVE: 'warning',
   SCHEDULED: 'info',
   CANCELLED: 'danger',
+  INCOMPLETE: 'warning',
   MISSED: 'default',
   RESCHEDULED: 'default',
   FAILED: 'danger',
@@ -53,6 +54,7 @@ const STATUS_OPTIONS = [
   { value: 'LIVE', label: 'Live' },
   { value: 'COMPLETED', label: 'Completed' },
   { value: 'CANCELLED', label: 'Cancelled' },
+  { value: 'INCOMPLETE', label: 'Incomplete' },
   { value: 'MISSED', label: 'Missed' },
 ];
 

@@ -25,7 +25,7 @@ function push(rooms: string[], event: string, payload: unknown = {}) {
 export function endClassRoom(
   io: IOServer,
   roomPublicId: string | undefined,
-  status: 'COMPLETED' | 'CANCELLED',
+  status: 'COMPLETED' | 'CANCELLED' | 'INCOMPLETE',
   roomEnded = true,
 ): void {
   // A group's room stays open while any student's record of it is still running.
@@ -51,7 +51,7 @@ interface ClassEndedPayload {
  * The student is told whenever their own record ends; the tutor only once the
  * whole room has ended, so one student cancelling does not eject the tutor.
  */
-export function notifyClassEnded(payload: ClassEndedPayload, status: 'COMPLETED' | 'CANCELLED'): void {
+export function notifyClassEnded(payload: ClassEndedPayload, status: 'COMPLETED' | 'CANCELLED' | 'INCOMPLETE'): void {
   if (!payload.classPublicId) return;
   const rooms = [payload.studentUserPublicId];
   if (payload.roomEnded !== false) rooms.push(payload.tutorUserPublicId);
@@ -148,9 +148,10 @@ export function registerDataInvalidationSocket(io: IOServer): void {
     });
   });
 
-  domainEvents.on(DomainEvent.CLASS_COMPLETED, (payload: { classPublicId?: string; roomPublicId?: string; roomEnded?: boolean; tutorUserPublicId: string; studentUserPublicId: string }) => {
-    endClassRoom(io, payload.roomPublicId ?? payload.classPublicId, 'COMPLETED', payload.roomEnded);
-    notifyClassEnded(payload, 'COMPLETED');
+  domainEvents.on(DomainEvent.CLASS_COMPLETED, (payload: { classPublicId?: string; roomPublicId?: string; roomEnded?: boolean; tutorUserPublicId: string; studentUserPublicId: string; incomplete?: boolean }) => {
+    const endStatus = payload.incomplete ? 'INCOMPLETE' : 'COMPLETED';
+    endClassRoom(io, payload.roomPublicId ?? payload.classPublicId, endStatus, payload.roomEnded);
+    notifyClassEnded(payload, endStatus);
     const rooms = [`user:${payload.tutorUserPublicId}`, `user:${payload.studentUserPublicId}`];
     invalidate(io, rooms, 'classes');
     invalidate(io, [`user:${payload.tutorUserPublicId}`], 'wallet');

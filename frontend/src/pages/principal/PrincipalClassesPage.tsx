@@ -18,6 +18,7 @@ const EMPTY_LABELS: Record<string, string> = {
 const STATUS_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'info' | 'default'> = {
   COMPLETED: 'success',
   CANCELLED: 'danger',
+  INCOMPLETE: 'warning',
   LIVE: 'warning',
   SCHEDULED: 'info',
 };

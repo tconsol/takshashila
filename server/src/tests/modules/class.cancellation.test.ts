@@ -10,6 +10,7 @@
    the class — an admin or the sweep cancelling on someone's behalf charges
    nobody. It is allowed to push the wallet negative so it cannot be dodged. */
 import { classService } from '../../modules/classes/class.service';
+import { classPresenceService } from '../../modules/classes/class-presence.service';
 import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
 import { StudentProfileModel } from '../../modules/students/student.model';
 import { TutorProfileModel } from '../../modules/tutors/tutor.model';
@@ -46,6 +47,7 @@ describe('ClassService.cancelClass — who pays the platform fee', () => {
 
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.spyOn(classPresenceService, 'hasPresenceData').mockResolvedValue(false);
     jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(cancellableClass()) as never);
     jest.spyOn(ScheduledClassModel, 'findOneAndUpdate')
       .mockReturnValue(lean({ ...cancellableClass(), status: ClassStatus.CANCELLED }) as never);
@@ -130,6 +132,7 @@ describe('ClassService.autoResolveOverdueClasses — 30 minute rule', () => {
 
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.spyOn(classPresenceService, 'hasPresenceData').mockResolvedValue(false);
     jest.spyOn(tutorService, 'getByPublicId').mockResolvedValue({ userPublicId: TUTOR_USER } as never);
     updateOne = jest.spyOn(ScheduledClassModel, 'updateOne').mockResolvedValue({} as never);
     complete = jest.spyOn(classService, 'completeClass').mockResolvedValue({} as never);

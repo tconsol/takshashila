@@ -111,6 +111,7 @@ export function TutorClassesPage() {
     { key: 'LIVE', label: 'In Progress', indicator: hasLive },
     { key: 'COMPLETED', label: 'Completed', indicator: dirty.has('COMPLETED') },
     { key: 'CANCELLED', label: 'Cancelled', indicator: dirty.has('CANCELLED') },
+    { key: 'INCOMPLETE', label: 'Incomplete' },
   ];
 
   const handleAction = (action: 'start' | 'complete' | 'cancel' | 'join' | 'rate' | 'reschedule', cls: ClassRecord) => {

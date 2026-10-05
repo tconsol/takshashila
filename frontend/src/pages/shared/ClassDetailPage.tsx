@@ -15,7 +15,7 @@ import { useAuthStore } from '../../stores/auth.store';
 
 type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'default' | 'purple';
 const statusVariant: Record<string, BadgeVariant> = {
-  COMPLETED: 'success', LIVE: 'warning', CANCELLED: 'danger', SCHEDULED: 'info',
+  COMPLETED: 'success', LIVE: 'warning', CANCELLED: 'danger', SCHEDULED: 'info', INCOMPLETE: 'warning',
 };
 
 function Row({ icon, label, value, valueClass }: { icon: React.ReactNode; label: string; value: React.ReactNode; valueClass?: string }) {

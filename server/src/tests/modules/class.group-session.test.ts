@@ -1,6 +1,7 @@
 /* Complete / Cancel / Reschedule by the tutor apply to every student's record of a group session. */
 jest.mock('../../modules/classes/class-access', () => ({ assertClassParty: jest.fn().mockResolvedValue(undefined), assertClassViewer: jest.fn() }));
 import { classService } from '../../modules/classes/class.service';
+import { classPresenceService } from '../../modules/classes/class-presence.service';
 import { classController } from '../../modules/classes/class.controller';
 import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
 import { StudentProfileModel } from '../../modules/students/student.model';
@@ -18,7 +19,7 @@ const open = (id: string, over: object = {}) => ({
 });
 
 describe('group session actions', () => {
-  beforeEach(() => jest.restoreAllMocks());
+  beforeEach(() => { jest.restoreAllMocks(); jest.spyOn(classPresenceService, 'hasPresenceData').mockResolvedValue(false); });
 
   describe('completeSession', () => {
     it('completes the clicked record and every open sibling', async () => {

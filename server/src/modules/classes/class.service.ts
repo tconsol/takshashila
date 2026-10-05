@@ -22,11 +22,25 @@ import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
 import { PLATFORM_FEE_CENTS } from '../../utils/currency';
 import { attendanceService } from '../attendance/attendance.service';
+import { classPresenceService } from './class-presence.service';
 import { auditService } from '../audit/audit.service';
 import { AttendanceStatus } from '../attendance/attendance.types';
 import type { PaginationQuery, PaginatedResult } from '../../shared/types';
 import { parsePaginationQuery, buildPaginatedResult } from '../../utils/pagination';
 import type { BookClassDto, CancelClassDto, RescheduleClassDto, SetMeetingUrlDto, TutorCreateClassDto, TutorRescheduleDto } from './class.validators';
+
+/**
+ * How long each person was present compared with what the class needs. `tutorMet` decides
+ * whether the class counts at all; `studentMet` only decides whether it is noted that the
+ * student left early (the student is billed either way, because the tutor delivered).
+ */
+interface PresenceSettlement {
+  tutorMinutes: number;
+  studentMinutes: number;
+  requiredMinutes: number;
+  tutorMet: boolean;
+  studentMet: boolean;
+}
 
 // A completed demo class consumes 10 credits from the student's free demo-credit bucket.
 const DEMO_CLASS_COST_CENTS = 10 * 100;
@@ -223,7 +237,7 @@ export class ClassService {
     if (!authorized) throw new AppError('Not authorized to join this class', 403);
 
     // Terminal states — nothing to update.
-    if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED) return cls;
+    if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED || cls.status === ClassStatus.INCOMPLETE) return cls;
 
     // Transition SCHEDULED → LIVE, and ALWAYS record the student's join time the
     // first time they join — even if the tutor already started the class (LIVE).
@@ -375,12 +389,32 @@ export class ClassService {
       throw new ConflictError(`Cannot complete class in status: ${scheduled.status}`);
     }
 
-    if (opts.manual) this._assertCanCompleteNow(scheduled);
+    // Classes that have presence records are judged on how long each person was there;
+    // older ones (and prepaid course/program classes) keep the join-time rule.
+    const settlement = await this._presenceSettlement(scheduled);
+    if (opts.manual) this._assertCanCompleteNow(scheduled, settlement);
+
+    // The tutor was not there for the required share: nothing happened that can be billed.
+    if (settlement && !settlement.tutorMet) {
+      return this._markIncomplete(scheduled, settlement, tutorUserPublicId);
+    }
 
     // Guarded on status so a double-click or a race with the sweep completes (and pays) only once.
     let updated = await ScheduledClassModel.findOneAndUpdate(
       { publicId: classPublicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] } },
-      { $set: { status: ClassStatus.COMPLETED, needsTutorDecision: false, completedAt: new Date() } },
+      {
+        $set: {
+          status: ClassStatus.COMPLETED,
+          needsTutorDecision: false,
+          completedAt: new Date(),
+          ...(settlement && {
+            attendedMinutes: { tutor: settlement.tutorMinutes, student: settlement.studentMinutes },
+            requiredMinutes: settlement.requiredMinutes,
+            // Billed in full because the tutor delivered; the student's short stay is only noted.
+            studentLeftEarly: !!scheduled.studentJoinedAt && !settlement.studentMet,
+          }),
+        },
+      },
       { new: true },
     ).lean();
     if (!updated) throw new ConflictError('Class was already completed or cancelled');
@@ -600,7 +634,9 @@ export class ClassService {
           classPublicId,
           studentPublicId: scheduled.studentPublicId,
           status: attended ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT,
-          durationPresentMinutes: attended ? this._minutesActuallyPresent(scheduled) : 0,
+          durationPresentMinutes: attended
+            ? (settlement ? Math.round(settlement.studentMinutes) : this._minutesActuallyPresent(scheduled))
+            : 0,
         },
         scheduled.tutorPublicId,
       ).catch(() => {}); // ignore if already manually marked
@@ -629,7 +665,10 @@ export class ClassService {
         isDeleted: false,
         status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
       },
-      { publicId: 1, startUTC: 1, endUTC: 1, durationMinutes: 1, studentJoinedAt: 1, tutorJoinedAt: 1 },
+      {
+        publicId: 1, groupPublicId: 1, tutorPublicId: 1, studentPublicId: 1, billingMode: 1,
+        startUTC: 1, endUTC: 1, durationMinutes: 1, studentJoinedAt: 1, tutorJoinedAt: 1,
+      },
     ).lean();
   }
 
@@ -642,7 +681,7 @@ export class ClassService {
     const clicked = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
     if (!clicked) throw new NotFoundError('Scheduled class');
     const siblings = await this._openGroupSiblings(clicked);
-    for (const sibling of siblings) this._assertCanCompleteNow(sibling);
+    for (const sibling of siblings) this._assertCanCompleteNow(sibling, await this._presenceSettlement(sibling));
 
     const completed = await this.completeClass(classPublicId, tutorUserPublicId, { manual: true });
     for (const sibling of siblings) {
@@ -1310,7 +1349,7 @@ export class ClassService {
     const cls = await ScheduledClassModel.findOne({ publicId: classPublicId, isDeleted: false }).lean();
     if (!cls) throw new NotFoundError('Class');
     if (cls.tutorPublicId !== tutorProfile.publicId) throw new AppError('Not your class', 403);
-    if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED) {
+    if (cls.status === ClassStatus.COMPLETED || cls.status === ClassStatus.CANCELLED || cls.status === ClassStatus.INCOMPLETE) {
       throw new AppError('Cannot reschedule a completed or cancelled class', 400);
     }
 
@@ -1450,6 +1489,7 @@ export class ClassService {
       {
         publicId: 1, status: 1, tutorPublicId: 1,
         studentJoinedAt: 1, tutorJoinedAt: 1, startedAt: 1, endUTC: 1,
+        groupPublicId: 1, billingMode: 1,
       },
     )
       .limit(200)
@@ -1464,7 +1504,10 @@ export class ClassService {
          people present, together, for at least the minimum. Anything shorter is
          ambiguous — it could be a mis-click or a session that fell apart — so a
          human decides rather than the platform moving money on a guess. */
-      if (cls.status === ClassStatus.LIVE && !this._metMinimumSession(cls)) {
+      /* With presence records the 83% rule decides inside completeClass (completed, or
+         incomplete with no charge), so there is nothing for a person to decide. */
+      const byPresence = cls.status === ClassStatus.LIVE && await this._usesPresenceRule(cls);
+      if (cls.status === ClassStatus.LIVE && !byPresence && !this._metMinimumSession(cls)) {
         await ScheduledClassModel.updateOne(
           { publicId: cls.publicId, needsTutorDecision: { $ne: true } },
           { $set: { needsTutorDecision: true } },
@@ -1528,6 +1571,99 @@ export class ClassService {
    * present, and did the session run at least this long".
    */
   /**
+   * Whether the attendance rule (share of the class each person was present) judges this
+   * class. Prepaid course/program classes keep the old rule, and so does any class with no
+   * presence records at all (booked and run before presence tracking existed).
+   */
+  private async _usesPresenceRule(
+    cls: Pick<IScheduledClass, 'publicId' | 'groupPublicId' | 'billingMode'>,
+  ): Promise<boolean> {
+    if (isPrepaid(cls.billingMode)) return false;
+    return classPresenceService.hasPresenceData(cls);
+  }
+
+  private async _presenceSettlement(
+    cls: Pick<
+      IScheduledClass,
+      'publicId' | 'groupPublicId' | 'billingMode' | 'tutorPublicId' | 'studentPublicId' | 'startUTC' | 'endUTC' | 'durationMinutes'
+    >,
+  ): Promise<PresenceSettlement | null> {
+    if (!(await this._usesPresenceRule(cls))) return null;
+    const [tutor, student] = await Promise.all([
+      TutorProfileModel.findOne({ publicId: cls.tutorPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
+      StudentProfileModel.findOne({ publicId: cls.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
+    ]);
+    const [tutorMinutes, studentMinutes, requiredMinutes] = await Promise.all([
+      tutor ? classPresenceService.attendedMinutes(cls, tutor.userPublicId) : 0,
+      student ? classPresenceService.attendedMinutes(cls, student.userPublicId) : 0,
+      classPresenceService.requiredMinutes(cls),
+    ]);
+    return {
+      tutorMinutes,
+      studentMinutes,
+      requiredMinutes,
+      tutorMet: tutorMinutes >= requiredMinutes,
+      studentMet: studentMinutes >= requiredMinutes,
+    };
+  }
+
+  /**
+   * Close a class the tutor did not attend for long enough. No wallet is touched: nothing was
+   * charged at booking, so there is nothing to release. The student's attendance is still kept.
+   */
+  private async _markIncomplete(
+    scheduled: IScheduledClass,
+    s: PresenceSettlement,
+    tutorUserPublicId: string,
+  ): Promise<IScheduledClass> {
+    const updated = await ScheduledClassModel.findOneAndUpdate(
+      { publicId: scheduled.publicId, status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] } },
+      {
+        $set: {
+          status: ClassStatus.INCOMPLETE,
+          needsTutorDecision: false,
+          attendedMinutes: { tutor: s.tutorMinutes, student: s.studentMinutes },
+          requiredMinutes: s.requiredMinutes,
+        },
+      },
+      { new: true },
+    ).lean();
+    if (!updated) throw new ConflictError('Class was already completed or cancelled');
+
+    const student = await StudentProfileModel.findOne(
+      { publicId: scheduled.studentPublicId, isDeleted: false },
+      { userPublicId: 1 },
+    ).lean();
+
+    if (scheduled.studentPublicId) {
+      const joined = !!scheduled.studentJoinedAt;
+      await attendanceService.markAttendance(
+        {
+          classPublicId: scheduled.publicId,
+          studentPublicId: scheduled.studentPublicId,
+          status: joined ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT,
+          durationPresentMinutes: joined ? Math.round(s.studentMinutes) : 0,
+        },
+        scheduled.tutorPublicId,
+      ).catch(() => {});
+    }
+
+    // Same event as a completed class so the room closes and both people's lists refresh;
+    // `incomplete` lets the listeners word it correctly.
+    domainEvents.emit(DomainEvent.CLASS_COMPLETED, {
+      classPublicId: scheduled.publicId,
+      ...(await this._roomState(scheduled)),
+      tutorPublicId: scheduled.tutorPublicId,
+      tutorUserPublicId,
+      studentPublicId: scheduled.studentPublicId,
+      studentUserPublicId: student?.userPublicId ?? '',
+      costCents: scheduled.costCents,
+      incomplete: true,
+    });
+    return updated;
+  }
+
+  /**
    * Minutes the student was really in the class: from when they joined (never
    * earlier than the scheduled start) to now, capped at the scheduled end. The
    * old code recorded the full scheduled length even for a class completed
@@ -1550,6 +1686,7 @@ export class ClassService {
    */
   private _assertCanCompleteNow(
     cls: Pick<IScheduledClass, 'startUTC' | 'endUTC' | 'durationMinutes' | 'studentJoinedAt' | 'tutorJoinedAt'>,
+    settlement: PresenceSettlement | null = null,
   ): void {
     const now = Date.now();
     const startMs = new Date(cls.startUTC).getTime();
@@ -1557,6 +1694,16 @@ export class ClassService {
     if (now < startMs) {
       throw new ConflictError(
         'This class has not started yet. Wait until its scheduled start time, or cancel it instead.',
+      );
+    }
+
+    if (settlement) {
+      // Once the class is over, completing it just settles by the attendance rule. Before
+      // that, a tutor who has not yet been there long enough would only close it as incomplete.
+      if (now >= endMs || settlement.tutorMet) return;
+      const missing = Math.max(1, Math.ceil(settlement.requiredMinutes - settlement.tutorMinutes));
+      throw new ConflictError(
+        `You have attended ${Math.floor(settlement.tutorMinutes)} of the ${settlement.requiredMinutes} minutes this class needs. You can complete it after ${missing} more minute(s), or once its scheduled end time passes.`,
       );
     }
     if (now >= endMs || !cls.studentJoinedAt) return;
