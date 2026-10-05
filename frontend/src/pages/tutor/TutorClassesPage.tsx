@@ -65,8 +65,8 @@ export function TutorClassesPage() {
   const [rescheduleTarget, setRescheduleTarget] = useState<ClassRecord | null>(null);
 
   // "ALL" tab fetches every status; others filter by the tab.
-  const { data, isLoading } = useMyClassesAsTutor(activeTab === 'ALL' ? { limit: '100' } : { status: activeTab });
   const poll = { refetchInterval: LIVE_STATUS_POLL };
+  const { data, isLoading } = useMyClassesAsTutor(activeTab === 'ALL' ? { limit: '100' } : { status: activeTab }, poll);
   const { data: liveData } = useMyClassesAsTutor({ status: 'LIVE', limit: '1' }, poll);
   const hasLive = (liveData?.total ?? 0) > 0;
 
