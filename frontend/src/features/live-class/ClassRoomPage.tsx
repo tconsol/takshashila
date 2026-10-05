@@ -15,6 +15,9 @@ import { ControlBar } from './ControlBar';
 import { WhiteboardPanel } from './WhiteboardPanel';
 import type { ClassChatMessage } from '../../sockets/socket.events';
 
+/** How often a student's room page re-checks whether its class has ended. */
+const CLASS_STATUS_POLL_MS = 8000;
+
 export function ClassRoomPage() {
   const { classPublicId } = useParams<{ classPublicId: string }>();
   const navigate = useNavigate();
@@ -146,6 +149,25 @@ export function ClassRoomPage() {
     return () => { unsubChat(); unsubStatus(); unsubRealtime(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onChatMessage, onStatusChanged]);
+
+  // Safety net: the "class ended" push can be missed (the request may be handled by another
+  // server instance than the one holding this socket). So a student/observer also checks their
+  // own class every few seconds. The tutor is not polled: in a group, one student's record
+  // ending (e.g. they cancel) must not throw the tutor out of the room.
+  useEffect(() => {
+    if (!classPublicId || isTutor) return;
+    const timer = setInterval(() => {
+      if (leavingRef.current) return;
+      classesService.getById(classPublicId).then((cls) => {
+        if ((cls.status === 'COMPLETED' || cls.status === 'CANCELLED') && !leavingRef.current) {
+          leavingRef.current = true;
+          void handleLeave();
+        }
+      }).catch(() => {});
+    }, CLASS_STATUS_POLL_MS);
+    return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classPublicId, isTutor]);
 
   function handleSend() {
     if (!input.trim()) return;
