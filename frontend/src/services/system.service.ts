@@ -97,6 +97,8 @@ export interface PlatformSettings {
   defaultPrincipalCommissionRatePercent: number;
   demoCreditCents: number;
   maxDemoClasses: number;
+  minAttendancePercent: number;
+  disconnectGraceMinutes: number;
   maxAdvanceBookingDays: number;
   minClassDurationMinutes: number;
   maxClassDurationMinutes: number;

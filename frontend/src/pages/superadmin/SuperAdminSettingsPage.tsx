@@ -47,6 +47,14 @@ const SECTIONS: SettingSection[] = [
     ],
   },
   {
+    title: 'Class Attendance',
+    description: 'How much of a class each person must attend for it to count as completed',
+    fields: [
+      { label: 'Required Attendance (%)', key: 'minAttendancePercent', type: 'number', hint: 'Share of the class length. 83 means 50 of 60 minutes.' },
+      { label: 'Disconnect Grace (minutes)', key: 'disconnectGraceMinutes', type: 'number', hint: 'A gap up to this long still counts as present.' },
+    ],
+  },
+  {
     title: 'Session Limits',
     description: 'Constraints on scheduling and booking',
     fields: [
@@ -234,6 +242,7 @@ export function SuperAdminSettingsPage() {
                 <Input
                   key={field.key}
                   label={field.label}
+                  hint={field.hint}
                   type={field.type ?? 'text'}
                   value={values[field.key] ?? ''}
                   onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}

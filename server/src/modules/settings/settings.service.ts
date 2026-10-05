@@ -20,6 +20,8 @@ const NUMERIC_KEYS: (keyof PlatformSettingsDto)[] = [
   'defaultPrincipalCommissionRatePercent',
   'demoCreditCents',
   'maxDemoClasses',
+  'minAttendancePercent',
+  'disconnectGraceMinutes',
   'maxAdvanceBookingDays',
   'minClassDurationMinutes',
   'maxClassDurationMinutes',
@@ -53,6 +55,12 @@ export class SettingsService {
       if (doc.supportEmail === 'support@takshashila.com') fix.supportEmail = PLATFORM_SETTINGS_DEFAULTS.supportEmail;
       await PlatformSettingsModel.updateOne({ key: 'platform' }, { $set: fix });
       Object.assign(doc, fix);
+    }
+
+    // The settings row is created once; fields added later are absent on it, so read them as defaults.
+    if (doc) {
+      doc.minAttendancePercent ??= PLATFORM_SETTINGS_DEFAULTS.minAttendancePercent;
+      doc.disconnectGraceMinutes ??= PLATFORM_SETTINGS_DEFAULTS.disconnectGraceMinutes;
     }
 
     cached = { value: doc as IPlatformSettings, expiresAt: Date.now() + CACHE_TTL_MS };
@@ -100,6 +108,13 @@ export class SettingsService {
     }
 
     if (Object.keys(updates).length === 0) throw invalid('No valid settings supplied');
+
+    if (updates.minAttendancePercent !== undefined && (updates.minAttendancePercent < 1 || updates.minAttendancePercent > 100)) {
+      throw invalid('minAttendancePercent must be between 1 and 100');
+    }
+    if (updates.disconnectGraceMinutes !== undefined && updates.disconnectGraceMinutes > 60) {
+      throw invalid('disconnectGraceMinutes cannot exceed 60');
+    }
 
     const before = await this.get();
 

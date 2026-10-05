@@ -16,6 +16,11 @@ export interface IPlatformSettings {
   demoCreditCents: number;
   maxDemoClasses: number;
 
+  /** Share of the class length each person must attend for the session to count (percent). */
+  minAttendancePercent: number;
+  /** A disconnect up to this long still counts as present (minutes). */
+  disconnectGraceMinutes: number;
+
   maxAdvanceBookingDays: number;
   minClassDurationMinutes: number;
   maxClassDurationMinutes: number;
@@ -51,6 +56,8 @@ export const PLATFORM_SETTINGS_DEFAULTS = {
   defaultPrincipalCommissionRatePercent: 15,
   demoCreditCents: 100_00,
   maxDemoClasses: 3,
+  minAttendancePercent: 83,
+  disconnectGraceMinutes: 5,
   maxAdvanceBookingDays: 30,
   minClassDurationMinutes: 30,
   maxClassDurationMinutes: 180,
@@ -74,6 +81,8 @@ const platformSettingsSchema = new Schema<IPlatformSettings>(
     },
     demoCreditCents: { type: Number, default: PLATFORM_SETTINGS_DEFAULTS.demoCreditCents, min: 0 },
     maxDemoClasses: { type: Number, default: PLATFORM_SETTINGS_DEFAULTS.maxDemoClasses, min: 0, max: 50 },
+    minAttendancePercent: { type: Number, default: PLATFORM_SETTINGS_DEFAULTS.minAttendancePercent, min: 1, max: 100 },
+    disconnectGraceMinutes: { type: Number, default: PLATFORM_SETTINGS_DEFAULTS.disconnectGraceMinutes, min: 0, max: 60 },
 
     maxAdvanceBookingDays: { type: Number, default: PLATFORM_SETTINGS_DEFAULTS.maxAdvanceBookingDays, min: 1, max: 365 },
     minClassDurationMinutes: { type: Number, default: PLATFORM_SETTINGS_DEFAULTS.minClassDurationMinutes, min: 5, max: 600 },
