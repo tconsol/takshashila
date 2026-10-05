@@ -32,6 +32,18 @@ const STATUS_VARIANT: Record<string, 'success' | 'danger' | 'warning' | 'info' |
   SCHEDULED: 'info',
 };
 
+/** What pressing Complete really does depends on the type of class and who pays. */
+function completeMessage(cls: ClassSession): string {
+  if (cls.classType === 'DEMO') {
+    return "This ends the demo class and uses the student's free demo credits. You are not paid for demo classes. It cannot be undone.";
+  }
+  if (cls.billingMode === 'TUTOR_INVITED') {
+    const who = cls.studentCount > 1 ? `all ${cls.studentCount} students' records of this session` : 'this class';
+    return `This ends ${who}. Students attend for free; you pay a 2 credit platform fee for each student who attended, and you earn nothing. Only complete a class that has really taken place.`;
+  }
+  return 'This ends the class, charges the student and pays you for it. Only complete a class that has really taken place; it can only be reversed by a refund.';
+}
+
 /** The in-app room opens 15 minutes before the start; external Meet/Zoom links open in a new tab. */
 function joinClass(cls: ClassRecord, navigate: (to: string) => void) {
   if (cls.meetingUrl && cls.meetingProvider && cls.meetingProvider !== 'native') {
@@ -106,9 +118,7 @@ export function TutorClassesPage() {
       void (async () => {
         const { confirmed } = await confirm({
           title: 'Complete this class?',
-          message: cls.classType === 'DEMO'
-            ? "This ends the demo class and uses the student's free demo credits. You are not paid for demo classes. It cannot be undone."
-            : 'This ends the class, charges the student and pays you for it. Only complete a class that has really taken place; it can only be reversed by a refund.',
+          message: completeMessage(cls as ClassSession),
           confirmLabel: 'Complete class',
           tone: 'primary',
         });
