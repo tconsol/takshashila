@@ -400,6 +400,12 @@ export class StudentService {
     return profile;
   }
 
+  /** Every profile id a student has (one per tutor link). Empty when they have none. */
+  async getProfileIdsByUser(userPublicId: string): Promise<string[]> {
+    const profiles = await StudentProfileModel.find({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
+    return profiles.map((p) => p.publicId);
+  }
+
   async getByUserPublicId(userPublicId: string): Promise<IStudentProfile> {
     const profile = await studentRepository.findByUserPublicId(userPublicId);
     if (!profile) throw new NotFoundError('Student profile');

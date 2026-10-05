@@ -42,8 +42,9 @@ export async function getClassMembership(
   ).lean();
   if (ownTutor?.publicId === cls.tutorPublicId) return 'tutor';
 
+  // A student has one profile per tutor link: look up the class's own profile, not the first one.
   const student = await StudentProfileModel.findOne(
-    { userPublicId: actor.publicId, isDeleted: false },
+    { userPublicId: actor.publicId, publicId: cls.studentPublicId, isDeleted: false },
     { publicId: 1 },
   ).lean();
   if (student?.publicId === cls.studentPublicId) return 'student';

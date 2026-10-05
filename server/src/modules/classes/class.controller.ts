@@ -105,18 +105,14 @@ export class ClassController {
 
   async getMyClassesAsStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      let studentProfile;
-      try {
-        studentProfile = await studentService.getByUserPublicId(req.user!.publicId);
-      } catch (err) {
-        if (err instanceof NotFoundError) {
-          sendPaginated(res, { items: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }, 'Classes fetched');
-          return;
-        }
-        throw err;
+      // All of the student's profiles (one per tutor link), so classes from every tutor are listed.
+      const profileIds = await studentService.getProfileIdsByUser(req.user!.publicId);
+      if (profileIds.length === 0) {
+        sendPaginated(res, { items: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }, 'Classes fetched');
+        return;
       }
       const result = await classService.getClassesByStudent(
-        studentProfile.publicId,
+        profileIds,
         parseClassFilters(req.query as Record<string, unknown>),
         req.query,
       );
@@ -178,7 +174,11 @@ export class ClassController {
         authorized = tutorProfile?.publicId === cls.tutorPublicId;
         if (authorized) rtcRole = RtcRole.PUBLISHER;
       } else if (role === 'STUDENT') {
-        const studentProfile = await StudentProfileModel.findOne({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
+        // A student has one profile per tutor link: look up the class's own profile, not the first one.
+        const studentProfile = await StudentProfileModel.findOne(
+          { userPublicId, publicId: cls.studentPublicId, isDeleted: false },
+          { publicId: 1 },
+        ).lean();
         authorized = studentProfile?.publicId === cls.studentPublicId;
         if (authorized) rtcRole = RtcRole.PUBLISHER;
       } else if (role === 'ADMIN' || role === 'SUPER_ADMIN') {

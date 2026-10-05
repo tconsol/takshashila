@@ -211,7 +211,11 @@ export class ClassService {
       const tutorProfile = await TutorProfileModel.findOne({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
       authorized = tutorProfile?.publicId === cls.tutorPublicId;
     } else if (role === 'STUDENT') {
-      const studentProfile = await StudentProfileModel.findOne({ userPublicId, isDeleted: false }, { publicId: 1 }).lean();
+      // A student has one profile per tutor link: look up the class's own profile, not the first one.
+      const studentProfile = await StudentProfileModel.findOne(
+        { userPublicId, publicId: cls.studentPublicId, isDeleted: false },
+        { publicId: 1 },
+      ).lean();
       authorized = studentProfile?.publicId === cls.studentPublicId;
     } else {
       authorized = true;
@@ -1005,13 +1009,17 @@ export class ClassService {
     return buildPaginatedResult(await this.withParticipantNames(items), total, page, limit);
   }
 
+  /** `studentPublicId` is one profile id, or every profile id of a student with several tutor links. */
   async getClassesByStudent(
-    studentPublicId: string,
+    studentPublicId: string | string[],
     filters: { status?: string; from?: Date; to?: Date },
     query: PaginationQuery,
   ): Promise<PaginatedResult<IScheduledClass>> {
     const { page, limit, skip } = parsePaginationQuery(query);
-    const filter: Record<string, unknown> = { studentPublicId, isDeleted: false };
+    const filter: Record<string, unknown> = {
+      studentPublicId: Array.isArray(studentPublicId) ? { $in: studentPublicId } : studentPublicId,
+      isDeleted: false,
+    };
     if (filters.status) filter.status = filters.status;
     if (filters.from || filters.to) {
       filter.startUTC = {};
