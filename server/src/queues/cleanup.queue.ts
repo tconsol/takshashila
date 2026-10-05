@@ -24,6 +24,9 @@ export function startCleanupWorker(): Worker {
         if (completed || cancelled) {
           logger.info('Auto-resolved overdue classes', { completed, cancelled });
         }
+        // Same two-minute tick: class requests the student left unanswered until the class began.
+        const expired = await classService.expirePendingRequests();
+        if (expired) logger.info('Expired unanswered class requests', { expired });
       }
     },
     { connection: redisConnection, concurrency: 1 },

@@ -1217,6 +1217,69 @@ export class ClassService {
   }
 
   /**
+   * A request the student never answered expires when its class starts: that student's session
+   * is cancelled (nothing was held, so nothing is released or charged), the tutor is told once
+   * per student request, and a group carries on with whoever accepted. If nobody accepted, every
+   * record is cancelled, i.e. the class cancels itself. Safe to run on several instances: each
+   * record is claimed with a conditional update before anything is announced.
+   */
+  async expirePendingRequests(now: Date = new Date()): Promise<number> {
+    const due = await ScheduledClassModel.find(
+      { requestStatus: RequestStatus.PENDING, status: ClassStatus.SCHEDULED, startUTC: { $lte: now }, isDeleted: false },
+      { publicId: 1, studentPublicId: 1, tutorPublicId: 1, seriesPublicId: 1, title: 1 },
+    ).limit(500).lean();
+    if (due.length === 0) return 0;
+
+    const expired: typeof due = [];
+    for (const cls of due) {
+      const claimed = await ScheduledClassModel.findOneAndUpdate(
+        { publicId: cls.publicId, requestStatus: RequestStatus.PENDING, status: ClassStatus.SCHEDULED },
+        {
+          $set: {
+            status: ClassStatus.CANCELLED,
+            requestStatus: RequestStatus.EXPIRED,
+            requestRespondedAt: now,
+            cancellationReason: 'The student did not accept before the class started',
+            cancelledBy: 'system',
+          },
+        },
+      ).lean();
+      if (claimed) expired.push(cls);
+    }
+    if (expired.length === 0) return 0;
+
+    // One notice per student request (a recurring series is one request), not one per session.
+    const requests = new Map<string, { first: (typeof due)[number]; sessions: number }>();
+    for (const cls of expired) {
+      const key = `${cls.studentPublicId}|${cls.seriesPublicId ?? cls.publicId}`;
+      const known = requests.get(key);
+      if (known) known.sessions += 1;
+      else requests.set(key, { first: cls, sessions: 1 });
+    }
+    const [students, tutors] = await Promise.all([
+      StudentProfileModel.find(
+        { publicId: { $in: [...new Set(expired.map((c) => c.studentPublicId))] } }, { publicId: 1, userPublicId: 1 },
+      ).lean(),
+      TutorProfileModel.find(
+        { publicId: { $in: [...new Set(expired.map((c) => c.tutorPublicId))] } }, { publicId: 1, userPublicId: 1 },
+      ).lean(),
+    ]);
+    const studentUser = new Map(students.map((s) => [s.publicId, s.userPublicId]));
+    const tutorUser = new Map(tutors.map((t) => [t.publicId, t.userPublicId]));
+    for (const { first, sessions } of requests.values()) {
+      domainEvents.emit(DomainEvent.CLASS_REQUEST_RESPONDED, {
+        classPublicId: first.publicId,
+        title: first.title,
+        answer: 'EXPIRED',
+        sessions,
+        tutorUserPublicId: tutorUser.get(first.tutorPublicId) ?? '',
+        studentUserPublicId: studentUser.get(first.studentPublicId) ?? '',
+      });
+    }
+    return expired.length;
+  }
+
+  /**
    * Money already promised by a student's accepted tutor-created classes: sessions inside
    * the funded block that have not been billed yet (price + fee each). Together with their
    * own unfinished bookings this is what their balance has to cover.
