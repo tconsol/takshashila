@@ -156,18 +156,24 @@ describe('program review fixes', () => {
     })).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it('I6: a failed undo-refund after a failed enrollment insert is logged', async () => {
+  it('I6: a failed enrollment insert releases the seat and never touches the wallet balance', async () => {
     jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'sp-1' } as never);
+    jest.spyOn(studentService, 'getProfileIdsByUser').mockResolvedValue(['sp-1']);
     jest.spyOn(ProgramModel, 'findOne').mockReturnValue(lean(program) as never);
     jest.spyOn(ProgramEnrollmentModel, 'exists').mockResolvedValue(null as never);
     jest.spyOn(ProgramModel, 'findOneAndUpdate').mockReturnValue(lean(program) as never);
-    jest.spyOn(ProgramModel, 'updateOne').mockResolvedValue({} as never);
-    jest.spyOn(walletService, 'debitWallet').mockResolvedValue({} as never);
+    const release = jest.spyOn(ProgramModel, 'updateOne').mockResolvedValue({} as never);
+    jest.spyOn(walletService, 'getWallet').mockResolvedValue({ balanceCents: 1000 } as never);
+    jest.spyOn(walletService, 'runWithBookingLock').mockImplementation(
+      (async (_o: string, fn: (c: unknown) => unknown) => fn({ session: { id: 's' }, wallet: { balanceCents: 1000 } })) as never,
+    );
+    const debit = jest.spyOn(walletService, 'debitWallet').mockResolvedValue({} as never);
+    const refund = jest.spyOn(walletService, 'refundWallet').mockResolvedValue({} as never);
     jest.spyOn(ProgramEnrollmentModel, 'create').mockRejectedValue(new Error('dup'));
-    jest.spyOn(walletService, 'refundWallet').mockRejectedValue(new Error('wallet down'));
-    const err = jest.spyOn(logger, 'error').mockImplementation(() => logger);
     await expect(programEnrollmentService.enroll('su-1', 'p-1', { availabilityWindow: window })).rejects.toThrow('dup');
-    expect(err).toHaveBeenCalledWith(expect.stringContaining('refund'), expect.objectContaining({ amountCents: 1000 }));
+    expect(release).toHaveBeenCalledWith({ publicId: 'p-1' }, { $inc: { activeEnrollmentCount: -1 } });
+    expect(debit).not.toHaveBeenCalled();
+    expect(refund).not.toHaveBeenCalled();
   });
 
   it('I7: session length is locked once students have enrolled', async () => {

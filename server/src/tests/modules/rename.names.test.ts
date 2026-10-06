@@ -43,9 +43,7 @@ describe('curriculum/course rename — names', () => {
       fs.readFileSync(path.join(__dirname, '../../modules/classes/class.service.ts'), 'utf8'),
     ].join('\n');
     for (const s of [
-      "'COURSE_REQUEST_ACCEPT'",
       "'COURSE_REQUEST_CANCEL'",
-      '`course-request-accept-${',
       '`course-request-cancel-${',
       '`course-class-${',
       '`course-class-cancel-refund-${',

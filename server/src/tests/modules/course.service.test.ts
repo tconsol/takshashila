@@ -11,6 +11,7 @@ import { studentService } from '../../modules/students/student.service';
 import { tutorService } from '../../modules/tutors/tutor.service';
 import { classService } from '../../modules/classes/class.service';
 import { domainEvents } from '../../events/event-emitter';
+import { reserveService } from '../../modules/wallets/reserve.service';
 import { NotFoundError } from '../../utils/error';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
@@ -147,24 +148,63 @@ describe('CourseService', () => {
   });
 
   describe('accept', () => {
-    it('charges the student classesRequired × tutor rate and marks ACCEPTED', async () => {
+    function arrangeAccept(opts: { balanceCents: number; heldCents: number; rate?: number }) {
       jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue(
-        { publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1', hourlyRateCents: 1500 } as never,
+        { publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1', hourlyRateCents: opts.rate ?? 1500 } as never,
       );
       jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(baseRequest()) as never);
-      jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'student-prof-1', userPublicId: 'student-user-1' }) as never);
-      const debit = jest.spyOn(walletService, 'debitWallet').mockResolvedValue({} as never);
-      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(
-        lean(baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4, costCentsPerClass: 1500 })) as never,
+      jest.spyOn(studentService, 'getByPublicId').mockResolvedValue({ publicId: 'student-prof-1', userPublicId: 'student-user-1' } as never);
+      jest.spyOn(studentService, 'getProfileIdsByUser').mockResolvedValue(['student-prof-1']);
+      jest.spyOn(studentService, 'linkTutorOnAcceptedRequest').mockResolvedValue(undefined as never);
+      jest.spyOn(walletService, 'getWallet').mockResolvedValue({ balanceCents: opts.balanceCents } as never);
+      const lock = jest.spyOn(walletService, 'runWithBookingLock').mockImplementation(
+        (async (_o: string, fn: (c: unknown) => unknown) => fn({ session: { id: 's' }, wallet: { balanceCents: opts.balanceCents } })) as never,
       );
+      jest.spyOn(reserveService, 'getBreakdown').mockResolvedValue({
+        studentCents: 0, studentCount: 0, tutorCents: 0, tutorCount: 0, bundleCents: opts.heldCents,
+      });
       jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+      return { lock, debit: jest.spyOn(walletService, 'debitWallet').mockResolvedValue({} as never) };
+    }
+
+    it('holds (does not debit) classesRequired × tutor rate and marks the course ACCEPTED + HELD', async () => {
+      const { lock, debit } = arrangeAccept({ balanceCents: 6000, heldCents: 6000 }); // 4 × 1500, wallet exactly covers it
+      const claim = jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(
+        lean(baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4, costCentsPerClass: 1500, billing: 'HELD' })) as never,
+      );
 
       const result = await courseService.accept('cr-1', 'tutor-user-1', { classesRequired: 4 });
 
-      expect(debit).toHaveBeenCalledWith(
-        expect.objectContaining({ ownerPublicId: 'student-user-1', amountCents: 6000 }), // 4 × 1500
-      );
+      expect(debit).not.toHaveBeenCalled();
+      expect(lock).toHaveBeenCalledWith('student-user-1', expect.any(Function));
+      expect(claim.mock.calls[0][1]).toMatchObject({
+        $set: expect.objectContaining({ status: 'ACCEPTED', classesRequired: 4, costCentsPerClass: 1500, totalCostCentsCharged: 6000, billing: 'HELD' }),
+      });
       expect(result.status).toBe('ACCEPTED');
+    });
+
+    it('refuses with 402 when the wallet cannot cover everything already held plus this course', async () => {
+      arrangeAccept({ balanceCents: 5999, heldCents: 6000 });
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean(baseRequest({ status: CourseStatus.ACCEPTED })) as never);
+
+      await expect(courseService.accept('cr-1', 'tutor-user-1', { classesRequired: 4 })).rejects.toMatchObject({ statusCode: 402 });
+      expect(studentService.linkTutorOnAcceptedRequest).not.toHaveBeenCalled();
+    });
+
+    it('rejects with "Request already processed" when the claim loses a race, and never checks the wallet', async () => {
+      arrangeAccept({ balanceCents: 6000, heldCents: 6000 });
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean(null) as never);
+
+      await expect(courseService.accept('cr-1', 'tutor-user-1', { classesRequired: 4 })).rejects.toThrow('Request already processed');
+      expect(reserveService.getBreakdown).not.toHaveBeenCalled();
+    });
+
+    it('a zero-price course needs no wallet lock', async () => {
+      const { lock } = arrangeAccept({ balanceCents: 0, heldCents: 0, rate: 0 });
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean(baseRequest({ status: CourseStatus.ACCEPTED })) as never);
+
+      await courseService.accept('cr-1', 'tutor-user-1', { classesRequired: 4 });
+      expect(lock).not.toHaveBeenCalled();
     });
 
     it('rejects accepting a request that is not PENDING', async () => {
@@ -174,21 +214,6 @@ describe('CourseService', () => {
       await expect(courseService.accept('cr-1', 'tutor-user-1', { classesRequired: 4 })).rejects.toThrow();
     });
 
-    it('never debits the wallet when the status transition loses a race (findOneAndUpdate returns null)', async () => {
-      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue(
-        { publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1', hourlyRateCents: 1500 } as never,
-      );
-      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(baseRequest()) as never);
-      jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'student-prof-1', userPublicId: 'student-user-1' }) as never);
-      const debit = jest.spyOn(walletService, 'debitWallet').mockResolvedValue({} as never);
-      // Simulate the request having been cancelled/accepted concurrently.
-      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean(null) as never);
-
-      await expect(
-        courseService.accept('cr-1', 'tutor-user-1', { classesRequired: 4 }),
-      ).rejects.toThrow('Request already processed');
-      expect(debit).not.toHaveBeenCalled();
-    });
   });
 
   describe('scheduleClass', () => {
@@ -236,6 +261,37 @@ describe('CourseService', () => {
         { $inc: { classesScheduledCount: 1 } },
         { new: true },
       );
+    });
+
+    it('creates a COURSE_HELD class for a course that holds its credits', async () => {
+      const accepted = baseRequest({
+        status: CourseStatus.ACCEPTED,
+        classesRequired: 4,
+        classesScheduledCount: 1,
+        costCentsPerClass: 1500,
+        billing: 'HELD',
+      });
+      jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tutor-prof-1', userPublicId: 'tutor-user-1' } as never);
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+      const createSpy = jest.spyOn(ScheduledClassModel, 'create').mockResolvedValue(
+        { toObject: () => ({ publicId: 'new-class-1' }) } as never,
+      );
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean({ ...accepted, classesScheduledCount: 2 }) as never);
+      jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+      jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(null) as never);
+
+      const day = new Date();
+      day.setUTCDate(day.getUTCDate() + 7);
+      while (day.getUTCDay() === 0 || day.getUTCDay() === 6) day.setUTCDate(day.getUTCDate() + 1);
+      const at = (h: number) => new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h)).toISOString();
+      await courseService.scheduleClass('cr-1', 'tutor-user-1', {
+        startUTC: at(17),
+        endUTC: at(18),
+        title: 'Algebra I – Session 2',
+        topicPublicId: 'topic-1',
+      });
+
+      expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ billingMode: 'COURSE_HELD' }));
     });
 
     it('rejects a time outside the stated availability window', async () => {

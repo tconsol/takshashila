@@ -5,7 +5,7 @@ import { EnrollmentStatus, ProgramStatus } from './program.types';
 import type { IProgramEnrollment } from './program.types';
 import type { EnrollDto, ScheduleSessionDto } from './program.validators';
 import { ScheduledClassModel } from '../schedules/schedule.model';
-import { BillingMode, ClassStatus, ClassType } from '../schedules/schedule.types';
+import { BillingMode, BundleBilling, ClassStatus, ClassType } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { StudentProfileModel } from '../students/student.model';
 import { TutorProfileModel } from '../tutors/tutor.model';
@@ -13,7 +13,8 @@ import { ParentProfileModel } from '../parents/parent.model';
 import { UserModel } from '../users/user.model';
 import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
-import { walletService } from '../wallets/wallet.service';
+import { walletService, spendableCents } from '../wallets/wallet.service';
+import { reserveService, reservedTotalCents } from '../wallets/reserve.service';
 import { classService } from '../classes/class.service';
 import { scheduleService } from '../schedules/schedule.service';
 import { computeTopicProgress } from '../courses/course-progress';
@@ -89,37 +90,38 @@ export class ProgramEnrollmentService {
     const releaseSeat = () => ProgramModel.updateOne({ publicId: programPublicId }, { $inc: { activeEnrollmentCount: -1 } });
 
     const enrollmentPublicId = uuidv4();
-    if (program.priceCents > 0) {
-      try {
-        await walletService.debitWallet({
-          ownerPublicId: studentUserPublicId,
-          amountCents: program.priceCents,
-          description: `Skill program: ${program.title}`,
-          // Persisted in wallettransactions — do not rename.
-          idempotencyKey: `program-enroll-${enrollmentPublicId}`,
-          referenceId: enrollmentPublicId,
-          referenceType: 'PROGRAM_ENROLL',
-        });
-      } catch (error) {
-        await releaseSeat();
-        throw error;
-      }
-    }
+    const enrollmentDoc = {
+      publicId: enrollmentPublicId,
+      programPublicId,
+      tutorPublicId: program.tutorPublicId,
+      studentPublicId: student.publicId,
+      availabilityWindow: dto.availabilityWindow,
+      sessionCount: program.sessionCount,
+      // The price is HELD, not debited: each completed session charges its flat share.
+      priceCentsPaid: program.priceCents,
+      billing: BundleBilling.HELD,
+      sessionsScheduledCount: 0,
+      sessionsCompletedCount: 0,
+      status: EnrollmentStatus.ACTIVE,
+      isDeleted: false,
+    };
 
     try {
-      const created = await ProgramEnrollmentModel.create({
-        publicId: enrollmentPublicId,
-        programPublicId,
-        tutorPublicId: program.tutorPublicId,
-        studentPublicId: student.publicId,
-        availabilityWindow: dto.availabilityWindow,
-        sessionCount: program.sessionCount,
-        priceCentsPaid: program.priceCents,
-        sessionsScheduledCount: 0,
-        sessionsCompletedCount: 0,
-        status: EnrollmentStatus.ACTIVE,
-        isDeleted: false,
-      });
+      let created;
+      if (program.priceCents > 0) {
+        await walletService.getWallet(studentUserPublicId); // the lock needs a wallet document to write
+        const profileIds = await studentService.getProfileIdsByUser(studentUserPublicId);
+        // Create the enrollment inside the lock, then require the wallet to cover everything held
+        // (the new enrollment is already part of the hold). A throw aborts the transaction.
+        created = await walletService.runWithBookingLock(studentUserPublicId, async ({ session, wallet }) => {
+          const [row] = await ProgramEnrollmentModel.create([enrollmentDoc], { session });
+          const reservedCents = reservedTotalCents(await reserveService.getBreakdown(profileIds, session));
+          if (spendableCents(wallet) < reservedCents) throw new AppError('Insufficient credits', 402);
+          return row;
+        });
+      } else {
+        created = await ProgramEnrollmentModel.create(enrollmentDoc);
+      }
       domainEvents.emit(DomainEvent.PROGRAM_ENROLLED, {
         enrollmentPublicId,
         programPublicId,
@@ -128,19 +130,7 @@ export class ProgramEnrollmentService {
       });
       return created.toObject();
     } catch (error) {
-      // e.g. the unique ACTIVE index lost a race — undo the charge and the seat.
-      if (program.priceCents > 0) {
-        await walletService.refundWallet({
-          ownerPublicId: studentUserPublicId,
-          amountCents: program.priceCents,
-          description: `Refund: ${program.title} (enrollment failed)`,
-          idempotencyKey: `program-enroll-undo-${enrollmentPublicId}`,
-          referenceId: enrollmentPublicId,
-          referenceType: 'PROGRAM_CANCEL',
-        }).catch((refundError) => logger.error('Enrollment failed and its refund also failed — reconcile manually', {
-          enrollmentPublicId, studentUserPublicId, amountCents: program.priceCents, error: (refundError as Error).message,
-        }));
-      }
+      // 402, or the unique ACTIVE index lost a race: nothing was debited, only the seat needs releasing.
       await releaseSeat();
       throw error;
     }
@@ -197,7 +187,7 @@ export class ProgramEnrollmentService {
         durationMinutes,
         title: dto.title,
         costCents: sessionCost(enrollment.priceCentsPaid, enrollment.sessionCount),
-        billingMode: BillingMode.PROGRAM_PREPAID,
+        billingMode: enrollment.billing === BundleBilling.HELD ? BillingMode.PROGRAM_HELD : BillingMode.PROGRAM_PREPAID,
         idempotencyKey: `program-class-${enrollmentPublicId}-${uuidv4()}`,
         programEnrollmentPublicId: enrollmentPublicId,
         programPublicId: enrollment.programPublicId,

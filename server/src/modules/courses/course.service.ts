@@ -9,7 +9,7 @@ import type {
   ScheduleCourseClassDto,
 } from './course.validators';
 import { ScheduledClassModel } from '../schedules/schedule.model';
-import { BillingMode, ClassStatus, ClassType } from '../schedules/schedule.types';
+import { BillingMode, BundleBilling, ClassStatus, ClassType } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
@@ -18,7 +18,9 @@ import { curriculumService } from '../curricula/curriculum.service';
 import { TutorProfileModel } from '../tutors/tutor.model';
 import { StudentProfileModel } from '../students/student.model';
 import { CurriculumModel } from '../curricula/curriculum.model';
-import { walletService } from '../wallets/wallet.service';
+import { walletService, spendableCents } from '../wallets/wallet.service';
+import { reserveService, reservedTotalCents } from '../wallets/reserve.service';
+import type mongoose from 'mongoose';
 import { computeTopicProgress } from './course-progress';
 import { ParentProfileModel } from '../parents/parent.model';
 import { AssignmentModel, SubmissionModel } from '../assignments/assignment.model';
@@ -319,11 +321,13 @@ export class CourseService {
     const costCentsPerClass = tutorProfile.hourlyRateCents;
     const totalCostCentsCharged = costCentsPerClass * dto.classesRequired;
 
-    // Atomic status transition FIRST, debit only after it succeeds. If a
-    // concurrent call already moved this request out of PENDING (lost a
-    // race), we must not have charged the student with no compensating
-    // refund — so no money moves until we know the transition landed.
-    const updated = await CourseModel.findOneAndUpdate(
+    // Claim the request (PENDING → ACCEPTED, marked HELD) and check the wallet in ONE locked
+    // transaction. Nothing is debited: the accepted course is now part of the student's hold
+    // (see ReserveService), so the wallet must cover everything held. If it cannot, the thrown
+    // error aborts the transaction and the request is still PENDING.
+    // `totalCostCentsCharged` keeps its name (persisted) but is now the amount HELD; each class
+    // is charged when it completes.
+    const claim = (session?: mongoose.ClientSession) => CourseModel.findOneAndUpdate(
       { publicId: coursePublicId, status: CourseStatus.PENDING },
       {
         $set: {
@@ -332,47 +336,29 @@ export class CourseService {
           classesRequired: dto.classesRequired,
           costCentsPerClass,
           totalCostCentsCharged,
+          billing: BundleBilling.HELD,
         },
       },
-      { new: true },
+      { new: true, ...(session ? { session } : {}) },
     ).lean();
-    if (!updated) throw new ConflictError('Request already processed');
 
+    let updated: ICourse | null;
     if (totalCostCentsCharged > 0) {
-      try {
-        await walletService.debitWallet({
-          ownerPublicId: studentProfile.userPublicId,
-          amountCents: totalCostCentsCharged,
-          description: `Curriculum series (${dto.classesRequired} classes)`,
-          // Persisted in wallettransactions — do not rename (see rename spec §3.5).
-          idempotencyKey: `course-request-accept-${coursePublicId}`,
-          referenceId: coursePublicId,
-          // Persisted in wallettransactions — do not rename (see rename spec §3.5).
-          referenceType: 'COURSE_REQUEST_ACCEPT',
-        });
-      } catch (err) {
-        // Debit failed: release the claim so the request is PENDING again and the
-        // tutor can retry (the debit idempotency key keeps a retry safe).
-        try {
-          await CourseModel.findOneAndUpdate(
-            { publicId: coursePublicId, status: CourseStatus.ACCEPTED },
-            {
-              $set: { status: CourseStatus.PENDING },
-              $unset: { acceptedAt: 1, classesRequired: 1, costCentsPerClass: 1, totalCostCentsCharged: 1 },
-            },
-          );
-        } catch (rollbackError) {
-          logger.error('Course accept debit failed and status rollback also failed', {
-            coursePublicId,
-            error: rollbackError,
-          });
-        }
-        if (err instanceof AppError && err.statusCode === 402) {
+      await walletService.getWallet(studentProfile.userPublicId); // the lock needs a wallet document to write
+      const profileIds = await studentService.getProfileIdsByUser(studentProfile.userPublicId);
+      updated = await walletService.runWithBookingLock(studentProfile.userPublicId, async ({ session, wallet }) => {
+        const claimed = await claim(session);
+        if (!claimed) return null;
+        const reservedCents = reservedTotalCents(await reserveService.getBreakdown(profileIds, session));
+        if (spendableCents(wallet) < reservedCents) {
           throw new AppError('Student has insufficient credits to accept this request', 402);
         }
-        throw err;
-      }
+        return claimed;
+      });
+    } else {
+      updated = await claim();
     }
+    if (!updated) throw new ConflictError('Request already processed');
 
     // Accepting makes the tutor and the student each other's tutor/student.
     await studentService.linkTutorOnAcceptedRequest(request.studentPublicId, tutorProfile.publicId, tutorUserPublicId);
@@ -475,7 +461,7 @@ export class CourseService {
       title: dto.title,
       description: dto.description,
       costCents: request.costCentsPerClass ?? 0,
-      billingMode: BillingMode.COURSE_PREPAID,
+      billingMode: request.billing === BundleBilling.HELD ? BillingMode.COURSE_HELD : BillingMode.COURSE_PREPAID,
       // Persisted in wallettransactions — do not rename (see rename spec §3.5).
       idempotencyKey: `course-class-${coursePublicId}-${uuidv4()}`,
       coursePublicId: request.publicId,

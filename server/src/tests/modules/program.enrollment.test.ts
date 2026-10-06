@@ -7,10 +7,10 @@ import { TutorProfileModel } from '../../modules/tutors/tutor.model';
 import { studentService } from '../../modules/students/student.service';
 import { tutorService } from '../../modules/tutors/tutor.service';
 import { walletService } from '../../modules/wallets/wallet.service';
+import { reserveService } from '../../modules/wallets/reserve.service';
 import { scheduleService } from '../../modules/schedules/schedule.service';
 import { classService } from '../../modules/classes/class.service';
 import { domainEvents } from '../../events/event-emitter';
-import { AppError } from '../../utils/error';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
 const window = { daysOfWeek: [1, 2, 3, 4, 5], startLocalTime: '16:00', endLocalTime: '19:00', ianaTimezone: 'UTC' };
@@ -39,10 +39,22 @@ describe('enroll', () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  it('reserves a seat atomically, charges the price and creates the enrollment', async () => {
+  function arrangeLock(balanceCents: number, heldCents: number) {
+    jest.spyOn(walletService, 'getWallet').mockResolvedValue({ balanceCents } as never);
+    jest.spyOn(studentService, 'getProfileIdsByUser').mockResolvedValue(['sp-1']);
+    jest.spyOn(reserveService, 'getBreakdown').mockResolvedValue({
+      studentCents: 0, studentCount: 0, tutorCents: 0, tutorCount: 0, bundleCents: heldCents,
+    });
+    return jest.spyOn(walletService, 'runWithBookingLock').mockImplementation(
+      (async (_o: string, fn: (c: unknown) => unknown) => fn({ session: { id: 's' }, wallet: { balanceCents } })) as never,
+    );
+  }
+
+  it('reserves a seat atomically, holds the price (no debit) and creates the enrollment inside the lock', async () => {
     const seat = jest.spyOn(ProgramModel, 'findOneAndUpdate').mockReturnValue(lean(program) as never);
     const debit = jest.spyOn(walletService, 'debitWallet').mockResolvedValue({} as never);
-    const create = jest.spyOn(ProgramEnrollmentModel, 'create').mockResolvedValue({ toObject: () => enrollment } as never);
+    const lock = arrangeLock(1000, 1000);
+    const create = jest.spyOn(ProgramEnrollmentModel, 'create').mockResolvedValue([{ toObject: () => enrollment }] as never);
 
     await programEnrollmentService.enroll('su-1', 'p-1', { availabilityWindow: window });
 
@@ -51,10 +63,10 @@ describe('enroll', () => {
       { $inc: { activeEnrollmentCount: 1 } },
       { new: true },
     );
-    expect(debit).toHaveBeenCalledWith(expect.objectContaining({
-      ownerPublicId: 'su-1', amountCents: 1000, referenceType: 'PROGRAM_ENROLL', idempotencyKey: expect.stringMatching(/^program-enroll-/),
-    }));
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ sessionCount: 3, priceCentsPaid: 1000, status: 'ACTIVE' }));
+    expect(debit).not.toHaveBeenCalled();
+    expect(lock).toHaveBeenCalledWith('su-1', expect.any(Function));
+    expect((create.mock.calls[0] as unknown as [unknown[], unknown])[0][0]).toMatchObject({ sessionCount: 3, priceCentsPaid: 1000, billing: 'HELD', status: 'ACTIVE' });
+    expect(create.mock.calls[0][1]).toEqual({ session: { id: 's' } });
   });
 
   it('409s when full, without charging', async () => {
@@ -69,9 +81,10 @@ describe('enroll', () => {
     await expect(programEnrollmentService.enroll('su-1', 'p-1', { availabilityWindow: window })).rejects.toMatchObject({ statusCode: 409 });
   });
 
-  it('releases the seat when the wallet has too little credit', async () => {
+  it('releases the seat and refuses with 402 when the wallet cannot cover everything held', async () => {
     jest.spyOn(ProgramModel, 'findOneAndUpdate').mockReturnValue(lean(program) as never);
-    jest.spyOn(walletService, 'debitWallet').mockRejectedValue(new AppError('Insufficient credits', 402));
+    arrangeLock(999, 1000);
+    jest.spyOn(ProgramEnrollmentModel, 'create').mockResolvedValue([{ toObject: () => enrollment }] as never);
     const release = jest.spyOn(ProgramModel, 'updateOne').mockResolvedValue({} as never);
     await expect(programEnrollmentService.enroll('su-1', 'p-1', { availabilityWindow: window })).rejects.toMatchObject({ statusCode: 402 });
     expect(release).toHaveBeenCalledWith({ publicId: 'p-1' }, { $inc: { activeEnrollmentCount: -1 } });
@@ -122,6 +135,14 @@ describe('scheduleSession', () => {
     expect(create).toHaveBeenCalledWith(expect.objectContaining({
       billingMode: 'PROGRAM_PREPAID', costCents: 333, programEnrollmentPublicId: 'e-1', programModulePublicId: 'm-1', studentPublicId: 'sp-1',
     }));
+  });
+
+  it('books a PROGRAM_HELD class for an enrollment that holds its price', async () => {
+    jest.spyOn(ProgramEnrollmentModel, 'findOne').mockReturnValue(lean({ ...enrollment, billing: 'HELD' }) as never);
+    jest.spyOn(ProgramEnrollmentModel, 'findOneAndUpdate').mockReturnValue(lean({ ...enrollment, billing: 'HELD', sessionsScheduledCount: 3 }) as never);
+    const create = jest.spyOn(ScheduledClassModel, 'create').mockResolvedValue({ toObject: () => ({}) } as never);
+    await programEnrollmentService.scheduleSession('e-1', 'tu-1', dto);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ billingMode: 'PROGRAM_HELD', costCents: 333 }));
   });
 
   it('rejects another tutor, a foreign module, a slot outside availability, and an over-long session', async () => {
