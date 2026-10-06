@@ -4,7 +4,8 @@ import { CreditType } from './wallet.types';
 import type { IWalletTransaction } from './wallet.types';
 import { userRepository } from '../users/user.repository';
 import { auditService } from '../audit/audit.service';
-import { NotFoundError, ValidationError } from '../../utils/error';
+import { ConflictError, NotFoundError, ValidationError } from '../../utils/error';
+import { reserveService } from './reserve.service';
 import { Role } from '../../constants/roles';
 
 /**
@@ -38,6 +39,8 @@ export interface GrantCreditsDto {
 export interface DeductCreditsDto {
   amountCents: number;
   reason: string;
+  /** Deduct even if it leaves less than the credits held for the user's booked classes, courses and programs. */
+  force?: boolean;
 }
 
 const GRANTABLE_ROLES = [Role.STUDENT, Role.TUTOR, Role.PRINCIPAL] as const;
@@ -121,6 +124,17 @@ export class WalletAdminService {
     const reason = dto.reason?.trim();
     if (!reason) throw invalid('A reason is required for a manual credit deduction');
 
+    // Credits on hold are promised to booked classes/courses/programs: a deduction must not eat into
+    // them unless the admin explicitly forces it.
+    const force = dto.force === true;
+    const hold = await reserveService.getHoldForUser(targetPublicId, await walletService.getWallet(targetPublicId));
+    if (!force && hold.reservedCents > 0 && hold.spendableCents - amountCents < hold.reservedCents) {
+      throw new ConflictError(
+        `${(hold.reservedCents / 100).toFixed(2)} credits are on hold for this user's booked classes, courses and programs. ` +
+        `Deducting ${(amountCents / 100).toFixed(2)} would leave less than that. Tick "deduct anyway" to force it.`,
+      );
+    }
+
     const transaction = await walletService.debitWallet({
       ownerPublicId: targetPublicId,
       amountCents,
@@ -143,6 +157,8 @@ export class WalletAdminService {
         targetRole: target.role,
         amountCents,
         reason,
+        forced: force,
+        reservedCents: hold.reservedCents,
         transactionPublicId: transaction.publicId,
       },
     });

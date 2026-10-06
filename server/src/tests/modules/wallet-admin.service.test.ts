@@ -4,12 +4,16 @@
    underlying wallet mechanics are mocked out here on purpose. */
 import { WalletAdminService } from '../../modules/wallets/wallet-admin.service';
 import { walletService } from '../../modules/wallets/wallet.service';
+import { reserveService } from '../../modules/wallets/reserve.service';
 import { userRepository } from '../../modules/users/user.repository';
 import { auditService } from '../../modules/audit/audit.service';
 import { Role } from '../../constants/roles';
 
 jest.mock('../../modules/wallets/wallet.service', () => ({
-  walletService: { creditWallet: jest.fn(), debitWallet: jest.fn() },
+  walletService: { creditWallet: jest.fn(), debitWallet: jest.fn(), getWallet: jest.fn() },
+}));
+jest.mock('../../modules/wallets/reserve.service', () => ({
+  reserveService: { getHoldForUser: jest.fn() },
 }));
 jest.mock('../../modules/users/user.repository', () => ({
   userRepository: { findByPublicId: jest.fn() },
@@ -31,6 +35,8 @@ describe('WalletAdminService', () => {
     (userRepository.findByPublicId as jest.Mock).mockResolvedValue(student);
     (walletService.creditWallet as jest.Mock).mockResolvedValue({ publicId: 'tx-1', amountCents: 5000 });
     (walletService.debitWallet as jest.Mock).mockResolvedValue({ publicId: 'tx-2', amountCents: 2000 });
+    (walletService.getWallet as jest.Mock).mockResolvedValue({ balanceCents: 10000 });
+    (reserveService.getHoldForUser as jest.Mock).mockResolvedValue({ spendableCents: 10000, reservedCents: 0, availableCents: 10000 });
   });
 
   describe('grant', () => {
@@ -166,6 +172,40 @@ describe('WalletAdminService', () => {
       await expect(
         service.deduct('stu-1', { amountCents: 999999, reason: 'x' } as never, actor),
       ).rejects.toMatchObject({ statusCode: 402 });
+    });
+
+    describe('credits on hold', () => {
+      beforeEach(() => {
+        (reserveService.getHoldForUser as jest.Mock).mockResolvedValue({ spendableCents: 10000, reservedCents: 8000, availableCents: 2000 });
+      });
+
+      it('refuses (409) a deduction that would leave less than the held amount, and does not debit', async () => {
+        await expect(
+          service.deduct('stu-1', { amountCents: 3000, reason: 'x' } as never, actor),
+        ).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining('80.00') });
+        expect(walletService.debitWallet).not.toHaveBeenCalled();
+      });
+
+      it('allows a deduction that leaves exactly the held amount', async () => {
+        await service.deduct('stu-1', { amountCents: 2000, reason: 'x' } as never, actor);
+        expect(walletService.debitWallet).toHaveBeenCalled();
+      });
+
+      it('force deducts anyway and records forced + the held amount in the audit log', async () => {
+        await service.deduct('stu-1', { amountCents: 3000, reason: 'Chargeback', force: true } as never, actor);
+        expect(walletService.debitWallet).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 3000 }));
+        expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({
+          action: 'WALLET_CREDIT_DEDUCTED',
+          after: expect.objectContaining({ forced: true, reservedCents: 8000 }),
+        }));
+      });
+
+      it('still validates the amount before looking at the hold', async () => {
+        await expect(
+          service.deduct('stu-1', { amountCents: 0, reason: 'x' } as never, actor),
+        ).rejects.toMatchObject({ statusCode: 422 });
+        expect(reserveService.getHoldForUser).not.toHaveBeenCalled();
+      });
     });
   });
 });

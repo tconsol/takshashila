@@ -2,7 +2,7 @@ import type { Response, NextFunction } from 'express';
 import type { AuthRequest } from '../../shared/types';
 import { walletService } from './wallet.service';
 import { getEarningsOnHoldCents, getWithdrawableCents, EARNINGS_HOLD_HOURS } from './payout.service';
-import { spendableCents } from './wallet.service';
+import { reserveService } from './reserve.service';
 import { sendSuccess, sendPaginated } from '../../utils/response';
 
 export class WalletController {
@@ -12,9 +12,12 @@ export class WalletController {
       // Normalize field names + add computed aliases for frontend compatibility
       const withdrawableCents = await getWithdrawableCents(req.user!.publicId, wallet);
       const onHoldCents = await getEarningsOnHoldCents(req.user!.publicId);
+      const hold = await reserveService.getHoldForUser(req.user!.publicId, wallet);
       const response = {
         ...wallet,
-        spendableCents: spendableCents(wallet),
+        spendableCents: hold.spendableCents,
+        reservedCents: hold.reservedCents,
+        availableCents: hold.availableCents,
         withdrawableCents,
         earningsOnHoldCents: onHoldCents,
         earningsHoldHours: EARNINGS_HOLD_HOURS,
