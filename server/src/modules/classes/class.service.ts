@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { ScheduledClassModel } from '../schedules/schedule.model';
-import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES, MIN_SESSION_MINUTES, RequestStatus, FUNDING_BLOCK_DAYS, FUNDING_REMINDER_DAYS, isPrepaid } from '../schedules/schedule.types';
+import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE_MINUTES, MIN_SESSION_MINUTES, RequestStatus, FUNDING_BLOCK_DAYS, FUNDING_REMINDER_DAYS, isHeld, isBundled, BundleBilling } from '../schedules/schedule.types';
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { scheduleService } from '../schedules/schedule.service';
 import { walletService, spendableCents } from '../wallets/wallet.service';
@@ -372,7 +372,8 @@ export class ClassService {
     if (!done) return; // someone else completed/cancelled it first
 
     const remainder = updated.priceCentsPaid - completed.reduce((sum, c) => sum + (c.costCents ?? 0), 0);
-    if (remainder > 0) {
+    // A held enrollment never took the rounding remainder, so there is nothing to give back.
+    if (remainder > 0 && updated.billing !== BundleBilling.HELD) {
       const student = await StudentProfileModel.findOne({ publicId: updated.studentPublicId }, { userPublicId: 1 }).lean();
       if (student?.userPublicId) {
         await walletService.refundWallet({
@@ -505,11 +506,18 @@ export class ClassService {
           });
         }
       }
-    } else if (isPrepaid(scheduled.billingMode)) {
+    } else if (isBundled(scheduled.billingMode)) {
+      // COURSE_HELD / PROGRAM_HELD: the held credits are charged below, per session.
       // Student already paid for this class in full when the Course was
       // accepted (see courses module) — do not charge them again here.
       // The tutor still earns per completed class, same as STUDENT_REQUESTED.
-      if (scheduled.costCents > 0 && studentAttended) {
+      if (isHeld(scheduled.billingMode)) {
+        // Credits were held, not taken, when the course/program was booked: this session is charged now.
+        const flagged = await this._billHeldSession(
+          scheduled, classPublicId, tutorProfile.userPublicId, studentProfileForEvent?.userPublicId, studentAttended, tutorUserPublicId,
+        );
+        if (flagged) updated = flagged as unknown as typeof updated;
+      } else if (scheduled.costCents > 0 && studentAttended) {
         const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
         if (tutorEarningsCents > 0) {
           try {
@@ -798,7 +806,7 @@ export class ClassService {
 
     // Program sessions are not refunded one by one: the slot is freed so the tutor books a
     // replacement, and money only returns when the enrollment is cancelled or completes.
-    if (scheduled.billingMode === BillingMode.PROGRAM_PREPAID && scheduled.programEnrollmentPublicId) {
+    if ((scheduled.billingMode === BillingMode.PROGRAM_PREPAID || scheduled.billingMode === BillingMode.PROGRAM_HELD) && scheduled.programEnrollmentPublicId) {
       const { ProgramEnrollmentModel } = await import('../programs/program.model');
       await ProgramEnrollmentModel.updateOne(
         { publicId: scheduled.programEnrollmentPublicId, status: 'ACTIVE', sessionsScheduledCount: { $gt: 0 } },
@@ -843,7 +851,7 @@ export class ClassService {
       StudentProfileModel.findOne({ publicId: scheduled.studentPublicId, isDeleted: false }, { userPublicId: 1 }).lean(),
     ]);
 
-    if (!opts.skipFee && !isPrepaid(scheduled.billingMode) && scheduled.requestStatus !== RequestStatus.PENDING && this._cancellationFeeApplies(scheduled)) {
+    if (!opts.skipFee && !isBundled(scheduled.billingMode) && scheduled.requestStatus !== RequestStatus.PENDING && this._cancellationFeeApplies(scheduled)) {
       await this._chargeCancellationFee(classPublicId, actorPublicId, {
         tutorUserPublicId: cancelledTutorProfile?.userPublicId,
         studentUserPublicId: cancelledStudentProfile?.userPublicId,
@@ -870,6 +878,67 @@ export class ClassService {
     if (cls.classType === ClassType.DEMO) return false;
     const hoursNotice = (new Date(cls.startUTC).getTime() - Date.now()) / 3_600_000;
     return hoursNotice < CANCELLATION_FREE_NOTICE_HOURS;
+  }
+
+  /**
+   * Completion charge for a COURSE_HELD / PROGRAM_HELD session: the held credits turn into a real
+   * debit. The student pays the session price (no extra fee) and the tutor earns price - fee, in
+   * one transaction, under the same keys as a student-requested class so refundClass can reverse
+   * it. A short balance never blocks completion: the class is flagged billingFailed for admins,
+   * exactly like a student-requested class. Returns the flagged class, or null when billing worked
+   * or nothing was due (student absent, free class).
+   */
+  private async _billHeldSession(
+    scheduled: Pick<IScheduledClass, 'costCents' | 'title' | 'tutorPublicId'>,
+    classPublicId: string,
+    tutorWalletOwner: string,
+    studentUserPublicId: string | undefined,
+    studentAttended: boolean,
+    actorUserPublicId: string,
+  ): Promise<IScheduledClass | null> {
+    if (!(scheduled.costCents > 0 && studentAttended && studentUserPublicId)) return null;
+    const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
+    try {
+      await walletService.transferWallet({
+        fromOwnerPublicId: studentUserPublicId,
+        toOwnerPublicId: tutorWalletOwner,
+        debitAmountCents: scheduled.costCents,
+        creditAmountCents: tutorEarningsCents,
+        debitDescription: `Class: ${scheduled.title}`,
+        creditDescription: `Earnings: ${scheduled.title}`,
+        creditType: CreditType.EARNED_CREDITS,
+        debitIdempotencyKey: `class-charge-${classPublicId}`,
+        creditIdempotencyKey: `tutor-earning-${classPublicId}`,
+        referenceId: classPublicId,
+        referenceType: 'CLASS_COMPLETION',
+      });
+      if (tutorEarningsCents > 0) {
+        await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
+      }
+      return null;
+    } catch (error) {
+      const reason = (error as Error).message;
+      logger.error('Could not bill held course/program session on completion', {
+        classPublicId, studentUserPublicId, tutorWalletOwner, studentChargeCents: scheduled.costCents, tutorEarningsCents, error: reason,
+      });
+      const flagged = await ScheduledClassModel.findOneAndUpdate(
+        { publicId: classPublicId },
+        { $set: { billingFailed: true, billingFailureReason: reason } },
+        { new: true },
+      ).lean().catch((e: Error) => {
+        logger.error('completeClass: could not flag billingFailed', { classPublicId, error: e.message });
+        return null;
+      });
+      await auditService.log({
+        actorId: actorUserPublicId,
+        actorRole: 'TUTOR' as never,
+        action: 'CLASS_BILLING_FAILED',
+        resourceType: 'ScheduledClass',
+        resourceId: classPublicId,
+        after: { studentChargeCents: scheduled.costCents, tutorEarningsCents, reason, studentUserPublicId },
+      }).catch((e: Error) => logger.error('completeClass: billing-failure audit log failed', { classPublicId, error: e.message }));
+      return flagged as unknown as IScheduledClass | null;
+    }
   }
 
   /**
@@ -957,8 +1026,8 @@ export class ClassService {
           referenceType: 'CLASS_REFUND',
         });
       }
-    } else if (isPrepaid(scheduled.billingMode) && scheduled.costCents > 0 && studentAttended) {
-      // Curriculum classes were only ever charged `costCents` flat, in bulk, at
+    } else if (isBundled(scheduled.billingMode) && scheduled.costCents > 0 && studentAttended) {
+      // Curriculum classes were only ever charged `costCents` flat (in bulk at accept for prepaid courses, per completed class for held ones), in bulk, at
       // Course accept time (see courseService.accept) — no
       // platform fee was added on top like the STUDENT_REQUESTED branch below.
       // Refund exactly costCents; refunding costCents + PLATFORM_FEE_CENTS
@@ -1986,13 +2055,13 @@ export class ClassService {
    */
   /**
    * Whether the attendance rule (share of the class each person was present) judges this
-   * class. Prepaid course/program classes keep the old rule, and so does any class with no
+   * class. Prepaid and held course/program classes keep the old rule, and so does any class with no
    * presence records at all (booked and run before presence tracking existed).
    */
   private async _usesPresenceRule(
     cls: Pick<IScheduledClass, 'publicId' | 'groupPublicId' | 'billingMode'>,
   ): Promise<boolean> {
-    if (isPrepaid(cls.billingMode)) return false;
+    if (isBundled(cls.billingMode)) return false;
     return classPresenceService.hasPresenceData(cls);
   }
 
