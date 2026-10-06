@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { AvailabilitySlotModel, ScheduledClassModel } from './schedule.model';
-import { AvailabilityStatus } from './schedule.types';
+import { AvailabilityStatus, ClassStatus } from './schedule.types';
 import type { IAvailabilitySlot } from './schedule.types';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
 import { doSlotsOverlap, isSlotInPast } from '../../utils/timezone';
@@ -282,6 +282,24 @@ export class ScheduleService {
 
     const count = await AvailabilitySlotModel.countDocuments(filter);
     return count > 0;
+  }
+
+  /**
+   * A live (SCHEDULED/LIVE) class of this tutor or student overlapping the range, or null.
+   * Shared by every path that creates a class so none of them can double-book.
+   */
+  async findClassOverlap(
+    who: { tutorPublicId: string } | { studentPublicId: string },
+    start: Date,
+    end: Date,
+  ): Promise<{ startUTC: Date; endUTC: Date } | null> {
+    return ScheduledClassModel.findOne({
+      ...who,
+      isDeleted: false,
+      status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
+      startUTC: { $lt: end },
+      endUTC: { $gt: start },
+    }, { startUTC: 1, endUTC: 1 }).lean() as unknown as Promise<{ startUTC: Date; endUTC: Date } | null>;
   }
 
   private async assertNoConflict(

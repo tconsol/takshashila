@@ -374,6 +374,9 @@ export class CourseService {
       }
     }
 
+    // Accepting makes the tutor and the student each other's tutor/student.
+    await studentService.linkTutorOnAcceptedRequest(request.studentPublicId, tutorProfile.publicId, tutorUserPublicId);
+
     domainEvents.emit(DomainEvent.COURSE_ACCEPTED, {
       tutorUserPublicId,
       studentUserPublicId: studentProfile.userPublicId,

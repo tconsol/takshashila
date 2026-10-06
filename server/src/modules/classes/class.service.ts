@@ -123,6 +123,12 @@ export class ClassService {
       await walletService.getWallet(studentUserPublicId);
     }
 
+    // A slot can still read AVAILABLE while the tutor already has a class (e.g. a program
+    // session) at that time; refuse before the slot is taken.
+    if (await scheduleService.findClassOverlap({ tutorPublicId: dto.tutorPublicId }, new Date(slot.startUTC), new Date(slot.endUTC))) {
+      throw new ConflictError('The tutor already has a class at that time. Please pick another slot.');
+    }
+
     await scheduleService.blockSlot(slot.publicId);
 
     try {

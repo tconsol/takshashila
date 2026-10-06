@@ -15,6 +15,7 @@ import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
 import { walletService } from '../wallets/wallet.service';
 import { classService } from '../classes/class.service';
+import { scheduleService } from '../schedules/schedule.service';
 import { computeTopicProgress } from '../courses/course-progress';
 import { isWithinAvailability } from '../../shared/availability';
 import { AppError, ConflictError, NotFoundError } from '../../utils/error';
@@ -166,6 +167,13 @@ export class ProgramEnrollmentService {
     }
     if (!isWithinAvailability(enrollment.availabilityWindow, start, end)) {
       throw new AppError('Requested time is outside the student\'s stated availability window', 400);
+    }
+
+    if (await scheduleService.findClassOverlap({ tutorPublicId: tutor.publicId }, start, end)) {
+      throw new ConflictError('You already have a class during that time');
+    }
+    if (await scheduleService.findClassOverlap({ studentPublicId: enrollment.studentPublicId }, start, end)) {
+      throw new ConflictError('The student already has a class during that time');
     }
 
     // Claim the next session number first; its value prices this session.

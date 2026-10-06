@@ -406,6 +406,70 @@ export class StudentService {
     return profiles.map((p) => p.publicId);
   }
 
+  /**
+   * A tutor accepting a request (course) is the moment student and tutor become linked.
+   * Idempotent. The student's profile for THIS tutor is made ACTIVE: the profile named by the
+   * request if it is unlinked or already this tutor's, otherwise the student's existing or a new
+   * profile for this tutor (a student holds one profile per tutor link). Never throws.
+   */
+  async linkTutorOnAcceptedRequest(requestProfilePublicId: string, tutorPublicId: string, tutorUserPublicId: string): Promise<void> {
+    try {
+      const requestProfile = await studentRepository.findByPublicId(requestProfilePublicId);
+      if (!requestProfile) return;
+      const tutor = await tutorRepository.findByPublicId(tutorPublicId);
+      const now = new Date();
+      let previous: StudentStatus | undefined;
+
+      if (!requestProfile.tutorPublicId || requestProfile.tutorPublicId === tutorPublicId) {
+        if (requestProfile.status === StudentStatus.ACTIVE && requestProfile.tutorPublicId === tutorPublicId) return;
+        previous = requestProfile.status;
+        await StudentProfileModel.updateOne(
+          { publicId: requestProfile.publicId, isDeleted: false },
+          { $set: { tutorPublicId, status: StudentStatus.ACTIVE, approvedBy: tutorUserPublicId, approvedAt: now }, $unset: { pendingTutorPublicId: '' } },
+        );
+      } else {
+        const linked = await studentRepository.findByUserAndTutor(requestProfile.userPublicId, tutorPublicId);
+        if (linked) {
+          if (linked.status === StudentStatus.ACTIVE) return;
+          previous = linked.status;
+          await StudentProfileModel.updateOne(
+            { publicId: linked.publicId },
+            { $set: { status: StudentStatus.ACTIVE, approvedBy: tutorUserPublicId, approvedAt: now } },
+          );
+        } else {
+          await studentRepository.create({
+            publicId: uuidv4(),
+            userPublicId: requestProfile.userPublicId,
+            tutorPublicId,
+            previousTutorPublicIds: [],
+            status: StudentStatus.ACTIVE,
+            demoClassesUsed: 0,
+            demoClassTakenWith: [],
+            totalClassesAttended: 0,
+            totalClassesMissed: 0,
+            totalClassesBooked: 0,
+            attendanceRate: 0,
+            grade: requestProfile.grade,
+            invitedBy: tutorUserPublicId,
+            approvedBy: tutorUserPublicId,
+            approvedAt: now,
+            isDeleted: false,
+          });
+        }
+      }
+
+      await adjustCountersForStatusChange(previous, StudentStatus.ACTIVE, tutorPublicId, tutor?.principalPublicId);
+      domainEvents.emit(DomainEvent.STUDENT_APPROVED, {
+        studentPublicId: requestProfile.publicId,
+        studentUserPublicId: requestProfile.userPublicId,
+        tutorUserPublicId,
+        approvedBy: tutorUserPublicId,
+      });
+    } catch (err) {
+      logger.error('Could not link tutor and student after accepted request', { err, requestProfilePublicId, tutorPublicId });
+    }
+  }
+
   async getByUserPublicId(userPublicId: string): Promise<IStudentProfile> {
     const profile = await studentRepository.findByUserPublicId(userPublicId);
     if (!profile) throw new NotFoundError('Student profile');

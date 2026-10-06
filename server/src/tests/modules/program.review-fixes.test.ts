@@ -1,6 +1,7 @@
 // Regression tests for the Skill Programs review (Important #1–#10).
 import request from 'supertest';
 import app from '../../app';
+import { scheduleService } from '../../modules/schedules/schedule.service';
 import { classService } from '../../modules/classes/class.service';
 import { classPresenceService } from '../../modules/classes/class-presence.service';
 import { programEnrollmentService, sessionCost } from '../../modules/programs/program-enrollment.service';
@@ -130,6 +131,7 @@ describe('program review fixes', () => {
   });
 
   it('I2: a session inserted after the enrollment was cancelled is removed', async () => {
+    jest.spyOn(scheduleService, 'findClassOverlap').mockResolvedValue(null);
     jest.spyOn(tutorService, 'getByUserPublicId').mockResolvedValue({ publicId: 'tp-1' } as never);
     jest.spyOn(ProgramEnrollmentModel, 'findOne')
       .mockReturnValueOnce(lean(enrollment) as never) // initial load

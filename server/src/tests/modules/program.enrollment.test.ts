@@ -7,6 +7,7 @@ import { TutorProfileModel } from '../../modules/tutors/tutor.model';
 import { studentService } from '../../modules/students/student.service';
 import { tutorService } from '../../modules/tutors/tutor.service';
 import { walletService } from '../../modules/wallets/wallet.service';
+import { scheduleService } from '../../modules/schedules/schedule.service';
 import { classService } from '../../modules/classes/class.service';
 import { domainEvents } from '../../events/event-emitter';
 import { AppError } from '../../utils/error';
@@ -96,8 +97,23 @@ describe('scheduleSession', () => {
     jest.spyOn(ProgramEnrollmentModel, 'findOne').mockReturnValue(lean(enrollment) as never);
     jest.spyOn(ProgramModel, 'findOne').mockReturnValue(lean(program) as never);
     jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+    jest.spyOn(scheduleService, 'findClassOverlap').mockResolvedValue(null);
   });
   afterEach(() => jest.restoreAllMocks());
+
+  it('409s when the tutor already has a class at that time', async () => {
+    (scheduleService.findClassOverlap as jest.Mock).mockResolvedValueOnce({ startUTC: new Date(), endUTC: new Date() });
+    const claim = jest.spyOn(ProgramEnrollmentModel, 'findOneAndUpdate');
+    await expect(programEnrollmentService.scheduleSession('e-1', 'tu-1', dto)).rejects.toMatchObject({ statusCode: 409 });
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it('409s when the student already has a class at that time', async () => {
+    (scheduleService.findClassOverlap as jest.Mock).mockResolvedValueOnce(null).mockResolvedValueOnce({ startUTC: new Date(), endUTC: new Date() });
+    const claim = jest.spyOn(ProgramEnrollmentModel, 'findOneAndUpdate');
+    await expect(programEnrollmentService.scheduleSession('e-1', 'tu-1', dto)).rejects.toMatchObject({ statusCode: 409 });
+    expect(claim).not.toHaveBeenCalled();
+  });
 
   it('books a PROGRAM_PREPAID class at the flat per-session price', async () => {
     jest.spyOn(ProgramEnrollmentModel, 'findOneAndUpdate').mockReturnValue(lean({ ...enrollment, sessionsScheduledCount: 3 }) as never);
