@@ -406,6 +406,27 @@ describe('CourseService', () => {
       expect(refund).toHaveBeenCalled();
     });
 
+    it('a HELD course refunds nothing: its never-scheduled classes were never debited', async () => {
+      const accepted = baseRequest({
+        status: CourseStatus.ACCEPTED, classesRequired: 4, classesScheduledCount: 1, classesCompletedCount: 1,
+        costCentsPerClass: 1500, billing: 'HELD',
+      });
+      jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);
+      jest.spyOn(studentService, 'getByUserPublicId').mockResolvedValue({ publicId: 'student-prof-1' } as never);
+      jest.spyOn(tutorService, 'getByUserPublicId').mockRejectedValue(new Error('no tutor profile') as never);
+      jest.spyOn(ScheduledClassModel, 'find').mockReturnValue(lean([{ publicId: 'scheduled-class-1' }]) as never);
+      const cancelClassSpy = jest.spyOn(classService, 'cancelClass').mockResolvedValue({} as never);
+      jest.spyOn(studentService, 'getByPublicId').mockResolvedValue({ userPublicId: 'student-user-1' } as never);
+      const refund = jest.spyOn(walletService, 'refundWallet').mockResolvedValue({} as never);
+      jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(lean({ ...accepted, status: CourseStatus.CANCELLED }) as never);
+      jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+
+      await courseService.cancel('cr-1', 'student-user-1');
+
+      expect(cancelClassSpy).toHaveBeenCalledTimes(1); // scheduled classes are still cancelled
+      expect(refund).not.toHaveBeenCalled();
+    });
+
     it('throws ConflictError when the status claim loses a race', async () => {
       const accepted = baseRequest({ status: CourseStatus.ACCEPTED, classesRequired: 4 });
       jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(accepted) as never);

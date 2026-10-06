@@ -189,6 +189,26 @@ describe('cancel', () => {
     expect(seat).toHaveBeenCalledWith({ publicId: 'p-1' }, { $inc: { activeEnrollmentCount: -1 } });
   });
 
+  it('a HELD enrollment refunds nothing: the price was never debited', async () => {
+    jest.spyOn(ProgramEnrollmentModel, 'findOne').mockReturnValue(lean({ ...enrollment, billing: 'HELD', sessionsScheduledCount: 2 }) as never);
+    jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'sp-1', userPublicId: 'su-1' }) as never);
+    jest.spyOn(TutorProfileModel, 'findOne').mockReturnValue(lean(null) as never);
+    jest.spyOn(ScheduledClassModel, 'find')
+      .mockReturnValueOnce(lean([{ publicId: 'k-2' }]) as never)
+      .mockReturnValueOnce(lean([{ costCents: 333 }, { costCents: 333 }]) as never);
+    const cancelClass = jest.spyOn(classService, 'cancelClass').mockResolvedValue({} as never);
+    const refund = jest.spyOn(walletService, 'refundWallet').mockResolvedValue({} as never);
+    jest.spyOn(ProgramEnrollmentModel, 'findOneAndUpdate').mockReturnValue(lean({ ...enrollment, status: 'CANCELLED' }) as never);
+    const seat = jest.spyOn(ProgramModel, 'updateOne').mockResolvedValue({} as never);
+    jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+
+    await programEnrollmentService.cancel('e-1', 'su-1');
+
+    expect(cancelClass).toHaveBeenCalledWith('k-2', 'su-1', { reason: 'Program enrollment cancelled' });
+    expect(refund).not.toHaveBeenCalled();
+    expect(seat).toHaveBeenCalledWith({ publicId: 'p-1' }, { $inc: { activeEnrollmentCount: -1 } });
+  });
+
   it('404s someone who is neither the student nor the tutor', async () => {
     jest.spyOn(ProgramEnrollmentModel, 'findOne').mockReturnValue(lean(enrollment) as never);
     jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'sp-9' }) as never);

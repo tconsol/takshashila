@@ -560,7 +560,8 @@ export class CourseService {
       // classes that later completed. Subtracting classesCompletedCount too
       // would double-count those and under-refund the student.
       const neverScheduled = (request.classesRequired ?? 0) - request.classesScheduledCount;
-      if (neverScheduled > 0 && request.costCentsPerClass) {
+      // A HELD course never debited these classes, so cancelling just ends the hold: no refund.
+      if (neverScheduled > 0 && request.costCentsPerClass && request.billing !== BundleBilling.HELD) {
         const studentProfile = await studentService.getByPublicId(request.studentPublicId);
         await walletService.refundWallet({
           ownerPublicId: studentProfile.userPublicId,

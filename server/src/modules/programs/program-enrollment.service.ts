@@ -258,7 +258,8 @@ export class ProgramEnrollmentService {
       { costCents: 1 },
     ).lean();
     const refundable = enrollment.priceCentsPaid - completed.reduce((sum, c) => sum + (c.costCents ?? 0), 0);
-    if (refundable > 0) {
+    // A HELD enrollment never debited the price: cancelling just ends the hold.
+    if (refundable > 0 && enrollment.billing !== BundleBilling.HELD) {
       const studentProfile = await StudentProfileModel.findOne({ publicId: enrollment.studentPublicId }, { userPublicId: 1 }).lean();
       if (!studentProfile) throw new NotFoundError('Student profile');
       await walletService.refundWallet({
