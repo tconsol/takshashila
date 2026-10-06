@@ -8,6 +8,7 @@ import { studentService } from '../../modules/students/student.service';
 import { walletService } from '../../modules/wallets/wallet.service';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { mockNoBundleHold } from '../helpers/no-bundle-hold';
 import { BillingMode, ClassStatus, RequestStatus } from '../../modules/schedules/schedule.types';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
@@ -42,6 +43,7 @@ describe('fundNextBlock', () => {
       (async (_o: string, fn: (c: unknown) => unknown) => fn({ session: { id: 's' }, wallet: { balanceCents } })) as never,
     );
     emit = jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+    mockNoBundleHold();
   }
 
   it('is refused for someone whose profile does not own the class', async () => {

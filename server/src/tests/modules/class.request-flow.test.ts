@@ -12,6 +12,7 @@ import { classPresenceService } from '../../modules/classes/class-presence.servi
 import { attendanceService } from '../../modules/attendance/attendance.service';
 import { domainEvents } from '../../events/event-emitter';
 import { DomainEvent } from '../../constants/events';
+import { mockNoBundleHold } from '../helpers/no-bundle-hold';
 import { BillingMode, ClassStatus, RequestStatus, ClassType } from '../../modules/schedules/schedule.types';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
@@ -129,6 +130,7 @@ describe('answering a class request', () => {
       (async (_o: string, fn: (c: unknown) => unknown) => fn({ session: { id: 's' }, wallet: { balanceCents } })) as never,
     );
     emit = jest.spyOn(domainEvents, 'emit').mockReturnValue(true as never);
+    mockNoBundleHold();
   }
 
   it('is refused for a student whose profile does not own the class', async () => {

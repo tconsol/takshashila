@@ -10,6 +10,8 @@ import { studentService } from '../../modules/students/student.service';
 import { settingsService } from '../../modules/settings/settings.service';
 import { domainEvents } from '../../events/event-emitter';
 import { ClassType, BillingMode } from '../../modules/schedules/schedule.types';
+import { mockNoBundleHold } from '../helpers/no-bundle-hold';
+import { CourseModel } from '../../modules/courses/course.model';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
 const dto = {
@@ -52,6 +54,7 @@ describe('ClassService.bookClass overbooking guard', () => {
     create = jest.spyOn(ScheduledClassModel, 'create').mockImplementation(
       (async (docs: unknown) => (Array.isArray(docs) ? [doc] : doc)) as never,
     );
+    mockNoBundleHold();
   }
 
   it('books inside the lock, passing the session to aggregate and create', async () => {
@@ -71,8 +74,25 @@ describe('ClassService.bookClass overbooking guard', () => {
     expect(release).toHaveBeenCalledWith('slot-1');
     expect(aggregate.mock.calls[0][0][0].$match).toMatchObject({
       billingMode: BillingMode.STUDENT_REQUESTED,
-      studentPublicId: 'student-prof-1',
+      studentPublicId: { $in: ['student-prof-1'] },
     });
+  });
+
+  it('counts credits held for a course against the new booking (402)', async () => {
+    setup(5000, null);
+    jest.spyOn(CourseModel, 'aggregate').mockReturnValue({ session: () => Promise.resolve([{ totalCents: 5000 }]) } as never);
+    await expect(classService.bookClass('student-user-1', dto)).rejects.toMatchObject({
+      statusCode: 402, message: expect.stringMatching(/on hold for your other bookings, courses and programs/),
+    });
+    expect(create).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledWith('slot-1');
+  });
+
+  it("counts every student profile of the user, not only the booked tutor's", async () => {
+    setup(9000, null);
+    jest.spyOn(studentService, 'getProfileIdsByUser').mockResolvedValue(['student-prof-1', 'student-prof-2']);
+    await classService.bookClass('student-user-1', dto);
+    expect(aggregate.mock.calls[0][0][0].$match).toMatchObject({ studentPublicId: { $in: ['student-prof-1', 'student-prof-2'] } });
   });
 
   it('allows the booking when the balance exactly covers the running total', async () => {

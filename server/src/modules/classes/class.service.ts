@@ -5,6 +5,7 @@ import { ClassStatus, ClassType, BillingMode, AutoResolution, AUTO_RESOLVE_GRACE
 import type { IScheduledClass } from '../schedules/schedule.types';
 import { scheduleService } from '../schedules/schedule.service';
 import { walletService, spendableCents } from '../wallets/wallet.service';
+import { reserveService, reservedTotalCents } from '../wallets/reserve.service';
 import { CreditType } from '../wallets/wallet.types';
 import { studentService } from '../students/student.service';
 import { tutorService } from '../tutors/tutor.service';
@@ -135,34 +136,19 @@ export class ClassService {
       let scheduledClass;
       if (costCents > 0) {
         scheduledClass = await walletService.runWithBookingLock(studentUserPublicId, async ({ session, wallet }) => {
-          const outstanding = await ScheduledClassModel.aggregate([
-            {
-              $match: {
-                studentPublicId: studentProfile.publicId,
-                billingMode: BillingMode.STUDENT_REQUESTED,
-                status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
-                // Free demo classes (cost 0) are paid from demo credits and charge no fee: nothing to reserve.
-                costCents: { $gt: 0 },
-                isDeleted: false,
-              },
-            },
-            { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
-          ]).session(session);
-          // Accepted tutor-created classes reserve money the same way as the student's own bookings.
-          const tutorRequested = await this._reservedTutorRequested(
+          const held = await reserveService.getBreakdown(
             await studentService.getProfileIdsByUser(studentUserPublicId), session,
           );
-          const outstandingCents = (outstanding[0]?.totalCents ?? 0) + tutorRequested.totalCents;
-          const outstandingCount = (outstanding[0]?.count ?? 0) + tutorRequested.count;
-          const totalOwedCents =
-            outstandingCents + (outstandingCount + 1) * PLATFORM_FEE_CENTS + costCents;
+          const outstandingCount = held.studentCount + held.tutorCount;
+          const reservedCents = reservedTotalCents(held);
+          const thisClassCents = costCents + PLATFORM_FEE_CENTS;
           const availableCents = spendableCents(wallet);
-          if (availableCents < totalOwedCents) {
-            const reservedCents = outstandingCents + outstandingCount * PLATFORM_FEE_CENTS;
-            const thisClassCents = costCents + PLATFORM_FEE_CENTS;
-            const reservedNote = outstandingCount > 0
-              ? ` ${reservedCents / 100} credits are already reserved for ${outstandingCount} other booked class${outstandingCount === 1 ? '' : 'es'}.`
-              : '';
+          if (availableCents < reservedCents + thisClassCents) {
+            const reservedNote = held.bundleCents > 0
+              ? ` ${reservedCents / 100} credits are already on hold for your other bookings, courses and programs.`
+              : outstandingCount > 0
+                ? ` ${reservedCents / 100} credits are already reserved for ${outstandingCount} other booked class${outstandingCount === 1 ? '' : 'es'}.`
+                : '';
             const demoNote = (wallet.demoCreditsCents ?? 0) > 0
               ? ' Free demo credits can only be used for demo classes.'
               : '';
@@ -1290,22 +1276,7 @@ export class ClassService {
       await walletService.getWallet(studentUserPublicId);
       const profileIds = await studentService.getProfileIdsByUser(studentUserPublicId);
       await walletService.runWithBookingLock(studentUserPublicId, async ({ session, wallet }) => {
-        const bookings = await ScheduledClassModel.aggregate([
-          {
-            $match: {
-              studentPublicId: { $in: profileIds },
-              billingMode: BillingMode.STUDENT_REQUESTED,
-              status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
-              costCents: { $gt: 0 },
-              isDeleted: false,
-            },
-          },
-          { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
-        ]).session(session);
-        const tutorRequested = await this._reservedTutorRequested(profileIds, session);
-        const reservedCents =
-          (bookings[0]?.totalCents ?? 0) + (bookings[0]?.count ?? 0) * PLATFORM_FEE_CENTS
-          + tutorRequested.totalCents + tutorRequested.count * PLATFORM_FEE_CENTS;
+        const reservedCents = reservedTotalCents(await reserveService.getBreakdown(profileIds, session));
         const availableCents = spendableCents(wallet);
         if (availableCents < reservedCents + needCents) {
           const reservedNote = reservedCents > 0 ? ` ${reservedCents / 100} credits are already reserved for your other classes.` : '';
@@ -1507,35 +1478,6 @@ export class ClassService {
   }
 
   /**
-   * Money already promised by a student's accepted tutor-created classes: sessions inside
-   * the funded block that have not been billed yet (price + fee each). Together with their
-   * own unfinished bookings this is what their balance has to cover.
-   */
-  private async _reservedTutorRequested(
-    studentProfileIds: string[],
-    session?: mongoose.ClientSession,
-  ): Promise<{ totalCents: number; count: number }> {
-    if (studentProfileIds.length === 0) return { totalCents: 0, count: 0 };
-    const query = ScheduledClassModel.aggregate([
-      {
-        $match: {
-          studentPublicId: { $in: studentProfileIds },
-          billingMode: BillingMode.TUTOR_REQUESTED,
-          requestStatus: RequestStatus.ACCEPTED,
-          status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
-          costCents: { $gt: 0 },
-          isDeleted: false,
-          $expr: { $lt: ['$startUTC', '$fundedThrough'] },
-        },
-      },
-      { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
-    ]);
-    const rows = await (session ? query.session(session) : query);
-    // Prices only; the caller adds the platform fee for each class, as it does for the student's own bookings.
-    return { totalCents: rows[0]?.totalCents ?? 0, count: rows[0]?.count ?? 0 };
-  }
-
-  /**
    * The student's answer to a tutor-created class. One answer covers the student's whole
    * series (every session the tutor created in that request).
    * ACCEPT needs the student's balance to cover every session in the first funding block
@@ -1613,22 +1555,7 @@ export class ClassService {
       await walletService.getWallet(studentUserPublicId); // the lock below needs a wallet document to write
       const profileIds = await studentService.getProfileIdsByUser(studentUserPublicId);
       await walletService.runWithBookingLock(studentUserPublicId, async ({ session, wallet }) => {
-        const bookings = await ScheduledClassModel.aggregate([
-          {
-            $match: {
-              studentPublicId: { $in: profileIds },
-              billingMode: BillingMode.STUDENT_REQUESTED,
-              status: { $in: [ClassStatus.SCHEDULED, ClassStatus.LIVE] },
-              costCents: { $gt: 0 },
-              isDeleted: false,
-            },
-          },
-          { $group: { _id: null, totalCents: { $sum: '$costCents' }, count: { $sum: 1 } } },
-        ]).session(session);
-        const tutorRequested = await this._reservedTutorRequested(profileIds, session);
-        const reservedCents =
-          (bookings[0]?.totalCents ?? 0) + (bookings[0]?.count ?? 0) * PLATFORM_FEE_CENTS
-          + tutorRequested.totalCents + tutorRequested.count * PLATFORM_FEE_CENTS;
+        const reservedCents = reservedTotalCents(await reserveService.getBreakdown(profileIds, session));
         const availableCents = spendableCents(wallet);
         if (availableCents < reservedCents + needCents) {
           const reservedNote = reservedCents > 0 ? ` ${reservedCents / 100} credits are already reserved for your other classes.` : '';
