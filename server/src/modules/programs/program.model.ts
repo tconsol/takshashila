@@ -57,6 +57,7 @@ const enrollmentSchema = new Schema<IProgramEnrollment>(
     availabilityWindow: { type: availabilitySchema, required: true },
     sessionCount: { type: Number, required: true, min: 1 },
     priceCentsPaid: { type: Number, required: true, min: 0 },
+    billing: { type: String, enum: ['HELD'] },
     sessionsScheduledCount: { type: Number, default: 0, min: 0 },
     sessionsCompletedCount: { type: Number, default: 0, min: 0 },
     status: { type: String, enum: Object.values(EnrollmentStatus), default: EnrollmentStatus.ACTIVE, index: true },

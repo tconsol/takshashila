@@ -32,6 +32,7 @@ const courseSchema = new Schema<ICourse>(
     classesCompletedCount: { type: Number, default: 0, min: 0 },
     costCentsPerClass: { type: Number, min: 0 },
     totalCostCentsCharged: { type: Number, min: 0 },
+    billing: { type: String, enum: ['HELD'] },
     rejectionReason: { type: String },
     acceptedAt: { type: Date }, // when the tutor accepted; picks the grader for admin items
     isDeleted: { type: Boolean, default: false },

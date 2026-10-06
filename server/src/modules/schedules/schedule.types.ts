@@ -22,6 +22,11 @@ export type ClassType = (typeof ClassType)[keyof typeof ClassType];
  *   cancellation (unlike STUDENT_REQUESTED) the class's cost IS refunded, because
  *   it was already collected.
  * - PROGRAM_PREPAID: student paid a Skill Program up front — same rules as COURSE_PREPAID.
+ * - COURSE_HELD: new-style course. Nothing is debited when the course is accepted; the
+ *   student's credits are HELD (see ReserveService) and each completed class charges the
+ *   student `costCents` (no extra fee) and pays the tutor `costCents - fee`. Cancelling
+ *   releases the hold, there is nothing to refund.
+ * - PROGRAM_HELD: the same, for a Skill Program.
  */
 export const BillingMode = {
   STUDENT_REQUESTED: 'STUDENT_REQUESTED',
@@ -29,12 +34,25 @@ export const BillingMode = {
   TUTOR_REQUESTED: 'TUTOR_REQUESTED',
   COURSE_PREPAID: 'COURSE_PREPAID',
   PROGRAM_PREPAID: 'PROGRAM_PREPAID',
+  COURSE_HELD: 'COURSE_HELD',
+  PROGRAM_HELD: 'PROGRAM_HELD',
 } as const;
 export type BillingMode = (typeof BillingMode)[keyof typeof BillingMode];
 
 /** Paid up front in bulk (course or skill program): no per-class charge; cancelled classes are refunded. */
 export const isPrepaid = (mode: BillingMode | string): boolean =>
   mode === BillingMode.COURSE_PREPAID || mode === BillingMode.PROGRAM_PREPAID;
+
+/** Credits held at accept/enroll and charged one session at a time as each completes. */
+export const isHeld = (mode: BillingMode | string): boolean =>
+  mode === BillingMode.COURSE_HELD || mode === BillingMode.PROGRAM_HELD;
+
+/** Any course/program class, prepaid or held: same cancellation-fee, attendance and admin-refund rules. */
+export const isBundled = (mode: BillingMode | string): boolean => isPrepaid(mode) || isHeld(mode);
+
+/** Value of `billing` on a Course or ProgramEnrollment whose money is held. Absent means prepaid (legacy). */
+export const BundleBilling = { HELD: 'HELD' } as const;
+export type BundleBilling = (typeof BundleBilling)[keyof typeof BundleBilling];
 
 /**
  * Where a tutor-created class (TUTOR_REQUESTED) stands with its student. Kept apart from

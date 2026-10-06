@@ -1,3 +1,5 @@
+import type { BundleBilling } from '../schedules/schedule.types';
+
 export const CourseStatus = {
   PENDING: 'PENDING',
   ACCEPTED: 'ACCEPTED',
@@ -30,6 +32,8 @@ export interface ICourse {
   classesCompletedCount: number;
   costCentsPerClass?: number;
   totalCostCentsCharged?: number;
+  /** HELD: credits are held, not debited, at accept; `totalCostCentsCharged` is then the amount held. Absent: legacy prepaid. */
+  billing?: BundleBilling;
   rejectionReason?: string;
   acceptedAt?: Date;
   isDeleted: boolean;

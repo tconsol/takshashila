@@ -1,5 +1,6 @@
 // server/src/modules/programs/program.types.ts
 import type { AvailabilityWindow } from '../../shared/availability';
+import type { BundleBilling } from '../schedules/schedule.types';
 
 export const ProgramCategory = {
   ACADEMIC: 'ACADEMIC', ARTS: 'ARTS', MUSIC: 'MUSIC', GAMES: 'GAMES', CODING: 'CODING',
@@ -54,6 +55,8 @@ export interface IProgramEnrollment {
   availabilityWindow: AvailabilityWindow;
   sessionCount: number;
   priceCentsPaid: number;
+  /** HELD: the price is held, not debited, at enroll. Absent: legacy prepaid. */
+  billing?: BundleBilling;
   sessionsScheduledCount: number;
   sessionsCompletedCount: number;
   status: EnrollmentStatus;
