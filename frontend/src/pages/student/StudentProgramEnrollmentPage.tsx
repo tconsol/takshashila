@@ -40,7 +40,7 @@ export function StudentProgramEnrollmentPage() {
           </>
         }
       >
-        <p className="text-sm text-ink-muted">Cancel this program? Sessions not yet taken will be refunded.</p>
+        <p className="text-sm text-ink-muted">Cancel this program? Sessions not yet taken are simply not charged, and the credits on hold are released.</p>
       </Modal>
     </>
   );

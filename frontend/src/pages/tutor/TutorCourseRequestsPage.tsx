@@ -60,7 +60,7 @@ function AcceptForm({ coursePublicId }: { coursePublicId: string }) {
         onClick={async () => {
           const { confirmed } = await confirm({
             title: 'Accept this course request?',
-            message: `The student will be charged ${totalCredits} credits up front (${classesRequired} classes of ${COURSE_CLASS_MINUTES} minutes at your ${rateCents / 100}/hour rate) and you will schedule those classes. If they cannot afford it, the request stays pending.`,
+            message: `The student's ${totalCredits} credits will be held and charged per completed class (${classesRequired} classes of ${COURSE_CLASS_MINUTES} minutes at your ${rateCents / 100}/hour rate) and you will schedule those classes. If they cannot afford it, the request stays pending.`,
             confirmLabel: 'Accept and charge student',
             tone: 'primary',
           });

@@ -54,7 +54,7 @@ const SLOT_LEGEND: Array<{ key: string; label: string }> = [
 
 const isProgramSession = (mode?: string) => mode === 'PROGRAM_PREPAID' || mode === 'PROGRAM_HELD';
 
-const DAY_LABELS =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function TutorSchedulePage() {
   const userTimezone = useAuthStore((s) => s.user?.timezone);

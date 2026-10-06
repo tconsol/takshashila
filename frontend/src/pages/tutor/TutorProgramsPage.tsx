@@ -76,7 +76,7 @@ export function TutorProgramsPage() {
                       <Button size="sm" variant="outline" onClick={async () => {
                         const { confirmed } = await confirm({
                           title: 'Publish this program?',
-                          message: `Students can find and enrol in "${p.title}" straight away, paying ${(p.priceCents / 100).toFixed(2)} credits up front.`,
+                          message: `Students can find and enrol in "${p.title}" straight away, with ${(p.priceCents / 100).toFixed(2)} credits held and charged per completed session.`,
                           confirmLabel: 'Publish',
                           tone: 'primary',
                         });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Coins, Gift, BookOpen, Star, Plus } from 'lucide-react';
+import { Coins, Gift, BookOpen, Star, Plus, Lock } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { Table } from '../../components/ui/Table';
@@ -18,6 +18,8 @@ interface WalletData {
   purchasedCreditsCents: number;
   bonusCreditsCents: number;
   totalSpentCents?: number;
+  reservedCents?: number;
+  availableCents?: number;
 }
 
 interface WalletTransaction {
@@ -96,6 +98,18 @@ export function StudentWalletPage() {
           value={walletLoading ? '' : centsToDisplay(wallet?.bonusCreditsCents ?? 0)}
           icon={<Star className="h-5 w-5 text-amber-500" />}
           iconBg="bg-amber-50 dark:bg-amber-900/20"
+        />
+        <StatsCard
+          title="On hold for booked classes"
+          value={walletLoading ? '' : centsToDisplay(wallet?.reservedCents ?? 0)}
+          icon={<Lock className="h-5 w-5 text-slate-600" />}
+          hint="Held for classes, courses and programs you booked. Charged when each session completes."
+        />
+        <StatsCard
+          title="Available to spend"
+          value={walletLoading ? '' : centsToDisplay(wallet?.availableCents ?? 0)}
+          icon={<Coins className="h-5 w-5 text-brand-600" />}
+          hint="Balance minus credits on hold."
         />
       </div>
 

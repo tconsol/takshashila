@@ -185,7 +185,7 @@ export function WalletAdjustModal({
           </label>
         )}
 
-        {error &&<p className="text-sm font-medium text-danger">{(error as Error).message}</p>}
+        {error && <p className="text-sm font-medium text-danger">{(error as Error).message}</p>}
       </div>
     </Modal>
   );

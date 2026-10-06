@@ -80,7 +80,7 @@ export function StudentProgramPage() {
                 onClick={() => setConfirmOpen(true)}>
                 Enroll · {formatCurrency(program.priceCents)}
               </Button>
-              <p className="text-xs text-gray-500">The full price is charged from your wallet now. Sessions you don't take are refunded if you cancel.</p>
+              <p className="text-xs text-gray-500">The full price is held in your wallet now and charged session by session as each completes. Sessions you don't take are never charged.</p>
             </>
           )}
         </CardContent>
