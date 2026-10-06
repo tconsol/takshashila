@@ -58,6 +58,7 @@ describe('held course/program billing', () => {
     credit = jest.spyOn(walletService, 'creditWallet').mockResolvedValue({} as never);
     refund = jest.spyOn(walletService, 'refundWallet').mockResolvedValue({} as never);
     transfer = jest.spyOn(walletService, 'transferWallet').mockResolvedValue({} as never);
+    jest.spyOn(CourseModel, 'updateOne').mockResolvedValue({} as never);
     jest.spyOn(CourseModel, 'findOneAndUpdate').mockReturnValue(
       lean({ publicId: 'cr-1', status: CourseStatus.ACCEPTED, classesRequired: 4, classesCompletedCount: 1 }) as never,
     );
@@ -144,6 +145,83 @@ describe('held course/program billing', () => {
       { $inc: { sessionsScheduledCount: -1 } },
     );
     expect(refund).not.toHaveBeenCalled();
+  });
+
+  it('cancelClass on a COURSE_HELD class frees the course slot (classesScheduledCount - 1, guarded) and refunds nothing', async () => {
+    const cls = heldClass({ status: ClassStatus.SCHEDULED, studentJoinedAt: undefined });
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(cls) as never);
+    jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(lean({ ...cls, status: ClassStatus.CANCELLED }) as never);
+    const dec = jest.spyOn(CourseModel, 'updateOne').mockResolvedValue({} as never);
+
+    await classService.cancelClass('held-class-1', 'tutor-user-1', { reason: 'x' });
+
+    expect(dec).toHaveBeenCalledWith(
+      { publicId: 'cr-1', status: CourseStatus.ACCEPTED, classesScheduledCount: { $gt: 0 } },
+      { $inc: { classesScheduledCount: -1 } },
+    );
+    expect(refund).not.toHaveBeenCalled();
+  });
+
+  it('cancelClass on a COURSE_PREPAID class does not touch classesScheduledCount', async () => {
+    const cls = heldClass({ status: ClassStatus.SCHEDULED, studentJoinedAt: undefined, billingMode: BillingMode.COURSE_PREPAID });
+    jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(cls) as never);
+    jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(lean({ ...cls, status: ClassStatus.CANCELLED }) as never);
+    const dec = jest.spyOn(CourseModel, 'updateOne').mockResolvedValue({} as never);
+
+    await classService.cancelClass('held-class-1', 'tutor-user-1', { reason: 'x' });
+
+    expect(dec).not.toHaveBeenCalled();
+  });
+
+  describe('refundClass on a held class that was never charged', () => {
+    it.each([
+      ['billingFailed', { billingFailed: true }],
+      ['tutor never joined', { tutorJoinedAt: undefined }],
+      ['student never joined', { studentJoinedAt: undefined }],
+    ])('%s: moves no money but still marks the class refunded', async (_n, over) => {
+      jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean(heldClass({ status: ClassStatus.COMPLETED, ...over })) as never);
+      const atomic = jest.spyOn(walletService, 'refundWithClawback').mockResolvedValue({ refund: {}, clawbackSkipped: false } as never);
+      const mark = jest.spyOn(ScheduledClassModel, 'findOneAndUpdate').mockReturnValue(
+        lean({ ...heldClass(), status: ClassStatus.COMPLETED, isRefunded: true }) as never,
+      );
+
+      await classService.refundClass('held-class-1', 'admin-user-1', 'Refund requested');
+
+      expect(atomic).not.toHaveBeenCalled();
+      expect(mark).toHaveBeenCalledWith(
+        { publicId: 'held-class-1' }, expect.objectContaining({ $set: expect.objectContaining({ isRefunded: true }) }), { new: true },
+      );
+    });
+  });
+
+  describe('_billHeldSession edge cases', () => {
+    it('transfer succeeds but recordClassCompleted rejects: NOT flagged billingFailed, no audit row', async () => {
+      const update = arrangeComplete();
+      (tutorService.recordClassCompleted as unknown as jest.SpyInstance).mockRejectedValue(new Error('stats down'));
+
+      await classService.completeClass('held-class-1', 'tutor-user-1');
+
+      expect(transfer).toHaveBeenCalledTimes(1);
+      expect(update).not.toHaveBeenCalledWith(
+        { publicId: 'held-class-1' }, { $set: expect.objectContaining({ billingFailed: true }) }, { new: true },
+      );
+      expect(auditService.log).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'CLASS_BILLING_FAILED' }));
+    });
+
+    it('student user id missing with a charge due: flagged billingFailed and audited', async () => {
+      const update = arrangeComplete();
+      (StudentProfileModel.findOne as unknown as jest.SpyInstance).mockReturnValue(lean(null));
+
+      await classService.completeClass('held-class-1', 'tutor-user-1');
+
+      expect(transfer).not.toHaveBeenCalled();
+      expect(update).toHaveBeenCalledWith(
+        { publicId: 'held-class-1' },
+        { $set: { billingFailed: true, billingFailureReason: 'Student wallet owner not found' } },
+        { new: true },
+      );
+      expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'CLASS_BILLING_FAILED', resourceId: 'held-class-1' }));
+    });
   });
 
   it('refundClass on a completed held class refunds exactly costCents and claws back price − fee', async () => {

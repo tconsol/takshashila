@@ -96,8 +96,9 @@ export class ClassService {
     // could otherwise book N classes, since each check reads the same untouched
     // balance. So we also count every SCHEDULED/LIVE class that will charge the
     // student at completion. STUDENT_REQUESTED is the only such billing mode:
-    // COURSE_/PROGRAM_PREPAID were paid up front, TUTOR_INVITED charges the
-    // tutor. The check and the class insert run in ONE transaction that first
+    // COURSE_/PROGRAM_PREPAID were paid up front, COURSE_/PROGRAM_HELD are held
+    // separately via ReserveService and charged per completed session,
+    // TUTOR_INVITED charges the tutor. The check and the class insert run in ONE transaction that first
     // writes the student's wallet (see runWithBookingLock), so concurrent
     // bookings for the same student serialize instead of both passing.
     const buildClass = () => ({
@@ -508,8 +509,9 @@ export class ClassService {
       }
     } else if (isBundled(scheduled.billingMode)) {
       // COURSE_HELD / PROGRAM_HELD: the held credits are charged below, per session.
-      // Student already paid for this class in full when the Course was
-      // accepted (see courses module) — do not charge them again here.
+      // PREPAID only: the student already paid for this class in full when the
+      // Course was accepted (see courses module) — do not charge them again
+      // here. Held classes are charged in _billHeldSession just above.
       // The tutor still earns per completed class, same as STUDENT_REQUESTED.
       if (isHeld(scheduled.billingMode)) {
         // Credits were held, not taken, when the course/program was booked: this session is charged now.
@@ -814,6 +816,17 @@ export class ClassService {
       );
     }
 
+    // A held course class took no money, so there is nothing to refund, but its slot must be freed
+    // so the tutor can schedule a replacement (scheduleClass blocks at classesScheduledCount >= classesRequired).
+    if (scheduled.billingMode === BillingMode.COURSE_HELD && scheduled.coursePublicId) {
+      const { CourseModel } = await import('../courses/course.model');
+      const { CourseStatus } = await import('../courses/course.types');
+      await CourseModel.updateOne(
+        { publicId: scheduled.coursePublicId, status: CourseStatus.ACCEPTED, classesScheduledCount: { $gt: 0 } },
+        { $inc: { classesScheduledCount: -1 } },
+      );
+    }
+
     if (scheduled.billingMode === BillingMode.COURSE_PREPAID && scheduled.costCents > 0) {
       const studentProfile = await StudentProfileModel.findOne(
         { publicId: scheduled.studentPublicId, isDeleted: false },
@@ -896,8 +909,14 @@ export class ClassService {
     studentAttended: boolean,
     actorUserPublicId: string,
   ): Promise<IScheduledClass | null> {
-    if (!(scheduled.costCents > 0 && studentAttended && studentUserPublicId)) return null;
+    if (!(scheduled.costCents > 0 && studentAttended)) return null;
     const tutorEarningsCents = Math.max(0, scheduled.costCents - PLATFORM_FEE_CENTS);
+    if (!studentUserPublicId) {
+      logger.error('Could not bill held course/program session: student wallet owner not found', { classPublicId, tutorWalletOwner });
+      return this._flagBillingFailed(classPublicId, actorUserPublicId, 'Student wallet owner not found', {
+        studentChargeCents: scheduled.costCents, tutorEarningsCents, studentUserPublicId,
+      });
+    }
     try {
       await walletService.transferWallet({
         fromOwnerPublicId: studentUserPublicId,
@@ -912,33 +931,50 @@ export class ClassService {
         referenceId: classPublicId,
         referenceType: 'CLASS_COMPLETION',
       });
-      if (tutorEarningsCents > 0) {
-        await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
-      }
-      return null;
     } catch (error) {
       const reason = (error as Error).message;
       logger.error('Could not bill held course/program session on completion', {
         classPublicId, studentUserPublicId, tutorWalletOwner, studentChargeCents: scheduled.costCents, tutorEarningsCents, error: reason,
       });
-      const flagged = await ScheduledClassModel.findOneAndUpdate(
-        { publicId: classPublicId },
-        { $set: { billingFailed: true, billingFailureReason: reason } },
-        { new: true },
-      ).lean().catch((e: Error) => {
-        logger.error('completeClass: could not flag billingFailed', { classPublicId, error: e.message });
-        return null;
+      return this._flagBillingFailed(classPublicId, actorUserPublicId, reason, {
+        studentChargeCents: scheduled.costCents, tutorEarningsCents, studentUserPublicId,
       });
-      await auditService.log({
-        actorId: actorUserPublicId,
-        actorRole: 'TUTOR' as never,
-        action: 'CLASS_BILLING_FAILED',
-        resourceType: 'ScheduledClass',
-        resourceId: classPublicId,
-        after: { studentChargeCents: scheduled.costCents, tutorEarningsCents, reason, studentUserPublicId },
-      }).catch((e: Error) => logger.error('completeClass: billing-failure audit log failed', { classPublicId, error: e.message }));
-      return flagged as unknown as IScheduledClass | null;
     }
+    // The money has moved: a stats failure must not flag a paid class as billingFailed.
+    if (tutorEarningsCents > 0) {
+      try {
+        await tutorService.recordClassCompleted(scheduled.tutorPublicId, tutorEarningsCents);
+      } catch (error) {
+        logger.warn('Held session billed but could not record tutor class stats', { classPublicId, error: (error as Error).message });
+      }
+    }
+    return null;
+  }
+
+  /** Flags a class billingFailed for admins and writes the CLASS_BILLING_FAILED audit row. */
+  private async _flagBillingFailed(
+    classPublicId: string,
+    actorUserPublicId: string,
+    reason: string,
+    after: { studentChargeCents: number; tutorEarningsCents: number; studentUserPublicId?: string },
+  ): Promise<IScheduledClass | null> {
+    const flagged = await ScheduledClassModel.findOneAndUpdate(
+      { publicId: classPublicId },
+      { $set: { billingFailed: true, billingFailureReason: reason } },
+      { new: true },
+    ).lean().catch((e: Error) => {
+      logger.error('completeClass: could not flag billingFailed', { classPublicId, error: e.message });
+      return null;
+    });
+    await auditService.log({
+      actorId: actorUserPublicId,
+      actorRole: 'TUTOR' as never,
+      action: 'CLASS_BILLING_FAILED',
+      resourceType: 'ScheduledClass',
+      resourceId: classPublicId,
+      after: { ...after, reason },
+    }).catch((e: Error) => logger.error('completeClass: billing-failure audit log failed', { classPublicId, error: e.message }));
+    return flagged as unknown as IScheduledClass | null;
   }
 
   /**
@@ -1026,9 +1062,17 @@ export class ClassService {
           referenceType: 'CLASS_REFUND',
         });
       }
+    } else if (
+      isHeld(scheduled.billingMode) && (scheduled.billingFailed === true || !scheduled.tutorJoinedAt || !scheduled.studentJoinedAt)
+    ) {
+      // A held class is only charged when both parties attended and billing worked; otherwise
+      // there is nothing to give back, and refunding would mint money.
+      logger.warn('refundClass: held class was never charged; marking refunded without moving money', {
+        classPublicId, billingFailed: scheduled.billingFailed, tutorJoined: !!scheduled.tutorJoinedAt, studentJoined: !!scheduled.studentJoinedAt,
+      });
     } else if (isBundled(scheduled.billingMode) && scheduled.costCents > 0 && studentAttended) {
-      // Curriculum classes were only ever charged `costCents` flat (in bulk at accept for prepaid courses, per completed class for held ones), in bulk, at
-      // Course accept time (see courseService.accept) — no
+      // Curriculum classes were only ever charged `costCents` flat (in bulk at accept for prepaid courses, per completed class for held ones;
+      // see courseService.accept) — no
       // platform fee was added on top like the STUDENT_REQUESTED branch below.
       // Refund exactly costCents; refunding costCents + PLATFORM_FEE_CENTS
       // here would over-refund the student by the fee every time.
@@ -1348,7 +1392,7 @@ export class ClassService {
         const reservedCents = reservedTotalCents(await reserveService.getBreakdown(profileIds, session));
         const availableCents = spendableCents(wallet);
         if (availableCents < reservedCents + needCents) {
-          const reservedNote = reservedCents > 0 ? ` ${reservedCents / 100} credits are already reserved for your other classes.` : '';
+          const reservedNote = reservedCents > 0 ? ` ${reservedCents / 100} credits are already on hold for your other classes, courses and programs.` : '';
           throw new AppError(
             `Not enough credits to fund the next 30 days. They need ${needCents / 100} credits (price plus platform fee) and you have ${availableCents / 100} available.${reservedNote} Top up your wallet and try again.`,
             402,
@@ -1627,7 +1671,7 @@ export class ClassService {
         const reservedCents = reservedTotalCents(await reserveService.getBreakdown(profileIds, session));
         const availableCents = spendableCents(wallet);
         if (availableCents < reservedCents + needCents) {
-          const reservedNote = reservedCents > 0 ? ` ${reservedCents / 100} credits are already reserved for your other classes.` : '';
+          const reservedNote = reservedCents > 0 ? ` ${reservedCents / 100} credits are already on hold for your other classes, courses and programs.` : '';
           throw new AppError(
             `Not enough credits to accept. These sessions need ${needCents / 100} credits (price plus platform fee) and you have ${availableCents / 100} available.${reservedNote} Top up your wallet and try again.`,
             402,
