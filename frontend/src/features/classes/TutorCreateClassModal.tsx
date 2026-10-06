@@ -412,7 +412,7 @@ export function TutorRescheduleModal({ cls, open, onClose }: RescheduleProps) {
   const [endUTC, setEndUTC] = useState('');
   const { mutateAsync: reschedule, isPending } = useTutorReschedule();
   // Course classes are priced per class, so they are always exactly 60 minutes: only the start moves.
-  const isCourseClass = cls?.billingMode === 'COURSE_PREPAID';
+  const isCourseClass = cls?.billingMode === 'COURSE_PREPAID' || cls?.billingMode === 'COURSE_HELD';
 
   useEffect(() => {
     if (open && cls) {

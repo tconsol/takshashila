@@ -19,6 +19,8 @@ export interface GrantCreditsPayload {
 export interface DeductCreditsPayload {
   amountCents: number;
   reason: string;
+  /** Deduct even if it leaves less than the user's credits on hold. */
+  force?: boolean;
 }
 
 /** Super-admin-only manual wallet adjustments — see server wallet-admin.service.ts. */

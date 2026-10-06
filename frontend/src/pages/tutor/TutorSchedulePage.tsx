@@ -52,7 +52,9 @@ const SLOT_LEGEND: Array<{ key: string; label: string }> = [
   { key: 'CANCELLED', label: 'Cancelled' },
 ];
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const isProgramSession = (mode?: string) => mode === 'PROGRAM_PREPAID' || mode === 'PROGRAM_HELD';
+
+const DAY_LABELS =['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function TutorSchedulePage() {
   const userTimezone = useAuthStore((s) => s.user?.timezone);
@@ -292,10 +294,10 @@ export function TutorSchedulePage() {
                       key={c.publicId}
                       to={`/dashboard/tutor/classes/${c.publicId}`}
                       onClick={(e) => e.stopPropagation()}
-                      title={`${c.subject || 'Class'}${c.billingMode === 'PROGRAM_PREPAID' ? ' (program session)' : ''}`}
+                      title={`${c.subject || 'Class'}${isProgramSession(c.billingMode) ? ' (program session)' : ''}`}
                       className="block truncate rounded bg-indigo-100 px-1 py-0.5 text-[10px] font-medium text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200"
                     >
-                      {formatInTimeZone(new Date(c.scheduledStartUTC), defaultTz, 'h:mma')} {c.billingMode === 'PROGRAM_PREPAID' ? '★ ' : ''}{c.subject || 'Class'}
+                      {formatInTimeZone(new Date(c.scheduledStartUTC), defaultTz, 'h:mma')} {isProgramSession(c.billingMode) ? '★ ' : ''}{c.subject || 'Class'}
                     </Link>
                   ))}
                   {dayClasses.length > 2 && (

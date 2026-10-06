@@ -42,6 +42,7 @@ export function WalletAdjustModal({
   const [amount, setAmount] = useState('');
   const [creditType, setCreditType] = useState<CreditType>('BONUS_CREDITS');
   const [reason, setReason] = useState('');
+  const [force, setForce] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -49,6 +50,7 @@ export function WalletAdjustModal({
     setAmount('');
     setCreditType('BONUS_CREDITS');
     setReason('');
+    setForce(false);
   }, [open]);
 
   const invalidate = () => {
@@ -69,6 +71,7 @@ export function WalletAdjustModal({
     mutationFn: () => walletAdminService.deduct(targetPublicId, {
       amountCents: Math.round(Number(amount) * 100),
       reason: reason.trim(),
+      force: force || undefined,
     }),
     onSuccess: () => { invalidate(); onClose(); },
   });
@@ -165,7 +168,24 @@ export function WalletAdjustModal({
           hint="Recorded on the transaction and in the audit log."
         />
 
-        {error && <p className="text-sm font-medium text-danger">{(error as Error).message}</p>}
+        {mode === 'deduct' && (
+          <label className="flex items-start gap-2 text-sm text-ink-2">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={force}
+              onChange={(e) => setForce(e.target.checked)}
+            />
+            <span>
+              Deduct anyway, even if it eats into credits on hold for booked classes.
+              <span className="block text-xs text-ink-muted">
+                Without this, a deduction that would leave less than the held amount is refused.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {error &&<p className="text-sm font-medium text-danger">{(error as Error).message}</p>}
       </div>
     </Modal>
   );

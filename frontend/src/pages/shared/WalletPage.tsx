@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Coins, TrendingUp, Gift, BookOpen, Star, Plus, Banknote } from 'lucide-react';
+import { Coins, TrendingUp, Gift, BookOpen, Star, Plus, Banknote, Lock } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatsCard } from '../../components/shared/StatsCard';
 import { PayoutRequestModal } from '../../components/shared/PayoutRequestModal';
@@ -25,6 +25,8 @@ interface WalletData {
   earningsHoldHours?: number;
   totalEarnedCents?: number;
   totalSpentCents?: number;
+  reservedCents?: number;
+  availableCents?: number;
 }
 
 interface WalletTransaction {
@@ -157,6 +159,22 @@ export function WalletPage({
           icon={<Star className="h-5 w-5 text-amber-500" />}
           iconBg="bg-amber-50 dark:bg-amber-900/20"
         />
+        {!showEarnings && (
+          <>
+            <StatsCard
+              title="On hold for booked classes"
+              value={walletLoading ? '' : centsToDisplay(wallet?.reservedCents ?? 0)}
+              icon={<Lock className="h-5 w-5 text-slate-600" />}
+              hint="Held for classes, courses and programs you booked. Charged when each session completes."
+            />
+            <StatsCard
+              title="Available to spend"
+              value={walletLoading ? '' : centsToDisplay(wallet?.availableCents ?? 0)}
+              icon={<Coins className="h-5 w-5 text-brand-600" />}
+              hint="Balance minus credits on hold."
+            />
+          </>
+        )}
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
