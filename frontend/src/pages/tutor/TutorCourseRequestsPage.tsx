@@ -61,7 +61,7 @@ function AcceptForm({ coursePublicId }: { coursePublicId: string }) {
           const { confirmed } = await confirm({
             title: 'Accept this course request?',
             message: `The student's ${totalCredits} credits will be held and charged per completed class (${classesRequired} classes of ${COURSE_CLASS_MINUTES} minutes at your ${rateCents / 100}/hour rate) and you will schedule those classes. If they cannot afford it, the request stays pending.`,
-            confirmLabel: 'Accept and charge student',
+            confirmLabel: 'Accept and hold credits',
             tone: 'primary',
           });
           if (confirmed) accept({ coursePublicId, classesRequired });

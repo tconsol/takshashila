@@ -97,8 +97,8 @@ export function StudentCreateCoursePage() {
           <p className="text-sm font-semibold mb-1">Choose a tutor</p>
           <p className="mb-3 text-xs text-gray-500">
             Every class is 60 minutes and costs the tutor's hourly rate shown below. The tutor decides how many classes your topics need,
-            and the whole amount (rate × number of classes) is taken from {forChild ? "your child's" : 'your'} wallet when they accept. Free demo credits
-            cannot be used for this. Nothing is charged until then.
+            and the whole amount (rate × number of classes) is put on hold in {forChild ? "your child's" : 'your'} wallet when they accept. Each class is
+            charged only when it is completed, and classes you don't take are never charged. Free demo credits cannot be used for this.
           </p>
           {tutorsLoading ? (
             <div className="flex justify-center py-6"><Spinner /></div>
