@@ -1,12 +1,14 @@
 // frontend/src/features/programs/ProgramEnrollmentView.tsx
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Sparkles } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { useEnrollmentStructure } from '../../hooks/use-programs';
 import { CourseStructureTree } from '../courses/CourseStructureTree';
+import { ProgramScheduleForm } from './ProgramScheduleForm';
 import { categoryLabel, levelLabel } from '../../constants/programs';
 
 export function ProgramEnrollmentView({ enrollmentPublicId, backTo, backLabel, actions }: {
@@ -16,12 +18,14 @@ export function ProgramEnrollmentView({ enrollmentPublicId, backTo, backLabel, a
   actions?: ReactNode;
 }) {
   const { data, isLoading, isError } = useEnrollmentStructure(enrollmentPublicId);
+  const [scheduling, setScheduling] = useState(false);
   if (isLoading) return <div className="flex justify-center py-16"><Spinner /></div>;
   if (isError || !data) {
     return <div className="py-16 text-center text-sm text-gray-500">Enrollment not found. <Link to={backTo} className="text-brand-600 hover:underline">{backLabel}</Link></div>;
   }
   const { enrollment, program, topics, otherClasses, viewerRole } = data;
   const showStatus = viewerRole === 'STUDENT' || viewerRole === 'PARENT';
+  const canSchedule = viewerRole === 'TUTOR' && enrollment.status === 'ACTIVE' && enrollment.sessionsScheduledCount < enrollment.sessionCount;
   const pct = enrollment.sessionCount ? Math.round((enrollment.sessionsCompletedCount / enrollment.sessionCount) * 100) : 0;
   const who = viewerRole === 'TUTOR' ? `for ${enrollment.studentName}` : `with ${enrollment.tutorName}`;
 
@@ -50,6 +54,29 @@ export function ProgramEnrollmentView({ enrollmentPublicId, backTo, backLabel, a
           </div>
         </CardContent>
       </Card>
+      {canSchedule && (
+        <Card className="mb-4">
+          <CardContent>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {enrollment.sessionCount - enrollment.sessionsScheduledCount} of {enrollment.sessionCount} sessions still to schedule.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => setScheduling((v) => !v)}>
+                <CalendarPlus className="h-3.5 w-3.5" /> Schedule next session
+              </Button>
+            </div>
+            {scheduling && (
+              <ProgramScheduleForm
+                enrollmentPublicId={enrollment.publicId}
+                availabilityWindow={enrollment.availabilityWindow}
+                modules={program.modules}
+                sessionMinutes={program.sessionMinutes}
+                programTitle={program.title}
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardContent>
           <CourseStructureTree topics={topics} otherClasses={otherClasses} showStatus={showStatus} hideMaterials onOpenMaterial={() => undefined} />
