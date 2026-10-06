@@ -58,7 +58,7 @@ export function CourseStructureView({ coursePublicId, backTo, backLabel, renderM
       </Card>
       <Card>
         <CardContent>
-          <CourseStructureTree topics={topics} otherClasses={otherClasses} showStatus={showStatus} onOpenMaterial={openMaterial} renderMaterialExtra={renderMaterialExtra} />
+          <CourseStructureTree topics={topics} otherClasses={otherClasses} showStatus={showStatus} viewerRole={viewerRole} onOpenMaterial={openMaterial} renderMaterialExtra={renderMaterialExtra} />
         </CardContent>
       </Card>
     </div>

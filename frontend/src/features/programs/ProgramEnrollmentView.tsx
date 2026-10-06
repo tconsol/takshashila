@@ -79,7 +79,7 @@ export function ProgramEnrollmentView({ enrollmentPublicId, backTo, backLabel, a
       )}
       <Card>
         <CardContent>
-          <CourseStructureTree topics={topics} otherClasses={otherClasses} showStatus={showStatus} hideMaterials onOpenMaterial={() => undefined} />
+          <CourseStructureTree topics={topics} otherClasses={otherClasses} showStatus={showStatus} viewerRole={viewerRole} hideMaterials onOpenMaterial={() => undefined} />
         </CardContent>
       </Card>
     </div>

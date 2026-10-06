@@ -4,6 +4,7 @@
 // admin views (curriculum-materials spec §7.1). Status is shown only when
 // `showStatus` is set — the server omits it for tutors and admins anyway.
 import { useState, type ReactNode, type KeyboardEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { CheckCircle2, Clock, CircleDashed, ChevronRight, FileText, ClipboardList, PenSquare, Video } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import type { ProgressClass, StructureMaterial, StructureTopic } from '../../services/courses.service';
@@ -25,17 +26,37 @@ const KIND = {
   worksheet: { label: 'Worksheet', icon: PenSquare },
 } as const;
 
-function ClassRow({ cls }: { cls: ProgressClass }) {
-  return (
-    <li className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+/** Where a class row leads: the tutor's class page, or the live room for a student whose class can still be joined. */
+function classHref(cls: ProgressClass, viewerRole?: string): string | undefined {
+  if (viewerRole === 'TUTOR') return `/dashboard/tutor/classes/${cls.publicId}`;
+  if (viewerRole === 'STUDENT' && (cls.status === 'SCHEDULED' || cls.status === 'LIVE')) return `/class/${cls.publicId}`;
+  return undefined;
+}
+
+function ClassRow({ cls, viewerRole }: { cls: ProgressClass; viewerRole?: string }) {
+  const minutes = Math.round((new Date(cls.endUTC).getTime() - new Date(cls.startUTC).getTime()) / 60_000);
+  const href = classHref(cls, viewerRole);
+  const body = (
+    <>
       <Video className="h-3.5 w-3.5 shrink-0 text-gray-400" />
       <span>{formatWhen(cls.startUTC)}</span>
+      {minutes > 0 && <span className="text-gray-400">· {minutes} min</span>}
       <Badge
         variant={cls.status === 'COMPLETED' ? 'success' : cls.status === 'LIVE' ? 'danger' : cls.status === 'SCHEDULED' ? 'info' : 'warning'}
         tone="soft"
       >
         {CLASS_STATUS_LABEL[cls.status] ?? cls.status}
       </Badge>
+      {href && <ChevronRight className="ml-auto h-3.5 w-3.5 text-gray-400" />}
+    </>
+  );
+  return (
+    <li>
+      {href ? (
+        <Link to={href} className="flex items-center gap-2 rounded-md px-1 py-0.5 text-xs text-gray-600 hover:bg-surface-hover dark:text-gray-300">{body}</Link>
+      ) : (
+        <div className="flex items-center gap-2 px-1 py-0.5 text-xs text-gray-600 dark:text-gray-300">{body}</div>
+      )}
     </li>
   );
 }
@@ -62,6 +83,7 @@ interface NodeProps {
   topic: StructureTopic;
   index: number;
   showStatus: boolean;
+  viewerRole?: string;
   hideClasses?: boolean;
   hideMaterials?: boolean;
   onOpenMaterial: (m: StructureMaterial) => void;
@@ -92,7 +114,7 @@ function MaterialRow({ m, onOpen, extra }: { m: StructureMaterial; onOpen: () =>
   );
 }
 
-function TopicNode({ topic, index, showStatus, hideClasses, hideMaterials, onOpenMaterial, renderMaterialExtra, renderTopicActions }: NodeProps) {
+function TopicNode({ topic, index, showStatus, viewerRole, hideClasses, hideMaterials, onOpenMaterial, renderMaterialExtra, renderTopicActions }: NodeProps) {
   const [open, setOpen] = useState(!showStatus || topic.status !== 'COMPLETED');
   const done = showStatus && topic.status === 'COMPLETED';
 
@@ -129,7 +151,7 @@ function TopicNode({ topic, index, showStatus, hideClasses, hideMaterials, onOpe
               {topic.classes.length === 0 ? (
                 <p className="text-xs text-gray-400">No class booked for this topic yet.</p>
               ) : (
-                <ul className="space-y-1.5">{topic.classes.map((c) => <ClassRow key={c.publicId} cls={c} />)}</ul>
+                <ul className="space-y-1.5">{topic.classes.map((c) => <ClassRow key={c.publicId} cls={c} viewerRole={viewerRole} />)}</ul>
               )}
             </div>
           )}
@@ -152,11 +174,12 @@ function TopicNode({ topic, index, showStatus, hideClasses, hideMaterials, onOpe
 }
 
 export function CourseStructureTree({
-  topics, otherClasses, showStatus, hideClasses, hideMaterials, onOpenMaterial, renderMaterialExtra, renderTopicActions,
+  topics, otherClasses, showStatus, viewerRole, hideClasses, hideMaterials, onOpenMaterial, renderMaterialExtra, renderTopicActions,
 }: {
   topics: StructureTopic[];
   otherClasses: ProgressClass[];
   showStatus: boolean;
+  viewerRole?: string;
   hideClasses?: boolean;
   hideMaterials?: boolean;
   onOpenMaterial: (m: StructureMaterial) => void;
@@ -172,6 +195,7 @@ export function CourseStructureTree({
             topic={t}
             index={i}
             showStatus={showStatus}
+            viewerRole={viewerRole}
             hideClasses={hideClasses}
             hideMaterials={hideMaterials}
             onOpenMaterial={onOpenMaterial}
@@ -184,7 +208,7 @@ export function CourseStructureTree({
         <div className="mt-5">
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Other classes</p>
           <p className="mb-2 text-xs text-gray-400">Classes in this course the tutor didn't link to a topic.</p>
-          <ul className="space-y-1.5">{otherClasses.map((c) => <ClassRow key={c.publicId} cls={c} />)}</ul>
+          <ul className="space-y-1.5">{otherClasses.map((c) => <ClassRow key={c.publicId} cls={c} viewerRole={viewerRole} />)}</ul>
         </div>
       )}
     </>
