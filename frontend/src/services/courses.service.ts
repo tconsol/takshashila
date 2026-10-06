@@ -20,6 +20,8 @@ export interface Course {
   classesScheduledCount: number;
   classesCompletedCount: number;
   costCentsPerClass?: number;
+  /** HELD: credits are held and charged per completed class. Absent: paid up front (older courses). */
+  billing?: 'HELD';
   rejectionReason?: string;
   createdAt: string;
   studentName?: string;
