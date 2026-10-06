@@ -1,6 +1,6 @@
 // frontend/src/pages/tutor/TutorCourseRequestsPage.tsx
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ClipboardList, Check, X, Inbox, CalendarPlus, BookOpen } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -17,6 +17,9 @@ import {
 import type { Course } from '../../services/courses.service';
 import { useConfirm } from '../../hooks/use-confirm';
 import { useMyTutorProfile } from '../../hooks/use-tutors';
+import { formatCurrency } from '../../utils/currency';
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // Mirrors COURSE_CLASS_MINUTES in server/src/modules/courses/course.constants.ts.
 const COURSE_CLASS_MINUTES = 60;
@@ -143,24 +146,50 @@ function RequestCard({ request }: { request: Course }) {
   const [showSchedule, setShowSchedule] = useState(false);
   const [reason, setReason] = useState('');
   const { mutate: reject, isPending: rejecting } = useRejectCourse();
+  const navigate = useNavigate();
+  const [showDetails, setShowDetails] = useState(false);
+  const opensCourse = request.status === 'ACCEPTED' || request.status === 'COMPLETED';
 
   return (
     <Card>
       <CardContent>
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
+          <div
+            className="cursor-pointer flex-1 min-w-[16rem]"
+            role="button"
+            tabIndex={0}
+            aria-expanded={showDetails}
+            onClick={() => (opensCourse ? navigate(`/dashboard/tutor/course-requests/${request.publicId}`) : setShowDetails((v) => !v))}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (opensCourse ? navigate(`/dashboard/tutor/course-requests/${request.publicId}`) : setShowDetails((v) => !v)); } }}
+          >
             <Badge variant={request.status === 'PENDING' ? 'warning' : request.status === 'ACCEPTED' ? 'success' : 'default'} tone="soft">
               {request.status}
             </Badge>
             <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
               {request.studentName ?? 'Student'} · {request.curriculumTitle ?? 'Curriculum'}
             </p>
-            <p className="mt-1 text-xs text-gray-500">{request.topicPublicIds.length} topics selected</p>
+            <p className="mt-1 text-xs text-gray-500">
+              {request.topicPublicIds.length} topics selected · requested {new Date(request.createdAt).toLocaleDateString()}
+              {request.costCentsPerClass ? ` · ${formatCurrency(request.costCentsPerClass)}/class` : ''}
+            </p>
             {request.status === 'ACCEPTED' && (
               <p className="mt-1 text-xs text-gray-500">
                 {request.classesScheduledCount} of {request.classesRequired} scheduled ·{' '}
                 {request.classesCompletedCount} completed
               </p>
+            )}
+            {request.availabilityWindow && (
+              <p className="mt-1 text-xs text-gray-500">
+                Free {request.availabilityWindow.daysOfWeek.map((d) => DAY_NAMES[d]).join(', ')} {request.availabilityWindow.startLocalTime}–{request.availabilityWindow.endLocalTime}
+              </p>
+            )}
+            {showDetails && !opensCourse && (
+              <ul className="mt-2 list-disc pl-5 text-xs text-gray-600 dark:text-gray-400">
+                {(request.topicTitles ?? []).map((t) => <li key={t}>{t}</li>)}
+              </ul>
+            )}
+            {request.status === 'REJECTED' && request.rejectionReason && (
+              <p className="mt-1 text-xs text-gray-500">Reason: {request.rejectionReason}</p>
             )}
           </div>
           {request.status === 'PENDING' && (

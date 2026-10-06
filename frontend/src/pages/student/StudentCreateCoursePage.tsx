@@ -12,6 +12,8 @@ import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Loading';
 import { useCurriculum, useCurriculumTutors } from '../../hooks/use-curricula';
 import { useCreateCourse, useCreateCourseForChild } from '../../hooks/use-courses';
+import { useTutorSlots } from '../../hooks/use-schedules';
+import { formatInTimeZone } from 'date-fns-tz';
 import { formatCurrency } from '../../utils/currency';
 import type { CourseSelection } from '../../features/curriculum/CurriculumBrowser';
 
@@ -35,6 +37,10 @@ export function StudentCreateCoursePage() {
   const [days, setDays] = useState<Set<number>>(new Set());
   const [startLocalTime, setStartLocalTime] = useState('16:00');
   const [endLocalTime, setEndLocalTime] = useState('19:00');
+  const [pickedSlotId, setPickedSlotId] = useState('');
+  const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const { data: tutorSlots = [], isLoading: slotsLoading } = useTutorSlots(tutorPublicId);
+  const availableSlots = tutorSlots.filter((sl) => sl.status === 'AVAILABLE' && new Date(sl.startUTC) > new Date());
 
   // Opened without a selection (a bookmark, a refresh): go back and choose chapters/topics first.
   if (!selection || selection.curriculumPublicId !== curriculumPublicId || selection.chapterPublicIds.length === 0) {
@@ -111,7 +117,7 @@ export function StudentCreateCoursePage() {
                     type="button"
                     role="radio"
                     aria-checked={selected}
-                    onClick={() => setTutorPublicId(tutor.publicId)}
+                    onClick={() => { setTutorPublicId(tutor.publicId); setPickedSlotId(''); }}
                     className={`rounded-lg border p-3 text-left transition-colors ${
                       selected
                         ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
@@ -140,9 +146,47 @@ export function StudentCreateCoursePage() {
         </CardContent>
       </Card>
 
+      {tutorPublicId && (
+        <Card className="mb-4">
+          <CardContent>
+            <p className="text-sm font-semibold mb-1">Tutor's available times</p>
+            <p className="mb-3 text-xs text-gray-500">
+              Pick a time that suits {forChild ? 'your child' : 'you'}; it fills in the free times below. If none suit, or there are none, propose your own times below.
+            </p>
+            {slotsLoading ? (
+              <Spinner />
+            ) : availableSlots.length === 0 ? (
+              <p className="text-sm text-gray-500">This tutor has no open slots right now. Tell them when {forChild ? 'your child is' : 'you are'} free below.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {availableSlots.slice(0, 24).map((sl) => {
+                  const on = sl.publicId === pickedSlotId;
+                  return (
+                    <button
+                      key={sl.publicId}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => {
+                        setPickedSlotId(sl.publicId);
+                        setDays(new Set([Number(formatInTimeZone(new Date(sl.startUTC), userTz, 'i')) % 7]));
+                        setStartLocalTime(formatInTimeZone(new Date(sl.startUTC), userTz, 'HH:mm'));
+                        setEndLocalTime(formatInTimeZone(new Date(sl.endUTC), userTz, 'HH:mm'));
+                      }}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${on ? 'border-brand-600 bg-brand-600 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300'}`}
+                    >
+                      {formatInTimeZone(new Date(sl.startUTC), userTz, 'EEE MMM d, h:mm a')} – {formatInTimeZone(new Date(sl.endUTC), userTz, 'h:mm a')}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="mb-4">
         <CardContent>
-          <p className="text-sm font-semibold mb-3">When {forChild ? 'is your child' : 'are you'} free?</p>
+          <p className="text-sm font-semibold mb-3">When {forChild ? 'is your child' : 'are you'} free? <span className="font-normal text-gray-500">(propose your own times if the tutor's don't suit)</span></p>
           <div className="flex gap-1.5 mb-3">
             {DAY_LABELS.map((label, i) => (
               <button

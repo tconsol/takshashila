@@ -23,6 +23,8 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { useMySlots, useCreateSlot, useCancelSlot, useRescheduleSlot } from '../../hooks/use-schedules';
+import { useMyClassesAsTutor } from '../../hooks/use-classes';
+import { Link } from 'react-router-dom';
 import type { AvailabilitySlot, RecurrenceFrequency } from '../../services/schedules.service';
 
 const slotSchema = z.object({
@@ -79,6 +81,14 @@ export function TutorSchedulePage() {
     from: calStart.toISOString(),
     to:   calEnd.toISOString(),
   });
+
+  // Booked classes (incl. program sessions) so the tutor sees everything on one calendar.
+  const { data: classPage } = useMyClassesAsTutor({
+    from: calStart.toISOString(),
+    to:   calEnd.toISOString(),
+    limit: '100',
+  });
+  const monthClasses = (classPage?.items ?? []).filter((c) => c.status !== 'CANCELLED');
 
   const { mutateAsync: createSlot, isPending: creating } = useCreateSlot();
   const { mutateAsync: cancelSlot, isPending: cancelling } = useCancelSlot();
@@ -245,6 +255,7 @@ export function TutorSchedulePage() {
         >
           {calDays.map((day) => {
             const daySlots  = slots.filter((s) => isSameDay(new Date(s.startUTC), day));
+            const dayClasses = monthClasses.filter((c) => isSameDay(new Date(c.scheduledStartUTC), day));
             const inMonth   = isSameMonth(day, currentMonth);
             const today     = isToday(day);
 
@@ -276,6 +287,20 @@ export function TutorSchedulePage() {
                 </div>
 
                 <div className="space-y-0.5">
+                  {dayClasses.slice(0, 2).map((c) => (
+                    <Link
+                      key={c.publicId}
+                      to={`/dashboard/tutor/classes/${c.publicId}`}
+                      onClick={(e) => e.stopPropagation()}
+                      title={`${c.subject || 'Class'}${c.billingMode === 'PROGRAM_PREPAID' ? ' (program session)' : ''}`}
+                      className="block truncate rounded bg-indigo-100 px-1 py-0.5 text-[10px] font-medium text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200"
+                    >
+                      {formatInTimeZone(new Date(c.scheduledStartUTC), defaultTz, 'h:mma')} {c.billingMode === 'PROGRAM_PREPAID' ? '★ ' : ''}{c.subject || 'Class'}
+                    </Link>
+                  ))}
+                  {dayClasses.length > 2 && (
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 pl-1">+{dayClasses.length - 2} classes</p>
+                  )}
                   {daySlots.slice(0, 3).map((slot) => (
                     <SlotPill
                       key={slot.publicId}
