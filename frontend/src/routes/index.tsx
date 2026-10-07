@@ -106,6 +106,7 @@ import { TutorCreateClassPage } from '../pages/tutor/TutorCreateClassPage';
 // Student pages
 import { StudentMyTutorPage } from '../pages/student/StudentMyTutorPage';
 import { StudentPrincipalPage } from '../pages/student/StudentPrincipalPage';
+import { StudentBrowseOrganizationsPage } from '../pages/student/StudentBrowseOrganizationsPage';
 import { StudentLearningPage } from '../pages/student/StudentLearningPage';
 import { StudentAssignmentsPage } from '../pages/student/StudentAssignmentsPage';
 import { StudentAttendancePage } from '../pages/student/StudentAttendancePage';
@@ -316,6 +317,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/my-tutor', element: <StudentMyTutorPage /> },
         { path: '/dashboard/student/my-organization', element: <StudentPrincipalPage /> },
         { path: '/dashboard/student/tutors', element: <TutorsBrowsePage variant="student" /> },
+        { path: '/dashboard/student/my-organization/browse', element: <StudentBrowseOrganizationsPage /> },
         { path: '/dashboard/student/classes', element: <StudentLearningPage /> },
         { path: '/dashboard/student/calendar', element: <StudentCalendarPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
