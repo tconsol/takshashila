@@ -44,6 +44,7 @@ const PALETTE = {
 
 const RULES: Array<[RegExp, Look]> = [
   [/math|algebra|geometry|calculus|statistic/i, { icon: Calculator, ...PALETTE.sky }],
+  [/computer|coding|technology|engineering/i, { icon: Cpu, ...PALETTE.teal }],
   [/science|biology|chemistry|physics|earth/i, { icon: FlaskConical, ...PALETTE.emerald }],
   [/english|reading|writing|literature|language arts|ela/i, { icon: BookText, ...PALETTE.rose }],
   [/social|history|civics|government|economics/i, { icon: Landmark, ...PALETTE.amber }],
@@ -51,7 +52,6 @@ const RULES: Array<[RegExp, Look]> = [
   [/spanish|french|german|chinese|latin|foreign/i, { icon: Languages, ...PALETTE.violet }],
   [/art|design/i, { icon: Palette, ...PALETTE.rose }],
   [/music|band|choir/i, { icon: Music, ...PALETTE.violet }],
-  [/computer|coding|technology|engineering/i, { icon: Cpu, ...PALETTE.teal }],
   [/physical|health|pe\b|sport/i, { icon: Dumbbell, ...PALETTE.emerald }],
 ];
 const FALLBACK: Look = { icon: BookOpen, ...PALETTE.sky };

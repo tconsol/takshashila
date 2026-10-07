@@ -78,7 +78,7 @@ export function ParentChildrenPage() {
               </Button>
             </div>
           ))}
-          <p className="text-xs text-amber-800">They will see it under "Parent Requests" in their menu.</p>
+          <p className="text-xs text-amber-800">They will see it under "Parents" in their menu.</p>
         </div>
       )}
 
