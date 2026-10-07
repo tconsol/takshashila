@@ -205,6 +205,17 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       }
     };
 
+    // Opening a long list: bring the selected option into view (centred) instead of starting at the top.
+    useEffect(() => {
+      if (!isOpen) return;
+      const frame = requestAnimationFrame(() => {
+        const list = listRef.current;
+        const el = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+        if (list && el) list.scrollTop = el.offsetTop - list.clientHeight / 2 + el.clientHeight / 2;
+      });
+      return () => cancelAnimationFrame(frame);
+    }, [isOpen]);
+
     useEffect(() => {
       if (focusedIdx >= 0 && listRef.current) {
         const el = listRef.current.children[focusedIdx] as HTMLElement;
