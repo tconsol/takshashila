@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { UserCheck, UserX, Users, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { UserCheck, UserX, Users, CheckCircle, XCircle, Clock, ArrowLeft } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
@@ -128,8 +129,11 @@ export function StudentParentRequestsPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
+      <Link to="/dashboard/student/parents" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+        <ArrowLeft className="h-3.5 w-3.5" /> Parents
+      </Link>
       <PageHeader
-        title="Parent Requests"
+        title="Pending requests"
         subtitle="Review and manage requests from parents who want to link to your account"
         icon={<Users className="h-6 w-6" />}
       />

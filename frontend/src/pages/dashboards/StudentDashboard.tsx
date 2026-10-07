@@ -261,7 +261,7 @@ export function StudentDashboard() {
               <p className="text-xs text-violet-600 mt-0.5">Review and accept or decline their requests</p>
             </div>
           </div>
-          <Link to="/dashboard/student/parent-requests" className="shrink-0">
+          <Link to="/dashboard/student/parents/requests" className="shrink-0">
             <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white border-violet-600">
               Review <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
             </Button>

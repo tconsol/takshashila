@@ -62,6 +62,14 @@ router.get('/me/parent-requests', requireRole(Role.STUDENT), async (req: AuthReq
   } catch (e) { next(e); }
 });
 
+router.get('/me/parents', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const studentProfile = await StudentProfileModel.findOne({ userPublicId: req.user!.publicId, isDeleted: false }).lean();
+    if (!studentProfile) throw new NotFoundError('Student profile not found');
+    sendSuccess(res, await parentService.getLinkedParents(studentProfile.publicId), 'Linked parents fetched');
+  } catch (e) { next(e); }
+});
+
 router.post('/me/parent-requests/:requestPublicId/approve', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const studentProfile = await StudentProfileModel.findOne({ userPublicId: req.user!.publicId, isDeleted: false }).lean();

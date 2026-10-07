@@ -139,6 +139,23 @@ export class ParentService {
     });
   }
 
+  /** Parents already linked to this student (requests the student accepted). */
+  async getLinkedParents(studentPublicId: string) {
+    const profiles = await ParentProfileModel.find({ childStudentPublicIds: studentPublicId, isDeleted: false }).lean();
+    if (profiles.length === 0) return [];
+    const users = await userRepository.findManyByPublicIds(profiles.map((p) => p.userPublicId));
+    const userMap = new Map(users.map((u) => [u.publicId, u]));
+    return profiles.map((p) => {
+      const u = userMap.get(p.userPublicId);
+      return {
+        userPublicId: p.userPublicId,
+        firstName: u?.firstName ?? '',
+        lastName: u?.lastName ?? '',
+        email: u?.email ?? '',
+      };
+    });
+  }
+
   async approveParentLinkRequest(studentPublicId: string, requestPublicId: string): Promise<void> {
     const request = await ParentLinkRequestModel.findOne({
       publicId: requestPublicId,

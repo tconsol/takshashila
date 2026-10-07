@@ -116,6 +116,7 @@ import { StudentWorksheetsPage } from '../pages/student/StudentWorksheetsPage';
 import { StudentWorksheetTestPage } from '../pages/student/StudentWorksheetTestPage';
 import { StudentResourcesPage } from '../pages/student/StudentResourcesPage';
 import { StudentParentRequestsPage } from '../pages/student/StudentParentRequestsPage';
+import { StudentParentsPage } from '../pages/student/StudentParentsPage';
 import { StudentCurriculumPage } from '../pages/student/StudentCurriculumPage';
 import { StudentCreateCoursePage } from '../pages/student/StudentCreateCoursePage';
 import { StudentMyCoursesPage } from '../pages/student/StudentMyCoursesPage';
@@ -316,8 +317,8 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student', element: <StudentDashboard /> },
         { path: '/dashboard/student/my-tutor', element: <StudentMyTutorPage /> },
         { path: '/dashboard/student/my-organization', element: <StudentPrincipalPage /> },
-        { path: '/dashboard/student/tutors', element: <TutorsBrowsePage variant="student" /> },
         { path: '/dashboard/student/my-organization/browse', element: <StudentBrowseOrganizationsPage /> },
+        { path: '/dashboard/student/tutors', element: <TutorsBrowsePage variant="student" /> },
         { path: '/dashboard/student/classes', element: <StudentLearningPage /> },
         { path: '/dashboard/student/calendar', element: <StudentCalendarPage /> },
         { path: '/dashboard/student/assignments', element: <StudentAssignmentsPage /> },
@@ -329,7 +330,9 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/attendance', element: <StudentAttendancePage /> },
         { path: '/dashboard/student/progress', element: <StudentProgressPage /> },
         { path: '/dashboard/student/wallet', element: <StudentWalletPage /> },
-        { path: '/dashboard/student/parent-requests', element: <StudentParentRequestsPage /> },
+        { path: '/dashboard/student/parents', element: <StudentParentsPage /> },
+        { path: '/dashboard/student/parents/requests', element: <StudentParentRequestsPage /> },
+        { path: '/dashboard/student/parent-requests', element: <Navigate to="/dashboard/student/parents/requests" replace /> },
         { path: '/dashboard/student/curriculum', element: <StudentCurriculumPage /> },
         { path: '/dashboard/student/curriculum/:curriculumPublicId', element: <StudentCreateCoursePage /> },
         { path: '/dashboard/student/courses', element: <StudentMyCoursesPage /> },

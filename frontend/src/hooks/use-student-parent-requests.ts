@@ -14,9 +14,29 @@ export interface ParentLinkRequest {
   };
 }
 
+export interface LinkedParent {
+  userPublicId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 const keys = {
   list: () => ['student', 'parent-requests'] as const,
+  linked: () => ['student', 'linked-parents'] as const,
 };
+
+export function useLinkedParents() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  return useQuery({
+    queryKey: keys.linked(),
+    queryFn: async () => {
+      const { data } = await api.get('/students/me/parents');
+      return (data?.data ?? []) as LinkedParent[];
+    },
+    enabled: isAuthenticated,
+  });
+}
 
 export function useParentLinkRequests() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -35,7 +55,10 @@ export function useApproveParentRequest() {
   return useMutation({
     mutationFn: (requestPublicId: string) =>
       api.post(`/students/me/parent-requests/${requestPublicId}/approve`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.list() }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.list() });
+      qc.invalidateQueries({ queryKey: keys.linked() });
+    },
   });
 }
 
