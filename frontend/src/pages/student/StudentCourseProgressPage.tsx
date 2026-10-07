@@ -8,5 +8,5 @@ import { CourseStructureView } from '../../features/courses/CourseStructureView'
 
 export function StudentCourseProgressPage() {
   const { coursePublicId } = useParams<{ coursePublicId: string }>();
-  return <CourseStructureView coursePublicId={coursePublicId} backTo="/dashboard" backLabel="Dashboard" />;
+  return <CourseStructureView coursePublicId={coursePublicId} backTo="/dashboard/student/courses" backLabel="My courses" />;
 }

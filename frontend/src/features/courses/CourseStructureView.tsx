@@ -7,10 +7,32 @@ import type { ReactNode } from 'react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Loading';
+import { Badge } from '../../components/ui/Badge';
+import { formatCredits } from '../../lib/billing';
 import { useCourseStructure } from '../../hooks/use-courses';
 import { CourseStructureTree } from './CourseStructureTree';
 import { useOpenMaterial } from './useOpenMaterial';
 import type { StructureMaterial } from '../../services/courses.service';
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const STATUS_BADGE = {
+  PENDING: <Badge variant="warning" tone="soft">Pending tutor response</Badge>,
+  ACCEPTED: <Badge variant="success" tone="soft">Accepted</Badge>,
+  REJECTED: <Badge variant="danger" tone="soft">Rejected</Badge>,
+  CANCELLED: <Badge variant="default" tone="soft">Cancelled</Badge>,
+  COMPLETED: <Badge variant="info" tone="soft">Completed</Badge>,
+} as const;
+
+function Detail({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs text-gray-500">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-gray-900 dark:text-white">{children}</dd>
+    </div>
+  );
+}
+
+const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
 export function CourseStructureView({ coursePublicId, backTo, backLabel, renderMaterialExtra }: {
   coursePublicId?: string;
@@ -43,11 +65,43 @@ export function CourseStructureView({ coursePublicId, backTo, backLabel, renderM
       />
       <Card className="mb-4">
         <CardContent>
+          <div className="mb-3 flex items-center gap-2">
+            {STATUS_BADGE[course.status]}
+            {course.status === 'PENDING' && <span className="text-xs text-gray-500">The tutor will set the number of classes when they accept.</span>}
+          </div>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Detail label="Tutor">{course.tutorName}</Detail>
+            <Detail label="Student">{course.studentName}</Detail>
+            <Detail label="Requested on">{fmtDate(course.createdAt)}</Detail>
+            <Detail label="Accepted on">{fmtDate(course.acceptedAt)}</Detail>
+            <Detail label="Number of classes">{course.classesRequired > 0 ? course.classesRequired : 'Not set yet'}</Detail>
+            <Detail label="Scheduled / completed">{course.classesRequired > 0 ? `${course.classesScheduledCount} scheduled · ${course.classesCompletedCount} completed` : '—'}</Detail>
+            <Detail label="Price per class">{course.costCentsPerClass ? `${formatCredits(course.costCentsPerClass)} cr` : 'Set on acceptance'}</Detail>
+            <Detail label="Credits on hold">
+              {course.status === 'ACCEPTED' && course.billing === 'HELD' && course.costCentsPerClass
+                ? `${formatCredits(Math.max(0, course.classesRequired - course.classesCompletedCount) * course.costCentsPerClass)} cr`
+                : '—'}
+            </Detail>
+            <Detail label="Preferred availability">
+              {course.availabilityWindow.daysOfWeek.map((d) => DAY_LABELS[d]).join(', ') || '—'}
+              {' · '}{course.availabilityWindow.startLocalTime}–{course.availabilityWindow.endLocalTime} ({course.availabilityWindow.ianaTimezone})
+            </Detail>
+          </dl>
+          {course.status === 'REJECTED' && course.rejectionReason && (
+            <p className="mt-3 text-xs text-red-500">Reason: {course.rejectionReason}</p>
+          )}
+          {course.selectedTopicTitles.length > 0 && (
+            <p className="mt-3 text-xs text-gray-500">Topics picked: {course.selectedTopicTitles.join(', ')}</p>
+          )}
+        </CardContent>
+      </Card>
+      <Card className="mb-4">
+        <CardContent>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
             {showStatus
               ? <span className="font-medium text-gray-900 dark:text-white">{doneTopics}/{topics.length} topics completed</span>
               : <span className="font-medium text-gray-900 dark:text-white">{topics.length} topics</span>}
-            <span className="text-xs text-gray-500">{course.classesCompletedCount}/{course.classesRequired} classes completed</span>
+            <span className="text-xs text-gray-500">{course.classesCompletedCount}/{course.classesRequired || '—'} classes completed</span>
           </div>
           {showStatus && (
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden>

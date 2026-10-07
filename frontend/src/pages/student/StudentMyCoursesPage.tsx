@@ -1,6 +1,6 @@
 // frontend/src/pages/student/StudentMyCoursesPage.tsx
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Inbox } from 'lucide-react';
+import { ClipboardList, Inbox, Plus } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -28,7 +28,14 @@ export function StudentMyCoursesPage() {
   return (
     <div className="animate-fade-in">
       {confirmDialog}
-      <PageHeader eyebrow="Courses" title="My courses" icon={<ClipboardList className="h-5 w-5" />} />
+      <PageHeader eyebrow="Courses" title="My courses"
+        icon={<ClipboardList className="h-5 w-5" />}
+        actions={
+          <Button size="sm" variant="gradient" onClick={() => navigate('/dashboard/student/curriculum')}>
+            <Plus className="h-4 w-4 mr-1" /> New course
+          </Button>
+        }
+      />
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner /></div>

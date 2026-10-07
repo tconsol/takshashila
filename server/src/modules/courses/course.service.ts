@@ -182,10 +182,9 @@ export class CourseService {
     const course = await CourseModel.findOne({ publicId: coursePublicId, isDeleted: false }).lean();
     if (!course) throw new NotFoundError('Course');
     const viewerRole = await this._structureRole(course, viewer);
-    // Students/parents only see courses the tutor has accepted (or completed).
-    if ((viewerRole === 'STUDENT' || viewerRole === 'PARENT') && !ACTIVE_COURSE_STATUSES.includes(course.status as never)) {
-      throw new NotFoundError('Course');
-    }
+    // Students/parents see their course in every status (pending, rejected...), but its
+    // materials only open up once the tutor has accepted it.
+    const materialsOpen = viewerRole === 'TUTOR' || viewerRole === 'ADMIN' || ACTIVE_COURSE_STATUSES.includes(course.status as never);
 
     // Deleted curricula included on purpose: the student's history still needs them.
     const [curriculum, classes, [enriched], byTopic] = await Promise.all([
@@ -195,7 +194,7 @@ export class CourseService {
         { publicId: 1, status: 1, startUTC: 1, endUTC: 1, topicPublicId: 1 },
       ).lean(),
       enrichCourses([course]),
-      loadMaterialsByTopic(materialFilterForCourse(course)),
+      materialsOpen ? loadMaterialsByTopic(materialFilterForCourse(course)) : Promise.resolve(new Map()),
     ]);
     if (!curriculum) throw new NotFoundError('Curriculum');
 
@@ -214,9 +213,18 @@ export class CourseService {
         publicId: course.publicId,
         status: course.status,
         classesRequired: course.classesRequired ?? 0,
+        classesScheduledCount: course.classesScheduledCount,
         classesCompletedCount: course.classesCompletedCount,
+        costCentsPerClass: course.costCentsPerClass,
+        totalCostCentsCharged: course.totalCostCentsCharged,
+        billing: course.billing,
+        rejectionReason: course.rejectionReason,
+        availabilityWindow: course.availabilityWindow,
+        createdAt: course.createdAt,
+        acceptedAt: course.acceptedAt,
         tutorName: enriched.tutorName,
         studentName: enriched.studentName,
+        selectedTopicTitles: (enriched as { selectedTopicTitles?: string[] }).selectedTopicTitles ?? [],
       },
       curriculum: curriculumSummary(curriculum),
       topics: progress.topics.map(({ status, nextClass, ...rest }) => ({

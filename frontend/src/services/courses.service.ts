@@ -77,7 +77,24 @@ export interface StructureTopic {
 
 export interface CourseStructure {
   viewerRole: 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
-  course: { publicId: string; status: Course['status']; classesRequired: number; classesCompletedCount: number; tutorName: string; studentName: string };
+  course: {
+    publicId: string;
+    status: Course['status'];
+    classesRequired: number;
+    classesScheduledCount: number;
+    classesCompletedCount: number;
+    costCentsPerClass?: number;
+    totalCostCentsCharged?: number;
+    billing?: 'HELD';
+    rejectionReason?: string;
+    availabilityWindow: AvailabilityWindow;
+    createdAt: string;
+    acceptedAt?: string;
+    tutorName: string;
+    studentName: string;
+    /** Individual topics ticked inside the chapters; empty = whole chapters. */
+    selectedTopicTitles: string[];
+  };
   curriculum: { publicId: string; title: string; subject: string; grade: string; stateCode?: string };
   topics: StructureTopic[];
   otherClasses: ProgressClass[];
