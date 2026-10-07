@@ -103,7 +103,35 @@ export interface CurriculumStructure {
 
 export type MaterialKind = 'resource' | 'assignment' | 'worksheet';
 
+export interface ImportReport {
+  stateCode: string;
+  kind: 'revised' | 'master';
+  created: number; updated: number; unchanged: number; skippedPublished: number;
+  chapters: number; topics: number;
+  subjectsSkippedNotVerified: string[]; emptySubjects: string[]; emptyChapters: string[];
+  missingCitation: string[]; missingSourceUrl: string[]; duplicateSubjects: string[];
+  highSchoolCourses: number; highSchoolMerged: string[];
+  countyAdditions: number;
+}
+
+export interface ImportOptions {
+  stateCode: string;
+  kind: 'revised' | 'master';
+  countyOnly: boolean;
+  commit: boolean;
+}
+
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
 export const curriculaService = {
+  /** Sends the Word file as the raw body; `commit: false` only previews. */
+  importDocx: (file: File, opts: ImportOptions): Promise<{ committed: boolean; report: ImportReport }> =>
+    api.post('/curricula/admin/import', file, {
+      params: { stateCode: opts.stateCode, kind: opts.kind, countyOnly: opts.countyOnly, commit: opts.commit },
+      headers: { 'Content-Type': DOCX_MIME },
+      timeout: 120_000,
+    }).then((r) => r.data.data),
+
   addMaterial: (curriculumPublicId: string, kind: MaterialKind, body: Record<string, unknown>) =>
     api.post(`/curricula/${curriculumPublicId}/${kind}s`, body).then((r) => r.data.data),
   deleteMaterial: (curriculumPublicId: string, kind: MaterialKind, materialPublicId: string) =>

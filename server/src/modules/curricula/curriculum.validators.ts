@@ -45,6 +45,14 @@ export const curriculumStateCatalogQuerySchema = z.object({
   subject: z.string().optional(),
 });
 
+/** Word-file import: the file is the raw request body, everything else rides on the query string. */
+export const curriculumImportQuerySchema = z.object({
+  stateCode: z.enum(STATE_CODES),
+  kind: z.enum(['revised', 'master']).default('revised'),
+  countyOnly: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  commit: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+});
+
 export const curriculumAdminOverviewQuerySchema = z.object({
   stateCode: z.enum(STATE_CODES),
 });

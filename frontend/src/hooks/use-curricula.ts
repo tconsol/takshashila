@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { curriculaService } from '../services/curricula.service';
 import type { MaterialKind } from '../services/curricula.service';
-import type { CreateCurriculumDto, UpdateCurriculumDto } from '../services/curricula.service';
+import type { CreateCurriculumDto, UpdateCurriculumDto, ImportOptions } from '../services/curricula.service';
 import { useToast } from '../components/ui/Toast';
 
 export const curriculumKeys = {
@@ -48,6 +48,22 @@ export function useCurriculumTutors(curriculumPublicId: string | undefined) {
     queryKey: curriculumKeys.tutors(curriculumPublicId ?? ''),
     queryFn: () => curriculaService.listTutors(curriculumPublicId!),
     enabled: !!curriculumPublicId,
+  });
+}
+
+/** Preview (commit: false) or import (commit: true) a Word file. Only a real import refreshes the lists. */
+export function useImportCurriculumDocx() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({ file, ...opts }: { file: File } & ImportOptions) => curriculaService.importDocx(file, opts),
+    onSuccess: (res) => {
+      if (res.committed) {
+        qc.invalidateQueries({ queryKey: curriculumKeys.all });
+        toast.success('Curricula imported as drafts');
+      }
+    },
+    onError: (err: Error) => toast.error('Could not read the file', err.message),
   });
 }
 

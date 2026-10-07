@@ -3,7 +3,8 @@ import type { AuthRequest } from '../../shared/types';
 import { curriculumService } from './curriculum.service';
 import { sendSuccess, sendCreated } from '../../utils/response';
 import { NotFoundError, ValidationError } from '../../utils/error';
-import { curriculumAdminOverviewQuerySchema, curriculumStateCatalogQuerySchema } from './curriculum.validators';
+import { curriculumAdminOverviewQuerySchema, curriculumStateCatalogQuerySchema, curriculumImportQuerySchema } from './curriculum.validators';
+import { importCurriculumDocx } from './import/curriculum-docx-import';
 import { tutorService } from '../tutors/tutor.service';
 import { listAttachableCurricula } from './curriculum-attachment';
 import { getCurriculumStructure } from '../courses/course-structure';
@@ -121,6 +122,23 @@ export class CurriculumController {
   async adminStates(_req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       sendSuccess(res, await curriculumService.listAdminStates(), 'States fetched');
+    } catch (error) { next(error); }
+  }
+
+  /** Admin: preview (default) or commit a Word-file import for one state. Writes drafts only. */
+  async importDocx(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const parsed = curriculumImportQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        throw new ValidationError(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+      }
+      const file = req.body;
+      if (!Buffer.isBuffer(file) || file.length === 0) {
+        throw new ValidationError({ file: ['Attach a .docx file'] });
+      }
+      const { commit, ...rest } = parsed.data;
+      const report = await importCurriculumDocx(file, rest, commit);
+      sendSuccess(res, { committed: commit, report }, commit ? 'Curricula imported as drafts' : 'Import preview ready');
     } catch (error) { next(error); }
   }
 

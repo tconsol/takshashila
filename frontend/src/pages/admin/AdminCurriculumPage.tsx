@@ -4,7 +4,7 @@
 // open a grade tile to see that grade's subject curricula, then open a curriculum to see its chapters and topics.
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { GraduationCap, Plus, Eye, EyeOff, Trash2, Pencil, ListTree, ChevronRight } from 'lucide-react';
+import { GraduationCap, Plus, Upload, Eye, EyeOff, Trash2, Pencil, ListTree, ChevronRight } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -18,6 +18,7 @@ import {
 } from '../../hooks/use-curricula';
 import { useUsStates } from '../../hooks/use-geo';
 import { CurriculumEditorModal } from '../../features/curriculum/CurriculumEditorModal';
+import { CurriculumImportModal } from '../../features/curriculum/CurriculumImportModal';
 import { CountyAdditionsPanel } from '../../features/curriculum/CountyAdditionsPanel';
 import { Tabs } from '../../components/ui/Tabs';
 import { GRADE_LIST, HIGH_SCHOOL } from '../../constants/grades';
@@ -97,6 +98,7 @@ export function AdminCurriculumPage() {
   const [openGrade, setOpenGrade] = useState<string | null>(null);
   const [openCurriculum, setOpenCurriculum] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | 'new' | null>(null);
+  const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState<AdminCurriculumSummary | null>(null);
 
   const byGrade = new Map<string, AdminCurriculumSummary[]>();
@@ -114,7 +116,12 @@ export function AdminCurriculumPage() {
           ? 'State standards by grade. Open a grade to see its subjects, then a subject to see its chapters and topics.'
           : 'Extra programs counties offer on top of the state curriculum. Shown to students and parents in that county once published.'}
         icon={<GraduationCap className="h-5 w-5" />}
-        actions={tab === 'state' ? <Button variant="gradient" onClick={() => setEditing('new')}><Plus className="h-4 w-4" /> New curriculum</Button> : undefined}
+        actions={tab === 'state' ? (
+          <>
+            <Button variant="outline" onClick={() => setImporting(true)}><Upload className="h-4 w-4" /> Import from Word</Button>
+            <Button variant="gradient" onClick={() => setEditing('new')}><Plus className="h-4 w-4" /> New curriculum</Button>
+          </>
+        ) : undefined}
       />
 
       <div className="mb-5 grid max-w-xl gap-3 sm:grid-cols-2">
@@ -242,6 +249,7 @@ export function AdminCurriculumPage() {
           onClose={() => setEditing(null)}
         />
       )}
+      {importing && <CurriculumImportModal defaultState={stateCode} onClose={() => setImporting(false)} />}
       {deleting && <DeleteCurriculumModal curriculum={deleting} onClose={() => setDeleting(null)} />}
       {confirmDialog}
     </div>

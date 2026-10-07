@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { curriculumController } from './curriculum.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/permission.middleware';
@@ -11,6 +11,8 @@ router.use(authMiddleware);
 
 router.get('/admin/states', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculumController.adminStates.bind(curriculumController));
 router.get('/admin/overview', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculumController.adminOverview.bind(curriculumController));
+// The Word file is the raw request body (no multipart library needed).
+router.post('/admin/import', requireRole(Role.SUPER_ADMIN, Role.ADMIN), express.raw({ type: () => true, limit: '25mb' }), curriculumController.importDocx.bind(curriculumController));
 router.get('/catalog/state', curriculumController.listByState.bind(curriculumController));
 router.get('/attachable', requireRole(Role.TUTOR, Role.PRINCIPAL), curriculumController.listAttachable.bind(curriculumController));
 router.get('/:curriculumPublicId/structure', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculumController.getStructure.bind(curriculumController));
