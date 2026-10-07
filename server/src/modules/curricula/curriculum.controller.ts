@@ -142,6 +142,14 @@ export class CurriculumController {
     } catch (error) { next(error); }
   }
 
+  /** Admin: publish all draft curricula of a state in one go. */
+  async publishState(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await curriculumService.publishAllForState(req.body.stateCode);
+      sendSuccess(res, result, `${result.published} curricula published`);
+    } catch (error) { next(error); }
+  }
+
   /** Admin: every curriculum of one state (grade → subject view). */
   async adminOverview(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {

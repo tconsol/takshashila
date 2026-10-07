@@ -4,7 +4,7 @@ import { authMiddleware } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/permission.middleware';
 import { validate } from '../../middlewares/validation.middleware';
 import { Role } from '../../constants/roles';
-import { createCurriculumSchema, updateCurriculumSchema, adminResourceSchema, adminAssignmentSchema, adminWorksheetSchema } from './curriculum.validators';
+import { createCurriculumSchema, updateCurriculumSchema, publishStateSchema, adminResourceSchema, adminAssignmentSchema, adminWorksheetSchema } from './curriculum.validators';
 
 const router = Router();
 router.use(authMiddleware);
@@ -13,6 +13,7 @@ router.get('/admin/states', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculu
 router.get('/admin/overview', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculumController.adminOverview.bind(curriculumController));
 // The Word file is the raw request body (no multipart library needed).
 router.post('/admin/import', requireRole(Role.SUPER_ADMIN, Role.ADMIN), express.raw({ type: () => true, limit: '25mb' }), curriculumController.importDocx.bind(curriculumController));
+router.post('/admin/publish-state', requireRole(Role.SUPER_ADMIN, Role.ADMIN), validate(publishStateSchema), curriculumController.publishState.bind(curriculumController));
 router.get('/catalog/state', curriculumController.listByState.bind(curriculumController));
 router.get('/attachable', requireRole(Role.TUTOR, Role.PRINCIPAL), curriculumController.listAttachable.bind(curriculumController));
 router.get('/:curriculumPublicId/structure', requireRole(Role.SUPER_ADMIN, Role.ADMIN), curriculumController.getStructure.bind(curriculumController));

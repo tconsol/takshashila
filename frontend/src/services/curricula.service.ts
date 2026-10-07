@@ -167,6 +167,10 @@ export const curriculaService = {
   remove: (curriculumPublicId: string): Promise<void> =>
     api.delete(`/curricula/${curriculumPublicId}`).then(() => undefined),
 
+  /** Publishes every draft curriculum of a state; returns how many were published. */
+  publishState: (stateCode: string): Promise<{ published: number }> =>
+    api.post('/curricula/admin/publish-state', { stateCode }).then((r) => r.data.data),
+
   publish: (curriculumPublicId: string): Promise<Curriculum> =>
     api.post(`/curricula/${curriculumPublicId}/publish`).then((r) => r.data.data),
 

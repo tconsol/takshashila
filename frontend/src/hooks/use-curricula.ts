@@ -121,6 +121,19 @@ export function usePublishCurriculum() {
   });
 }
 
+export function usePublishState() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: (stateCode: string) => curriculaService.publishState(stateCode),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: curriculumKeys.all });
+      toast.success(`${res.published} ${res.published === 1 ? 'curriculum' : 'curricula'} published`);
+    },
+    onError: (err: Error) => toast.error('Could not publish', err.message),
+  });
+}
+
 export function useAttachableCurricula(enabled = true) {
   return useQuery({ queryKey: curriculumKeys.attachable, queryFn: curriculaService.listAttachable, enabled, staleTime: 60_000 });
 }

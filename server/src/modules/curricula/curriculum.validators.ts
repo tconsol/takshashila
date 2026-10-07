@@ -53,6 +53,9 @@ export const curriculumImportQuerySchema = z.object({
   commit: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 });
 
+/** Bulk publish: every draft curriculum of one state. */
+export const publishStateSchema = z.object({ stateCode: z.enum(STATE_CODES) });
+
 export const curriculumAdminOverviewQuerySchema = z.object({
   stateCode: z.enum(STATE_CODES),
 });

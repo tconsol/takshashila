@@ -125,6 +125,15 @@ export class CurriculumService {
     return updated;
   }
 
+  /** Publishes every draft curriculum of one state. Already published and deleted ones are untouched. */
+  async publishAllForState(stateCode: string): Promise<{ published: number }> {
+    const result = await CurriculumModel.updateMany(
+      { stateCode, isDeleted: false, isPublished: false },
+      { $set: { isPublished: true } },
+    );
+    return { published: result.modifiedCount };
+  }
+
   /** Soft delete. Refused while students hold PENDING or ACCEPTED (prepaid) requests —
    *  admins can unpublish instead. Finished requests keep resolving the curriculum title. */
   async softDelete(curriculumPublicId: string): Promise<void> {

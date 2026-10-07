@@ -14,7 +14,7 @@ import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Loading';
 import { useConfirm } from '../../hooks/use-confirm';
 import {
-  useAdminStates, useAdminOverview, useCurriculum, usePublishCurriculum, useDeleteCurriculum,
+  useAdminStates, useAdminOverview, useCurriculum, usePublishCurriculum, usePublishState, useDeleteCurriculum,
 } from '../../hooks/use-curricula';
 import { useUsStates } from '../../hooks/use-geo';
 import { CurriculumEditorModal } from '../../features/curriculum/CurriculumEditorModal';
@@ -93,6 +93,7 @@ export function AdminCurriculumPage() {
 
   const { data: curricula = [], isLoading } = useAdminOverview(stateCode);
   const { mutate: setPublished, isPending: publishing } = usePublishCurriculum();
+  const { mutate: publishState, isPending: publishingState } = usePublishState();
 
   const [tab, setTab] = useState<'state' | 'county'>('state');
   const [openGrade, setOpenGrade] = useState<string | null>(null);
@@ -104,6 +105,8 @@ export function AdminCurriculumPage() {
   const byGrade = new Map<string, AdminCurriculumSummary[]>();
   for (const c of curricula) byGrade.set(c.grade, [...(byGrade.get(c.grade) ?? []), c]);
   const grades = [...byGrade.keys()].sort((a, b) => gradeRank(a) - gradeRank(b));
+
+  const draftCount = curricula.filter((c) => !c.isPublished).length;
 
   const editTarget = editing && editing !== 'new' ? curricula.find((c) => c.publicId === editing) : undefined;
 
@@ -124,7 +127,8 @@ export function AdminCurriculumPage() {
         ) : undefined}
       />
 
-      <div className="mb-5 grid max-w-xl gap-3 sm:grid-cols-2">
+      <div className="mb-5 flex flex-wrap items-end gap-3">
+      <div className="grid w-full max-w-xl gap-3 sm:grid-cols-2">
         <Select label="Country" options={[{ value: 'US', label: 'United States' }]} value="US" disabled />
         <Select
           label="State"
@@ -134,6 +138,24 @@ export function AdminCurriculumPage() {
           onChange={(e) => { setPickedState(e.target.value); setOpenGrade(null); setOpenCurriculum(null); }}
           disabled={stateOptions.length === 0}
         />
+      </div>
+      {tab === 'state' && stateCode && draftCount > 0 && (
+        <Button
+          variant="outline"
+          loading={publishingState}
+          onClick={async () => {
+            const { confirmed } = await confirm({
+              title: `Publish all ${draftCount} drafts?`,
+              message: `Students in ${nameOf(stateCode)} will see every draft curriculum below straight away, and tutors can attach worksheets and assignments to them. Curricula already published are not changed.`,
+              confirmLabel: `Publish ${draftCount}`,
+              tone: 'primary',
+            });
+            if (confirmed) publishState(stateCode);
+          }}
+        >
+          <Eye className="h-3.5 w-3.5" /> Publish all drafts ({draftCount})
+        </Button>
+      )}
       </div>
 
       <Tabs
