@@ -112,6 +112,10 @@ export interface ImportReport {
   missingCitation: string[]; missingSourceUrl: string[]; duplicateSubjects: string[];
   highSchoolCourses: number; highSchoolMerged: string[];
   countyAdditions: number;
+  /** Subject names with no standard name; imported as written. */
+  unmappedSubjects: string[];
+  /** Blocks such as "Grade / Course Emphasis" that are not subjects; skipped. */
+  notSubjects: string[];
 }
 
 export interface ImportOptions {

@@ -9,8 +9,6 @@ import { ResourceModel } from '../resources/resource.model';
 import { AssignmentModel } from '../assignments/assignment.model';
 import { WorksheetModel } from '../worksheets/worksheet.model';
 import { GRADE_LIST } from '../students/student.validators';
-import { settingsService } from '../settings/settings.service';
-import { PLATFORM_SETTINGS_DEFAULTS } from '../settings/settings.model';
 
 /** Admin-only import metadata never sent to students. */
 const STUDENT_HIDDEN_FIELDS = { sourceKind: 0, createdByAdminPublicId: 0 } as const;
@@ -156,15 +154,11 @@ export class CurriculumService {
     return curriculum;
   }
 
-  /** State-based catalog: published curricula for a state, limited to subjects the admin has enabled.
+  /** State-based catalog: every published curriculum for a state (publishing is what makes one visible).
    *  High school is organised by course, not grade: Grade 9-12 students get the 'High School' curricula. */
   async listByState(filters: { stateCode: string; grade?: string; subject?: string }): Promise<{ curricula: ICurriculum[]; stateLoaded: boolean }> {
-    const { enabledSubjects } = await settingsService.get();
-    const enabled = enabledSubjects ?? [...PLATFORM_SETTINGS_DEFAULTS.enabledSubjects];
-    const subjects = filters.subject ? enabled.filter((s) => s === filters.subject) : enabled;
-    const filter: Record<string, unknown> = {
-      stateCode: filters.stateCode, isPublished: true, isDeleted: false, subject: { $in: subjects },
-    };
+    const filter: Record<string, unknown> = { stateCode: filters.stateCode, isPublished: true, isDeleted: false };
+    if (filters.subject) filter.subject = filters.subject;
     if (filters.grade) filter.grade = HIGH_SCHOOL_GRADES.has(filters.grade) ? HIGH_SCHOOL_GRADE : filters.grade;
     const curricula = await CurriculumModel.find(filter, STUDENT_HIDDEN_FIELDS).sort({ title: 1 }).limit(2000).lean();
     curricula.sort((a, b) => gradeRank(a.grade) - gradeRank(b.grade) || a.title.localeCompare(b.title));

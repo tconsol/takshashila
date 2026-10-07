@@ -140,6 +140,8 @@ export function CurriculumImportModal({ defaultState, onClose }: { defaultState?
             <Warnings title="Subjects with no chapters" items={report.emptySubjects} />
             <Warnings title="Chapters with no topics" items={report.emptyChapters} />
             <Warnings title="Subjects listed twice in one grade" items={report.duplicateSubjects} />
+            <Warnings title="Subject names kept as written (no standard name)" items={report.unmappedSubjects} />
+            <Warnings title="Skipped: not subjects" items={report.notSubjects} />
             <Warnings title="No source citation" items={report.missingCitation} />
             {done && <p className="text-xs text-gray-500">Imported curricula are drafts. Publish each one from the list when it is ready.</p>}
           </div>

@@ -6,6 +6,7 @@ import type { ParsedDoc, GradeLevel } from './curriculum-parser';
 import { parseSources, pickSource } from './sources-parser';
 import { parseCountyAdditions } from './county-parser';
 import { resolveCounty } from '../county-resolver';
+import { canonicalSubject } from './subject-names';
 
 export interface ImportFile { path: string; stateCode: string; kind: 'revised' | 'master'; /** only county additions are taken from this file */ countyOnly?: boolean }
 
@@ -20,6 +21,10 @@ export interface StateReport {
   /** Courses that appear in more than one high school grade, e.g. "Computer Science / Computer Science: grades 9,10,11,12". */
   highSchoolMerged: string[];
   countyAdditions: number; subjectsSeen: string[];
+  /** Subject names that match no standard name; imported as written. */
+  unmappedSubjects: string[];
+  /** Blocks such as "Grade / Course Emphasis" that are not subjects; skipped. */
+  notSubjects: string[];
   duplicateSubjects: string[];
 }
 
@@ -54,6 +59,7 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
     created: 0, updated: 0, unchanged: 0, skippedPublished: 0, chapters: 0, topics: 0,
     subjectsSkippedNotVerified: [], emptySubjects: [], emptyChapters: [], missingCitation: [], missingSourceUrl: [],
     highSchoolCourses: 0, highSchoolMerged: [], countyAdditions: 0, subjectsSeen: [], duplicateSubjects: [],
+    unmappedSubjects: [], notSubjects: [],
   };
   const plan: PlannedCurriculum[] = [];
   if (file.countyOnly) {
@@ -73,12 +79,16 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
       const label = s.courseName ? `${s.name} (${s.courseName})` : s.name;
       const where = `${g.grade} / ${label}`;
       seen.push(s.name);
+      const canon = canonicalSubject(s.name);
+      if (canon.notSubject) { report.notSubjects.push(where); continue; }
+      if (!canon.mapped && !report.unmappedSubjects.includes(s.name)) report.unmappedSubjects.push(s.name);
+      const subject = canon.name; // the standard spelling; s.name stays the document's own
       if (!s.chapters.length) { report.emptySubjects.push(where); continue; }
 
       const chapters = s.chapters.map((c) => ({ title: c.title, topics: [...c.topics] }));
       if (g.level === 'HIGH_SCHOOL') {
-        const courseName = s.courseName ?? s.name;
-        const hsKey = `${s.name}\u0000${courseName}`;
+        const courseName = s.courseName ?? subject;
+        const hsKey = `${subject}\u0000${courseName}`;
         const n = gradeNumber(g.grade);
         const hs = hsByKey.get(hsKey);
         if (hs) {
@@ -94,8 +104,8 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
         const merged: PlannedCurriculum['chapters'] = [];
         unionChapters(merged, chapters);
         const p: PlannedCurriculum = {
-          key: { stateCode: file.stateCode, subject: s.name, grade: HIGH_SCHOOL_GRADE, courseName },
-          title: courseName === s.name ? `${s.name} - ${HIGH_SCHOOL_GRADE}` : `${s.name} - ${courseName} - ${HIGH_SCHOOL_GRADE}`,
+          key: { stateCode: file.stateCode, subject, grade: HIGH_SCHOOL_GRADE, courseName },
+          title: courseName === subject ? `${subject} - ${HIGH_SCHOOL_GRADE}` : `${subject} - ${courseName} - ${HIGH_SCHOOL_GRADE}`,
           level: 'HIGH_SCHOOL',
           usualGrade: g.grade,
           ...(ref ? { source: { name: ref.name, year: ref.year, url: ref.url } } : {}),
@@ -106,7 +116,7 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
         continue;
       }
 
-      const mapKey = `${s.name}\u0000${s.courseName ?? ''}`;
+      const mapKey = `${subject}\u0000${s.courseName ?? ''}`;
       const dup = byKey.get(mapKey);
       if (dup) {
         dup.chapters.push(...chapters);
@@ -117,8 +127,8 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
       if (!ref) noCitation.push(s.name);
       else if (!ref.url) noUrl.push(s.name);
       const p: PlannedCurriculum = {
-        key: { stateCode: file.stateCode, subject: s.name, grade: g.grade, ...(s.courseName ? { courseName: s.courseName } : {}) },
-        title: `${s.name}${s.courseName ? ' - ' + s.courseName : ''} - ${g.grade}`,
+        key: { stateCode: file.stateCode, subject, grade: g.grade, ...(s.courseName ? { courseName: s.courseName } : {}) },
+        title: `${subject}${s.courseName ? ' - ' + s.courseName : ''} - ${g.grade}`,
         level: g.level,
         ...(ref ? { source: { name: ref.name, year: ref.year, url: ref.url } } : {}),
         chapters,
