@@ -8,7 +8,7 @@ import { EmptyState } from '../../components/shared/EmptyState';
 import { useMyEnrollments } from '../../hooks/use-programs';
 import { categoryLabel } from '../../constants/programs';
 
-export function MyProgramsSection() {
+export function MyProgramsSection({ showBrowseLink = true }: { showBrowseLink?: boolean }) {
   const { data = [] } = useMyEnrollments();
   const enrollments = data.filter((e) => e.status !== 'CANCELLED');
   return (
@@ -18,15 +18,17 @@ export function MyProgramsSection() {
           <CardTitle>My skill programs</CardTitle>
           <p className="mt-1 text-xs text-gray-500">Extracurricular programs you're taking</p>
         </div>
-        <Link to="/dashboard/student/skills" className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700">
-          Browse skills <ArrowUpRight className="h-3 w-3" />
-        </Link>
+        {showBrowseLink && (
+          <Link to="/dashboard/student/skills/browse" className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700">
+            Browse skills <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        )}
       </CardHeader>
       <CardContent>
         {enrollments.length === 0 ? (
           <EmptyState compact icon={<Sparkles className="h-6 w-6" />} title="No skill programs yet"
             description="Explore arts, chess, coding, AI and more."
-            action={<Link to="/dashboard/student/skills"><Button size="sm" variant="gradient">Browse skills</Button></Link>} />
+            action={<Link to="/dashboard/student/skills/browse"><Button size="sm" variant="gradient">Browse skills</Button></Link>} />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {enrollments.map((e) => {

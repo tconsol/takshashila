@@ -33,8 +33,8 @@ export function StudentProgramPage() {
 
   return (
     <div className="animate-fade-in">
-      <Link to="/dashboard/student/skills" className="mb-3 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
-        <ArrowLeft className="h-3.5 w-3.5" /> Skills
+      <Link to="/dashboard/student/skills/browse" className="mb-3 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+        <ArrowLeft className="h-3.5 w-3.5" /> Browse skills
       </Link>
       <PageHeader eyebrow={categoryLabel(program.category)} title={program.title}
         description={`with ${program.tutorName} · ${levelLabel(program.level)} · ${program.sessionCount} × ${program.sessionMinutes} min`}

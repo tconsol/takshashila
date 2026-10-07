@@ -16,8 +16,8 @@ export function StudentProgramEnrollmentPage() {
     <>
       <ProgramEnrollmentView
         enrollmentPublicId={enrollmentPublicId}
-        backTo="/dashboard"
-        backLabel="Dashboard"
+        backTo="/dashboard/student/skills"
+        backLabel="Skills"
         actions={active && (
           <Button variant="outline" loading={isPending} onClick={() => setConfirmOpen(true)}>Cancel enrollment</Button>
         )}

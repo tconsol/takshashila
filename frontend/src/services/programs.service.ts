@@ -61,8 +61,12 @@ export interface EnrollmentStructure {
   enrollment: {
     publicId: string; status: Enrollment['status']; sessionCount: number; sessionsScheduledCount: number;
     sessionsCompletedCount: number; availabilityWindow: AvailabilityWindow; tutorName: string; studentName: string;
+    priceCentsPaid: number; billing?: 'HELD'; createdAt: string;
   };
-  program: { publicId: string; title: string; category: string; level: string; sessionMinutes: number; modules: ProgramModule[] };
+  program: {
+    publicId: string; title: string; category: string; level: string; description?: string; ageMin?: number; ageMax?: number;
+    sessionCount: number; sessionMinutes: number; priceCents: number; modules: ProgramModule[];
+  };
   topics: StructureTopic[];
   otherClasses: ProgressClass[];
 }

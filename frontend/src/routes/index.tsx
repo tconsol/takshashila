@@ -130,6 +130,7 @@ import { ParentCurriculumPage } from '../pages/parent/ParentCurriculumPage';
 import { AdminCurriculumStructurePage } from '../pages/admin/AdminCurriculumStructurePage';
 import { AdminProgramsPage } from '../pages/admin/AdminProgramsPage';
 import { StudentSkillsPage } from '../pages/student/StudentSkillsPage';
+import { StudentBrowseSkillsPage } from '../pages/student/StudentBrowseSkillsPage';
 import { StudentProgramPage } from '../pages/student/StudentProgramPage';
 import { StudentProgramEnrollmentPage } from '../pages/student/StudentProgramEnrollmentPage';
 import { ParentProgramEnrollmentPage } from '../pages/parent/ParentProgramEnrollmentPage';
@@ -332,6 +333,7 @@ export const router = createBrowserRouter([
         { path: '/dashboard/student/courses', element: <StudentMyCoursesPage /> },
         { path: '/dashboard/student/courses/:coursePublicId', element: <StudentCourseProgressPage /> },
         { path: '/dashboard/student/skills', element: <StudentSkillsPage /> },
+        { path: '/dashboard/student/skills/browse', element: <StudentBrowseSkillsPage /> },
         { path: '/dashboard/student/skills/enrollments/:enrollmentPublicId', element: <StudentProgramEnrollmentPage /> },
         { path: '/dashboard/student/skills/:programPublicId', element: <StudentProgramPage /> },
       ],
