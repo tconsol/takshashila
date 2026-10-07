@@ -85,11 +85,14 @@ export function AdminCurriculumPage() {
   const { data: usStates = [] } = useUsStates();
   const { data: adminStates, isLoading: statesLoading } = useAdminStates();
 
-  // States that have curricula, alphabetical by name; the first one is selected until the admin picks another.
+  // The state picker lists every state; the first one that has curricula is selected until the admin picks another.
   const nameOf = (code: string) => usStates.find((s) => s.code === code)?.name ?? code;
-  const stateOptions = [...(adminStates ?? [])].sort((a, b) => nameOf(a.stateCode).localeCompare(nameOf(b.stateCode)));
+  // Every state can be picked; the ones that already have curricula show their counts.
+  const summaryByState = new Map((adminStates ?? []).map((s) => [s.stateCode, s]));
+  const stateOptions = [...usStates].sort((a, b) => a.name.localeCompare(b.name));
+  const firstWithCurricula = stateOptions.find((s) => summaryByState.has(s.code))?.code;
   const [pickedState, setPickedState] = useState<string | undefined>();
-  const stateCode = pickedState ?? stateOptions[0]?.stateCode;
+  const stateCode = pickedState ?? firstWithCurricula ?? stateOptions[0]?.code;
 
   const { data: curricula = [], isLoading } = useAdminOverview(stateCode);
   const { mutate: setPublished, isPending: publishing } = usePublishCurriculum();
@@ -133,7 +136,10 @@ export function AdminCurriculumPage() {
         <Select
           label="State"
           placeholder={statesLoading ? 'Loading…' : 'No curricula yet'}
-          options={stateOptions.map((s) => ({ value: s.stateCode, label: `${nameOf(s.stateCode)} (${s.published}/${s.total} published)` }))}
+          options={stateOptions.map((s) => {
+            const sum = summaryByState.get(s.code);
+            return { value: s.code, label: sum ? `${s.name} (${sum.published}/${sum.total} published)` : `${s.name} (no curricula yet)` };
+          })}
           value={stateCode ?? ''}
           onChange={(e) => { setPickedState(e.target.value); setOpenGrade(null); setOpenCurriculum(null); }}
           disabled={stateOptions.length === 0}
