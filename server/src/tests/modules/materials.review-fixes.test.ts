@@ -11,6 +11,8 @@ import { WorksheetModel, WorksheetSubmissionModel } from '../../modules/workshee
 import { assignmentService } from '../../modules/assignments/assignment.service';
 import { AssignmentModel, SubmissionModel } from '../../modules/assignments/assignment.model';
 import { ScheduledClassModel } from '../../modules/schedules/schedule.model';
+import { CurriculumModel } from '../../modules/curricula/curriculum.model';
+import { UserModel } from '../../modules/users/user.model';
 
 const lean = (v: unknown) => ({ lean: () => Promise.resolve(v) });
 const sortLean = (v: unknown) => ({ sort: () => lean(v) });
@@ -30,10 +32,30 @@ describe('review fixes', () => {
     );
   });
 
-  it('I1: a student cannot load the structure of their PENDING course', async () => {
-    jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean({ publicId: 'c-1', studentPublicId: 'sp-1', tutorPublicId: 'tp-A', status: 'PENDING' }) as never);
+  it('I1: a student can open their PENDING course, but no materials are loaded until the tutor accepts', async () => {
+    const course = {
+      publicId: 'c-1', studentPublicId: 'sp-1', tutorPublicId: 'tp-A', curriculumPublicId: 'cur-1',
+      topicPublicIds: ['t-1'], status: 'PENDING', classesScheduledCount: 0, classesCompletedCount: 0,
+    };
+    jest.spyOn(CourseModel, 'findOne').mockReturnValue(lean(course) as never);
     jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'sp-1' }) as never);
-    await expect(courseService.getStructure('c-1', { role: 'STUDENT', userPublicId: 'su-1' })).rejects.toMatchObject({ statusCode: 404 });
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(TutorProfileModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(CurriculumModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(CurriculumModel, 'findOne').mockReturnValue(lean({
+      publicId: 'cur-1', title: 'Cur', subject: 'Science', grade: 'Grade 1',
+      topics: [{ publicId: 't-1', title: 'Topic', order: 0 }],
+    }) as never);
+    jest.spyOn(ScheduledClassModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(UserModel, 'find').mockReturnValue(lean([]) as never);
+    const materials = jest.spyOn(ResourceModel, 'find');
+
+    const res = await courseService.getStructure('c-1', { role: 'STUDENT', userPublicId: 'su-1' });
+
+    expect(res.viewerRole).toBe('STUDENT');
+    expect(res.course.status).toBe('PENDING');
+    expect(res.topics[0].materials).toEqual([]);
+    expect(materials).not.toHaveBeenCalled();
   });
 
   it('I2: a principal (tutor profile) opens their own curriculum item', async () => {
