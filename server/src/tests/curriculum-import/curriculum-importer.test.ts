@@ -66,7 +66,7 @@ describe('applyImport with mocked models', () => {
     expect(createSpy).toHaveBeenCalledTimes(1);
     expect(createSpy.mock.calls[0][0]).toMatchObject({ isPublished: false, createdByAdminPublicId: 'system:curriculum-import', sourceKind: 'revised', stateCode: 'CO' });
     expect(real).toEqual(dry);
-    expect(real).toMatchObject({ created: 1, updated: 0, unchanged: 0, chapters: 1, topics: 2, subjectsSkippedNotVerified: ['Grade 2 / Dance'], emptySubjects: ['Grade 2 / Art'], highSchoolCourses: 0, highSchoolMerged: [], missingCitation: [], missingSourceUrl: [] });
+    expect(real).toMatchObject({ created: 1, updated: 0, unchanged: 0, chapters: 1, topics: 2, subjectsSkippedNotVerified: [], emptySubjects: ['Grade 2 / Dance', 'Grade 2 / Art'], highSchoolCourses: 0, highSchoolMerged: [], missingCitation: [], missingSourceUrl: [] });
   });
 
   it('unchanged when identical; updated preserves ids; published is skipped', async () => {
@@ -207,7 +207,7 @@ describe('high school courses', () => {
     const rep = await applyImport(file, hsDoc(), { commit: true });
     expect(rep.highSchoolCourses).toBe(3);
     expect(rep.highSchoolMerged).toEqual(['Computer Science / Computer Science: grades 9,10,12']);
-    expect(rep.subjectsSkippedNotVerified).toEqual(['Grade 9 / Dance']);
+    expect(rep.emptySubjects).toEqual(['Grade 9 / Dance']);
     expect(rep.created).toBe(4);
     const created = createSpy.mock.calls.map((c) => c[0] as any);
     expect(created.find((c) => c.subject === 'Computer Science')).toMatchObject({

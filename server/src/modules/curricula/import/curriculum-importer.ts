@@ -73,7 +73,6 @@ function buildPlan(file: ImportFile, doc: ParsedDoc) {
       const label = s.courseName ? `${s.name} (${s.courseName})` : s.name;
       const where = `${g.grade} / ${label}`;
       seen.push(s.name);
-      if (s.notVerified) { report.subjectsSkippedNotVerified.push(where); continue; }
       if (!s.chapters.length) { report.emptySubjects.push(where); continue; }
 
       const chapters = s.chapters.map((c) => ({ title: c.title, topics: [...c.topics] }));
