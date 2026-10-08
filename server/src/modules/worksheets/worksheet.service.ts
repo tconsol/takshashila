@@ -129,14 +129,16 @@ export class WorksheetService {
     return buildPaginatedResult(enriched, total, page, limit);
   }
 
+  /** `studentPublicIds`: every profile of the student (one per tutor link). */
   async getForStudent(
-    studentPublicId: string,
+    studentPublicIds: string | string[],
     query: PaginationQuery & { type?: string },
   ): Promise<PaginatedResult<IWorksheet & { mySubmission?: IWorksheetSubmission }>> {
+    const ids = toIds(studentPublicIds);
     const { page, limit, skip } = parsePaginationQuery(query);
     const filter: Record<string, unknown> = {
       $or: [
-        { assignedToStudentPublicIds: studentPublicId },
+        { assignedToStudentPublicIds: anyOf(ids) },
         { assignedToStudentPublicIds: { $size: 0 } },
       ],
       status: WorksheetStatus.PUBLISHED,
@@ -145,7 +147,7 @@ export class WorksheetService {
       authorRole: { $ne: 'ADMIN' },
     };
     if (query.type) filter.type = query.type;
-    filter.$and = [await access.studentMaterialScope(studentPublicId, 'worksheet')];
+    filter.$and = [await access.studentMaterialScope(ids, 'worksheet')];
 
     const [items, total] = await Promise.all([
       WorksheetModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -156,7 +158,7 @@ export class WorksheetService {
     const worksheetPublicIds = items.map((w) => w.publicId);
     const submissions = await WorksheetSubmissionModel.find({
       worksheetPublicId: { $in: worksheetPublicIds },
-      studentPublicId,
+      studentPublicId: anyOf(ids),
       isDeleted: false,
     }).lean();
 
@@ -183,10 +185,15 @@ export class WorksheetService {
     if (!result) throw new NotFoundError('Worksheet not found');
   }
 
+  /**
+   * `allStudentPublicIds`: every profile of the student, so a worksheet can't be
+   * submitted twice through two tutor links. Defaults to `studentPublicId` alone.
+   */
   async submitAnswers(
     worksheetPublicId: string,
     studentPublicId: string,
     dto: SubmitWorksheetDto,
+    allStudentPublicIds: string[] = [studentPublicId],
   ): Promise<IWorksheetSubmission> {
     const worksheet = await WorksheetModel.findOne({
       publicId: worksheetPublicId,
@@ -197,7 +204,7 @@ export class WorksheetService {
 
     const existing = await WorksheetSubmissionModel.findOne({
       worksheetPublicId,
-      studentPublicId,
+      studentPublicId: anyOf(allStudentPublicIds),
       isDeleted: false,
     }).lean();
     if (existing) throw new ConflictError('You have already submitted this worksheet');
@@ -252,31 +259,55 @@ export class WorksheetService {
 
   async getMySubmission(
     worksheetPublicId: string,
-    studentPublicId: string,
+    studentPublicIds: string | string[],
   ): Promise<IWorksheetSubmission | null> {
     return WorksheetSubmissionModel.findOne({
       worksheetPublicId,
-      studentPublicId,
+      studentPublicId: anyOf(toIds(studentPublicIds)),
       isDeleted: false,
     }).lean();
   }
 
-  async countUnsubmittedForStudent(studentPublicId: string): Promise<number> {
+  /**
+   * Which of the student's profiles a submission belongs to: the one the worksheet
+   * was addressed to, else the one linked to its tutor (or, for curriculum items,
+   * the one with the grading course), else the first.
+   */
+  async pickStudentProfileFor(
+    worksheet: IWorksheet,
+    profiles: { publicId: string; tutorPublicId?: string }[],
+  ): Promise<string | undefined> {
+    const assigned = profiles.find((p) => worksheet.assignedToStudentPublicIds?.includes(p.publicId));
+    if (assigned) return assigned.publicId;
+    if (worksheet.authorRole === 'ADMIN') {
+      for (const p of profiles) {
+        if (await access.findGraderTutor(p.publicId, worksheet)) return p.publicId;
+      }
+    }
+    return (profiles.find((p) => p.tutorPublicId && p.tutorPublicId === worksheet.tutorPublicId) ?? profiles[0])?.publicId;
+  }
+
+  async countUnsubmittedForStudent(studentPublicIds: string | string[]): Promise<number> {
+    const ids = toIds(studentPublicIds);
     // Same scope as getForStudent, so the badge matches the Homework list.
     const filter = {
       $or: [
-        { assignedToStudentPublicIds: studentPublicId },
+        { assignedToStudentPublicIds: anyOf(ids) },
         { assignedToStudentPublicIds: { $size: 0 } },
       ],
       status: WorksheetStatus.PUBLISHED,
       isDeleted: false,
       authorRole: { $ne: 'ADMIN' },
-      $and: [await access.studentMaterialScope(studentPublicId, 'worksheet')],
+      $and: [await access.studentMaterialScope(ids, 'worksheet')],
     };
     const total = await WorksheetModel.countDocuments(filter);
-    const submitted = await WorksheetSubmissionModel.countDocuments({ studentPublicId, isDeleted: false });
+    const submitted = await WorksheetSubmissionModel.countDocuments({ studentPublicId: anyOf(ids), isDeleted: false });
     return Math.max(0, total - submitted);
   }
 }
+
+const toIds = (v: string | string[]) => (Array.isArray(v) ? v : [v]);
+// A query value matching any of `ids` (a plain value when there is just one).
+const anyOf = (ids: string[]) => (ids.length === 1 ? ids[0] : { $in: ids });
 
 export const worksheetService = new WorksheetService();

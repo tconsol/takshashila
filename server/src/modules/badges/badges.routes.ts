@@ -15,6 +15,7 @@ import { TicketStatus } from '../support/support.types';
 import { chatService } from '../chat/chat.service';
 import { WorksheetModel, WorksheetSubmissionModel } from '../worksheets/worksheet.model';
 import { WorksheetStatus } from '../worksheets/worksheet.types';
+import { worksheetService } from '../worksheets/worksheet.service';
 import { ScheduledClassModel } from '../schedules/schedule.model';
 import { ClassStatus } from '../schedules/schedule.types';
 import { AssignmentModel, SubmissionModel } from '../assignments/assignment.model';
@@ -136,20 +137,13 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
         { publicId: 1, tutorPublicId: 1 },
       ).lean();
       if (studentProfile) {
-        const filter = {
-          $or: [
-            { assignedToStudentPublicIds: studentProfile.publicId },
-            { assignedToStudentPublicIds: { $size: 0 } },
-          ],
-          status: WorksheetStatus.PUBLISHED,
-          isDeleted: false,
-        };
-        const totalAssigned = await WorksheetModel.countDocuments(filter);
-        const submitted = await WorksheetSubmissionModel.countDocuments({
-          studentPublicId: studentProfile.publicId,
-          isDeleted: false,
-        });
-        const pending = Math.max(0, totalAssigned - submitted);
+        // Same scope as the Homework list (all of the student's tutor links), so the badge
+        // never counts work the student can't see.
+        const profileIds = (await StudentProfileModel.find(
+          { userPublicId: publicId, isDeleted: false },
+          { publicId: 1 },
+        ).lean()).map((p) => p.publicId);
+        const pending = await worksheetService.countUnsubmittedForStudent(profileIds);
         if (pending > 0) badges['worksheets'] = pending;
 
         const openClasses = await ScheduledClassModel.countDocuments({

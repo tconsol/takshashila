@@ -91,6 +91,7 @@ describe('review fixes', () => {
     expect((wFind.mock.calls[0] as unknown as [Record<string, unknown>])[0].$and).toEqual([{ $or: [
       { curriculumPublicId: { $exists: false }, assignedToStudentPublicIds: 'sp-1' },
       { curriculumPublicId: { $exists: false }, tutorPublicId: { $in: [] } },
+      { assignedToStudentPublicIds: 'sp-1', tutorPublicId: { $in: [] }, authorRole: { $ne: 'ADMIN' } },
     ] }]);
 
     const rFind = jest.spyOn(ResourceModel, 'find').mockReturnValue({ sort: () => ({ skip: () => ({ limit: () => lean([]) }) }) } as never);

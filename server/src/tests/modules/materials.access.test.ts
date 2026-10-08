@@ -48,7 +48,7 @@ describe('canViewMaterial', () => {
   });
 
   it('a student needs an ACCEPTED/COMPLETED course with the item tutor for tutor items', async () => {
-    jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'sp-1' }) as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([{ publicId: 'sp-1' }]) as never);
     const exists = jest.spyOn(CourseModel, 'exists').mockResolvedValue(null as never);
     expect(await canViewMaterial({ role: 'STUDENT', userPublicId: 'su-1' }, tutorItem)).toBe(false);
     expect(exists).toHaveBeenCalledWith(expect.objectContaining({
@@ -57,7 +57,7 @@ describe('canViewMaterial', () => {
   });
 
   it('a student with an active course sees admin items regardless of tutor', async () => {
-    jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'sp-1' }) as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([{ publicId: 'sp-1' }]) as never);
     const exists = jest.spyOn(CourseModel, 'exists').mockResolvedValue({ _id: 'x' } as never);
     expect(await canViewMaterial({ role: 'STUDENT', userPublicId: 'su-1' }, adminItem)).toBe(true);
     expect((exists.mock.calls[0] as unknown as [Record<string, unknown>])[0]).not.toHaveProperty('tutorPublicId');

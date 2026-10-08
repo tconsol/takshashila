@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import type { MyDataExport } from '../../lib/my-data-pdf';
 
 interface DeletionCheck {
   canDelete: boolean;
@@ -39,13 +40,9 @@ export function PrivacyControls() {
     setMessage(null);
     try {
       const res = await api.get('/users/me/export');
-      const blob = new Blob([JSON.stringify(res.data.data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `brainbaseedu-my-data-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      // Loaded on demand so the PDF library isn't in the main bundle
+      const { downloadMyDataPdf } = await import('../../lib/my-data-pdf');
+      downloadMyDataPdf(res.data.data as MyDataExport);
       setMessage({ type: 'ok', text: 'Your data was downloaded.' });
     } catch (e) {
       setMessage({ type: 'error', text: errorText(e, 'Could not download your data.') });

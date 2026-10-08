@@ -49,10 +49,14 @@ const courseScope = (m: MaterialLike) => ({
   isDeleted: false,
 });
 
+// A query value matching any of `ids` (a plain value when there is just one).
+const anyOf = (ids: string[]) => (ids.length === 1 ? ids[0] : { $in: ids });
+
 async function studentIdsFor(viewer: Viewer): Promise<string[]> {
   if (viewer.role === 'STUDENT') {
-    const s = await StudentProfileModel.findOne({ userPublicId: viewer.userPublicId, isDeleted: false }).lean();
-    return s ? [s.publicId] : [];
+    // A student has one profile per tutor link; material from any of those tutors is theirs.
+    const profiles = await StudentProfileModel.find({ userPublicId: viewer.userPublicId, isDeleted: false }, { publicId: 1 }).lean();
+    return profiles.map((p) => p.publicId);
   }
   if (viewer.role === 'PARENT') {
     const p = await ParentProfileModel.findOne({ userPublicId: viewer.userPublicId, isDeleted: false }).lean();
@@ -78,6 +82,13 @@ async function canViewLegacy(viewer: Viewer, m: MaterialLike, kind?: MaterialKin
   return !!m.tutorPublicId && (await tutorIdsForStudents(studentIds)).includes(m.tutorPublicId);
 }
 
+/** A tutor-authored worksheet explicitly addressed to one of these students, by one of their tutors. */
+async function isAssignedByTheirTutor(studentIds: string[], m: MaterialLike): Promise<boolean> {
+  if (m.authorRole === 'ADMIN' || !m.tutorPublicId) return false;
+  if (!m.assignedToStudentPublicIds?.some((id) => studentIds.includes(id))) return false;
+  return (await tutorIdsForStudents(studentIds)).includes(m.tutorPublicId);
+}
+
 export async function canViewMaterial(viewer: Viewer, m: MaterialLike, kind?: MaterialKind): Promise<boolean> {
   if (isAdmin(viewer)) return true;
   if (!m.curriculumPublicId) return canViewLegacy(viewer, m, kind);
@@ -92,6 +103,8 @@ export async function canViewMaterial(viewer: Viewer, m: MaterialLike, kind?: Ma
   if (viewer.role === 'STUDENT' || viewer.role === 'PARENT') {
     const studentIds = await studentIdsFor(viewer);
     if (studentIds.length === 0) return false;
+    // A tutor's worksheet addressed to this student is theirs, whether or not a course covers its topic.
+    if (kind === 'worksheet' && (await isAssignedByTheirTutor(studentIds, m))) return true;
     const filter: Record<string, unknown> = { studentPublicId: { $in: studentIds }, ...courseScope(m) };
     if (m.authorRole !== 'ADMIN') filter.tutorPublicId = m.tutorPublicId;
     return !!(await CourseModel.exists(filter));
@@ -106,19 +119,25 @@ export async function canViewMaterial(viewer: Viewer, m: MaterialLike, kind?: Ma
  * items only where the student has an active course with that tutor on that curriculum
  * sharing a topic. Admin items are reached via the course structure only.
  */
-export async function studentMaterialScope(studentPublicId: string, kind: 'worksheet' | 'resource'): Promise<Record<string, unknown>> {
+export async function studentMaterialScope(studentPublicIds: string | string[], kind: 'worksheet' | 'resource'): Promise<Record<string, unknown>> {
+  // Pass every profile of the student (one per tutor link) so material from all their tutors shows.
+  const ids = Array.isArray(studentPublicIds) ? studentPublicIds : [studentPublicIds];
   const [courses, tutorIds] = await Promise.all([
     CourseModel.find(
-      { studentPublicId, status: { $in: ACTIVE_COURSE_STATUSES }, isDeleted: false },
+      { studentPublicId: anyOf(ids), status: { $in: ACTIVE_COURSE_STATUSES }, isDeleted: false },
       { curriculumPublicId: 1, tutorPublicId: 1, topicPublicIds: 1 },
     ).lean(),
-    tutorIdsForStudents([studentPublicId]),
+    tutorIdsForStudents(ids),
   ]);
   const legacy = { curriculumPublicId: { $exists: false } };
   return {
     $or: [
-      ...(kind === 'worksheet' ? [{ ...legacy, assignedToStudentPublicIds: studentPublicId }] : []),
+      ...(kind === 'worksheet' ? [{ ...legacy, assignedToStudentPublicIds: anyOf(ids) }] : []),
       { ...legacy, tutorPublicId: { $in: tutorIds } },
+      // Worksheets a tutor addressed to this student show up even without a matching course.
+      ...(kind === 'worksheet'
+        ? [{ assignedToStudentPublicIds: anyOf(ids), tutorPublicId: { $in: tutorIds }, authorRole: { $ne: 'ADMIN' } }]
+        : []),
       ...courses.map((c) => ({
         curriculumPublicId: c.curriculumPublicId,
         tutorPublicId: c.tutorPublicId,

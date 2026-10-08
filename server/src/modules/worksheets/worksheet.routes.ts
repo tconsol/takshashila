@@ -8,7 +8,10 @@ import { worksheetService } from './worksheet.service';
 import { tutorService } from '../tutors/tutor.service';
 import { studentService } from '../students/student.service';
 import { assertCanViewMaterial } from '../courses/assert-material-access';
+import { canViewMaterial } from '../courses/material-access';
+import { notificationService } from '../notifications/notification.service';
 import { sendSuccess, sendCreated, sendPaginated } from '../../utils/response';
+import { NotFoundError } from '../../utils/error';
 import { getIO } from '../../sockets/socket.handler';
 import { realtime } from '../realtime/realtime.service';
 import { StudentProfileModel } from '../students/student.model';
@@ -24,21 +27,40 @@ router.post('/', requireRole(Role.TUTOR, Role.PRINCIPAL), async (req: AuthReques
     const tutor = await tutorService.getByUserPublicId(req.user!.publicId);
     const worksheet = await worksheetService.create(tutor, req.body);
 
-    // Notify assigned students (or all students of this tutor) via socket
+    // Tell the students it was given to: a live alert plus a saved notification.
+    // Assignments hold student profile ids; notifications and sockets are addressed by user id.
+    // Only students who can actually open it are told, so an alert never leads to an empty list.
     try {
-      const studentPublicIds = worksheet.assignedToStudentPublicIds.length > 0
-        ? worksheet.assignedToStudentPublicIds
-        : (await StudentProfileModel.find({ tutorPublicId: tutor.publicId, isDeleted: false }, { userPublicId: 1 }).lean()).map((s) => s.userPublicId);
+      const studentUserPublicIds = [...new Set((await StudentProfileModel.find(
+        worksheet.assignedToStudentPublicIds.length > 0
+          ? { publicId: { $in: worksheet.assignedToStudentPublicIds }, isDeleted: false }
+          : { tutorPublicId: tutor.publicId, isDeleted: false },
+        { userPublicId: 1 },
+      ).lean()).map((s) => s.userPublicId))];
 
-      for (const spid of studentPublicIds) {
-        void realtime.emitTo(`user:${spid}`, 'worksheet:new', {
+      const recipients: string[] = [];
+      for (const uid of studentUserPublicIds) {
+        if (await canViewMaterial({ role: 'STUDENT', userPublicId: uid }, worksheet, 'worksheet')) recipients.push(uid);
+      }
+
+      const label = worksheet.type === 'ASSIGNMENT' ? 'assignment' : 'worksheet';
+      await Promise.all(recipients.map((uid) => notificationService.create({
+        recipientPublicId: uid,
+        type: 'ASSIGNMENT_PUBLISHED',
+        title: `New ${label}: ${worksheet.title}`,
+        body: `Your tutor assigned you a new ${label}${worksheet.subject ? ` in ${worksheet.subject}` : ''}.${worksheet.dueDate ? ` Due ${new Date(worksheet.dueDate).toDateString()}.` : ''}`,
+        data: { worksheetPublicId: worksheet.publicId, link: '/dashboard/student/worksheets' },
+      }).catch(() => undefined)));
+
+      for (const uid of recipients) {
+        void realtime.emitTo(`user:${uid}`, 'worksheet:new', {
           worksheetPublicId: worksheet.publicId,
           title: worksheet.title,
           type: worksheet.type,
           subject: worksheet.subject,
         });
       }
-    } catch { /* socket notify is best-effort */ }
+    } catch { /* notifying is best-effort */ }
 
     sendCreated(res, worksheet, `${worksheet.type === 'ASSIGNMENT' ? 'Assignment' : 'Worksheet'} created`);
   } catch (e) { next(e); }
@@ -99,8 +121,10 @@ router.get('/:worksheetId/submissions', requireRole(Role.TUTOR, Role.PRINCIPAL),
 
 router.get('/student/me', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const student = await studentService.getByUserPublicId(req.user!.publicId);
-    const result = await worksheetService.getForStudent(student.publicId, req.query as Record<string, string>);
+    // A student has one profile per tutor link: list worksheets from every linked tutor.
+    const profileIds = await studentService.getProfileIdsByUser(req.user!.publicId);
+    if (profileIds.length === 0) throw new NotFoundError('Student profile');
+    const result = await worksheetService.getForStudent(profileIds, req.query as Record<string, string>);
     sendPaginated(res, result, 'Worksheets fetched');
   } catch (e) { next(e); }
 });
@@ -109,12 +133,21 @@ router.get('/student/me', requireRole(Role.STUDENT), async (req: AuthRequest, re
 
 router.post('/:worksheetId/submit', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await assertCanViewMaterial(req.user!, await worksheetService.getByPublicId(req.params.worksheetId), 'worksheet');
-    const student = await studentService.getByUserPublicId(req.user!.publicId);
+    const target = await worksheetService.getByPublicId(req.params.worksheetId);
+    await assertCanViewMaterial(req.user!, target, 'worksheet');
+    // Record the submission on the profile linked to this worksheet's tutor, so it shows in their list.
+    const profiles = await StudentProfileModel.find(
+      { userPublicId: req.user!.publicId, isDeleted: false },
+      { publicId: 1, tutorPublicId: 1 },
+    ).lean();
+    const studentPublicId = await worksheetService.pickStudentProfileFor(target, profiles);
+    if (!studentPublicId) throw new NotFoundError('Student profile');
+    const student = { publicId: studentPublicId };
     const submission = await worksheetService.submitAnswers(
       req.params.worksheetId,
       student.publicId,
       req.body,
+      profiles.map((p) => p.publicId),
     );
 
     // Notify tutor via socket
@@ -144,8 +177,9 @@ router.post('/:worksheetId/submit', requireRole(Role.STUDENT), async (req: AuthR
 
 router.get('/:worksheetId/my-submission', requireRole(Role.STUDENT), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const student = await studentService.getByUserPublicId(req.user!.publicId);
-    const submission = await worksheetService.getMySubmission(req.params.worksheetId, student.publicId);
+    const profileIds = await studentService.getProfileIdsByUser(req.user!.publicId);
+    if (profileIds.length === 0) throw new NotFoundError('Student profile');
+    const submission = await worksheetService.getMySubmission(req.params.worksheetId, profileIds);
     sendSuccess(res, submission, 'Submission fetched');
   } catch (e) { next(e); }
 });

@@ -79,6 +79,24 @@ describe('legacy material access', () => {
 describe('studentMaterialScope with legacy scoping', () => {
   afterEach(() => jest.restoreAllMocks());
 
+  it('a student linked to two tutors (one profile each) sees worksheets from both', async () => {
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([
+      { publicId: 'sp-1', tutorPublicId: 'tp-A' },
+      { publicId: 'sp-2', tutorPublicId: 'tp-B' },
+    ]) as never);
+    jest.spyOn(ScheduledClassModel, 'distinct').mockResolvedValue([] as never);
+    jest.spyOn(CourseModel, 'find').mockReturnValue(lean([]) as never);
+    expect(await studentMaterialScope(['sp-1', 'sp-2'], 'worksheet')).toEqual({
+      $or: [
+        { curriculumPublicId: { $exists: false }, assignedToStudentPublicIds: { $in: ['sp-1', 'sp-2'] } },
+        { curriculumPublicId: { $exists: false }, tutorPublicId: { $in: ['tp-A', 'tp-B'] } },
+        { assignedToStudentPublicIds: { $in: ['sp-1', 'sp-2'] }, tutorPublicId: { $in: ['tp-A', 'tp-B'] }, authorRole: { $ne: 'ADMIN' } },
+      ],
+    });
+    // Opening a worksheet assigned to the second profile works too.
+    expect(await canViewMaterial(student, { tutorPublicId: 'tp-B', assignedToStudentPublicIds: ['sp-2'] }, 'worksheet')).toBe(true);
+  });
+
   it('worksheets: legacy items assigned to the student or from their tutors, plus active-course curriculum items', async () => {
     studentWithTutor('tp-A', ['tp-C']);
     jest.spyOn(CourseModel, 'find').mockReturnValue(lean([]) as never);
@@ -86,6 +104,7 @@ describe('studentMaterialScope with legacy scoping', () => {
       $or: [
         { curriculumPublicId: { $exists: false }, assignedToStudentPublicIds: 'sp-1' },
         { curriculumPublicId: { $exists: false }, tutorPublicId: { $in: ['tp-A', 'tp-C'] } },
+        { assignedToStudentPublicIds: 'sp-1', tutorPublicId: { $in: ['tp-A', 'tp-C'] }, authorRole: { $ne: 'ADMIN' } },
       ],
     });
   });
@@ -104,9 +123,9 @@ describe('canViewClass', () => {
 
   it('allows the class student, their parents, the class tutor and admins only', async () => {
     jest.spyOn(ScheduledClassModel, 'findOne').mockReturnValue(lean({ publicId: 'k-1', studentPublicId: 'sp-1', tutorPublicId: 'tp-A' }) as never);
-    jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'sp-1' }) as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([{ publicId: 'sp-1' }]) as never);
     expect(await canViewClass(student, 'k-1')).toBe(true);
-    jest.spyOn(StudentProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'sp-9' }) as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([{ publicId: 'sp-9' }]) as never);
     expect(await canViewClass(student, 'k-1')).toBe(false);
     jest.spyOn(TutorProfileModel, 'findOne').mockReturnValue(lean({ publicId: 'tp-A' }) as never);
     expect(await canViewClass({ role: 'TUTOR', userPublicId: 'tu' }, 'k-1')).toBe(true);
@@ -181,5 +200,31 @@ describe('routes', () => {
   it('GET /assignments/class/:id 404s for a student not in the class', async () => {
     jest.spyOn(access, 'canViewClass').mockResolvedValue(false);
     expect((await request(app).get('/api/v1/assignments/class/k-1')).status).toBe(404);
+  });
+});
+
+describe('worksheet addressed to one student', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  // The upload form always attaches a curriculum + topics, so these are curriculum items.
+  const item = { tutorPublicId: 'tp-A', curriculumPublicId: 'cur-1', topicPublicIds: ['t-1'], authorRole: 'TUTOR' as const, assignedToStudentPublicIds: ['sp-1'] };
+
+  it('is visible to that student even with no course on its topic', async () => {
+    studentWithTutor('tp-A');
+    const exists = jest.spyOn(CourseModel, 'exists').mockResolvedValue(null as never);
+    expect(await canViewMaterial(student, item, 'worksheet')).toBe(true);
+    expect(exists).not.toHaveBeenCalled();
+  });
+
+  it('is not visible to a different student of the same tutor (falls back to the course rule)', async () => {
+    studentWithTutor('tp-A');
+    jest.spyOn(CourseModel, 'exists').mockResolvedValue(null as never);
+    expect(await canViewMaterial(student, { ...item, assignedToStudentPublicIds: ['sp-9'] }, 'worksheet')).toBe(false);
+  });
+
+  it('is not granted when the worksheet is not from one of the student\'s tutors', async () => {
+    studentWithTutor('tp-OTHER');
+    jest.spyOn(CourseModel, 'exists').mockResolvedValue(null as never);
+    expect(await canViewMaterial(student, item, 'worksheet')).toBe(false);
   });
 });

@@ -43,6 +43,7 @@ describe('minor review fixes', () => {
       $and: [{ $or: [
         { curriculumPublicId: { $exists: false }, assignedToStudentPublicIds: 'sp-1' },
         { curriculumPublicId: { $exists: false }, tutorPublicId: { $in: [] } },
+        { assignedToStudentPublicIds: 'sp-1', tutorPublicId: { $in: [] }, authorRole: { $ne: 'ADMIN' } },
       ] }],
     }));
   });
@@ -100,5 +101,30 @@ describe('minor review fixes', () => {
     const findOne = jest.spyOn(ParentProfileModel, 'findOne').mockReturnValue(lean(null) as never);
     await canViewMaterial({ role: 'PARENT', userPublicId: 'pu-1' }, adminItem as never);
     expect(findOne).toHaveBeenCalledWith({ userPublicId: 'pu-1', isDeleted: false });
+  });
+});
+
+describe('homework badge', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('counts only work the student can see, across all of their tutor links', async () => {
+    jest.spyOn(CourseModel, 'find').mockReturnValue(lean([]) as never);
+    jest.spyOn(StudentProfileModel, 'find').mockReturnValue(lean([
+      { publicId: 'sp-1', tutorPublicId: 'tp-A' },
+      { publicId: 'sp-2', tutorPublicId: 'tp-B' },
+    ]) as never);
+    jest.spyOn(ScheduledClassModel, 'distinct').mockResolvedValue([] as never);
+    const count = jest.spyOn(WorksheetModel, 'countDocuments').mockResolvedValue(3 as never);
+    jest.spyOn(WorksheetSubmissionModel, 'countDocuments').mockResolvedValue(1 as never);
+    // Same function the badge route calls, with every profile of the student.
+    expect(await worksheetService.countUnsubmittedForStudent(['sp-1', 'sp-2'])).toBe(2);
+    expect(count).toHaveBeenCalledWith(expect.objectContaining({
+      $or: [{ assignedToStudentPublicIds: { $in: ['sp-1', 'sp-2'] } }, { assignedToStudentPublicIds: { $size: 0 } }],
+      $and: [{ $or: [
+        { curriculumPublicId: { $exists: false }, assignedToStudentPublicIds: { $in: ['sp-1', 'sp-2'] } },
+        { curriculumPublicId: { $exists: false }, tutorPublicId: { $in: ['tp-A', 'tp-B'] } },
+        { assignedToStudentPublicIds: { $in: ['sp-1', 'sp-2'] }, tutorPublicId: { $in: ['tp-A', 'tp-B'] }, authorRole: { $ne: 'ADMIN' } },
+      ] }],
+    }));
   });
 });
