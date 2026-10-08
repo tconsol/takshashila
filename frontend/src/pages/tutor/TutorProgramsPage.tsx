@@ -1,7 +1,7 @@
 // frontend/src/pages/tutor/TutorProgramsPage.tsx
 import { useConfirm } from '../../hooks/use-confirm';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, Plus, Eye, Archive, Trash2, Pencil, Upload } from 'lucide-react';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
@@ -23,8 +23,10 @@ const TABS = [
 ];
 
 export function TutorProgramsPage() {
-  const [tab, setTab] = useState('PUBLISHED');
-  const [creating, setCreating] = useState(false);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab');
+  const [tab, setTab] = useState(TABS.some((t) => t.key === initialTab) ? initialTab! : 'PUBLISHED');
   const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<Program | null>(null);
   const { data: programs = [], isLoading } = useMyPrograms();
@@ -44,12 +46,11 @@ export function TutorProgramsPage() {
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setImporting(true)}><Upload className="h-3.5 w-3.5" /> Upload CSV</Button>
-            <Button variant="gradient" onClick={() => { setEditing(null); setCreating(true); }}><Plus className="h-3.5 w-3.5" /> New program</Button>
+            <Button variant="gradient" onClick={() => navigate('/dashboard/tutor/programs/new')}><Plus className="h-3.5 w-3.5" /> New program</Button>
           </div>
         }
       />
       <ProgramCsvImportModal open={importing} onClose={() => setImporting(false)} onDone={() => setImporting(false)} />
-      {creating && <ProgramForm onDone={() => setCreating(false)} />}
       {editing && <ProgramForm key={editing.publicId} program={editing} onDone={() => setEditing(null)} />}
       <Tabs className="mb-4" tabs={TABS} activeTab={tab} onChange={setTab} />
       {isLoading ? (
@@ -59,7 +60,7 @@ export function TutorProgramsPage() {
       ) : (
         <div className="space-y-3">
           {list.map((p) => (
-            <Card key={p.publicId}>
+            <Card key={p.publicId} className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => navigate(`/dashboard/tutor/programs/${p.publicId}`)}>
               <CardContent>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Link to={`/dashboard/tutor/programs/${p.publicId}`} className="min-w-0">
@@ -69,9 +70,9 @@ export function TutorProgramsPage() {
                       {' · '}{p.activeEnrollmentCount}{p.maxEnrollees ? `/${p.maxEnrollees}` : ''} active students
                     </p>
                   </Link>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     {p.isFull && <Badge variant="warning" tone="soft">Full</Badge>}
-                    <Button size="sm" variant="outline" onClick={() => { setCreating(false); setEditing(p); }}><Pencil className="h-3.5 w-3.5" /> Edit</Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditing(p)}><Pencil className="h-3.5 w-3.5" /> Edit</Button>
                     {p.status !== 'PUBLISHED' && (
                       <Button size="sm" variant="outline" onClick={async () => {
                         const { confirmed } = await confirm({
