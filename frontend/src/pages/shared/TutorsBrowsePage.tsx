@@ -16,6 +16,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Loading';
+import { Modal } from '../../components/ui/Modal';
 import { BookClassModal } from '../../components/shared/BookClassModal';
 import { MobileNavMenu } from '../../components/shared/MobileNavMenu';
 import type { TutorProfile } from '../../services/tutors.service';
@@ -85,6 +86,7 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
   const [priceIdx, setPriceIdx] = useState(0);
   const [minRating, setMinRating] = useState(0);
   const [bookingTutor, setBookingTutor] = useState<TutorListing | null>(null);
+  const [profileTutor, setProfileTutor] = useState<TutorListing | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['tutors', 'search', { subject, minRating, priceIdx }],
@@ -235,7 +237,7 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
             </p>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((tutor) => (
-                <TutorCard key={tutor.publicId} tutor={tutor} demoDone={demoTakenWith.has(tutor.publicId)} onBook={() => handleBookDemo(tutor)} />
+                <TutorCard key={tutor.publicId} tutor={tutor} demoDone={demoTakenWith.has(tutor.publicId)} onBook={() => handleBookDemo(tutor)} onOpen={() => setProfileTutor(tutor)} />
               ))}
             </div>
           </>
@@ -263,6 +265,15 @@ export function TutorsBrowsePage({ variant = 'public' }: TutorsBrowsePageProps) 
         )}
       </div>
     </div>
+
+    {profileTutor && (
+      <TutorProfileModal
+        tutor={profileTutor}
+        demoDone={demoTakenWith.has(profileTutor.publicId)}
+        onClose={() => setProfileTutor(null)}
+        onBook={() => { const t = profileTutor; setProfileTutor(null); handleBookDemo(t); }}
+      />
+    )}
 
     {bookingTutor && (
       <BookClassModal
@@ -415,12 +426,17 @@ function Chip({ children, onClear }: { children: React.ReactNode; onClear: () =>
   );
 }
 
-function TutorCard({ tutor, onBook, demoDone }: { tutor: TutorListing; onBook: () => void; demoDone?: boolean }) {
+function TutorCard({ tutor, onBook, onOpen, demoDone }: { tutor: TutorListing; onBook: () => void; onOpen: () => void; demoDone?: boolean }) {
   const name = tutor.displayName ?? `Tutor ${tutor.publicId.slice(0, 6)}`;
   const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm shadow-gray-200/40 transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-brand-200/30 dark:border-gray-800 dark:bg-gray-900">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(); } }}
+      className="group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-200/70 bg-white p-5 shadow-sm shadow-gray-200/40 transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-brand-200/30 dark:border-gray-800 dark:bg-gray-900">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-500 via-violet-500 to-pink-500 opacity-80" />
 
       <div className="flex items-start gap-3">
@@ -451,11 +467,9 @@ function TutorCard({ tutor, onBook, demoDone }: { tutor: TutorListing; onBook: (
         </div>
       </div>
 
-      {tutor.bio && (
-        <p className="mt-3 line-clamp-2 text-sm text-gray-600 dark:text-gray-300">
-          {tutor.bio}
-        </p>
-      )}
+      <p className={`mt-3 line-clamp-2 min-h-[2.5rem] text-sm ${tutor.bio ? 'text-gray-600 dark:text-gray-300' : 'italic text-gray-400'}`}>
+        {tutor.bio || 'This tutor has not added a description yet.'}
+      </p>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {tutor.subjects.slice(0, 3).map((s) => (
@@ -466,7 +480,7 @@ function TutorCard({ tutor, onBook, demoDone }: { tutor: TutorListing; onBook: (
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800">
+      <div className="mt-4 mb-4 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800">
         <div className="flex items-center gap-3">
           {tutor.languages?.length > 0 && (
             <span className="inline-flex items-center gap-1">
@@ -486,13 +500,104 @@ function TutorCard({ tutor, onBook, demoDone }: { tutor: TutorListing; onBook: (
       </div>
 
       <Button
-        className="mt-4 w-full"
+        className="mt-auto w-full"
         variant="gradient"
-        onClick={onBook}
+        onClick={(e) => { e.stopPropagation(); onBook(); }}
       >
         {demoDone ? 'Book a class' : 'Book a demo'} <ArrowRight className="h-4 w-4" />
       </Button>
     </div>
+  );
+}
+
+function TutorProfileModal({
+  tutor, demoDone, onClose, onBook,
+}: { tutor: TutorListing; demoDone: boolean; onClose: () => void; onBook: () => void }) {
+  const name = tutor.displayName ?? `Tutor ${tutor.publicId.slice(0, 6)}`;
+  const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Tutor profile"
+      size="lg"
+      footer={
+        <div className="flex w-full justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Close</Button>
+          <Button variant="gradient" onClick={onBook}>
+            {demoDone ? 'Book a class' : 'Book a demo'} <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex items-start gap-4">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-100 to-violet-100 text-xl font-bold text-brand-700">
+          {initials}
+        </div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{name}</h3>
+            {tutor.isVerified && (
+              <Badge variant="success" tone="soft" size="sm"><ShieldCheck className="h-3 w-3" /> Verified</Badge>
+            )}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1 text-sm text-gray-500">
+            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+            <span className="font-semibold text-gray-700 dark:text-gray-200">{tutor.rating > 0 ? tutor.rating.toFixed(1) : 'New'}</span>
+            {tutor.ratingCount > 0 && <span>({tutor.ratingCount} reviews)</span>}
+          </div>
+        </div>
+        <div className="ml-auto shrink-0 text-right">
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{formatUSD(tutor.hourlyRateCents)}</p>
+          {tutor.hourlyRateCents > 0 && <p className="text-xs text-gray-400">per hour</p>}
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-slate-50 p-3 dark:bg-gray-800">
+          <p className="text-xs text-gray-500">Classes completed</p>
+          <p className="text-base font-semibold text-gray-900 dark:text-white">{tutor.totalClassesCompleted}</p>
+        </div>
+        <div className="rounded-xl bg-slate-50 p-3 dark:bg-gray-800">
+          <p className="text-xs text-gray-500">Students taught</p>
+          <p className="text-base font-semibold text-gray-900 dark:text-white">{tutor.totalStudents}</p>
+        </div>
+      </div>
+
+      <section className="mt-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">About</h4>
+        <p className={`mt-1.5 whitespace-pre-line text-sm ${tutor.bio ? 'text-gray-700 dark:text-gray-300' : 'italic text-gray-400'}`}>
+          {tutor.bio || 'This tutor has not added a description yet.'}
+        </p>
+      </section>
+
+      {tutor.subjects.length > 0 && (
+        <section className="mt-5">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Subjects</h4>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {tutor.subjects.map((s) => <Badge key={s} variant="brand" tone="soft" size="sm">{s}</Badge>)}
+          </div>
+        </section>
+      )}
+
+      {tutor.qualifications?.length > 0 && (
+        <section className="mt-5">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Qualifications</h4>
+          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
+            {tutor.qualifications.map((q) => <li key={q}>{q}</li>)}
+          </ul>
+        </section>
+      )}
+
+      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-500">
+        {tutor.languages?.length > 0 && (
+          <span className="inline-flex items-center gap-1.5"><Languages className="h-4 w-4" /> {tutor.languages.join(', ')}</span>
+        )}
+        {tutor.timezone && tutor.timezone !== 'UTC' && (
+          <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4" /> {tutor.timezone.replace(/_/g, ' ')}</span>
+        )}
+      </div>
+    </Modal>
   );
 }
 
