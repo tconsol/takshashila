@@ -49,10 +49,36 @@ const ROLE_COLOR: Record<string, { bg: string; text: string }> = {
   SUPPORT:     { bg: 'bg-pink-500/10',   text: 'text-pink-600 dark:text-pink-400' },
 };
 
+const PHONE_NUMBER_REGEX = /^[0-9]{10}$/;
+
+const COUNTRY_CODES = [
+  { code: '+91',  label: 'IN +91' },
+  { code: '+1',   label: 'US +1' },
+  { code: '+44',  label: 'UK +44' },
+  { code: '+61',  label: 'AU +61' },
+  { code: '+971', label: 'AE +971' },
+  { code: '+65',  label: 'SG +65' },
+];
+
+// Split a stored phone like "+919876543210" into its country code and 10-digit number
+function splitPhone(stored: string | undefined | null): { countryCode: string; phone: string } {
+  const value = (stored ?? '').replace(/[^\d+]/g, '');
+  const match = [...COUNTRY_CODES]
+    .sort((a, b) => b.code.length - a.code.length)
+    .find((c) => value.startsWith(c.code));
+  const digits = (match ? value.slice(match.code.length) : value).replace(/\D/g, '');
+  return { countryCode: match?.code ?? '+91', phone: digits.slice(-10) };
+}
+
 const profileSchema = z.object({
   firstName: z.string().min(1, 'Required').max(50),
   lastName: z.string().min(1, 'Required').max(50),
-  phone: z.string().optional(),
+  countryCode: z.string(),
+  phone: z.string().optional().refine((phone) => {
+    const value = phone?.trim();
+    if (!value) return true;
+    return PHONE_NUMBER_REGEX.test(value);
+  }, 'Phone number must be exactly 10 digits'),
 });
 
 const tutorProfileSchema = z.object({
@@ -238,18 +264,25 @@ export function ProfilePage() {
 
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { firstName: '', lastName: '', phone: '' },
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+    defaultValues: { firstName: '', lastName: '', countryCode: '+91', phone: '' },
   });
 
   useEffect(() => {
     if (!freshUser) return;
-    profileForm.setValue('firstName', freshUser.firstName ?? '', { shouldDirty: false });
-    profileForm.setValue('lastName',  freshUser.lastName  ?? '', { shouldDirty: false });
-    profileForm.setValue('phone',     freshUser.phone     ?? '', { shouldDirty: false });
+    const { countryCode, phone } = splitPhone(freshUser.phone);
+    profileForm.setValue('firstName',   freshUser.firstName ?? '', { shouldDirty: false });
+    profileForm.setValue('lastName',    freshUser.lastName  ?? '', { shouldDirty: false });
+    profileForm.setValue('countryCode', countryCode,               { shouldDirty: false });
+    profileForm.setValue('phone',       phone,                     { shouldDirty: false });
   }, [freshUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { mutateAsync: updateProfile, isPending: savingProfile } = useMutation({
-    mutationFn: (d: ProfileForm) => api.patch('/users/me', d).then((r) => r.data.data),
+    mutationFn: ({ countryCode, phone, ...rest }: ProfileForm) => api.patch('/users/me', {
+      ...rest,
+      phone: phone ? `${countryCode}${phone}` : phone,
+    }).then((r) => r.data.data),
     onSuccess: (updated) => {
       if (updated && user) setUser({ ...user, ...updated });
       queryClient.invalidateQueries({ queryKey: ['users', 'me'] });
@@ -502,14 +535,41 @@ export function ProfilePage() {
               <Field label="Email" hint="Email cannot be changed">
                 <TextInput icon={Mail} value={displayUser.email} readOnly />
               </Field>
-              <Field label="Phone">
-                <Controller
-                  control={profileForm.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <TextInput icon={Phone} placeholder="+91 9876543210" {...field} />
-                  )}
-                />
+              <Field label="Phone" error={profileForm.formState.errors.phone?.message}>
+                <div className="flex gap-2">
+                  <Controller
+                    control={profileForm.control}
+                    name="countryCode"
+                    render={({ field }) => (
+                      <select
+                        {...field}
+                        aria-label="Country code"
+                        className="shrink-0 rounded-xl border border-rule-strong bg-surface px-2.5 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent"
+                      >
+                        {COUNTRY_CODES.map((c) => (
+                          <option key={c.code} value={c.code}>{c.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <Controller
+                      control={profileForm.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <TextInput
+                          icon={Phone}
+                          type="tel"
+                          inputMode="numeric"
+                          maxLength={10}
+                          placeholder="9876543210"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
               </Field>
             </div>
 
