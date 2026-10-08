@@ -51,8 +51,8 @@ describe('/programs routes', () => {
   it('catalog is open to any signed-in user and passes filters', async () => {
     mockRole = 'PARENT';
     const catalog = jest.spyOn(programService, 'catalog').mockResolvedValue({ items: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } } as never);
-    expect((await request(app).get('/api/v1/programs?category=GAMES&age=9')).status).toBe(200);
-    expect(catalog).toHaveBeenCalledWith(expect.objectContaining({ category: 'GAMES', age: 9 }));
+    expect((await request(app).get('/api/v1/programs?category=GAMES')).status).toBe(200);
+    expect(catalog).toHaveBeenCalledWith(expect.objectContaining({ category: 'GAMES' }));
   });
 
   it('fixed paths are not captured by /:programPublicId', async () => {

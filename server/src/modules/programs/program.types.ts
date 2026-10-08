@@ -32,8 +32,6 @@ export interface IProgram {
   category: ProgramCategory;
   description?: string;
   level: ProgramLevel;
-  ageMin?: number;
-  ageMax?: number;
   sessionCount: number;
   sessionMinutes: number;
   priceCents: number;

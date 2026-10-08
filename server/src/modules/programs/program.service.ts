@@ -43,8 +43,6 @@ export class ProgramService {
       category: dto.category,
       description: dto.description,
       level: dto.level,
-      ageMin: dto.ageMin,
-      ageMax: dto.ageMax,
       sessionCount: dto.sessionCount,
       sessionMinutes: dto.sessionMinutes,
       priceCents: dto.priceCents,
@@ -128,12 +126,6 @@ export class ProgramService {
     const filter: Record<string, unknown> = { ...base, isDeleted: false };
     if (query.category) filter.category = query.category;
     if (query.level) filter.level = query.level;
-    if (query.age !== undefined) {
-      filter.$and = [
-        { $or: [{ ageMin: { $exists: false } }, { ageMin: { $lte: query.age } }] },
-        { $or: [{ ageMax: { $exists: false } }, { ageMax: { $gte: query.age } }] },
-      ];
-    }
     if (query.q?.trim()) filter.title = new RegExp(escape(query.q.trim()), 'i');
     return filter;
   }

@@ -340,7 +340,7 @@ export class ProgramEnrollmentService {
       },
       program: {
         publicId: program.publicId, title: program.title, category: program.category, level: program.level,
-        description: program.description, ageMin: program.ageMin, ageMax: program.ageMax,
+        description: program.description,
         sessionCount: program.sessionCount, sessionMinutes: program.sessionMinutes, priceCents: program.priceCents,
         modules: program.modules,
       },

@@ -4,8 +4,8 @@
 //
 // Columns (one row per module; the program-level columns only need to be
 // filled on the first data row — everything after that is read from column
-// 11/12 only):
-//   title, category, level, description, ageMin, ageMax, sessionCount,
+// 9/10 only):
+//   title, category, level, description, sessionCount,
 //   sessionMinutes, price, maxEnrollees, moduleTitle, moduleDescription
 import * as XLSX from 'xlsx';
 import { PROGRAM_CATEGORIES, PROGRAM_LEVELS } from '../constants/programs';
@@ -15,15 +15,15 @@ import type { ProgramInput } from '../services/programs.service';
 const PLATFORM_FEE_CENTS = 100;
 
 export const CSV_TEMPLATE_HEADERS = [
-  'title', 'category', 'level', 'description', 'ageMin', 'ageMax',
+  'title', 'category', 'level', 'description',
   'sessionCount', 'sessionMinutes', 'price', 'maxEnrollees',
   'moduleTitle', 'moduleDescription',
 ];
 
 const CSV_SAMPLE_ROWS = [
-  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '6', '12', '8', '60', '40', '10', 'Introduction to the board', 'Piece names and the starting position'],
-  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '6', '12', '8', '60', '40', '10', 'How each piece moves', ''],
-  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '6', '12', '8', '60', '40', '10', 'Check, checkmate and basic tactics', ''],
+  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '8', '60', '40', '10', 'Introduction to the board', 'Piece names and the starting position'],
+  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '8', '60', '40', '10', 'How each piece moves', ''],
+  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '8', '60', '40', '10', 'Check, checkmate and basic tactics', ''],
 ];
 
 export function isCsvFile(file: File): boolean {
@@ -73,7 +73,7 @@ export function parseProgramCsv(file: File): Promise<ProgramInput> {
 
         const errors: string[] = [];
         const first = dataRows[0].map((c) => String(c ?? '').trim());
-        const [titleRaw, categoryRaw, levelRaw, descriptionRaw, ageMinRaw, ageMaxRaw, sessionCountRaw, sessionMinutesRaw, priceRaw, maxEnrolleesRaw] = first;
+        const [titleRaw, categoryRaw, levelRaw, descriptionRaw, sessionCountRaw, sessionMinutesRaw, priceRaw, maxEnrolleesRaw] = first;
 
         const title = titleRaw?.trim();
         if (!title) errors.push('Row 2: title is required');
@@ -97,21 +97,13 @@ export function parseProgramCsv(file: File): Promise<ProgramInput> {
           errors.push(`Row 2: price must be free or at least $${(PLATFORM_FEE_CENTS / 100).toFixed(2)} per session (${sessionCount} sessions → minimum $${((PLATFORM_FEE_CENTS * sessionCount) / 100).toFixed(2)})`);
         }
 
-        const ageMin = parseIntOr(ageMinRaw ?? '');
-        const ageMax = parseIntOr(ageMaxRaw ?? '');
-        if (ageMin !== undefined && Number.isNaN(ageMin)) errors.push('Row 2: ageMin must be a number');
-        if (ageMax !== undefined && Number.isNaN(ageMax)) errors.push('Row 2: ageMax must be a number');
-        if (ageMin !== undefined && ageMax !== undefined && !Number.isNaN(ageMin) && !Number.isNaN(ageMax) && ageMin > ageMax) {
-          errors.push('Row 2: ageMin must not exceed ageMax');
-        }
-
         const maxEnrollees = parseIntOr(maxEnrolleesRaw ?? '');
         if (maxEnrollees !== undefined && (Number.isNaN(maxEnrollees) || maxEnrollees < 1)) errors.push('Row 2: maxEnrollees must be a positive whole number');
 
         const modules: ProgramInput['modules'] = [];
         dataRows.forEach((row, i) => {
-          const moduleTitle = String(row[10] ?? '').trim();
-          const moduleDescription = String(row[11] ?? '').trim();
+          const moduleTitle = String(row[8] ?? '').trim();
+          const moduleDescription = String(row[9] ?? '').trim();
           if (!moduleTitle) { errors.push(`Row ${i + 2}: moduleTitle is empty — every row needs a module title`); return; }
           modules.push({ title: moduleTitle, description: moduleDescription || undefined });
         });
@@ -127,8 +119,6 @@ export function parseProgramCsv(file: File): Promise<ProgramInput> {
           category: category!,
           level: level!,
           description: descriptionRaw?.trim() || undefined,
-          ageMin,
-          ageMax,
           sessionCount: sessionCount!,
           sessionMinutes,
           priceCents,

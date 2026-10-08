@@ -22,8 +22,6 @@ const programSchema = new Schema<IProgram>(
     category: { type: String, enum: Object.values(ProgramCategory), required: true },
     description: { type: String, maxlength: 4000 },
     level: { type: String, enum: Object.values(ProgramLevel), required: true },
-    ageMin: { type: Number, min: 3, max: 99 },
-    ageMax: { type: Number, min: 3, max: 99 },
     sessionCount: { type: Number, required: true, min: 1, max: 100 },
     sessionMinutes: { type: Number, required: true, min: 15, max: 240, default: 60 },
     priceCents: { type: Number, required: true, min: 0 },

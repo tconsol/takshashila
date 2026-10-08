@@ -69,7 +69,6 @@ export function ProgramEnrollmentView({ enrollmentPublicId, backTo, backLabel, a
             <Detail label="Student">{enrollment.studentName}</Detail>
             <Detail label="Enrolled on">{fmtDate(enrollment.createdAt)}</Detail>
             <Detail label="Category · level">{categoryLabel(program.category)} · {levelLabel(program.level)}</Detail>
-            <Detail label="Age range">{program.ageMin || program.ageMax ? `${program.ageMin ?? '?'}–${program.ageMax ?? '?'}` : 'Any'}</Detail>
             <Detail label="Sessions">{enrollment.sessionCount} × {program.sessionMinutes} min</Detail>
             <Detail label="Scheduled / completed">{enrollment.sessionsScheduledCount} scheduled · {enrollment.sessionsCompletedCount} completed</Detail>
             <Detail label="Program price">{formatCurrency(enrollment.priceCentsPaid)}{enrollment.billing === 'HELD' ? ' (held, charged per session)' : ''}</Detail>

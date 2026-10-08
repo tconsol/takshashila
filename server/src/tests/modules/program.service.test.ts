@@ -16,15 +16,14 @@ const existing = {
 };
 
 describe('program validators', () => {
-  it('require at least one module and a sane age range', () => {
+  it('require at least one module and a valid shape', () => {
     expect(createProgramSchema.safeParse(base).success).toBe(true);
     expect(createProgramSchema.safeParse({ ...base, modules: [] }).success).toBe(false);
-    expect(createProgramSchema.safeParse({ ...base, ageMin: 12, ageMax: 8 }).success).toBe(false);
     expect(createProgramSchema.safeParse({ ...base, category: 'MATHS' }).success).toBe(false);
   });
 
-  it('catalog query coerces age and page', () => {
-    expect(programCatalogQuerySchema.parse({ age: '10', page: '2' })).toEqual(expect.objectContaining({ age: 10, page: 2 }));
+  it('catalog query coerces page', () => {
+    expect(programCatalogQuerySchema.parse({ page: '2' })).toEqual(expect.objectContaining({ page: 2 }));
   });
 });
 
@@ -79,13 +78,9 @@ describe('programService', () => {
     jest.spyOn(ProgramModel, 'countDocuments').mockResolvedValue(0 as never);
     jest.spyOn(TutorProfileModel, 'find').mockReturnValue(lean([]) as never);
     jest.spyOn(UserModel, 'find').mockReturnValue(lean([]) as never);
-    await programService.catalog({ category: 'GAMES', level: 'BEGINNER', age: 10, q: 'che(ss' });
+    await programService.catalog({ category: 'GAMES', level: 'BEGINNER', q: 'che(ss' });
     const filter = (find.mock.calls[0] as unknown as [Record<string, unknown>])[0];
     expect(filter).toEqual(expect.objectContaining({ status: 'PUBLISHED', isDeleted: false, category: 'GAMES', level: 'BEGINNER' }));
-    expect(filter.$and).toEqual([
-      { $or: [{ ageMin: { $exists: false } }, { ageMin: { $lte: 10 } }] },
-      { $or: [{ ageMax: { $exists: false } }, { ageMax: { $gte: 10 } }] },
-    ]);
     expect((filter.title as RegExp).test('Chess (Beginners) che(ss')).toBe(true);
   });
 

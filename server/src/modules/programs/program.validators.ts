@@ -18,8 +18,6 @@ const programFields = {
   category: z.enum(Object.values(ProgramCategory) as [string, ...string[]]),
   description: z.string().max(4000).optional(),
   level: z.enum(Object.values(ProgramLevel) as [string, ...string[]]),
-  ageMin: z.number().int().min(3).max(99).optional(),
-  ageMax: z.number().int().min(3).max(99).optional(),
   sessionCount: z.number().int().min(1).max(100),
   sessionMinutes: z.number().int().min(15).max(240).default(60),
   priceCents: z.number().int().min(0),
@@ -27,23 +25,18 @@ const programFields = {
   modules: z.array(moduleInput).min(1, 'Add at least one module'),
 };
 
-const ageOrder = (d: { ageMin?: number; ageMax?: number }) => d.ageMin === undefined || d.ageMax === undefined || d.ageMin <= d.ageMax;
-const AGE_MSG = { message: 'Minimum age must not exceed maximum age', path: ['ageMax'] };
-
-export const createProgramSchema = z.object(programFields).refine(ageOrder, AGE_MSG)
+export const createProgramSchema = z.object(programFields)
   .refine((d) => isPriceAllowed(d.priceCents, d.sessionCount), {
     message: `Price must be free or at least $${(PLATFORM_FEE_CENTS / 100).toFixed(2)} per session`,
     path: ['priceCents'],
   });
 export const updateProgramSchema = z
   .object({ ...programFields, sessionMinutes: z.number().int().min(15).max(240) })
-  .partial()
-  .refine(ageOrder, AGE_MSG);
+  .partial();
 
 export const programCatalogQuerySchema = z.object({
   category: z.enum(Object.values(ProgramCategory) as [string, ...string[]]).optional(),
   level: z.enum(Object.values(ProgramLevel) as [string, ...string[]]).optional(),
-  age: z.coerce.number().int().min(3).max(99).optional(),
   q: z.string().max(100).optional(),
   page: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(50).optional(),

@@ -13,8 +13,6 @@ export interface Program {
   category: string;
   description?: string;
   level: string;
-  ageMin?: number;
-  ageMax?: number;
   sessionCount: number;
   sessionMinutes: number;
   priceCents: number;
@@ -31,8 +29,6 @@ export interface ProgramInput {
   category: string;
   description?: string;
   level: string;
-  ageMin?: number;
-  ageMax?: number;
   sessionCount: number;
   sessionMinutes: number;
   priceCents: number;
@@ -64,7 +60,7 @@ export interface EnrollmentStructure {
     priceCentsPaid: number; billing?: 'HELD'; createdAt: string;
   };
   program: {
-    publicId: string; title: string; category: string; level: string; description?: string; ageMin?: number; ageMax?: number;
+    publicId: string; title: string; category: string; level: string; description?: string;
     sessionCount: number; sessionMinutes: number; priceCents: number; modules: ProgramModule[];
   };
   topics: StructureTopic[];

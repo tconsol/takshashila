@@ -24,8 +24,6 @@ export function ProgramForm({ program, onDone }: { program?: Program; onDone: ()
   const [category, setCategory] = useState(program?.category ?? 'GAMES');
   const [level, setLevel] = useState(program?.level ?? 'BEGINNER');
   const [description, setDescription] = useState(program?.description ?? '');
-  const [ageMin, setAgeMin] = useState(program?.ageMin?.toString() ?? '');
-  const [ageMax, setAgeMax] = useState(program?.ageMax?.toString() ?? '');
   const [sessionCount, setSessionCount] = useState(String(program?.sessionCount ?? 8));
   const [sessionMinutes, setSessionMinutes] = useState(String(program?.sessionMinutes ?? 60));
   const [price, setPrice] = useState(program ? (program.priceCents / 100).toFixed(2) : '');
@@ -45,8 +43,6 @@ export function ProgramForm({ program, onDone }: { program?: Program; onDone: ()
       category,
       level,
       description: description.trim() || undefined,
-      ageMin: num(ageMin),
-      ageMax: num(ageMax),
       sessionCount: Number(sessionCount),
       sessionMinutes: Number(sessionMinutes),
       priceCents: Math.round(Number(price) * 100),
@@ -71,9 +67,7 @@ export function ProgramForm({ program, onDone }: { program?: Program; onDone: ()
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={4000}
             className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm" />
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Input label="Min age (optional)" type="number" value={ageMin} onChange={(e) => setAgeMin(e.target.value)} />
-          <Input label="Max age (optional)" type="number" value={ageMax} onChange={(e) => setAgeMax(e.target.value)} />
+        <div className="grid gap-3">
           <Input label="Max students (optional)" type="number" value={maxEnrollees} onChange={(e) => setMaxEnrollees(e.target.value)} />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">

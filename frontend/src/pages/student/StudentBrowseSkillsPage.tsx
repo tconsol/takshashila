@@ -54,7 +54,7 @@ export function StudentBrowseSkillsPage() {
                   <p className="mt-2 font-semibold text-gray-900 dark:text-white">{p.title}</p>
                   <p className="mt-0.5 text-xs text-gray-500">with {p.tutorName}</p>
                   <p className="mt-2 text-xs text-gray-500">
-                    {levelLabel(p.level)} · {p.sessionCount} sessions{p.ageMin || p.ageMax ? ` · ages ${p.ageMin ?? '?'}–${p.ageMax ?? '?'}` : ''}
+                    {levelLabel(p.level)} · {p.sessionCount} sessions
                   </p>
                   <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(p.priceCents)}</p>
                 </CardContent>
