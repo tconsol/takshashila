@@ -7,10 +7,16 @@ import { PLATFORM_FEE_CENTS } from '../../utils/currency';
 export const isPriceAllowed = (priceCents: number, sessionCount: number) =>
   priceCents === 0 || priceCents >= sessionCount * PLATFORM_FEE_CENTS;
 
+const topicInput = z.object({
+  publicId: z.string().min(1).optional(),
+  title: z.string().min(1).max(200),
+});
+
 const moduleInput = z.object({
   publicId: z.string().min(1).optional(), // present when editing an existing module
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
+  topics: z.array(topicInput).max(100).optional(),
 });
 
 const programFields = {

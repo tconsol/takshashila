@@ -45,7 +45,16 @@ export function StudentProgramPage() {
           <div>
             <p className="mb-1.5 text-sm font-semibold">What you'll cover</p>
             <ol className="list-decimal space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
-              {[...program.modules].sort((a, b) => a.order - b.order).map((m) => <li key={m.publicId}>{m.title}</li>)}
+              {[...program.modules].sort((a, b) => a.order - b.order).map((m) => (
+                <li key={m.publicId}>
+                  <span className="font-medium">{m.title}</span>
+                  {!!m.topics?.length && (
+                    <ul className="mt-0.5 list-disc space-y-0.5 pl-5 text-gray-600 dark:text-gray-400">
+                      {[...m.topics].sort((a, b) => a.order - b.order).map((t) => <li key={t.publicId}>{t.title}</li>)}
+                    </ul>
+                  )}
+                </li>
+              ))}
             </ol>
           </div>
         </CardContent>

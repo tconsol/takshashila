@@ -16,8 +16,16 @@ export type ProgramView = IProgram & { tutorName: string; isFull: boolean };
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const toModules = (input: Array<{ publicId?: string; title: string; description?: string }>): IProgramModule[] =>
-  input.map((m, i) => ({ publicId: m.publicId ?? uuidv4(), title: m.title, description: m.description, order: i }));
+const toModules = (
+  input: Array<{ publicId?: string; title: string; description?: string; topics?: Array<{ publicId?: string; title: string }> }>,
+): IProgramModule[] =>
+  input.map((m, i) => ({
+    publicId: m.publicId ?? uuidv4(),
+    title: m.title,
+    description: m.description,
+    order: i,
+    topics: (m.topics ?? []).map((t, j) => ({ publicId: t.publicId ?? uuidv4(), title: t.title, order: j })),
+  }));
 
 async function withTutorNames(programs: IProgram[]): Promise<ProgramView[]> {
   const tutorIds = [...new Set(programs.map((p) => p.tutorPublicId))];

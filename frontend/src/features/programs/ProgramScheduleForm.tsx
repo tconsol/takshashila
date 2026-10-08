@@ -31,7 +31,7 @@ export function ProgramScheduleForm({ enrollmentPublicId, availabilityWindow: w,
           className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900" />
         <select required value={moduleId} onChange={(e) => setModuleId(e.target.value)}
           className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-sm bg-white dark:bg-gray-900">
-          <option value="" disabled>Module this session covers *</option>
+          <option value="" disabled>Chapter this session covers *</option>
           {[...modules].sort((a, b) => a.order - b.order).map((m) => <option key={m.publicId} value={m.publicId}>{m.title}</option>)}
         </select>
         <Button size="sm" variant="gradient" loading={isPending} disabled={!start || !moduleId}
@@ -47,7 +47,7 @@ export function ProgramScheduleForm({ enrollmentPublicId, availabilityWindow: w,
       </div>
       {(!start || !moduleId) && (
         <p className="mt-1 text-xs text-gray-500">
-          Choose {[!start && 'a start time', !moduleId && 'the module this session covers'].filter(Boolean).join(' and ')} to schedule.
+          Choose {[!start && 'a start time', !moduleId && 'the chapter this session covers'].filter(Boolean).join(' and ')} to schedule.
         </p>
       )}
     </div>

@@ -2,7 +2,16 @@
 import mongoose, { Schema } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { ProgramCategory, ProgramLevel, ProgramStatus, EnrollmentStatus } from './program.types';
-import type { IProgram, IProgramModule, IProgramEnrollment } from './program.types';
+import type { IProgram, IProgramModule, IProgramTopic, IProgramEnrollment } from './program.types';
+
+const topicSchema = new Schema<IProgramTopic>(
+  {
+    publicId: { type: String, default: uuidv4 },
+    title: { type: String, required: true, maxlength: 200 },
+    order: { type: Number, required: true },
+  },
+  { _id: false },
+);
 
 const moduleSchema = new Schema<IProgramModule>(
   {
@@ -10,6 +19,7 @@ const moduleSchema = new Schema<IProgramModule>(
     title: { type: String, required: true, maxlength: 200 },
     description: { type: String, maxlength: 1000 },
     order: { type: Number, required: true },
+    topics: { type: [topicSchema], default: [] },
   },
   { _id: false },
 );

@@ -6,7 +6,8 @@
 // filled on the first data row — everything after that is read from column
 // 9/10 only):
 //   title, category, level, description, sessionCount,
-//   sessionMinutes, price, maxEnrollees, moduleTitle, moduleDescription
+//   sessionMinutes, price, maxEnrollees, moduleTitle (the chapter), moduleDescription,
+//   topics (semicolon-separated topic titles of that chapter, optional)
 import * as XLSX from 'xlsx';
 import { PROGRAM_CATEGORIES, PROGRAM_LEVELS } from '../constants/programs';
 import type { ProgramInput } from '../services/programs.service';
@@ -17,13 +18,13 @@ const PLATFORM_FEE_CENTS = 100;
 export const CSV_TEMPLATE_HEADERS = [
   'title', 'category', 'level', 'description',
   'sessionCount', 'sessionMinutes', 'price', 'maxEnrollees',
-  'moduleTitle', 'moduleDescription',
+  'moduleTitle', 'moduleDescription', 'topics',
 ];
 
 const CSV_SAMPLE_ROWS = [
-  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '8', '60', '40', '10', 'Introduction to the board', 'Piece names and the starting position'],
-  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '8', '60', '40', '10', 'How each piece moves', ''],
-  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '8', '60', '40', '10', 'Check, checkmate and basic tactics', ''],
+  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '8', '60', '40', '10', 'Introduction to the board', 'Piece names and the starting position', 'The board; The pieces; Setting up'],
+  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '8', '60', '40', '10', 'How each piece moves', '', 'Pawns and rooks; Bishops and knights; Queen and king'],
+  ['Chess for Beginners', 'GAMES', 'BEGINNER', 'Learn chess fundamentals from scratch', '8', '60', '40', '10', 'Check, checkmate and basic tactics', '', 'Check; Checkmate; Forks and pins'],
 ];
 
 export function isCsvFile(file: File): boolean {
@@ -105,7 +106,8 @@ export function parseProgramCsv(file: File): Promise<ProgramInput> {
           const moduleTitle = String(row[8] ?? '').trim();
           const moduleDescription = String(row[9] ?? '').trim();
           if (!moduleTitle) { errors.push(`Row ${i + 2}: moduleTitle is empty — every row needs a module title`); return; }
-          modules.push({ title: moduleTitle, description: moduleDescription || undefined });
+          const topics = String(row[10] ?? '').split(';').map((t) => t.trim()).filter(Boolean).map((title) => ({ title }));
+          modules.push({ title: moduleTitle, description: moduleDescription || undefined, topics });
         });
         if (modules.length === 0) errors.push('At least one module (row) is required');
 
@@ -130,6 +132,75 @@ export function parseProgramCsv(file: File): Promise<ProgramInput> {
       }
     };
     reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
+}
+
+// ── Chapters & topics only ──────────────────────────────────────────────────
+// Columns: chapter, topic, chapterDescription. One row per topic; a blank
+// chapter cell continues the chapter above. A chapter with no topic is allowed.
+export const CHAPTERS_CSV_HEADERS = ['chapter', 'topic', 'chapterDescription'];
+
+const CHAPTERS_SAMPLE_ROWS = [
+  ['Introduction to the board', 'The board', 'Piece names and the starting position'],
+  ['', 'The pieces', ''],
+  ['', 'Setting up', ''],
+  ['How each piece moves', 'Pawns and rooks', ''],
+  ['', 'Bishops and knights', ''],
+];
+
+export type ParsedChapter = { title: string; description?: string; topics: Array<{ title: string }> };
+
+export function downloadChaptersCsvTemplate() {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([CHAPTERS_CSV_HEADERS, ...CHAPTERS_SAMPLE_ROWS]);
+  XLSX.utils.book_append_sheet(wb, ws, 'Chapters');
+  XLSX.writeFile(wb, 'program_chapters_template.csv', { bookType: 'csv' });
+}
+
+export function parseChaptersCsv(file: File): Promise<ParsedChapter[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target!.result as string, { type: 'string' });
+        const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[wb.SheetNames[0]], { header: 1 }) as string[][];
+        const dataRows = rows.slice(1).filter((r) => r && r.some((c) => String(c ?? '').trim() !== ''));
+        if (dataRows.length === 0) {
+          reject(new Error('No data rows found — fill in the template below the header row.'));
+          return;
+        }
+
+        const chapters: ParsedChapter[] = [];
+        const errors: string[] = [];
+        dataRows.forEach((row, i) => {
+          const chapterTitle = String(row[0] ?? '').trim();
+          const topicTitle = String(row[1] ?? '').trim();
+          const description = String(row[2] ?? '').trim();
+          const rowNo = i + 2;
+
+          let chapter = chapterTitle
+            ? chapters.find((c) => c.title.toLowerCase() === chapterTitle.toLowerCase())
+            : chapters[chapters.length - 1];
+          if (!chapter) {
+            if (!chapterTitle) { errors.push(`Row ${rowNo}: chapter is empty and there is no chapter above to continue`); return; }
+            chapter = { title: chapterTitle, topics: [] };
+            chapters.push(chapter);
+          }
+          if (description && !chapter.description) chapter.description = description;
+          if (topicTitle) chapter.topics.push({ title: topicTitle });
+        });
+
+        if (errors.length > 0) {
+          reject(new Error(errors.slice(0, 8).join('\n') + (errors.length > 8 ? `\n…and ${errors.length - 8} more` : '')));
+          return;
+        }
+        resolve(chapters);
+      } catch {
+        reject(new Error('Could not read that file. Make sure it is a .csv saved from the template.'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Could not read that file.'));
     reader.readAsText(file);
   });
 }

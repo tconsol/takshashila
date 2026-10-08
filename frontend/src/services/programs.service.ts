@@ -3,7 +3,9 @@ import { api } from '../lib/axios';
 import type { AvailabilityWindow } from './courses.service';
 import type { ProgressClass, StructureTopic } from './courses.service';
 
-export interface ProgramModule { publicId: string; title: string; description?: string; order: number }
+export interface ProgramTopic { publicId: string; title: string; order: number }
+/** A chapter of the program (still called `module` on the API). */
+export interface ProgramModule { publicId: string; title: string; description?: string; order: number; topics?: ProgramTopic[] }
 
 export interface Program {
   publicId: string;
@@ -33,7 +35,7 @@ export interface ProgramInput {
   sessionMinutes: number;
   priceCents: number;
   maxEnrollees?: number;
-  modules: Array<{ publicId?: string; title: string; description?: string }>;
+  modules: Array<{ publicId?: string; title: string; description?: string; topics?: Array<{ publicId?: string; title: string }> }>;
 }
 
 export interface Enrollment {

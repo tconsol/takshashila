@@ -17,11 +17,19 @@ export type ProgramStatus = (typeof ProgramStatus)[keyof typeof ProgramStatus];
 export const EnrollmentStatus = { ACTIVE: 'ACTIVE', COMPLETED: 'COMPLETED', CANCELLED: 'CANCELLED' } as const;
 export type EnrollmentStatus = (typeof EnrollmentStatus)[keyof typeof EnrollmentStatus];
 
+export interface IProgramTopic {
+  publicId: string;
+  title: string;
+  order: number;
+}
+
+/** A chapter of the program (kept as `modules` on the wire); holds its topics like a curriculum chapter. */
 export interface IProgramModule {
   publicId: string;
   title: string;
   description?: string;
   order: number;
+  topics: IProgramTopic[];
 }
 
 export interface IProgram {
