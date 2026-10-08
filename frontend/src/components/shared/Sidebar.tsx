@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, BookOpen, Calendar, Wallet, Settings,
-  BarChart3, Shield, Headphones, GraduationCap, LogOut,
-  UserCheck, Video, MessageSquare, Search, UserCircle, Heart, FileText, Building2,
+  BarChart3, Shield, Headphones, GraduationCap,
+  UserCheck, Video, MessageSquare, Search, Heart, FileText, Building2,
   Sparkles, FolderOpen, PanelLeftClose, PanelLeftOpen, Gamepad2, ChevronRight, Server, Megaphone, ShieldAlert,
   ClipboardList,
 } from 'lucide-react';
@@ -53,7 +53,6 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'System',      href: '/dashboard/super-admin/system',   icon: Server },
     { label: 'Settings',    href: '/dashboard/super-admin/settings', icon: Settings },
     { label: 'Messages',    href: '/chat',                            icon: MessageSquare, badgeKey: 'messages' },
-    { label: 'Profile',     href: '/profile',                        icon: UserCircle },
   ],
   ADMIN: [
     { label: 'Overview',    href: '/dashboard/admin',             icon: LayoutDashboard },
@@ -72,7 +71,6 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'System',      href: '/dashboard/admin/system',      icon: Server },
     { label: 'Support',     href: '/dashboard/admin/support',     icon: Headphones,     badgeKey: 'support' },
     { label: 'Messages',    href: '/chat',                        icon: MessageSquare,  badgeKey: 'messages' },
-    { label: 'Profile',     href: '/profile',                     icon: UserCircle },
   ],
   PRINCIPAL: [
     { label: 'Overview',    href: '/dashboard/principal',           icon: LayoutDashboard, badgeKey: 'scheduleAlert' },
@@ -89,8 +87,6 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'My Attendance',  href: '/dashboard/principal/teach/attendance',  icon: UserCheck },
     { label: 'Messages',    href: '/chat',                          icon: MessageSquare,   badgeKey: 'messages' },
     { label: 'Wallet',      href: '/dashboard/principal/wallet',    icon: Wallet },
-    { label: 'Help & Support', href: '/support', icon: Headphones },
-    { label: 'Profile',     href: '/profile',                       icon: UserCircle },
   ],
   TUTOR: [
     { label: 'Home',           href: '/dashboard/tutor',                  icon: LayoutDashboard },
@@ -108,8 +104,6 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Find Principal', href: '/dashboard/tutor/principals',       icon: Building2,    badgeKey: 'principals' },
     { label: 'Messages',       href: '/chat',                             icon: MessageSquare, badgeKey: 'messages' },
     { label: 'Wallet',         href: '/dashboard/tutor/wallet',           icon: Wallet },
-    { label: 'Help & Support', href: '/support', icon: Headphones },
-    { label: 'Profile',        href: '/profile',                          icon: UserCircle },
   ],
   STUDENT: [
     { label: 'Home',            href: '/dashboard/student',                  icon: LayoutDashboard },
@@ -126,8 +120,6 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Resources',       href: '/dashboard/student/resources',        icon: FolderOpen,     badgeKey: 'resources' },
     { label: 'Messages',        href: '/chat',                               icon: MessageSquare,  badgeKey: 'messages' },
     { label: 'Wallet',          href: '/dashboard/student/wallet',           icon: Wallet },
-    { label: 'Help & Support', href: '/support', icon: Headphones },
-    { label: 'Profile',         href: '/profile',                            icon: UserCircle },
   ],
   PARENT: [
     { label: 'Overview',        href: '/dashboard/parent',               icon: LayoutDashboard },
@@ -142,15 +134,12 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Worksheets',      href: '/dashboard/parent/worksheets',    icon: FileText },
     { label: 'Progress',        href: '/dashboard/parent/progress',      icon: BarChart3 },
     { label: 'Messages',        href: '/chat',                           icon: MessageSquare, badgeKey: 'messages' },
-    { label: 'Help & Support', href: '/support', icon: Headphones },
-    { label: 'Profile',         href: '/profile',                        icon: UserCircle },
   ],
   SUPPORT: [
     { label: 'Overview',  href: '/dashboard/support',          icon: LayoutDashboard },
     { label: 'Tickets',   href: '/dashboard/support/tickets',  icon: Headphones, badgeKey: 'tickets' },
     { label: 'Accounts',  href: '/dashboard/support/accounts', icon: UserCheck },
     { label: 'Messages',  href: '/chat',                       icon: MessageSquare, badgeKey: 'messages' },
-    { label: 'Profile',   href: '/profile',                    icon: UserCircle },
   ],
 };
 
@@ -163,7 +152,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
-  const { user, clearAuth } = useAuthStore();
+  const { user } = useAuthStore();
   const badges = useSidebarBadges();
   const { seen, markSeen } = useDismissedBadgesStore();
   const scheduleAlertCount = useScheduleAlertsStore((s) => s.count);
@@ -214,16 +203,6 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
       const count = badges[key] ?? 0;
       return total + (count > (seen[key] ?? 0) ? count : 0);
     }, 0);
-  };
-
-  const handleLogout = async () => {
-    try {
-      const { api } = await import('../../lib/axios');
-      await api.post('/auth/logout');
-    } finally {
-      clearAuth();
-      localStorage.removeItem('refreshToken');
-    }
   };
 
   return (
@@ -345,25 +324,6 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
             })}
           </ul>
         </nav>
-
-        {/* Footer / logout */}
-        <div className={cn('shrink-0 border-t border-rule py-2.5', collapsed ? 'px-2' : 'px-2')}>
-          {collapsed ? (
-            <button onClick={handleLogout} title="Sign out" className="flex w-full justify-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-danger-wash hover:text-danger">
-                <LogOut className="h-[18px] w-[18px]" />
-              </div>
-            </button>
-          ) : (
-            <button
-              onClick={handleLogout}
-              className="flex w-full items-center gap-2.5 rounded px-3 py-[7px] text-sm font-medium text-ink-muted transition-colors hover:bg-danger-wash hover:text-danger"
-            >
-              <LogOut className="h-[15px] w-[15px] shrink-0" />
-              Sign out
-            </button>
-          )}
-        </div>
       </aside>
     </>
   );
